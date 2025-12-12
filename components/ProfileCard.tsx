@@ -1,6 +1,7 @@
 'use client';
 
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { STAR_TRAIT_VARIANTS } from '@/lib/starSkrumpey';
 
 /**
  * Profile Card Component
@@ -10,30 +11,46 @@ import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 export default function ProfileCard() {
   const { address, ownedSkrumpeys, starSkrumpeys, isConnected } = useDAOAccess();
 
-  // Mock NFT data for display (will be replaced with real data when API is available)
-  const mockSkrumpeys = [
-    { id: 42, name: 'Skrumpey #42', hasStar: true, rarity: 'Legendary' },
-    { id: 137, name: 'Skrumpey #137', hasStar: true, rarity: 'Epic' },
-    { id: 256, name: 'Skrumpey #256', hasStar: false, rarity: 'Rare' },
-    { id: 888, name: 'Skrumpey #888', hasStar: false, rarity: 'Common' },
-  ];
+  // Convert owned tokens to display format
+  const displaySkrumpeys = ownedSkrumpeys.map(token => ({
+    id: token.tokenId,
+    name: `Skrumpey #${token.tokenId}`,
+    hasStar: token.hasStar,
+    rarity: token.hasStar ? (token.starVariant || 'Star').charAt(0).toUpperCase() + (token.starVariant || 'star').slice(1) : 'Common',
+    starVariant: token.starVariant,
+  }));
 
-  // Use mock data for demo, real data when available
-  const displaySkrumpeys = ownedSkrumpeys.length > 0 
-    ? ownedSkrumpeys.map(id => {
-        const hasStar = starSkrumpeys.includes(id);
-        return {
-          id,
-          name: `Skrumpey #${id}`,
-          hasStar,
-          rarity: hasStar ? 'Star' : 'Common'
-        };
-      })
-    : mockSkrumpeys;
+  // Show demo data if no real NFTs found
+  const showDemoData = displaySkrumpeys.length === 0;
+  const demoSkrumpeys = showDemoData ? [
+    { id: 42, name: 'Skrumpey #42', hasStar: true, rarity: 'Aether', starVariant: 'aether' as const },
+    { id: 137, name: 'Skrumpey #137', hasStar: true, rarity: 'Spectra', starVariant: 'spectra' as const },
+    { id: 256, name: 'Skrumpey #256', hasStar: false, rarity: 'Common', starVariant: undefined },
+    { id: 888, name: 'Skrumpey #888', hasStar: false, rarity: 'Common', starVariant: undefined },
+  ] : [];
+
+  const finalDisplaySkrumpeys = showDemoData ? demoSkrumpeys : displaySkrumpeys;
 
   if (!isConnected) {
     return null;
   }
+
+  // Get color for star variant
+  const getVariantColor = (variant?: string): string => {
+    const colors: Record<string, string> = {
+      aether: '#00ffff',
+      spectra: '#ff00ff',
+      solveil: '#ffd700',
+      nebulu: '#9966ff',
+      chroma: '#ff6ec7',
+      rose: '#ff69b4',
+      monflare: '#ff4500',
+      auracore: '#44ff88',
+      parallel: '#00bfff',
+      prime: '#ffd700',
+    };
+    return colors[variant || ''] || '#ffd700';
+  };
 
   return (
     <div className="space-y-6">
@@ -52,7 +69,9 @@ export default function ProfileCard() {
           
           {/* Player Info */}
           <div className="flex-1">
-            <p className="text-[#ffd700] text-xs tracking-wide mb-1">STAR BEARER</p>
+            <p className="text-[#ffd700] text-xs tracking-wide mb-1">
+              {starSkrumpeys.length > 0 ? 'STAR BEARER' : 'SKRUMPEY HOLDER'}
+            </p>
             <p className="text-gray-400 text-[8px] font-mono break-all">
               {address?.slice(0, 10)}...{address?.slice(-8)}
             </p>
@@ -62,11 +81,11 @@ export default function ProfileCard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
           <div className="text-center">
-            <p className="text-[#ffd700] text-lg">{displaySkrumpeys.length}</p>
+            <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
             <p className="text-gray-500 text-[6px] tracking-wide">SKRUMPEYS</p>
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e]">
-            <p className="text-[#ff00ff] text-lg">{displaySkrumpeys.filter(s => s.hasStar).length}</p>
+            <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
             <p className="text-gray-500 text-[6px] tracking-wide">STAR TRAIT</p>
           </div>
           <div className="text-center">
@@ -76,6 +95,42 @@ export default function ProfileCard() {
         </div>
       </div>
 
+      {/* Star Trait Legend */}
+      {starSkrumpeys.length > 0 && (
+        <div className="pixel-card p-4">
+          <h3 className="text-[#ffd700] text-[10px] tracking-wider mb-3 text-center">
+            ✦ STAR CONSTELLATIONS ✦
+          </h3>
+          <div className="flex flex-wrap justify-center gap-2">
+            {STAR_TRAIT_VARIANTS.map(variant => {
+              const hasVariant = starSkrumpeys.some(s => s.starVariant === variant);
+              return (
+                <div 
+                  key={variant}
+                  className={`px-2 py-1 rounded text-[6px] border ${
+                    hasVariant 
+                      ? 'border-[#ffd700] bg-[#ffd700]/20' 
+                      : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
+                  }`}
+                  style={{ color: hasVariant ? getVariantColor(variant) : '#666' }}
+                >
+                  {variant.toUpperCase()}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Demo Data Notice */}
+      {showDemoData && (
+        <div className="text-center">
+          <p className="text-gray-500 text-[8px] bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
+            📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
+          </p>
+        </div>
+      )}
+
       {/* NFT Collection */}
       <div className="pixel-card p-6">
         <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center">
@@ -83,7 +138,7 @@ export default function ProfileCard() {
         </h3>
         
         <div className="grid grid-cols-2 gap-4">
-          {displaySkrumpeys.map((nft) => (
+          {finalDisplaySkrumpeys.map((nft) => (
             <div 
               key={nft.id}
               className={`relative p-4 rounded-lg border-2 transition-all duration-300 hover:scale-105 ${
@@ -116,9 +171,7 @@ export default function ProfileCard() {
               }`}>
                 {nft.name}
               </p>
-              <p className={`text-[6px] ${
-                nft.hasStar ? 'text-[#ff00ff]' : 'text-gray-500'
-              }`}>
+              <p className="text-[6px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
                 {nft.rarity}
               </p>
             </div>
@@ -126,7 +179,7 @@ export default function ProfileCard() {
         </div>
         
         {/* Empty state */}
-        {displaySkrumpeys.length === 0 && (
+        {finalDisplaySkrumpeys.length === 0 && (
           <div className="text-center py-8">
             <p className="text-gray-500 text-[10px]">No Skrumpeys found in this wallet</p>
           </div>
@@ -139,9 +192,13 @@ export default function ProfileCard() {
           ✦ ACHIEVEMENTS ✦
         </h3>
         <div className="flex justify-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#ffd700]/20 border-2 border-[#ffd700] flex items-center justify-center text-xl"
-               title="Star Bearer">
-            ⭐
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${
+            starSkrumpeys.length > 0 
+              ? 'bg-[#ffd700]/20 border-2 border-[#ffd700]' 
+              : 'bg-[#333]/20 border-2 border-[#333]/50 opacity-50'
+          }`}
+               title={starSkrumpeys.length > 0 ? "Star Bearer" : "Locked - Hold a Star Skrumpey"}>
+            {starSkrumpeys.length > 0 ? '⭐' : '🔒'}
           </div>
           <div className="w-12 h-12 rounded-full bg-[#9966ff]/20 border-2 border-[#9966ff]/50 flex items-center justify-center text-xl opacity-50"
                title="Locked">

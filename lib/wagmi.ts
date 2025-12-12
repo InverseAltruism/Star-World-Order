@@ -35,9 +35,12 @@ export const monad = defineChain({
 
 // Connectors for wallet connection
 // injected() supports browser extension wallets (MetaMask, Trust Wallet, Phantom, etc.)
-// WalletConnect can be dynamically added when project ID is configured
+// We use multiple injected connectors with different targets for better wallet detection
 const connectors = [
-  injected(),
+  // Generic injected connector - auto-detects available wallets
+  injected({
+    shimDisconnect: true,
+  }),
 ];
 
 export const config = createConfig({

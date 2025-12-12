@@ -20,9 +20,9 @@
  * - prime: Prime constellation
  * 
  * Access Control Logic:
- * 1. The STAR_SKRUMPEY_IDS array contains token IDs that have the Star trait
- * 2. Only holders of tokens in this list get DAO access
- * 3. Holders of regular Skrumpeys (without Star trait) are denied access
+ * 1. Check if user owns any Skrumpey NFTs
+ * 2. For each owned NFT, fetch metadata and check for star trait
+ * 3. Only holders of NFTs with star traits get DAO access
  * 4. In development mode with NEXT_PUBLIC_DEV_ACCESS_ENABLED=true, all connected wallets get access
  */
 
@@ -47,13 +47,23 @@ export const STAR_TRAIT_VARIANTS = [
 
 export type StarTraitVariant = typeof STAR_TRAIT_VARIANTS[number];
 
-// Allow-list of NFT IDs that have the Star trait
-// This will be populated with actual IDs when provided by the team
-// Only holders of these specific token IDs get DAO access
-export const STAR_SKRUMPEY_IDS: number[] = [
-  // Placeholder IDs - replace with actual Star Skrumpey IDs when available
-  // Example: 42, 137, 256, 512, 777, 888, 999, 1024, 1337, 2048
-];
+// Interface for NFT metadata
+interface NFTMetadata {
+  name?: string;
+  description?: string;
+  image?: string;
+  attributes?: Array<{
+    trait_type: string;
+    value: string;
+  }>;
+}
+
+// Interface for owned token info
+export interface OwnedToken {
+  tokenId: number;
+  hasStar: boolean;
+  starVariant?: StarTraitVariant;
+}
 
 // Skrumpey NFT Contract Address on Monad
 // Must be configured in .env.local before production deployment
@@ -65,7 +75,7 @@ export const DEV_ACCESS_ENABLED =
   process.env.NODE_ENV === 'development' && 
   process.env.NEXT_PUBLIC_DEV_ACCESS_ENABLED === 'true';
 
-// Minimal ERC721 ABI for balance and token ownership checks
+// ERC721 Enumerable ABI for ownership and metadata checks
 const ERC721_ABI = [
   {
     inputs: [{ name: 'owner', type: 'address' }],
@@ -81,46 +91,119 @@ const ERC721_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    name: 'tokenURI',
+    outputs: [{ name: '', type: 'string' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'owner', type: 'address' }, { name: 'index', type: 'uint256' }],
+    name: 'tokenOfOwnerByIndex',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const;
 
 /**
- * Check if a given NFT ID is a Star Skrumpey
+ * Check if a trait value is a star trait
  */
-export function isStarSkrumpey(tokenId: number): boolean {
-  return STAR_SKRUMPEY_IDS.includes(tokenId);
+export function isStarTrait(traitValue: string): boolean {
+  const normalized = traitValue.toLowerCase();
+  return STAR_TRAIT_VARIANTS.some(variant => normalized.includes(variant));
 }
 
 /**
- * Check if any of the given NFT IDs are Star Skrumpeys
+ * Get the star variant from a trait value
  */
-export function hasStarSkrumpey(tokenIds: number[]): boolean {
-  return tokenIds.some(id => isStarSkrumpey(id));
+export function getStarVariant(traitValue: string): StarTraitVariant | undefined {
+  const normalized = traitValue.toLowerCase();
+  return STAR_TRAIT_VARIANTS.find(variant => normalized.includes(variant));
 }
 
 /**
- * Get all Star Skrumpey IDs from a list of owned NFT IDs
+ * Check if NFT metadata contains a star trait
  */
-export function getStarSkrumpeys(tokenIds: number[]): number[] {
-  return tokenIds.filter(id => isStarSkrumpey(id));
+export function hasStarTraitInMetadata(metadata: NFTMetadata): { hasStar: boolean; variant?: StarTraitVariant } {
+  if (!metadata.attributes) {
+    return { hasStar: false };
+  }
+
+  // Check for star trait in attributes
+  for (const attr of metadata.attributes) {
+    // Check if trait_type is "star" or "constellation" or similar
+    const traitType = attr.trait_type.toLowerCase();
+    const traitValue = attr.value.toLowerCase();
+    
+    // Look for star traits in trait_type or value
+    if (traitType.includes('star') || traitType.includes('constellation') || traitType === 'type') {
+      const variant = getStarVariant(traitValue);
+      if (variant) {
+        return { hasStar: true, variant };
+      }
+      // Check if the value directly indicates star status
+      if (STAR_TRAIT_VARIANTS.some(v => traitValue.includes(v))) {
+        return { hasStar: true, variant: getStarVariant(traitValue) };
+      }
+    }
+    
+    // Also check if any attribute value contains star trait variants
+    if (STAR_TRAIT_VARIANTS.some(v => traitValue.includes(v))) {
+      return { hasStar: true, variant: getStarVariant(traitValue) };
+    }
+  }
+
+  return { hasStar: false };
+}
+
+/**
+ * Fetch NFT metadata from tokenURI
+ */
+async function fetchMetadata(tokenURI: string): Promise<NFTMetadata | null> {
+  try {
+    // Handle IPFS URIs
+    let url = tokenURI;
+    if (tokenURI.startsWith('ipfs://')) {
+      url = tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+    }
+    // Handle data URIs (base64 encoded JSON)
+    if (tokenURI.startsWith('data:application/json;base64,')) {
+      const base64Data = tokenURI.replace('data:application/json;base64,', '');
+      const jsonStr = atob(base64Data);
+      return JSON.parse(jsonStr);
+    }
+    if (tokenURI.startsWith('data:application/json,')) {
+      const jsonStr = decodeURIComponent(tokenURI.replace('data:application/json,', ''));
+      return JSON.parse(jsonStr);
+    }
+
+    const response = await fetch(url, { 
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    });
+    if (!response.ok) {
+      console.warn(`Failed to fetch metadata from ${url}: ${response.status}`);
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.warn('Error fetching metadata:', error);
+    return null;
+  }
 }
 
 /**
  * Fetch user's Skrumpey NFTs from the blockchain
- * Checks ownership of Star Skrumpey token IDs for the given address
+ * Checks each owned token for star traits via metadata
  * 
  * @param address - The wallet address to check
- * @returns Array of Star Skrumpey token IDs owned by the address
+ * @returns Array of owned tokens with star trait information
  */
-export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
+export async function fetchUserSkrumpeys(address: string): Promise<OwnedToken[]> {
   // If no contract address is configured, return empty array
   if (!SKRUMPEY_CONTRACT_ADDRESS) {
     console.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
-    return [];
-  }
-
-  // If no Star Skrumpey IDs are configured, return empty array
-  if (STAR_SKRUMPEY_IDS.length === 0) {
-    console.warn('STAR_SKRUMPEY_IDS list is empty - no Star Skrumpeys configured');
     return [];
   }
 
@@ -130,28 +213,76 @@ export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
       transport: http(),
     });
 
-    // Check ownership of all Star Skrumpey IDs concurrently for better performance
-    const ownershipChecks = STAR_SKRUMPEY_IDS.map(async (tokenId) => {
-      try {
-        const owner = await client.readContract({
-          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
-          abi: ERC721_ABI,
-          functionName: 'ownerOf',
-          args: [BigInt(tokenId)],
-        });
-        
-        if (owner.toLowerCase() === address.toLowerCase()) {
-          return tokenId;
-        }
-        return null;
-      } catch {
-        // Token might not exist or other error - skip it
-        return null;
-      }
+    // Get user's balance
+    const balance = await client.readContract({
+      address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+      abi: ERC721_ABI,
+      functionName: 'balanceOf',
+      args: [address as `0x${string}`],
     });
 
-    const results = await Promise.all(ownershipChecks);
-    return results.filter((id): id is number => id !== null);
+    const balanceNum = Number(balance);
+    if (balanceNum === 0) {
+      return [];
+    }
+
+    // Fetch all owned tokens using tokenOfOwnerByIndex (if available)
+    // Fall back to iterating through potential token IDs if not available
+    const ownedTokens: OwnedToken[] = [];
+    
+    // Try to use tokenOfOwnerByIndex for efficient enumeration
+    const tokenFetchPromises: Promise<OwnedToken | null>[] = [];
+    
+    for (let i = 0; i < balanceNum; i++) {
+      tokenFetchPromises.push(
+        (async () => {
+          try {
+            // Get token ID at index
+            const tokenId = await client.readContract({
+              address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+              abi: ERC721_ABI,
+              functionName: 'tokenOfOwnerByIndex',
+              args: [address as `0x${string}`, BigInt(i)],
+            });
+
+            // Get token URI
+            const tokenURI = await client.readContract({
+              address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+              abi: ERC721_ABI,
+              functionName: 'tokenURI',
+              args: [tokenId],
+            });
+
+            // Fetch and check metadata for star trait
+            const metadata = await fetchMetadata(tokenURI);
+            if (metadata) {
+              const starCheck = hasStarTraitInMetadata(metadata);
+              return {
+                tokenId: Number(tokenId),
+                hasStar: starCheck.hasStar,
+                starVariant: starCheck.variant,
+              };
+            }
+
+            return {
+              tokenId: Number(tokenId),
+              hasStar: false,
+            };
+          } catch {
+            return null;
+          }
+        })()
+      );
+    }
+
+    const results = await Promise.all(tokenFetchPromises);
+    for (const result of results) {
+      if (result) {
+        ownedTokens.push(result);
+      }
+    }
+
+    return ownedTokens;
   } catch (error) {
     console.error('Error fetching user Skrumpeys:', error);
     return [];
@@ -159,10 +290,24 @@ export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
 }
 
 /**
+ * Check if any of the owned tokens have the star trait
+ */
+export function hasStarSkrumpey(tokens: OwnedToken[]): boolean {
+  return tokens.some(token => token.hasStar);
+}
+
+/**
+ * Get all Star Skrumpeys from owned tokens
+ */
+export function getStarSkrumpeys(tokens: OwnedToken[]): OwnedToken[] {
+  return tokens.filter(token => token.hasStar);
+}
+
+/**
  * Check if a wallet address has DAO access (holds at least one Star Skrumpey)
  * 
  * Note: Regular Skrumpey holders (without Star trait) do NOT get access.
- * Only holders of tokens in the STAR_SKRUMPEY_IDS list are granted access.
+ * Only holders of NFTs with star traits in their metadata are granted access.
  * 
  * @param address - The wallet address to check
  * @returns Promise<boolean> - true if wallet has DAO access
