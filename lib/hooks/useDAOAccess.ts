@@ -6,7 +6,8 @@ import {
   fetchUserSkrumpeys, 
   hasStarSkrumpey, 
   getStarSkrumpeys,
-  DEV_ACCESS_ENABLED 
+  DEV_ACCESS_ENABLED,
+  OwnedToken 
 } from '@/lib/starSkrumpey';
 
 export interface UseDAOAccessResult {
@@ -16,10 +17,10 @@ export interface UseDAOAccessResult {
   isLoading: boolean;
   /** Error message if check failed */
   error: string | null;
-  /** All Skrumpey token IDs owned by the wallet */
-  ownedSkrumpeys: number[];
-  /** Star Skrumpey token IDs owned by the wallet */
-  starSkrumpeys: number[];
+  /** All Skrumpey tokens owned by the wallet */
+  ownedSkrumpeys: OwnedToken[];
+  /** Star Skrumpey tokens owned by the wallet */
+  starSkrumpeys: OwnedToken[];
   /** Whether wallet is connected */
   isConnected: boolean;
   /** Connected wallet address */
@@ -44,8 +45,8 @@ export function useDAOAccess(): UseDAOAccessResult {
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [ownedSkrumpeys, setOwnedSkrumpeys] = useState<number[]>([]);
-  const [starSkrumpeys, setStarSkrumpeys] = useState<number[]>([]);
+  const [ownedSkrumpeys, setOwnedSkrumpeys] = useState<OwnedToken[]>([]);
+  const [starSkrumpeys, setStarSkrumpeys] = useState<OwnedToken[]>([]);
 
   const checkAccess = useCallback(async () => {
     if (!address || !isConnected) {
