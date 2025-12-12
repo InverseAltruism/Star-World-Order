@@ -66,12 +66,13 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 - **🔒 Star Gate** - Wallet connection works for everyone; DAO controls unlock for Star-trait Skrumpeys (allow-list friendly)
 - **🎨 Synthwave Pixel Art UI** - Neon glows, CRT scanlines, and retro pixel fonts
 - **🔄 Cosmic Exchange** - OTC marketplace for Star Skrumpeys with filtering, sorting, and transaction history
+- **🏛️ The Order (DAO)** - Full governance system with proposals, voting, and treasury management
+- **💬 Star Council Forum** - Community discussions with threads, replies, and categories
+- **🔒 NFT Staking** - Stake your Star Skrumpeys to earn rewards with time-based multipliers
 
 ### UNLOCKING SOON
 - **👤 Star Profiles** - Member profile that spotlights your Skrumpeys (with a star callout)
-- **🏛️ The Order** - DAO governance for star bearers: proposals + voting
-- **💎 Treasury** - Collective cosmic resources with on-chain transparency
-- **💬 Star Council** - Forum-style hub for discussions and lore
+- **🌐 Cross-chain Support** - Expand to additional EVM chains
 
 ## 🔄 COSMIC EXCHANGE (OTC MARKETPLACE)
 
@@ -123,6 +124,58 @@ We evaluated several EVM-compatible NFT marketplace libraries before building ou
 - Gas optimization for Monad's high-performance EVM
 - Simpler UX for Star Skrumpey-specific features
 - No dependency on external protocols or APIs
+
+## 🏛️ DAO GOVERNANCE
+
+The Star World Order DAO provides comprehensive governance features for Star Skrumpey holders.
+
+### Governance Features
+
+| Feature | Description |
+|---------|-------------|
+| **📜 Proposals** | Create and vote on governance proposals |
+| **🗳️ Voting** | NFT-weighted voting (1 Star Skrumpey = 1 vote) |
+| **💬 Forum** | Star Council discussions with categories |
+| **🔒 Staking** | Stake NFTs for rewards with time multipliers |
+| **💎 Treasury** | View DAO treasury balance and transactions |
+
+### Proposal Lifecycle
+
+1. **Pending** - Proposal created, voting hasn't started
+2. **Active** - Currently accepting votes
+3. **Defeated** - Failed to reach quorum or more votes against
+4. **Succeeded** - Passed the vote
+5. **Executed** - Implemented by the DAO
+
+### Staking Rewards
+
+Stake your Star Skrumpeys to earn MON rewards:
+
+| Duration | Multiplier |
+|----------|------------|
+| Base | 1.0x |
+| 1 week | 1.1x |
+| 1 month | 1.3x |
+| 3 months | 1.5x |
+| 6 months | 1.75x |
+| 1 year | 2.0x |
+
+### Open Source Governance Libraries
+
+We evaluated several governance frameworks:
+
+| Library | Version | License | Notes |
+|---------|---------|---------|-------|
+| [@openzeppelin/contracts](https://github.com/OpenZeppelin/openzeppelin-contracts) | 5.x | MIT | Governor framework, industry standard |
+| [Compound Governance](https://github.com/compound-finance/compound-governance) | Bravo | BSD-3 | Battle-tested, used by many DAOs |
+| [Nouns DAO](https://github.com/nounsDAO/nouns-monorepo) | - | MIT | NFT-based voting model |
+| [Snapshot](https://github.com/snapshot-labs) | - | MIT | Gasless off-chain voting |
+
+**Why Custom?** Our implementation provides:
+- NFT-weighted voting specific to Star Skrumpeys
+- Integrated staking with governance power
+- Retro-styled UI matching the SWO aesthetic
+- Demo mode for testing without deployed contracts
 
 ## 🎛️ DAO ARSENAL (MANUAL EXCERPT)
 - **Access Key:** Hold a Star Skrumpey; IDs can be allow-listed for special drops.
@@ -377,13 +430,15 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 - [x] Multi-wallet connection support
 - [x] Monad chain integration
 
-### Stage 2: The Order (In Progress)
+### Stage 2: The Order ✅
 - [x] Star Skrumpey holder verification
-- [ ] DAO governance smart contracts
-- [ ] Proposal creation and voting system
-- [ ] Treasury management
+- [x] DAO governance smart contracts (StarWorldOrderGovernor.sol)
+- [x] Proposal creation and voting system
+- [x] Treasury management UI
+- [x] Star Council forum with threads and replies
+- [x] NFT staking with time-based multipliers (StarSkrumpeyStaking.sol)
 
-### Stage 3: Community
+### Stage 3: Community (In Progress)
 - [ ] Star profiles with NFT display
 - [ ] Star Council forum
 - [ ] Cosmic Exchange marketplace
