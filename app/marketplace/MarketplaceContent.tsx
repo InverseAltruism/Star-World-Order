@@ -229,27 +229,36 @@ function CreateListingTab({
               </div>
               
               {/* Fee Breakdown */}
-              {price && parseFloat(price) > 0 && (
-                <div className="mt-3 bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
-                  <p className="text-[#ffd700] text-[8px] mb-2">💰 FEE BREAKDOWN</p>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[7px]">
-                      <span className="text-gray-500">Sale Price:</span>
-                      <span className="text-white">{price} MON</span>
-                    </div>
-                    <div className="flex justify-between text-[7px]">
-                      <span className="text-gray-500">DAO Treasury Fee ({getDAOFeePercentage()}%):</span>
-                      <span className="text-[#9966ff]">-{formatPriceFromWei(calculateDAOFee(parseEther(price)))} MON</span>
-                    </div>
-                    <div className="border-t border-[#2a2a4e] pt-1 mt-1">
-                      <div className="flex justify-between text-[8px]">
-                        <span className="text-[#44ff88]">You Receive:</span>
-                        <span className="text-[#44ff88] font-bold">{formatPriceFromWei(calculateSellerProceeds(parseEther(price)))} MON</span>
+              {price && parseFloat(price) > 0 && !isNaN(parseFloat(price)) && (() => {
+                try {
+                  const priceWei = parseEther(price);
+                  const daoFee = calculateDAOFee(priceWei);
+                  const sellerProceeds = calculateSellerProceeds(priceWei);
+                  return (
+                    <div className="mt-3 bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
+                      <p className="text-[#ffd700] text-[8px] mb-2">💰 FEE BREAKDOWN</p>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[7px]">
+                          <span className="text-gray-500">Sale Price:</span>
+                          <span className="text-white">{price} MON</span>
+                        </div>
+                        <div className="flex justify-between text-[7px]">
+                          <span className="text-gray-500">DAO Treasury Fee ({getDAOFeePercentage()}%):</span>
+                          <span className="text-[#9966ff]">-{formatPriceFromWei(daoFee)} MON</span>
+                        </div>
+                        <div className="border-t border-[#2a2a4e] pt-1 mt-1">
+                          <div className="flex justify-between text-[8px]">
+                            <span className="text-[#44ff88]">You Receive:</span>
+                            <span className="text-[#44ff88] font-bold">{formatPriceFromWei(sellerProceeds)} MON</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  );
+                } catch {
+                  return null; // Invalid price format, don't show breakdown
+                }
+              })()}
             </div>
 
             {/* Error Message */}

@@ -58,6 +58,11 @@ export interface UseMarketplaceResult {
 }
 
 /**
+ * Zero balance constant to avoid repeated BigInt creation
+ */
+const ZERO_BALANCE = BigInt(0);
+
+/**
  * Hook for interacting with the OTC marketplace
  * 
  * Provides functions for:
@@ -84,7 +89,7 @@ export function useMarketplace(): UseMarketplaceResult {
     address: address,
   });
   
-  const balance = balanceData?.value ?? BigInt(0);
+  const balance = balanceData?.value ?? ZERO_BALANCE;
   const balanceFormatted = balanceData ? formatPriceFromWei(balanceData.value) : '0';
   
   // Contract write hooks
