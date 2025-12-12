@@ -16,14 +16,14 @@ export default function WalletConnect() {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-2">
-        <div className="text-sm text-gray-300 bg-gray-800 px-3 py-2 rounded-lg">
+        <div className="text-[8px] text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e]">
           {address.slice(0, 6)}...{address.slice(-4)}
         </div>
         <button
           onClick={() => disconnect()}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+          className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
         >
-          Disconnect
+          EXIT
         </button>
       </div>
     );
@@ -32,9 +32,9 @@ export default function WalletConnect() {
   return (
     <button
       onClick={handleConnect}
-      className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg transition-colors font-medium"
+      className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2"
     >
-      Connect Wallet
+      CONNECT
     </button>
   );
 }

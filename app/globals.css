@@ -1,14 +1,184 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #0f0f23;
+  --foreground: #e8e8e8;
+  --pixel-gold: #ffd700;
+  --pixel-purple: #9966ff;
+  --pixel-blue: #4488ff;
+  --pixel-green: #44ff88;
+  --pixel-red: #ff4466;
+  --pixel-dark: #1a1a2e;
+  --pixel-darker: #0d0d1a;
+  --crt-glow: rgba(102, 255, 136, 0.1);
+  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+}
+
+/* Base pixel art rendering */
+* {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-pixel), monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-x: hidden;
+}
+
+/* Global CRT scanlines overlay - optimized for performance */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.05),
+    rgba(0, 0, 0, 0.05) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  pointer-events: none;
+  z-index: 9998;
+  will-change: auto;
+}
+
+/* Disable scanlines on mobile for better performance */
+@media (max-width: 768px) {
+  body::before {
+    display: none;
+  }
+}
+
+/* Pixel art button style */
+.pixel-btn {
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  padding: 12px 24px;
+  background: var(--pixel-purple);
+  color: white;
+  border: 4px solid;
+  border-color: #bb99ff #5533aa #5533aa #bb99ff;
+  box-shadow: 
+    4px 4px 0 #2a1a4a,
+    inset 0 0 0 2px rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pixel-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 
+    2px 2px 0 #2a1a4a,
+    inset 0 0 0 2px rgba(255,255,255,0.2);
+}
+
+.pixel-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 
+    0 0 0 #2a1a4a,
+    inset 0 0 0 2px rgba(0,0,0,0.2);
+}
+
+.pixel-btn-gold {
+  background: var(--pixel-gold);
+  color: #1a1a2e;
+  border-color: #ffee88 #aa8800 #aa8800 #ffee88;
+  box-shadow: 4px 4px 0 #554400;
+}
+
+.pixel-btn-gold:hover {
+  box-shadow: 2px 2px 0 #554400;
+}
+
+/* Pixel card style */
+.pixel-card {
+  background: var(--pixel-dark);
+  border: 4px solid;
+  border-color: #3a3a5e #1a1a2e #1a1a2e #3a3a5e;
+  box-shadow: 
+    8px 8px 0 rgba(0,0,0,0.5),
+    inset 0 0 20px rgba(102, 255, 136, 0.05);
+  position: relative;
+}
+
+.pixel-card::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  border: 2px solid rgba(255,255,255,0.05);
+  pointer-events: none;
+}
+
+/* Pixel text glow effects */
+.pixel-glow-gold {
+  text-shadow: 
+    0 0 10px var(--pixel-gold),
+    0 0 20px var(--pixel-gold),
+    0 0 30px var(--pixel-gold);
+}
+
+.pixel-glow-purple {
+  text-shadow: 
+    0 0 10px var(--pixel-purple),
+    0 0 20px var(--pixel-purple);
+}
+
+/* Retro border style */
+.retro-border {
+  border: 4px solid;
+  border-color: #4a4a6e #2a2a4e #2a2a4e #4a4a6e;
+}
+
+/* Pixel art star animation */
+@keyframes pixelSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.1); }
+  50% { transform: rotate(180deg) scale(1); }
+  75% { transform: rotate(270deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes pixelFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pixelPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes textFlicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  96% { opacity: 0.9; }
+  97% { opacity: 1; }
+}
+
+.animate-pixel-float {
+  animation: pixelFloat 3s ease-in-out infinite;
+}
+
+.animate-pixel-pulse {
+  animation: pixelPulse 2s ease-in-out infinite;
+}
+
+.animate-text-flicker {
+  animation: textFlicker 4s ease-in-out infinite;
 }
 
 /* ============================================
@@ -121,8 +291,8 @@ body {
 }
 
 .swo-cartridge-text {
-  font-family: 'Courier New', monospace;
-  font-size: 10px;
+  font-family: var(--font-pixel), 'Courier New', monospace;
+  font-size: 8px;
   font-weight: bold;
   color: #fbbf24;
   letter-spacing: 1px;
@@ -235,26 +405,26 @@ body {
 
 /* Typography */
 .swo-loading-title {
-  font-family: 'Courier New', monospace;
-  font-size: 2rem;
+  font-family: var(--font-pixel), 'Courier New', monospace;
+  font-size: 1.25rem;
   font-weight: bold;
-  color: #fff;
+  color: #ffd700;
   margin: 0 0 8px 0;
-  text-shadow: 0 0 10px #6366f1, 0 0 20px #6366f1;
-  letter-spacing: 4px;
+  text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700;
+  letter-spacing: 2px;
 }
 
 .swo-title-star {
-  color: #fbbf24;
-  text-shadow: 0 0 10px #fbbf24;
+  color: #ffd700;
+  text-shadow: 0 0 10px #ffd700;
 }
 
 .swo-loading-subtitle {
-  font-family: 'Courier New', monospace;
-  font-size: 0.875rem;
-  color: #6366f1;
+  font-family: var(--font-pixel), 'Courier New', monospace;
+  font-size: 0.5rem;
+  color: #9966ff;
   margin: 0 0 32px 0;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 /* Loading bar */
@@ -275,22 +445,22 @@ body {
 
 .swo-loading-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1 0%, #fbbf24 100%);
+  background: linear-gradient(90deg, #9966ff 0%, #ffd700 100%);
   transition: width 0.1s linear;
-  box-shadow: 0 0 8px #6366f1;
+  box-shadow: 0 0 8px #9966ff;
 }
 
 .swo-loading-percentage {
-  font-family: 'Courier New', monospace;
-  font-size: 1rem;
-  color: #fbbf24;
+  font-family: var(--font-pixel), 'Courier New', monospace;
+  font-size: 0.625rem;
+  color: #ffd700;
   min-width: 48px;
 }
 
 /* Hint text */
 .swo-loading-hint {
-  font-family: 'Courier New', monospace;
-  font-size: 0.75rem;
+  font-family: var(--font-pixel), 'Courier New', monospace;
+  font-size: 0.5rem;
   color: #666;
   margin: 0;
   animation: swoBlink 1.5s ease-in-out infinite;
@@ -304,12 +474,12 @@ body {
 /* Responsive */
 @media (max-width: 640px) {
   .swo-loading-title {
-    font-size: 1.25rem;
-    letter-spacing: 2px;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
   }
 
   .swo-loading-subtitle {
-    font-size: 0.75rem;
+    font-size: 0.375rem;
   }
 
   .swo-loading-bar {
@@ -326,6 +496,14 @@ body {
   }
 
   .swo-cartridge-text {
-    font-size: 8px;
+    font-size: 6px;
+  }
+  
+  .swo-loading-hint {
+    font-size: 0.375rem;
+  }
+  
+  .swo-loading-percentage {
+    font-size: 0.5rem;
   }
 }
