@@ -19,8 +19,15 @@
  * - parallel: Parallel dimension aligned
  * - prime: Prime constellation
  * 
- * The allow-list of Star Skrumpey IDs will be provided by the team when available.
+ * Access Control Logic:
+ * 1. The STAR_SKRUMPEY_IDS array contains token IDs that have the Star trait
+ * 2. Only holders of tokens in this list get DAO access
+ * 3. Holders of regular Skrumpeys (without Star trait) are denied access
+ * 4. In development mode with NEXT_PUBLIC_DEV_ACCESS_ENABLED=true, all connected wallets get access
  */
+
+import { createPublicClient, http } from 'viem';
+import { monad } from './wagmi';
 
 /**
  * Star trait constellation variants
@@ -42,14 +49,39 @@ export type StarTraitVariant = typeof STAR_TRAIT_VARIANTS[number];
 
 // Allow-list of NFT IDs that have the Star trait
 // This will be populated with actual IDs when provided by the team
+// Only holders of these specific token IDs get DAO access
 export const STAR_SKRUMPEY_IDS: number[] = [
   // Placeholder IDs - replace with actual Star Skrumpey IDs when available
   // Example: 42, 137, 256, 512, 777, 888, 999, 1024, 1337, 2048
 ];
 
-// Skrumpey NFT Contract Address on Monad (placeholder - update when available)
-// Returns undefined if not configured - must be set before production deployment
+// Skrumpey NFT Contract Address on Monad
+// Must be configured in .env.local before production deployment
 export const SKRUMPEY_CONTRACT_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT;
+
+// Development access override - only works in development mode
+// Set NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local to enable
+export const DEV_ACCESS_ENABLED = 
+  process.env.NODE_ENV === 'development' && 
+  process.env.NEXT_PUBLIC_DEV_ACCESS_ENABLED === 'true';
+
+// Minimal ERC721 ABI for balance and token ownership checks
+const ERC721_ABI = [
+  {
+    inputs: [{ name: 'owner', type: 'address' }],
+    name: 'balanceOf',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    name: 'ownerOf',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const;
 
 /**
  * Check if a given NFT ID is a Star Skrumpey
@@ -73,25 +105,64 @@ export function getStarSkrumpeys(tokenIds: number[]): number[] {
 }
 
 /**
- * Placeholder function to fetch user's Skrumpey NFTs
- * This will be implemented when the contract is available
+ * Fetch user's Skrumpey NFTs from the blockchain
+ * Checks ownership of Star Skrumpey token IDs for the given address
  * 
  * @param address - The wallet address to check
- * @returns Array of token IDs owned by the address
+ * @returns Array of Star Skrumpey token IDs owned by the address
  */
-export async function fetchUserSkrumpeys(_address: string): Promise<number[]> {
-  // TODO: Implement actual NFT fetching logic when contract is available
-  // This would typically use:
-  // 1. Direct contract call to get balance and token IDs
-  // 2. Or an indexer/API like Alchemy, Moralis, or custom backend
-  
-  // For demo purposes, return empty array
-  // In production, this will fetch actual owned NFTs
-  return [];
+export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
+  // If no contract address is configured, return empty array
+  if (!SKRUMPEY_CONTRACT_ADDRESS) {
+    console.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
+    return [];
+  }
+
+  // If no Star Skrumpey IDs are configured, return empty array
+  if (STAR_SKRUMPEY_IDS.length === 0) {
+    console.warn('STAR_SKRUMPEY_IDS list is empty - no Star Skrumpeys configured');
+    return [];
+  }
+
+  try {
+    const client = createPublicClient({
+      chain: monad,
+      transport: http(),
+    });
+
+    // Check ownership of all Star Skrumpey IDs concurrently for better performance
+    const ownershipChecks = STAR_SKRUMPEY_IDS.map(async (tokenId) => {
+      try {
+        const owner = await client.readContract({
+          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+          abi: ERC721_ABI,
+          functionName: 'ownerOf',
+          args: [BigInt(tokenId)],
+        });
+        
+        if (owner.toLowerCase() === address.toLowerCase()) {
+          return tokenId;
+        }
+        return null;
+      } catch {
+        // Token might not exist or other error - skip it
+        return null;
+      }
+    });
+
+    const results = await Promise.all(ownershipChecks);
+    return results.filter((id): id is number => id !== null);
+  } catch (error) {
+    console.error('Error fetching user Skrumpeys:', error);
+    return [];
+  }
 }
 
 /**
  * Check if a wallet address has DAO access (holds at least one Star Skrumpey)
+ * 
+ * Note: Regular Skrumpey holders (without Star trait) do NOT get access.
+ * Only holders of tokens in the STAR_SKRUMPEY_IDS list are granted access.
  * 
  * @param address - The wallet address to check
  * @returns Promise<boolean> - true if wallet has DAO access
