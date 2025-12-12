@@ -160,6 +160,7 @@ export function hasStarTraitInMetadata(metadata: NFTMetadata): { hasStar: boolea
 
 /**
  * Fetch NFT metadata from tokenURI
+ * Uses a 5-second timeout for better UX responsiveness
  */
 async function fetchMetadata(tokenURI: string): Promise<NFTMetadata | null> {
   try {
@@ -180,7 +181,7 @@ async function fetchMetadata(tokenURI: string): Promise<NFTMetadata | null> {
     }
 
     const response = await fetch(url, { 
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+      signal: AbortSignal.timeout(5000) // 5 second timeout for better UX
     });
     if (!response.ok) {
       console.warn(`Failed to fetch metadata from ${url}: ${response.status}`);
@@ -194,8 +195,27 @@ async function fetchMetadata(tokenURI: string): Promise<NFTMetadata | null> {
 }
 
 /**
+ * Process items in batches with concurrency control
+ * Prevents overwhelming IPFS gateways or HTTP endpoints
+ */
+async function processBatch<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  batchSize: number = 5
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(processor));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+/**
  * Fetch user's Skrumpey NFTs from the blockchain
  * Checks each owned token for star traits via metadata
+ * Uses batching to prevent overwhelming IPFS gateways
  * 
  * @param address - The wallet address to check
  * @returns Array of owned tokens with star trait information
@@ -226,63 +246,53 @@ export async function fetchUserSkrumpeys(address: string): Promise<OwnedToken[]>
       return [];
     }
 
-    // Fetch all owned tokens using tokenOfOwnerByIndex (if available)
-    // Fall back to iterating through potential token IDs if not available
-    const ownedTokens: OwnedToken[] = [];
+    // Create array of indices to fetch
+    const indices = Array.from({ length: balanceNum }, (_, i) => i);
     
-    // Try to use tokenOfOwnerByIndex for efficient enumeration
-    const tokenFetchPromises: Promise<OwnedToken | null>[] = [];
+    // Process tokens in batches of 5 to prevent overwhelming IPFS gateways
+    const BATCH_SIZE = 5;
     
-    for (let i = 0; i < balanceNum; i++) {
-      tokenFetchPromises.push(
-        (async () => {
-          try {
-            // Get token ID at index
-            const tokenId = await client.readContract({
-              address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
-              abi: ERC721_ABI,
-              functionName: 'tokenOfOwnerByIndex',
-              args: [address as `0x${string}`, BigInt(i)],
-            });
+    const fetchTokenData = async (index: number): Promise<OwnedToken | null> => {
+      try {
+        // Get token ID at index
+        const tokenId = await client.readContract({
+          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+          abi: ERC721_ABI,
+          functionName: 'tokenOfOwnerByIndex',
+          args: [address as `0x${string}`, BigInt(index)],
+        });
 
-            // Get token URI
-            const tokenURI = await client.readContract({
-              address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
-              abi: ERC721_ABI,
-              functionName: 'tokenURI',
-              args: [tokenId],
-            });
+        // Get token URI
+        const tokenURI = await client.readContract({
+          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+          abi: ERC721_ABI,
+          functionName: 'tokenURI',
+          args: [tokenId],
+        });
 
-            // Fetch and check metadata for star trait
-            const metadata = await fetchMetadata(tokenURI);
-            if (metadata) {
-              const starCheck = hasStarTraitInMetadata(metadata);
-              return {
-                tokenId: Number(tokenId),
-                hasStar: starCheck.hasStar,
-                starVariant: starCheck.variant,
-              };
-            }
+        // Fetch and check metadata for star trait
+        const metadata = await fetchMetadata(tokenURI);
+        if (metadata) {
+          const starCheck = hasStarTraitInMetadata(metadata);
+          return {
+            tokenId: Number(tokenId),
+            hasStar: starCheck.hasStar,
+            starVariant: starCheck.variant,
+          };
+        }
 
-            return {
-              tokenId: Number(tokenId),
-              hasStar: false,
-            };
-          } catch {
-            return null;
-          }
-        })()
-      );
-    }
-
-    const results = await Promise.all(tokenFetchPromises);
-    for (const result of results) {
-      if (result) {
-        ownedTokens.push(result);
+        return {
+          tokenId: Number(tokenId),
+          hasStar: false,
+        };
+      } catch {
+        return null;
       }
-    }
+    };
 
-    return ownedTokens;
+    // Fetch tokens in batches
+    const results = await processBatch(indices, fetchTokenData, BATCH_SIZE);
+    return results.filter((token): token is OwnedToken => token !== null);
   } catch (error) {
     console.error('Error fetching user Skrumpeys:', error);
     return [];

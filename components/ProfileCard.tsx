@@ -1,7 +1,7 @@
 'use client';
 
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
-import { STAR_TRAIT_VARIANTS } from '@/lib/starSkrumpey';
+import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
 
 /**
  * Profile Card Component
@@ -20,11 +20,23 @@ export default function ProfileCard() {
     starVariant: token.starVariant,
   }));
 
-  // Show demo data if no real NFTs found
+  // Show demo data if no real NFTs found - uses variants from STAR_TRAIT_VARIANTS
   const showDemoData = displaySkrumpeys.length === 0;
   const demoSkrumpeys = showDemoData ? [
-    { id: 42, name: 'Skrumpey #42', hasStar: true, rarity: 'Aether', starVariant: 'aether' as const },
-    { id: 137, name: 'Skrumpey #137', hasStar: true, rarity: 'Spectra', starVariant: 'spectra' as const },
+    { 
+      id: 42, 
+      name: 'Skrumpey #42', 
+      hasStar: true, 
+      rarity: STAR_TRAIT_VARIANTS[0].charAt(0).toUpperCase() + STAR_TRAIT_VARIANTS[0].slice(1), 
+      starVariant: STAR_TRAIT_VARIANTS[0] as StarTraitVariant 
+    },
+    { 
+      id: 137, 
+      name: 'Skrumpey #137', 
+      hasStar: true, 
+      rarity: STAR_TRAIT_VARIANTS[1].charAt(0).toUpperCase() + STAR_TRAIT_VARIANTS[1].slice(1), 
+      starVariant: STAR_TRAIT_VARIANTS[1] as StarTraitVariant 
+    },
     { id: 256, name: 'Skrumpey #256', hasStar: false, rarity: 'Common', starVariant: undefined },
     { id: 888, name: 'Skrumpey #888', hasStar: false, rarity: 'Common', starVariant: undefined },
   ] : [];

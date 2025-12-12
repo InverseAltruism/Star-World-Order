@@ -10,7 +10,25 @@ interface WalletInfo {
   icon: string;
 }
 
-// Detect wallet type from provider info
+/**
+ * Detect wallet type from provider info
+ * 
+ * Priority order (checked first = highest priority):
+ * 1. Phantom - Most commonly used Solana wallet that also supports EVM
+ * 2. Trust Wallet - Popular mobile wallet
+ * 3. Coinbase Wallet - Major exchange wallet
+ * 4. Rabby - DeFi-focused wallet
+ * 5. Brave - Browser-integrated wallet
+ * 6. Frame - Desktop wallet
+ * 7. TokenPocket - Multi-chain wallet
+ * 8. Exodus - Desktop/mobile wallet
+ * 9. MetaMask - Most common, checked last to allow other wallets to be detected first
+ *    (Many wallets set isMetaMask=true for compatibility)
+ * 10. Generic browser wallet fallback
+ * 
+ * Note: Multiple wallets can inject simultaneously and set overlapping flags.
+ * This order prioritizes wallets that are less likely to set MetaMask compatibility flags.
+ */
 function detectWalletType(provider: unknown): WalletInfo {
   const ethereum = provider as {
     isMetaMask?: boolean;
@@ -28,7 +46,8 @@ function detectWalletType(provider: unknown): WalletInfo {
     return { name: 'Browser Wallet', icon: '🌐' };
   }
 
-  // Check specific wallet flags
+  // Check specific wallet flags in priority order
+  // (MetaMask checked last since many wallets set isMetaMask for compatibility)
   if (ethereum.isPhantom) {
     return { name: 'Phantom', icon: '👻' };
   }
@@ -53,6 +72,7 @@ function detectWalletType(provider: unknown): WalletInfo {
   if (ethereum.isExodus) {
     return { name: 'Exodus', icon: '🚀' };
   }
+  // MetaMask checked last - many wallets set this flag for compatibility
   if (ethereum.isMetaMask) {
     return { name: 'MetaMask', icon: '🦊' };
   }
