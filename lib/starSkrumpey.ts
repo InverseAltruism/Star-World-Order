@@ -4,7 +4,8 @@
  * This module handles the logic for determining if a wallet holds a Star Skrumpey NFT.
  * Star Skrumpeys are Skrumpey NFTs that have the "star" trait, granting access to the DAO.
  * 
- * Skrumpeys Contract: https://monadscan.com/address/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0
+ * Skrumpeys Contract Address: See SKRUMPEY_CONTRACT_ADDRESS constant below
+ * Explorer: https://monadscan.com/address/{SKRUMPEY_CONTRACT_ADDRESS}
  * 
  * Star Traits - Constellation Variants:
  * - aether: Ethereal cosmic energy
