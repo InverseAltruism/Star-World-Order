@@ -19,8 +19,8 @@ const ANIMATION_TIMING = {
 
 // Loading bar configuration
 const LOADING_CONFIG = {
-  PROGRESS_INCREMENT: 4,       // Percentage increase per tick
-  INTERVAL_MS: 80,             // Milliseconds between ticks
+  PROGRESS_INCREMENT: 3,       // Percentage increase per tick
+  INTERVAL_MS: 70,             // Milliseconds between ticks
 } as const;
 
 // ============================================
@@ -173,12 +173,22 @@ export default function LoadingScreen() {
       
       {/* Ambient stars in the background */}
       <div className="swo-ambient-stars" />
+
+      {/* Cozy backdrop items */}
+      <div className="swo-cozy-ambient" aria-hidden="true">
+        <div className="swo-fairy-lights" />
+        <div className="swo-posters">
+          <div className="swo-poster swo-poster-star">STAR DAO</div>
+          <div className="swo-poster swo-poster-skrumpey">🐸 ⭐</div>
+        </div>
+      </div>
       
       {/* CRT scanlines overlay */}
       <div className="swo-scanlines" />
       
       {/* ===== COZY GAMING DESK SETUP ===== */}
       <div className="swo-gaming-setup">
+        <div className="swo-rug" aria-hidden="true" />
         
         {/* Main scene container that zooms into the TV screen */}
         <div className={`swo-scene ${isZoomingOrBeyond ? 'zoomed' : ''}`}>
@@ -322,6 +332,13 @@ export default function LoadingScreen() {
         <div className="swo-desk">
           <div className="swo-desk-top" />
           <div className="swo-desk-front" />
+        </div>
+        <div className="swo-controller" aria-hidden="true">
+          <div className="swo-controller-stick" />
+          <div className="swo-controller-buttons">
+            <span className="swo-btn primary" />
+            <span className="swo-btn secondary" />
+          </div>
         </div>
       </div>
       
