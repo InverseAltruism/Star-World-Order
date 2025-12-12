@@ -18,7 +18,7 @@
 
 ✦ chosen by the stars ✦
 
-To enter the cosmic realm, you need one thing: **a Skrumpey with the Star trait**.
+To enter the cosmic realm, you need one thing: **a Skrumpey with the Star trait**. Picture flipping open a N64 game manual: page one says the same—slot in your Star Skrumpey or the console refuses to boot.
 
 These rare pixel art creatures are your key to the Star World Order. No Star? The order awaits your return.
 
@@ -61,17 +61,24 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 ## 🕹️ GAME FEATURES
 
 ### NOW PLAYING
-- **🎮 N64-Style Loading Screen** - Insert the SWO cartridge into the console to boot up
+- **🎮 N64-Style Loading Screen** - Insert the SWO cartridge into the console to boot up (skippable, but why would you?)
 - **📺 Cozy Gaming Setup** - CRT TV, N64 console, and wooden desk create the perfect retro atmosphere
-- **💼 Wallet Connection** - Connect with MetaMask, Trust Wallet, Phantom, and more
+- **🔒 Star Gate** - Wallet connection works for everyone; DAO controls unlock for Star-trait Skrumpeys (allow-list friendly)
 - **🎨 Synthwave Pixel Art UI** - Neon glows, CRT scanlines, and retro pixel fonts
 
 ### UNLOCKING SOON
-- **🏛️ The Order** - DAO governance for star bearers
-- **💎 Treasury** - Collective cosmic resources
-- **💬 Star Council** - Commune with fellow chosen ones
-- **🔄 Cosmic Exchange** - Trade amongst the stars
-- **👤 Star Profiles** - Showcase your Star Skrumpey
+- **👤 Star Profiles** - Member profile that spotlights your Skrumpeys (with a star callout)
+- **🏛️ The Order** - DAO governance for star bearers: proposals + voting
+- **💎 Treasury** - Collective cosmic resources with on-chain transparency
+- **💬 Star Council** - Forum-style hub for discussions and lore
+- **🔄 Cosmic Exchange** - OTC-style marketplace for Star Skrumpeys
+
+## 🎛️ DAO ARSENAL (MANUAL EXCERPT)
+- **Access Key:** Hold a Star Skrumpey; IDs can be allow-listed for special drops.
+- **Profile Screen:** See your Skrumpeys rendered in retro UI, with the star trait highlighted.
+- **DAO Tools:** Forum, voting, and treasury views tuned for pixel screens.
+- **Marketplace:** OTC swap hub for Star Skrumpeys (built after the core DAO loop lands).
+- **Atmosphere:** Everything reads like a cartridge intro—CRT glow, hum, and a satisfying click when you insert the star cart.
 
 ## 🔗 TECH STACK
 
