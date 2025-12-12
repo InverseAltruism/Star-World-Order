@@ -89,7 +89,7 @@ body::before {
   }
 }
 
-/* Pixel art button style with neon glow */
+/* Pixel art button style with neon glow and N64 gamified animations */
 .pixel-btn {
   font-family: var(--font-pixel), monospace;
   font-size: 10px;
@@ -103,27 +103,71 @@ body::before {
     0 0 15px rgba(153, 102, 255, 0.3),
     inset 0 0 0 2px rgba(255,255,255,0.1);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   text-transform: uppercase;
   letter-spacing: 1px;
   border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Add particle burst effect on hover */
+.pixel-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease, opacity 0.6s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pixel-btn:hover::before {
+  width: 200%;
+  height: 200%;
+  opacity: 0;
 }
 
 .pixel-btn:hover {
-  transform: translate(2px, 2px);
+  transform: translate(1px, 1px) scale(1.05);
   box-shadow: 
-    2px 2px 0 #2a1a4a,
-    0 0 25px rgba(153, 102, 255, 0.5),
-    0 0 40px rgba(153, 102, 255, 0.3),
-    inset 0 0 0 2px rgba(255,255,255,0.2);
+    3px 3px 0 #2a1a4a,
+    0 0 25px rgba(153, 102, 255, 0.6),
+    0 0 40px rgba(153, 102, 255, 0.4),
+    inset 0 0 0 2px rgba(255,255,255,0.3);
+  animation: btnPulseGlow 1.5s ease-in-out infinite;
 }
 
 .pixel-btn:active {
-  transform: translate(4px, 4px);
+  transform: translate(4px, 4px) scale(0.98);
   box-shadow: 
     0 0 0 #2a1a4a,
-    0 0 20px rgba(153, 102, 255, 0.4),
-    inset 0 0 0 2px rgba(0,0,0,0.2);
+    0 0 20px rgba(153, 102, 255, 0.5),
+    inset 0 0 10px rgba(0,0,0,0.3);
+  transition: all 0.1s ease;
+}
+
+/* Button press animation - N64 style feedback */
+@keyframes btnPulseGlow {
+  0%, 100% { 
+    box-shadow: 
+      3px 3px 0 #2a1a4a,
+      0 0 25px rgba(153, 102, 255, 0.6),
+      0 0 40px rgba(153, 102, 255, 0.4),
+      inset 0 0 0 2px rgba(255,255,255,0.3);
+  }
+  50% { 
+    box-shadow: 
+      3px 3px 0 #2a1a4a,
+      0 0 35px rgba(153, 102, 255, 0.8),
+      0 0 60px rgba(153, 102, 255, 0.5),
+      inset 0 0 0 2px rgba(255,255,255,0.4);
+  }
 }
 
 .pixel-btn-gold {
@@ -132,17 +176,42 @@ body::before {
   border-color: #ffee88 #aa8800 #aa8800 #ffee88;
   box-shadow: 
     4px 4px 0 #554400,
-    0 0 15px rgba(255, 215, 0, 0.3);
+    0 0 15px rgba(255, 215, 0, 0.4);
 }
 
 .pixel-btn-gold:hover {
   box-shadow: 
-    2px 2px 0 #554400,
-    0 0 25px rgba(255, 215, 0, 0.5),
-    0 0 40px rgba(255, 215, 0, 0.3);
+    3px 3px 0 #554400,
+    0 0 30px rgba(255, 215, 0, 0.7),
+    0 0 50px rgba(255, 215, 0, 0.4);
+  animation: btnPulseGlowGold 1.5s ease-in-out infinite;
 }
 
-/* Pixel card style with neon accents */
+.pixel-btn-gold:active {
+  transform: translate(4px, 4px) scale(0.98);
+  box-shadow: 
+    0 0 0 #554400,
+    0 0 20px rgba(255, 215, 0, 0.5),
+    inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+/* Gold button glow animation */
+@keyframes btnPulseGlowGold {
+  0%, 100% { 
+    box-shadow: 
+      3px 3px 0 #554400,
+      0 0 30px rgba(255, 215, 0, 0.7),
+      0 0 50px rgba(255, 215, 0, 0.4);
+  }
+  50% { 
+    box-shadow: 
+      3px 3px 0 #554400,
+      0 0 40px rgba(255, 215, 0, 0.9),
+      0 0 70px rgba(255, 215, 0, 0.6);
+  }
+}
+
+/* Pixel card style with neon accents and N64 hover effects */
 .pixel-card {
   background: linear-gradient(180deg, rgba(26, 26, 46, 0.9) 0%, rgba(13, 13, 26, 0.95) 100%);
   border: 4px solid;
@@ -153,15 +222,42 @@ body::before {
     0 0 0 1px rgba(153, 102, 255, 0.1);
   position: relative;
   border-radius: 12px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+/* Shimmer effect on card */
+.pixel-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+.pixel-card:hover::after {
+  transform: translateX(100%) translateY(100%) rotate(45deg);
 }
 
 .pixel-card:hover {
+  transform: translateY(-8px) scale(1.02);
   box-shadow: 
-    8px 8px 0 rgba(0,0,0,0.5),
-    inset 0 0 30px rgba(153, 102, 255, 0.1),
-    0 0 20px rgba(153, 102, 255, 0.2),
-    0 0 0 1px rgba(153, 102, 255, 0.3);
+    12px 12px 0 rgba(0,0,0,0.5),
+    inset 0 0 40px rgba(153, 102, 255, 0.15),
+    0 0 30px rgba(153, 102, 255, 0.4),
+    0 0 60px rgba(153, 102, 255, 0.2),
+    0 0 0 2px rgba(153, 102, 255, 0.5);
+  border-color: #5a5a7e #2a2a4e #2a2a4e #5a5a7e;
 }
 
 .pixel-card::before {
@@ -224,6 +320,42 @@ body::before {
   97% { opacity: 1; }
 }
 
+/* N64-style bounce animation for interactive elements */
+@keyframes pixelBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-15px) scale(1.05); }
+  50% { transform: translateY(-8px) scale(1.02); }
+  75% { transform: translateY(-4px) scale(1.01); }
+}
+
+/* Shake animation for button feedback */
+@keyframes pixelShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+/* Star rotate with scale for more dynamic feel */
+@keyframes starRotateScale {
+  0% { transform: rotate(0deg) scale(1); filter: brightness(1); }
+  25% { transform: rotate(90deg) scale(1.15); filter: brightness(1.2); }
+  50% { transform: rotate(180deg) scale(1.05); filter: brightness(1); }
+  75% { transform: rotate(270deg) scale(1.15); filter: brightness(1.2); }
+  100% { transform: rotate(360deg) scale(1); filter: brightness(1); }
+}
+
+/* Glow pulse for interactive elements */
+@keyframes glowPulse {
+  0%, 100% { 
+    filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 10px currentColor);
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 15px currentColor) drop-shadow(0 0 25px currentColor);
+    transform: scale(1.05);
+  }
+}
+
 .animate-pixel-float {
   animation: pixelFloat 3s ease-in-out infinite;
 }
@@ -234,6 +366,22 @@ body::before {
 
 .animate-text-flicker {
   animation: textFlicker 4s ease-in-out infinite;
+}
+
+.animate-pixel-bounce {
+  animation: pixelBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-pixel-shake {
+  animation: pixelShake 0.5s ease-in-out;
+}
+
+.animate-star-rotate {
+  animation: starRotateScale 8s linear infinite;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
 }
 
 /* ============================================
@@ -1221,4 +1369,128 @@ body::before {
   .swo-instructions p {
     font-size: 8px;
   }
+}
+
+/* ============================================
+   N64 Gamified Interactive Effects
+   ============================================ */
+
+/* Ripple effect for button clicks */
+@keyframes ripple {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0.5;
+  }
+  100% {
+    width: 300px;
+    height: 300px;
+    opacity: 0;
+  }
+}
+
+.btn-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: ripple 0.6s ease-out;
+}
+
+/* Particle burst effect */
+@keyframes particleBurst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0);
+  }
+}
+
+.particle {
+  position: absolute;
+  pointer-events: none;
+  animation: particleBurst 0.8s ease-out forwards;
+}
+
+/* Smooth slide-in animation for cards/elements */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Staggered animation delays for multiple elements */
+.animate-delay-1 { animation-delay: 0.1s; }
+.animate-delay-2 { animation-delay: 0.2s; }
+.animate-delay-3 { animation-delay: 0.3s; }
+.animate-delay-4 { animation-delay: 0.4s; }
+.animate-delay-5 { animation-delay: 0.5s; }
+.animate-delay-6 { animation-delay: 0.6s; }
+
+/* Scale pop animation for interactive feedback */
+@keyframes scalePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.animate-scale-pop {
+  animation: scalePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Interactive hover lift effect */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* Smooth transitions for all interactive elements */
+.smooth-transition {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
