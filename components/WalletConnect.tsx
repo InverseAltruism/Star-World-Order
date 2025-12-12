@@ -1,16 +1,19 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { injected } from 'wagmi/connectors';
 
 export default function WalletConnect() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
   const handleConnect = () => {
-    // Connect using injected connector (MetaMask, Trust Wallet, Phantom, etc.)
-    connect({ connector: injected() });
+    // Use the first available connector (injected wallet takes priority in wagmi config)
+    // If WalletConnect is configured, it will be available as a second connector
+    const connector = connectors[0];
+    if (connector) {
+      connect({ connector });
+    }
   };
 
   if (isConnected && address) {

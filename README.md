@@ -186,6 +186,35 @@ Open [http://localhost:3000](http://localhost:3000) and insert the ★ cartridge
 | `npm run start` | Start production server |
 | `npm run type-check` | Run TypeScript checks |
 
+## 🔐 ACCESS CONTROL
+
+### Star Skrumpey Verification
+
+Access to DAO features is restricted to **Star Skrumpey holders only**. This is enforced through the following mechanism:
+
+1. **Star Trait Allow-List**: The `STAR_SKRUMPEY_IDS` array in `lib/starSkrumpey.ts` contains token IDs that have the Star trait
+2. **On-Chain Verification**: The app verifies NFT ownership by calling the Skrumpey contract's `ownerOf` function
+3. **Access Denial**: Regular Skrumpey holders (without the Star trait) are denied access to DAO features
+
+### Configuration
+
+| Environment Variable | Description |
+|---------------------|-------------|
+| `NEXT_PUBLIC_SKRUMPEY_CONTRACT` | Skrumpey NFT contract address on Monad |
+| `NEXT_PUBLIC_DEV_ACCESS_ENABLED` | Set to `true` to bypass access control in development (default: `false`) |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional WalletConnect project ID for mobile wallet support |
+
+### Development Testing
+
+To test DAO features without holding a Star Skrumpey:
+
+```bash
+# In .env.local
+NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
+```
+
+**Note**: This override only works in development mode (`npm run dev`). Production builds always enforce Star Skrumpey ownership.
+
 ## 📋 QUEST LOG
 
 ### Stage 1: Foundation ✅
@@ -195,7 +224,7 @@ Open [http://localhost:3000](http://localhost:3000) and insert the ★ cartridge
 - [x] Monad chain integration
 
 ### Stage 2: The Order (In Progress)
-- [ ] Star Skrumpey holder verification
+- [x] Star Skrumpey holder verification
 - [ ] DAO governance smart contracts
 - [ ] Proposal creation and voting system
 - [ ] Treasury management

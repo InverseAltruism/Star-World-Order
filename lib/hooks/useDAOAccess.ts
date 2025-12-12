@@ -6,7 +6,7 @@ import {
   fetchUserSkrumpeys, 
   hasStarSkrumpey, 
   getStarSkrumpeys,
-  STAR_SKRUMPEY_IDS 
+  DEV_ACCESS_ENABLED 
 } from '@/lib/starSkrumpey';
 
 export interface UseDAOAccessResult {
@@ -30,6 +30,13 @@ export interface UseDAOAccessResult {
 
 /**
  * Hook to check if connected wallet has DAO access
+ * 
+ * Access is granted only to holders of Star Skrumpey NFTs (tokens with the Star trait).
+ * Regular Skrumpey holders do NOT get access - only Star trait holders.
+ * 
+ * In development mode, access can be enabled for all connected wallets by setting
+ * NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local
+ * 
  * Returns access status, owned NFTs, and loading state
  */
 export function useDAOAccess(): UseDAOAccessResult {
@@ -73,10 +80,10 @@ export function useDAOAccess(): UseDAOAccessResult {
     checkAccess();
   }, [checkAccess]);
 
-  // For development: Allow access if allow-list is empty (no restrictions configured yet)
-  // In production with an empty list, access would be denied - configure STAR_SKRUMPEY_IDS before launch
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const effectiveAccess = (isDevelopment && STAR_SKRUMPEY_IDS.length === 0) ? isConnected : hasAccess;
+  // Development access override - only enabled when explicitly configured
+  // Set NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local to enable
+  // This allows testing the DAO features without holding a Star Skrumpey
+  const effectiveAccess = DEV_ACCESS_ENABLED ? isConnected : hasAccess;
 
   return {
     hasAccess: effectiveAccess,
