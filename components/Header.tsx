@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import WalletConnect from './WalletConnect';
 
 export default function Header() {
@@ -10,7 +11,7 @@ export default function Header() {
       
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div className="relative">
             <span className="text-2xl animate-pixel-float inline-block">⭐</span>
           </div>
@@ -22,22 +23,28 @@ export default function Header() {
               STAR WORLD ORDER
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-4 md:gap-6">
-          <a 
-            href="#about" 
+        <nav className="flex items-center gap-3 md:gap-5">
+          <Link 
+            href="/dao" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] transition-colors uppercase tracking-wider"
           >
-            About
-          </a>
-          <a 
-            href="#dao" 
+            DAO
+          </Link>
+          <Link 
+            href="/profile" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] transition-colors uppercase tracking-wider hidden sm:block"
           >
-            DAO
-          </a>
+            Profile
+          </Link>
+          <Link 
+            href="/marketplace" 
+            className="text-[10px] text-gray-300 hover:text-[#ff00ff] transition-colors uppercase tracking-wider hidden md:block"
+          >
+            Exchange
+          </Link>
           <WalletConnect />
         </nav>
       </div>
