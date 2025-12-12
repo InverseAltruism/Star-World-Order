@@ -2,7 +2,37 @@
 
 import { useState, useEffect, useRef, CSSProperties } from 'react';
 
-// Helper function to safely access sessionStorage
+// ============================================
+// Configuration Constants
+// ============================================
+
+// Animation timing (in milliseconds)
+const ANIMATION_TIMING = {
+  CARTRIDGE_INSERT_DURATION: 800,
+  POWER_ON_DELAY: 1300,
+  ZOOM_START_DELAY: 2100,
+  BOOT_START_DELAY: 3600,
+  LOADING_START_DELAY: 4100,
+  DONE_DELAY: 6600,
+  HIDE_DELAY: 7600,
+} as const;
+
+// Loading bar configuration
+const LOADING_CONFIG = {
+  PROGRESS_INCREMENT: 4,       // Percentage increase per tick
+  INTERVAL_MS: 80,             // Milliseconds between ticks
+} as const;
+
+// Console hardware configuration
+const CONSOLE_CONFIG = {
+  VENT_COUNT: 8,               // Number of vent slots on console top
+} as const;
+
+// ============================================
+// Helper Functions
+// ============================================
+
+// Safely access sessionStorage (SSR-safe)
 const getSessionStorage = (key: string): string | null => {
   try {
     if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -24,6 +54,10 @@ const setSessionStorage = (key: string, value: string): void => {
   }
 };
 
+// ============================================
+// Component Styles
+// ============================================
+
 // Inline styles as fallback to ensure loading screen renders correctly
 const loadingScreenStyle: CSSProperties = {
   position: 'fixed',
@@ -38,6 +72,10 @@ const loadingScreenStyle: CSSProperties = {
   justifyContent: 'center',
   overflow: 'hidden',
 };
+
+// ============================================
+// Types
+// ============================================
 
 // Animation phases for the immersive experience
 type Phase = 'waiting' | 'inserting' | 'inserted' | 'poweron' | 'zooming' | 'booting' | 'loading' | 'done';
@@ -57,25 +95,25 @@ export default function LoadingScreen() {
     }
   }, []);
 
-  // Handle cartridge insertion
+  // Handle cartridge insertion - triggers the full animation sequence
   const handleInsertCartridge = () => {
     if (phase !== 'waiting') return;
     
     setPhase('inserting');
     
-    // Cartridge slides in (0.8s)
-    setTimeout(() => setPhase('inserted'), 800);
+    // Cartridge slides into slot
+    setTimeout(() => setPhase('inserted'), ANIMATION_TIMING.CARTRIDGE_INSERT_DURATION);
     
-    // Power on with screen flicker (0.5s after inserted)
-    setTimeout(() => setPhase('poweron'), 1300);
+    // Power on with screen flicker
+    setTimeout(() => setPhase('poweron'), ANIMATION_TIMING.POWER_ON_DELAY);
     
-    // Start zooming into the screen (0.8s after power on)
-    setTimeout(() => setPhase('zooming'), 2100);
+    // Start zooming into the screen
+    setTimeout(() => setPhase('zooming'), ANIMATION_TIMING.ZOOM_START_DELAY);
     
-    // Boot sequence starts inside screen (1.5s after zoom starts)
-    setTimeout(() => setPhase('booting'), 3600);
+    // Boot sequence starts inside screen
+    setTimeout(() => setPhase('booting'), ANIMATION_TIMING.BOOT_START_DELAY);
     
-    // Loading progress starts (0.5s after boot)
+    // Loading progress bar starts filling
     setTimeout(() => {
       setPhase('loading');
       loadingIntervalRef.current = setInterval(() => {
@@ -87,19 +125,19 @@ export default function LoadingScreen() {
             }
             return 100;
           }
-          return prev + 4;
+          return prev + LOADING_CONFIG.PROGRESS_INCREMENT;
         });
-      }, 80);
-    }, 4100);
+      }, LOADING_CONFIG.INTERVAL_MS);
+    }, ANIMATION_TIMING.LOADING_START_DELAY);
     
     // Done - fade out
     setTimeout(() => {
       setPhase('done');
       setSessionStorage('swo-loading-seen', 'true');
-    }, 6600);
+    }, ANIMATION_TIMING.DONE_DELAY);
     
-    // Hide
-    setTimeout(() => setShowLoading(false), 7600);
+    // Hide loading screen completely
+    setTimeout(() => setShowLoading(false), ANIMATION_TIMING.HIDE_DELAY);
   };
 
   // Skip loading screen
@@ -150,7 +188,7 @@ export default function LoadingScreen() {
           <div className="swo-console-body">
             {/* Top vents */}
             <div className="swo-console-vents">
-              {[...Array(8)].map((_, i) => (
+              {[...Array(CONSOLE_CONFIG.VENT_COUNT)].map((_, i) => (
                 <div key={i} className="swo-vent-slot" />
               ))}
             </div>

@@ -12,6 +12,14 @@
   --pixel-darker: #0d0d1a;
   --crt-glow: rgba(102, 255, 136, 0.1);
   --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+  
+  /* Loading screen zoom animation values */
+  /* Desktop: zoom 4.5x and shift down 10% to center the screen content */
+  --swo-zoom-scale: 4.5;
+  --swo-zoom-translate-y: 10%;
+  /* Mobile: reduced zoom 3.5x and shift down 15% for smaller screens */
+  --swo-zoom-scale-mobile: 3.5;
+  --swo-zoom-translate-y-mobile: 15%;
 }
 
 /* Base pixel art rendering */
@@ -265,7 +273,7 @@ body::before {
 }
 
 .swo-scene.zoomed {
-  transform: scale(4.5) translateY(10%);
+  transform: scale(var(--swo-zoom-scale)) translateY(var(--swo-zoom-translate-y));
 }
 
 /* ========== THE CONSOLE ========== */
@@ -821,7 +829,7 @@ body::before {
 /* ========== RESPONSIVE ========== */
 @media (max-width: 640px) {
   .swo-scene.zoomed {
-    transform: scale(3.5) translateY(15%);
+    transform: scale(var(--swo-zoom-scale-mobile)) translateY(var(--swo-zoom-translate-y-mobile));
   }
 
   .swo-console-body {
