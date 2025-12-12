@@ -2,9 +2,15 @@ import { http, createConfig } from 'wagmi';
 import { defineChain } from 'viem';
 
 // Monad Chain Configuration
-// Note: Update these values when Monad mainnet details are finalized
+// Uses environment variables with fallback placeholder values for development
+const MONAD_CHAIN_ID = process.env.NEXT_PUBLIC_MONAD_CHAIN_ID 
+  ? parseInt(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID, 10) 
+  : 41454;
+
+const MONAD_RPC_URL = process.env.NEXT_PUBLIC_MONAD_RPC_URL || 'https://rpc.monad.xyz';
+
 export const monad = defineChain({
-  id: 41454, // Placeholder - update with actual Monad chain ID
+  id: MONAD_CHAIN_ID,
   name: 'Monad',
   nativeCurrency: {
     decimals: 18,
@@ -13,11 +19,11 @@ export const monad = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ['https://rpc.monad.xyz'], // Placeholder - update with actual RPC URL
+      http: [MONAD_RPC_URL],
     },
   },
   blockExplorers: {
-    default: { name: 'Explorer', url: 'https://explorer.monad.xyz' }, // Placeholder
+    default: { name: 'Explorer', url: 'https://explorer.monad.xyz' },
   },
 });
 
