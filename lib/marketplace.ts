@@ -8,11 +8,45 @@
  * - Listing Star Skrumpeys for sale at a fixed price in MON
  * - Buying listed Star Skrumpeys by sending the exact MON amount
  * - Canceling active listings
+ * - DAO Treasury fee on each sale (configurable percentage)
  * 
  * Architecture:
  * - Uses a simple escrow pattern where the seller approves the marketplace contract
  * - On purchase, the contract transfers MON from buyer to seller and NFT to buyer
+ * - A small percentage fee goes to the DAO Treasury
  * - All transactions are trustless and atomic
+ * 
+ * Available Open Source Libraries for EVM NFT Marketplaces:
+ * 
+ * 1. @opensea/seaport-js (v4.0.5) - MIT License
+ *    - OpenSea's Seaport protocol SDK
+ *    - Supports custom fee recipients (perfect for DAO treasury)
+ *    - Uses ethers v6 (compatible with our stack)
+ *    - Battle-tested, widely deployed
+ *    - GitHub: https://github.com/ProjectOpenSea/seaport-js
+ *    - Seaport contracts deployed on many EVM chains
+ * 
+ * 2. @traderxyz/nft-swap-sdk (v0.33.0) - MIT License
+ *    - 0x protocol based NFT swap library
+ *    - Supports ERC721, ERC1155, ERC20 swaps
+ *    - Supports fee recipients for protocol fees
+ *    - Uses ethers v5 (would need adapter)
+ *    - GitHub: https://github.com/trader-xyz/nft-swap-sdk
+ * 
+ * 3. @reservoir0x/reservoir-sdk (v2.5.7) - MIT License
+ *    - Aggregates liquidity from multiple marketplaces
+ *    - Supports custom royalties and fees
+ *    - API-based approach
+ *    - Good for cross-marketplace listing
+ * 
+ * For Monad deployment, we recommend either:
+ * - Deploy Seaport contracts to Monad and use seaport-js SDK
+ * - Build custom OTC contract with fee mechanism (this implementation)
+ * 
+ * The custom approach gives full control over:
+ * - DAO treasury fee percentage
+ * - Gas optimization for Monad
+ * - Simpler UX for Star Skrumpey-specific features
  */
 
 import { createPublicClient, http, encodeFunctionData, parseEther, formatEther } from 'viem';
@@ -25,6 +59,50 @@ import { SKRUMPEY_CONTRACT_ADDRESS } from './starSkrumpey';
  * For simulation, we use a mock address that represents our OTC contract
  */
 export const MARKETPLACE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_MARKETPLACE_CONTRACT || '0x0000000000000000000000000000000000000000';
+
+/**
+ * DAO Treasury address on Monad
+ * This address receives a percentage of each sale
+ */
+export const DAO_TREASURY_ADDRESS = process.env.NEXT_PUBLIC_DAO_TREASURY_ADDRESS || '0x0000000000000000000000000000000000000000';
+
+/**
+ * DAO Treasury fee percentage (in basis points)
+ * 250 = 2.5%, 100 = 1%, 500 = 5%
+ * Default: 2.5% (250 basis points)
+ */
+export const DAO_FEE_BPS = parseInt(process.env.NEXT_PUBLIC_DAO_FEE_BPS || '250', 10);
+
+/**
+ * Basis points divisor (100% = 10000 bps)
+ */
+export const BPS_DIVISOR = 10000;
+
+/**
+ * Calculate DAO treasury fee from sale price
+ * @param price - Sale price in wei
+ * @returns Fee amount in wei
+ */
+export function calculateDAOFee(price: bigint): bigint {
+  return (price * BigInt(DAO_FEE_BPS)) / BigInt(BPS_DIVISOR);
+}
+
+/**
+ * Calculate seller proceeds after DAO fee
+ * @param price - Sale price in wei
+ * @returns Seller proceeds in wei
+ */
+export function calculateSellerProceeds(price: bigint): bigint {
+  const fee = calculateDAOFee(price);
+  return price - fee;
+}
+
+/**
+ * Get fee percentage as human readable string
+ */
+export function getDAOFeePercentage(): string {
+  return (DAO_FEE_BPS / 100).toFixed(2);
+}
 
 /**
  * Listing status
@@ -116,14 +194,20 @@ export const ERC721_MARKETPLACE_ABI = [
 
 /**
  * OTC Marketplace ABI
- * This is a simplified escrow-style marketplace contract ABI
+ * This is a simplified escrow-style marketplace contract ABI with DAO treasury fee support
  * 
  * The contract handles:
  * 1. createListing(tokenId, price) - Seller lists NFT
- * 2. buyListing(listingId) payable - Buyer purchases NFT
+ * 2. buyListing(listingId) payable - Buyer purchases NFT (fee goes to DAO treasury)
  * 3. cancelListing(listingId) - Seller cancels listing
  * 4. getListing(listingId) - Get listing details
  * 5. getActiveListings() - Get all active listings
+ * 6. getDAOTreasury() - Get DAO treasury address
+ * 7. getFeeBps() - Get fee in basis points
+ * 
+ * Fee Distribution on Purchase:
+ * - DAO Treasury receives: price * feeBps / 10000
+ * - Seller receives: price - (price * feeBps / 10000)
  */
 export const MARKETPLACE_ABI = [
   // Create a listing
@@ -180,6 +264,22 @@ export const MARKETPLACE_ABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  // Get DAO treasury address
+  {
+    inputs: [],
+    name: 'daoTreasury',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // Get fee in basis points
+  {
+    inputs: [],
+    name: 'feeBps',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
   // Events
   {
     anonymous: false,
@@ -198,6 +298,8 @@ export const MARKETPLACE_ABI = [
       { indexed: true, name: 'listingId', type: 'uint256' },
       { indexed: true, name: 'buyer', type: 'address' },
       { indexed: false, name: 'price', type: 'uint256' },
+      { indexed: false, name: 'daoFee', type: 'uint256' },
+      { indexed: false, name: 'sellerProceeds', type: 'uint256' },
     ],
     name: 'ListingPurchased',
     type: 'event',
@@ -379,10 +481,15 @@ export class MarketplaceError extends Error {
 }
 
 /**
+ * Zero address constant
+ */
+export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const;
+
+/**
  * Check if marketplace contract is configured
  */
 export function isMarketplaceConfigured(): boolean {
-  return MARKETPLACE_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000' && 
+  return MARKETPLACE_CONTRACT_ADDRESS !== ZERO_ADDRESS && 
          MARKETPLACE_CONTRACT_ADDRESS !== '';
 }
 
@@ -479,10 +586,15 @@ export function validatePurchase(
 }
 
 /**
- * Generate a mock listing ID
+ * Generate a unique listing ID
+ * Uses crypto.randomUUID when available for better uniqueness
  */
 export function generateListingId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
 /**

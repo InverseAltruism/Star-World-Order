@@ -19,6 +19,10 @@ import {
   createMockListing,
   formatPriceFromWei,
   truncateAddress,
+  calculateDAOFee,
+  calculateSellerProceeds,
+  getDAOFeePercentage,
+  DAO_FEE_BPS,
 } from '@/lib/marketplace';
 import { SKRUMPEY_CONTRACT_ADDRESS, OwnedToken } from '@/lib/starSkrumpey';
 
@@ -367,5 +371,5 @@ export function useMarketplace(): UseMarketplaceResult {
 }
 
 // Re-export utilities for use in components
-export { truncateAddress, formatPriceFromWei, ListingStatus };
+export { truncateAddress, formatPriceFromWei, ListingStatus, calculateDAOFee, calculateSellerProceeds, getDAOFeePercentage, DAO_FEE_BPS };
 export type { Listing };

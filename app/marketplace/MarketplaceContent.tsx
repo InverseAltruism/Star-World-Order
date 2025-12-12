@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import AccessGate from '@/components/AccessGate';
-import { useMarketplace, truncateAddress, ListingStatus, Listing } from '@/lib/hooks/useMarketplace';
+import { useMarketplace, truncateAddress, ListingStatus, Listing, getDAOFeePercentage, calculateDAOFee, calculateSellerProceeds, formatPriceFromWei } from '@/lib/hooks/useMarketplace';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { parseEther } from 'viem';
 
 type TabId = 'browse' | 'create' | 'my-listings';
 
@@ -226,6 +227,29 @@ function CreateListingTab({
                   MON
                 </span>
               </div>
+              
+              {/* Fee Breakdown */}
+              {price && parseFloat(price) > 0 && (
+                <div className="mt-3 bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
+                  <p className="text-[#ffd700] text-[8px] mb-2">💰 FEE BREAKDOWN</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[7px]">
+                      <span className="text-gray-500">Sale Price:</span>
+                      <span className="text-white">{price} MON</span>
+                    </div>
+                    <div className="flex justify-between text-[7px]">
+                      <span className="text-gray-500">DAO Treasury Fee ({getDAOFeePercentage()}%):</span>
+                      <span className="text-[#9966ff]">-{formatPriceFromWei(calculateDAOFee(parseEther(price)))} MON</span>
+                    </div>
+                    <div className="border-t border-[#2a2a4e] pt-1 mt-1">
+                      <div className="flex justify-between text-[8px]">
+                        <span className="text-[#44ff88]">You Receive:</span>
+                        <span className="text-[#44ff88] font-bold">{formatPriceFromWei(calculateSellerProceeds(parseEther(price)))} MON</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Error Message */}
@@ -250,6 +274,7 @@ function CreateListingTab({
               <ul className="text-gray-500 text-[6px] space-y-1">
                 <li>• Your NFT will be listed for the exact price you set</li>
                 <li>• Buyers pay the full amount in MON to purchase</li>
+                <li>• A {getDAOFeePercentage()}% fee goes to the DAO Treasury on each sale</li>
                 <li>• You can cancel your listing at any time</li>
                 <li>• Transaction is trustless and atomic</li>
               </ul>
@@ -540,10 +565,10 @@ export default function MarketplaceContent() {
               <div className="flex items-center gap-3">
                 <span className="text-xl animate-pixel-float">ℹ️</span>
                 <div className="flex-1">
-                  <p className="text-[#9966ff] text-[8px] mb-1">DIRECT CONTRACT TRADING</p>
+                  <p className="text-[#9966ff] text-[8px] mb-1">DIRECT CONTRACT TRADING • {getDAOFeePercentage()}% DAO FEE</p>
                   <p className="text-gray-500 text-[6px]">
                     Trade Star Skrumpeys directly without Magic Eden or OpenSea. 
-                    All transactions are trustless and go through our OTC escrow contract.
+                    A {getDAOFeePercentage()}% fee from each sale goes to the DAO Treasury to fund community initiatives.
                     {!isContractDeployed && ' Currently running in demo mode.'}
                   </p>
                 </div>
