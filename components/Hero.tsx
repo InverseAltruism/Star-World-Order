@@ -44,7 +44,7 @@ export default function Hero() {
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-16 text-center">
-        {/* Main pixel art star logo */}
+        {/* Main pixel art star logo with neon glow */}
         <div className="mb-8 relative">
           <div className="inline-block animate-pixel-float">
             <div 
@@ -52,7 +52,7 @@ export default function Hero() {
               style={{
                 background: 'linear-gradient(135deg, #ffd700 0%, #ff8800 100%)',
                 clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-                boxShadow: '0 0 40px #ffd700, 0 0 80px rgba(255, 215, 0, 0.5)',
+                boxShadow: '0 0 40px #ffd700, 0 0 80px rgba(255, 215, 0, 0.5), 0 0 120px rgba(255, 136, 0, 0.3)',
               }}
             />
           </div>
@@ -63,27 +63,27 @@ export default function Hero() {
           STAR WORLD ORDER
         </h1>
         
-        {/* Subtitle */}
+        {/* Mysterious subtitle - Twitter bio style */}
         <div className="pixel-card inline-block px-6 py-3 mb-8">
           <p className="text-[#9966ff] text-[10px] md:text-xs tracking-wide">
-            ★ SKRUMPEY SUB-DAO ON MONAD ★
+            ✦ 𓆩 𝒄𝒐𝒔𝒎𝒊𝒄 𝒎𝒂𝒏𝒅𝒂𝒕𝒆 𓆪 ✦
           </p>
         </div>
 
-        {/* Description */}
+        {/* Description - mysterious and goofy */}
         <p className="text-gray-400 text-[10px] md:text-xs max-w-xl mx-auto mb-8 leading-relaxed">
-          HOLD A STAR SKRUMPEY TO ENTER THE DAO.
+          🟣⭐ chosen by the stars 💜
           <br />
-          64×64 PIXEL ART • EXCLUSIVE ACCESS • COMMUNITY GOVERNANCE
+          <span className="text-[#ffd700]">the order is forming</span> ✦ ☉ ~ ᴅᴀᴏ ~ ✦
         </p>
         
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
           <button className="pixel-btn pixel-btn-gold">
-            ★ ENTER DAO
+            ★ ENTER THE ORDER
           </button>
           <button className="pixel-btn">
-            LEARN MORE
+            DISCOVER MORE
           </button>
         </div>
 
@@ -96,10 +96,10 @@ export default function Hero() {
           </div>
           <div className="border-t-2 border-[#2a2a4e] pt-4">
             <p className="text-[#ffd700] text-[10px] tracking-wide mb-1">
-              STAR SKRUMPEY
+              ★ STAR SKRUMPEY ★
             </p>
             <p className="text-gray-500 text-[8px]">
-              YOUR KEY TO THE STAR WORLD ORDER
+              your key to the cosmic realm
             </p>
           </div>
         </div>

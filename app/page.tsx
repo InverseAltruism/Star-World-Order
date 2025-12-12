@@ -4,13 +4,13 @@ import Features from '@/components/Features';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#0f0f23]">
+    <div className="min-h-screen">
       <Header />
       <main>
         <Hero />
         <Features />
       </main>
-      <footer className="border-t-4 border-[#2a2a4e] mt-16 bg-[#0d0d1a]">
+      <footer className="border-t-4 border-[#2a2a4e] mt-16 bg-[#0a0a15]">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -18,16 +18,16 @@ export default function Home() {
               <span className="text-[#ffd700] text-xs tracking-wider">STAR WORLD ORDER</span>
               <span className="text-xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
             </div>
-            <p className="text-gray-600 text-[8px] tracking-wide mb-2">
-              A SUB-DAO OF SKRUMPEYS ON MONAD
+            <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">
+              ✦ 𓆩 chosen by the stars 𓆪 ✦
             </p>
             <p className="text-gray-700 text-[8px]">
-              © {new Date().getFullYear()} STAR WORLD ORDER • ALL RIGHTS RESERVED
+              the order is forming • @skrumpeys
             </p>
           </div>
         </div>
-        {/* Bottom pixel border */}
-        <div className="h-1 bg-gradient-to-r from-[#9966ff] via-[#ffd700] to-[#9966ff]" />
+        {/* Bottom pixel border with neon gradient */}
+        <div className="h-1 bg-gradient-to-r from-[#ff00ff] via-[#ffd700] to-[#00ffff]" />
       </footer>
     </div>
   );
