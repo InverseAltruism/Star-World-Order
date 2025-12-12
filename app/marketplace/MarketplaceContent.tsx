@@ -2,11 +2,30 @@
 
 import { useState } from 'react';
 import AccessGate from '@/components/AccessGate';
-import { useMarketplace, truncateAddress, ListingStatus, Listing, getDAOFeePercentage, calculateDAOFee, calculateSellerProceeds, formatPriceFromWei } from '@/lib/hooks/useMarketplace';
+import { 
+  useMarketplace, 
+  truncateAddress, 
+  ListingStatus, 
+  Listing, 
+  getDAOFeePercentage, 
+  calculateDAOFee, 
+  calculateSellerProceeds, 
+  formatPriceFromWei,
+  SortOption,
+  STAR_VARIANTS,
+  getSortOptionLabel,
+  TransactionType,
+  TransactionHistoryEntry,
+  getTransactionTypeLabel,
+  getTransactionTypeIcon,
+  getTransactionTypeColor,
+  formatRelativeTime,
+  FilterOptions,
+} from '@/lib/hooks/useMarketplace';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { parseEther } from 'viem';
 
-type TabId = 'browse' | 'create' | 'my-listings';
+type TabId = 'browse' | 'create' | 'my-listings' | 'history';
 
 interface Tab {
   id: TabId;
@@ -16,9 +35,152 @@ interface Tab {
 
 const tabs: Tab[] = [
   { id: 'browse', label: 'BROWSE', icon: '🔍' },
-  { id: 'create', label: 'CREATE LISTING', icon: '📋' },
+  { id: 'create', label: 'CREATE', icon: '📋' },
   { id: 'my-listings', label: 'MY LISTINGS', icon: '⭐' },
+  { id: 'history', label: 'HISTORY', icon: '📜' },
 ];
+
+/**
+ * Filter and Sort Controls component
+ */
+function FilterSortControls({
+  sortOption,
+  onSortChange,
+  filterOptions,
+  onFilterChange,
+  onClearFilters,
+}: {
+  sortOption: SortOption;
+  onSortChange: (option: SortOption) => void;
+  filterOptions: FilterOptions;
+  onFilterChange: (options: FilterOptions) => void;
+  onClearFilters: () => void;
+}) {
+  const [showFilters, setShowFilters] = useState(false);
+  
+  const hasActiveFilters = filterOptions.minPrice || filterOptions.maxPrice || filterOptions.starVariant;
+  
+  return (
+    <div className="space-y-3 animate-slide-in-up">
+      {/* Sort and Filter Toggle Row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Sort Dropdown */}
+        <div className="relative">
+          <select
+            value={sortOption}
+            onChange={(e) => onSortChange(e.target.value as SortOption)}
+            className="bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-[8px] text-gray-200 focus:border-[#ffd700] focus:outline-none smooth-transition cursor-pointer appearance-none pr-8"
+          >
+            {Object.values(SortOption).map((option) => (
+              <option key={option} value={option}>
+                {getSortOptionLabel(option)}
+              </option>
+            ))}
+          </select>
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] pointer-events-none">▼</span>
+        </div>
+        
+        {/* Filter Toggle */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`pixel-btn text-[8px] !px-3 !py-2 smooth-transition ${
+            showFilters || hasActiveFilters 
+              ? '!bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff]' 
+              : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
+          }`}
+        >
+          {hasActiveFilters ? '🔍 FILTERS (ON)' : '🔍 FILTERS'}
+        </button>
+        
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <button
+            onClick={onClearFilters}
+            className="text-[#ff4466] text-[8px] hover:underline smooth-transition"
+          >
+            ✕ Clear
+          </button>
+        )}
+      </div>
+      
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className="bg-[#1a1a2e] rounded-lg p-4 border border-[#2a2a4e] animate-slide-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Price Range */}
+            <div>
+              <label className="text-[#9966ff] text-[7px] block mb-2">PRICE RANGE (MON)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Min"
+                  value={filterOptions.minPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only accept valid positive numbers or empty string
+                    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, minPrice: value || undefined });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validate on blur - remove invalid values
+                    const value = e.target.value;
+                    if (value && (parseFloat(value) < 0 || isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, minPrice: undefined });
+                    }
+                  }}
+                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
+                />
+                <span className="text-gray-500 text-[8px]">-</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Max"
+                  value={filterOptions.maxPrice || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only accept valid positive numbers or empty string
+                    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, maxPrice: value || undefined });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validate on blur - remove invalid values
+                    const value = e.target.value;
+                    if (value && (parseFloat(value) < 0 || isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, maxPrice: undefined });
+                    }
+                  }}
+                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
+                />
+              </div>
+            </div>
+            
+            {/* Star Variant */}
+            <div>
+              <label className="text-[#9966ff] text-[7px] block mb-2">STAR VARIANT</label>
+              <select
+                value={filterOptions.starVariant || ''}
+                onChange={(e) => onFilterChange({ ...filterOptions, starVariant: e.target.value || undefined })}
+                className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none cursor-pointer"
+              >
+                <option value="">All Variants</option>
+                {STAR_VARIANTS.map((variant) => (
+                  <option key={variant} value={variant}>
+                    {variant.charAt(0).toUpperCase() + variant.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Browse tab - view all active listings
@@ -29,25 +191,23 @@ function BrowseTab({
   isPending,
   currentAddress,
   balanceFormatted,
+  sortOption,
+  onSortChange,
+  filterOptions,
+  onFilterChange,
+  onClearFilters,
 }: { 
   listings: Listing[];
   onBuy: (listingId: string) => void;
   isPending: boolean;
   currentAddress?: string;
   balanceFormatted: string;
+  sortOption: SortOption;
+  onSortChange: (option: SortOption) => void;
+  filterOptions: FilterOptions;
+  onFilterChange: (options: FilterOptions) => void;
+  onClearFilters: () => void;
 }) {
-  if (listings.length === 0) {
-    return (
-      <div className="pixel-card p-8 text-center animate-slide-in-up">
-        <div className="text-4xl mb-4 animate-pixel-float">🌌</div>
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO ACTIVE LISTINGS</h3>
-        <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
-          The cosmic marketplace awaits its first listing. Be the first to list a Star Skrumpey!
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Balance Display */}
@@ -60,56 +220,177 @@ function BrowseTab({
         </div>
       </div>
       
-      {/* Listings Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {listings.map((listing, index) => {
-          const isOwnListing = currentAddress && 
-            listing.seller.toLowerCase() === currentAddress.toLowerCase();
+      {/* Filter and Sort Controls */}
+      <FilterSortControls
+        sortOption={sortOption}
+        onSortChange={onSortChange}
+        filterOptions={filterOptions}
+        onFilterChange={onFilterChange}
+        onClearFilters={onClearFilters}
+      />
+      
+      {/* Empty State */}
+      {listings.length === 0 ? (
+        <div className="pixel-card p-8 text-center animate-slide-in-up">
+          <div className="text-4xl mb-4 animate-pixel-float">🌌</div>
+          <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO LISTINGS FOUND</h3>
+          <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
+            No listings match your current filters. Try adjusting your search criteria.
+          </p>
+        </div>
+      ) : (
+        /* Listings Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {listings.map((listing, index) => {
+            const isOwnListing = currentAddress && 
+              listing.seller.toLowerCase() === currentAddress.toLowerCase();
+            const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+            
+            return (
+              <div 
+                key={listing.id} 
+                className={`pixel-card p-4 smooth-transition hover-lift animate-slide-in-up ${delayClass}`}
+              >
+                {/* NFT Info */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-16 h-16 bg-[#1a1a2e] rounded-lg flex items-center justify-center border border-[#2a2a4e]">
+                    <span className="text-2xl animate-pixel-float">🐸⭐</span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-gray-200 text-[10px] font-bold mb-1">
+                      Star Skrumpey #{listing.tokenId}
+                    </h4>
+                    {listing.starVariant && (
+                      <span className="text-[#9966ff] text-[8px] uppercase">
+                        ✦ {listing.starVariant}
+                      </span>
+                    )}
+                    <p className="text-gray-500 text-[6px] mt-1">
+                      Seller: {truncateAddress(listing.seller)}
+                      {isOwnListing && <span className="text-[#ffd700] ml-1">(YOU)</span>}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Price and Action */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-[6px]">PRICE</p>
+                    <p className="text-[#ffd700] text-sm font-bold">
+                      {listing.priceFormatted} MON
+                    </p>
+                  </div>
+                  {!isOwnListing && (
+                    <button
+                      onClick={() => onBuy(listing.id)}
+                      disabled={isPending}
+                      className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPending ? 'PROCESSING...' : '💰 BUY NOW'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * History Tab - view transaction history
+ */
+function HistoryTab({
+  history,
+  currentAddress,
+}: {
+  history: TransactionHistoryEntry[];
+  currentAddress?: string;
+}) {
+  if (history.length === 0) {
+    return (
+      <div className="pixel-card p-8 text-center animate-slide-in-up">
+        <div className="text-4xl mb-4 animate-pixel-float">📜</div>
+        <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO TRANSACTION HISTORY</h3>
+        <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
+          Your marketplace activity will appear here once you start trading Star Skrumpeys.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse animate-slide-in-up">
+        TRANSACTION HISTORY ({history.length})
+      </h3>
+      
+      <div className="space-y-3">
+        {history.map((entry, index) => {
+          const isYourTransaction = currentAddress && (
+            entry.seller.toLowerCase() === currentAddress.toLowerCase() ||
+            (entry.buyer && entry.buyer.toLowerCase() === currentAddress.toLowerCase())
+          );
           const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
           
           return (
             <div 
-              key={listing.id} 
+              key={entry.id} 
               className={`pixel-card p-4 smooth-transition hover-lift animate-slide-in-up ${delayClass}`}
             >
-              {/* NFT Info */}
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-16 h-16 bg-[#1a1a2e] rounded-lg flex items-center justify-center border border-[#2a2a4e]">
-                  <span className="text-2xl animate-pixel-float">🐸⭐</span>
+              <div className="flex items-center gap-4">
+                {/* Transaction Icon */}
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center border border-[#2a2a4e]"
+                  style={{ backgroundColor: `${getTransactionTypeColor(entry.type)}20` }}
+                >
+                  <span className="text-lg">{getTransactionTypeIcon(entry.type)}</span>
                 </div>
+                
+                {/* Transaction Details */}
                 <div className="flex-1">
-                  <h4 className="text-gray-200 text-[10px] font-bold mb-1">
-                    Star Skrumpey #{listing.tokenId}
-                  </h4>
-                  {listing.starVariant && (
-                    <span className="text-[#9966ff] text-[8px] uppercase">
-                      ✦ {listing.starVariant}
+                  <div className="flex items-center gap-2 mb-1">
+                    <span 
+                      className="text-[10px] font-bold"
+                      style={{ color: getTransactionTypeColor(entry.type) }}
+                    >
+                      {getTransactionTypeLabel(entry.type).toUpperCase()}
                     </span>
-                  )}
-                  <p className="text-gray-500 text-[6px] mt-1">
-                    Seller: {truncateAddress(listing.seller)}
-                    {isOwnListing && <span className="text-[#ffd700] ml-1">(YOU)</span>}
+                    <span className="text-gray-200 text-[9px]">
+                      Star Skrumpey #{entry.tokenId}
+                    </span>
+                    {entry.starVariant && (
+                      <span className="text-[#9966ff] text-[7px] uppercase">
+                        ✦ {entry.starVariant}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-[7px] text-gray-500">
+                    {entry.type === TransactionType.Sold ? (
+                      <>
+                        <span>From: {truncateAddress(entry.seller)}</span>
+                        <span>→</span>
+                        <span>To: {truncateAddress(entry.buyer || '')}</span>
+                      </>
+                    ) : (
+                      <span>By: {truncateAddress(entry.seller)}</span>
+                    )}
+                    {isYourTransaction && <span className="text-[#ffd700]">(YOU)</span>}
+                  </div>
+                </div>
+                
+                {/* Price and Time */}
+                <div className="text-right">
+                  <p className="text-[#ffd700] text-[10px] font-bold">
+                    {entry.priceFormatted} MON
+                  </p>
+                  <p className="text-gray-500 text-[6px]">
+                    {formatRelativeTime(entry.timestamp)}
                   </p>
                 </div>
-              </div>
-              
-              {/* Price and Action */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-[6px]">PRICE</p>
-                  <p className="text-[#ffd700] text-sm font-bold">
-                    {listing.priceFormatted} MON
-                  </p>
-                </div>
-                {!isOwnListing && (
-                  <button
-                    onClick={() => onBuy(listing.id)}
-                    disabled={isPending}
-                    className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isPending ? 'PROCESSING...' : '💰 BUY NOW'}
-                  </button>
-                )}
               </div>
             </div>
           );
@@ -425,7 +706,9 @@ export default function MarketplaceContent() {
   
   const {
     listings,
+    filteredListings,
     userListings,
+    transactionHistory,
     isLoading,
     isPending,
     balanceFormatted,
@@ -435,6 +718,11 @@ export default function MarketplaceContent() {
     cancelListing,
     availableForListing,
     refresh,
+    sortOption,
+    setSortOption,
+    filterOptions,
+    setFilterOptions,
+    clearFilters,
   } = useMarketplace();
   
   const { address } = useDAOAccess();
@@ -545,11 +833,16 @@ export default function MarketplaceContent() {
             <div className="max-w-3xl mx-auto">
               {activeTab === 'browse' && (
                 <BrowseTab
-                  listings={listings}
+                  listings={filteredListings}
                   onBuy={handleBuyListing}
                   isPending={isPending}
                   currentAddress={address}
                   balanceFormatted={balanceFormatted}
+                  sortOption={sortOption}
+                  onSortChange={setSortOption}
+                  filterOptions={filterOptions}
+                  onFilterChange={setFilterOptions}
+                  onClearFilters={clearFilters}
                 />
               )}
               {activeTab === 'create' && (
@@ -565,6 +858,12 @@ export default function MarketplaceContent() {
                   listings={userListings}
                   onCancel={handleCancelListing}
                   isPending={isPending}
+                />
+              )}
+              {activeTab === 'history' && (
+                <HistoryTab
+                  history={transactionHistory}
+                  currentAddress={address}
                 />
               )}
             </div>
