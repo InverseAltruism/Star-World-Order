@@ -488,9 +488,16 @@ export function saveStoredThreads(threads: ForumThread[]): void {
  */
 function getDefaultThreads(): ForumThread[] {
   const now = Date.now();
+  
+  // Pre-generate thread IDs so we can reference them in replies
+  const thread1Id = generateId();
+  const thread2Id = generateId();
+  const thread3Id = generateId();
+  const thread4Id = generateId();
+  
   return [
     {
-      id: generateId(),
+      id: thread1Id,
       title: 'Welcome to Star World Order!',
       content: 'Welcome, Star bearers! This is the official Star Council forum where we discuss all things related to the Star World Order DAO.\n\n**Forum Guidelines:**\n- Be respectful to fellow members\n- Stay on topic\n- No spam or self-promotion\n- Have fun!\n\n✦ chosen by the stars ✦',
       author: '0x1234...abcd',
@@ -499,7 +506,7 @@ function getDefaultThreads(): ForumThread[] {
       replies: [
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread1Id,
           content: 'Excited to be part of this community! 🌟',
           author: '0x5678...efgh',
           createdAt: now - 25 * 24 * 60 * 60 * 1000,
@@ -507,7 +514,7 @@ function getDefaultThreads(): ForumThread[] {
         },
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread1Id,
           content: 'The N64 vibes are amazing. Love the aesthetic!',
           author: '0x9abc...ijkl',
           createdAt: now - 20 * 24 * 60 * 60 * 1000,
@@ -519,7 +526,7 @@ function getDefaultThreads(): ForumThread[] {
       category: ThreadCategory.Announcements,
     },
     {
-      id: generateId(),
+      id: thread2Id,
       title: 'Ideas for next proposal',
       content: 'Hey everyone! I wanted to start a discussion about potential future proposals. What features or initiatives would you like to see in the Star World Order?\n\nSome ideas I\'ve been thinking about:\n- NFT staking rewards\n- Collaborative art projects\n- Cross-chain expansion\n\nWhat do you think?',
       author: '0x5678...efgh',
@@ -528,7 +535,7 @@ function getDefaultThreads(): ForumThread[] {
       replies: [
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread2Id,
           content: 'I love the staking rewards idea! Would incentivize long-term holding.',
           author: '0xmnop...qrst',
           createdAt: now - 6 * 24 * 60 * 60 * 1000,
@@ -540,7 +547,7 @@ function getDefaultThreads(): ForumThread[] {
       category: ThreadCategory.Ideas,
     },
     {
-      id: generateId(),
+      id: thread3Id,
       title: 'Star Skrumpey lore discussion',
       content: 'I\'ve been diving deep into the lore behind Star Skrumpeys. These cosmic creatures are fascinating!\n\nDid you know each star variant has unique properties?\n- **Aether**: Ethereal cosmic energy\n- **Spectra**: Spectral light patterns\n- **Solveil**: Solar essence\n- **Nebulu**: Nebula-infused\n\nWhat\'s your favorite variant and why?',
       author: '0x9abc...ijkl',
@@ -549,7 +556,7 @@ function getDefaultThreads(): ForumThread[] {
       replies: [
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread3Id,
           content: 'Aether gang! The ethereal vibes are unmatched.',
           author: '0xuvwx...yz12',
           createdAt: now - 10 * 24 * 60 * 60 * 1000,
@@ -557,7 +564,7 @@ function getDefaultThreads(): ForumThread[] {
         },
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread3Id,
           content: 'Monflare for me - that Monad energy hits different 🔥',
           author: '0x3456...7890',
           createdAt: now - 8 * 24 * 60 * 60 * 1000,
@@ -569,7 +576,7 @@ function getDefaultThreads(): ForumThread[] {
       category: ThreadCategory.General,
     },
     {
-      id: generateId(),
+      id: thread4Id,
       title: 'Discussion: SWO-001 Expansion Proposal',
       content: 'This thread is for discussing the SWO-001 proposal to expand the Star trait collection.\n\n**Key Questions:**\n1. How many new Star Skrumpeys should be minted?\n2. How should they be distributed?\n3. What impact will this have on existing holders?\n\nPlease share your thoughts!',
       author: '0x1234...abcd',
@@ -578,7 +585,7 @@ function getDefaultThreads(): ForumThread[] {
       replies: [
         {
           id: generateId(),
-          threadId: '',
+          threadId: thread4Id,
           content: 'I think 50 is a good number. Not too many to dilute, but enough to grow.',
           author: '0xdefg...hijk',
           createdAt: now - 2 * 24 * 60 * 60 * 1000,
