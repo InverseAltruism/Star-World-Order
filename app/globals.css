@@ -10,3 +10,322 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ============================================
+   Nintendo-Style Loading Screen Styles
+   ============================================ */
+
+.swo-loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  image-rendering: pixelated;
+}
+
+.swo-loading-screen[data-phase="done"] {
+  animation: swoFadeOut 1s ease-out forwards;
+}
+
+@keyframes swoFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; pointer-events: none; }
+}
+
+/* CRT scanlines effect */
+.swo-scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Cartridge styles */
+.swo-cartridge-container {
+  position: absolute;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: top 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 5;
+}
+
+.swo-cartridge-container.inserting {
+  animation: swoInsertCartridge 1.5s ease-out forwards;
+}
+
+.swo-cartridge-container.inserted {
+  top: 30%;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+}
+
+@keyframes swoInsertCartridge {
+  0% { top: -200px; }
+  60% { top: 40%; }
+  80% { top: 35%; }
+  100% { top: 40%; }
+}
+
+.swo-cartridge {
+  width: 120px;
+  height: 160px;
+  background: #2a2a2a;
+  border: 4px solid #444;
+  border-radius: 8px 8px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 
+    inset 0 0 0 2px #1a1a1a,
+    0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.swo-cartridge-label {
+  width: 90%;
+  height: 70%;
+  margin-top: 8px;
+  background: linear-gradient(180deg, #1a1a6e 0%, #0f0f4a 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.swo-cartridge-star {
+  font-size: 32px;
+  color: #fbbf24;
+  text-shadow: 0 0 10px #fbbf24;
+  animation: swoPulse 1s ease-in-out infinite;
+}
+
+.swo-cartridge-text {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: bold;
+  color: #fbbf24;
+  letter-spacing: 1px;
+}
+
+.swo-cartridge-bottom {
+  width: 60%;
+  height: 20px;
+  background: #1a1a1a;
+  border-radius: 0 0 4px 4px;
+  margin-top: auto;
+  margin-bottom: 4px;
+}
+
+/* Boot screen */
+.swo-boot-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.5s ease-in;
+}
+
+.swo-boot-screen.active {
+  opacity: 1;
+}
+
+/* Screen flicker */
+.swo-screen-flicker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.swo-screen-flicker.flickering {
+  animation: swoFlicker 1s ease-out;
+}
+
+@keyframes swoFlicker {
+  0%, 100% { opacity: 0; }
+  5%, 15%, 25% { opacity: 0.8; }
+  10%, 20%, 30% { opacity: 0; }
+}
+
+/* Loading content */
+.swo-loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.swo-loading-content.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Pixel star */
+.swo-pixel-star-container {
+  margin-bottom: 24px;
+}
+
+.swo-pixel-star {
+  width: 64px;
+  height: 64px;
+  background: #fbbf24;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+  box-shadow: 0 0 20px #fbbf24, 0 0 40px #fbbf24;
+  animation: swoSpin 2s linear infinite, swoGlow 1s ease-in-out infinite alternate;
+}
+
+@keyframes swoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes swoGlow {
+  from { box-shadow: 0 0 20px #fbbf24, 0 0 40px #fbbf24; }
+  to { box-shadow: 0 0 30px #fbbf24, 0 0 60px #fbbf24, 0 0 80px #f59e0b; }
+}
+
+@keyframes swoPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Typography */
+.swo-loading-title {
+  font-family: 'Courier New', monospace;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0 0 8px 0;
+  text-shadow: 0 0 10px #6366f1, 0 0 20px #6366f1;
+  letter-spacing: 4px;
+}
+
+.swo-title-star {
+  color: #fbbf24;
+  text-shadow: 0 0 10px #fbbf24;
+}
+
+.swo-loading-subtitle {
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: #6366f1;
+  margin: 0 0 32px 0;
+  letter-spacing: 2px;
+}
+
+/* Loading bar */
+.swo-loading-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.swo-loading-bar {
+  width: 200px;
+  height: 16px;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  padding: 2px;
+}
+
+.swo-loading-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #fbbf24 100%);
+  transition: width 0.1s linear;
+  box-shadow: 0 0 8px #6366f1;
+}
+
+.swo-loading-percentage {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  color: #fbbf24;
+  min-width: 48px;
+}
+
+/* Hint text */
+.swo-loading-hint {
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: #666;
+  margin: 0;
+  animation: swoBlink 1.5s ease-in-out infinite;
+}
+
+@keyframes swoBlink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.3; }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .swo-loading-title {
+    font-size: 1.25rem;
+    letter-spacing: 2px;
+  }
+
+  .swo-loading-subtitle {
+    font-size: 0.75rem;
+  }
+
+  .swo-loading-bar {
+    width: 150px;
+  }
+
+  .swo-cartridge {
+    width: 100px;
+    height: 140px;
+  }
+
+  .swo-cartridge-star {
+    font-size: 24px;
+  }
+
+  .swo-cartridge-text {
+    font-size: 8px;
+  }
+}
