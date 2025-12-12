@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Star World Order | Skrumpeys NFT',
-  description: 'Star World Order (SWO) - NFT/DAO focused on Skrumpeys with star traits on Monad Chain',
+  title: 'Star World Order | Skrumpey DAO',
+  description: 'Star World Order (SWO) - A Sub-DAO of Skrumpeys on Monad. Hold a Star Skrumpey to enter the DAO.',
 };
 
 export default function RootLayout({
@@ -14,6 +14,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" 
+          rel="stylesheet"
+        />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>
