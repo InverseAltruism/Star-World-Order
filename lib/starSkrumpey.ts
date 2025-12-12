@@ -130,10 +130,8 @@ export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
       transport: http(),
     });
 
-    // Check ownership of each Star Skrumpey ID
-    const ownedStarSkrumpeys: number[] = [];
-    
-    for (const tokenId of STAR_SKRUMPEY_IDS) {
+    // Check ownership of all Star Skrumpey IDs concurrently for better performance
+    const ownershipChecks = STAR_SKRUMPEY_IDS.map(async (tokenId) => {
       try {
         const owner = await client.readContract({
           address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
@@ -143,15 +141,17 @@ export async function fetchUserSkrumpeys(address: string): Promise<number[]> {
         });
         
         if (owner.toLowerCase() === address.toLowerCase()) {
-          ownedStarSkrumpeys.push(tokenId);
+          return tokenId;
         }
+        return null;
       } catch {
         // Token might not exist or other error - skip it
-        continue;
+        return null;
       }
-    }
+    });
 
-    return ownedStarSkrumpeys;
+    const results = await Promise.all(ownershipChecks);
+    return results.filter((id): id is number => id !== null);
   } catch (error) {
     console.error('Error fetching user Skrumpeys:', error);
     return [];

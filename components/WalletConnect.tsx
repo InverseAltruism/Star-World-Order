@@ -7,6 +7,9 @@ export default function WalletConnect() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
 
+  // Check if any connectors are available
+  const hasConnectors = connectors.length > 0;
+
   const handleConnect = () => {
     // Use the first available connector (injected wallet takes priority in wagmi config)
     // If WalletConnect is configured, it will be available as a second connector
@@ -35,9 +38,10 @@ export default function WalletConnect() {
   return (
     <button
       onClick={handleConnect}
-      className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2"
+      disabled={!hasConnectors}
+      className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 ${!hasConnectors ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-      CONNECT
+      {hasConnectors ? 'CONNECT' : 'NO WALLET'}
     </button>
   );
 }
