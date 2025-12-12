@@ -2,57 +2,76 @@
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║  ★ PRESS START TO ENTER THE STAR WORLD ORDER ★               ║
 ║                                                              ║
-║  🐸 + ⭐ = ACCESS GRANTED                                     ║
+║   ✦ 𓆩 INSERT CARTRIDGE TO BEGIN 𓆪 ✦                          ║
+║                                                              ║
+║              🐸 + ⭐ = ACCESS GRANTED                         ║
+║                                                              ║
+║         chosen by the stars • the order is forming           ║
+║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
-## 🎮 WELCOME, STAR HOLDER!
+## 🎮 PLAYER SELECT
 
-**Star World Order (SWO)** is a Sub-DAO of the Skrumpeys NFT collection on **Monad**. 
+**Star World Order (SWO)** is a Sub-DAO of the Skrumpeys on **Monad**. 
 
-To enter our exclusive DAO, you need one thing: **a Skrumpey with a Star trait**.
+✦ chosen by the stars ✦
 
-These rare 64×64 pixel art creatures are your key to the Star World Order. No Star? No entry. It's that simple.
+To enter the cosmic realm, you need one thing: **a Skrumpey with the Star trait**.
 
-## ⭐ WHAT IS STAR WORLD ORDER?
+These rare pixel art creatures are your key to the Star World Order. No Star? The order awaits your return.
 
-Star World Order is not just another DAO—it's an exclusive community for holders of the rarest Skrumpeys in the universe. We're building an immersive, Nintendo-inspired experience that feels like plugging in a game cartridge every time you visit.
+## ⭐ THE COSMIC MANDATE
+
+Star World Order isn't just another DAO—it's an exclusive realm for those chosen by the stars. We're building an immersive experience that feels like plugging in a game cartridge every time you visit.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│              ★ WELCOME TO THE ORDER ★                   │
+│                                                         │
+│    🟣⭐ chosen by the stars 💜                           │
+│                                                         │
+│    the order is forming... are you chosen?              │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### 🎯 THE MISSION
-- Unite Star Skrumpey holders in a decentralized governance structure
-- Build an immersive retro-gaming inspired web experience
+- Unite Star Skrumpey holders in a cosmic governance structure
+- Build an immersive N64-inspired web experience
 - Empower our community through voting, proposals, and shared treasury
-- Create value for Star trait holders through exclusive features
+- Create value for those chosen by the stars
 
-## 🐸 SKRUMPEYS & THE STAR TRAIT
+## 🐸 THE STAR SKRUMPEY
 
-**Skrumpeys** are 64×64 pixel art NFTs—quirky creatures that vaguely resemble frogs. The main collection lives on Monad, but only those with the **Star trait** can access the Star World Order.
+**Skrumpeys** are pixel art NFTs—quirky creatures on Monad. But only those bearing the **Star trait** can access the Star World Order.
 
 ```
 ┌─────────────────────────────────────┐
-│         STAR SKRUMPEY               │
+│         ★ STAR SKRUMPEY ★           │
 │                                     │
 │            🐸 + ⭐                   │
 │                                     │
-│   Your key to the DAO universe      │
+│   your key to the cosmic realm      │
 └─────────────────────────────────────┘
 ```
 
-## 🕹️ FEATURES
+## 🕹️ GAME FEATURES
 
-### Available Now
-- **🎮 Nintendo-Style Loading Screen** - Experience a retro cartridge insertion animation when you enter
+### NOW PLAYING
+- **🎮 N64-Style Loading Screen** - Insert the SWO cartridge into the console to boot up
+- **📺 Cozy Gaming Setup** - CRT TV, N64 console, and wooden desk create the perfect retro atmosphere
 - **💼 Wallet Connection** - Connect with MetaMask, Trust Wallet, Phantom, and more
-- **🎨 Pixel Art UI** - Immersive retro design with CRT scanlines and pixel fonts
+- **🎨 Synthwave Pixel Art UI** - Neon glows, CRT scanlines, and retro pixel fonts
 
-### Coming Soon
-- **🏛️ DAO Governance** - Vote on proposals and shape the future of SWO
-- **💎 Treasury Management** - Community-controlled funds
-- **💬 Forum** - Discuss ideas with fellow Star holders
-- **🔄 OTC Marketplace** - Trade Star Skrumpeys directly with other members
-- **👤 Member Profiles** - Showcase your Star Skrumpeys
+### UNLOCKING SOON
+- **🏛️ The Order** - DAO governance for star bearers
+- **💎 Treasury** - Collective cosmic resources
+- **💬 Star Council** - Commune with fellow chosen ones
+- **🔄 Cosmic Exchange** - Trade amongst the stars
+- **👤 Star Profiles** - Showcase your Star Skrumpey
 
 ## 🔗 TECH STACK
 
@@ -60,11 +79,11 @@ Star World Order is not just another DAO—it's an exclusive community for holde
 |-------|------------|
 | Blockchain | Monad (High-performance EVM) |
 | Frontend | Next.js 16, React 19, TypeScript |
-| Styling | Tailwind CSS 4, Custom Pixel Art CSS |
+| Styling | Tailwind CSS 4, Synthwave CSS |
 | Web3 | Wagmi 3, Viem 2 |
 | Font | Press Start 2P (Retro Pixel Font) |
 
-## 🚀 GETTING STARTED
+## 🚀 START GAME
 
 ### Prerequisites
 - Node.js 18+
@@ -88,60 +107,61 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and insert your Star cartridge! ⭐
+Open [http://localhost:3000](http://localhost:3000) and insert the ★ cartridge! 
 
-### Scripts
+### Controls
 
-| Command | Description |
-|---------|-------------|
+| Command | Action |
+|---------|--------|
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
+| `npm run type-check` | Run TypeScript checks |
 
-## 📋 ROADMAP
+## 📋 QUEST LOG
 
-### Phase 1: Foundation ✅
-- [x] Nintendo-style loading screen with cartridge animation
-- [x] Retro pixel art UI design
+### Stage 1: Foundation ✅
+- [x] N64-style cozy gaming setup loading screen
+- [x] Synthwave pixel art UI design
 - [x] Multi-wallet connection support
 - [x] Monad chain integration
 
-### Phase 2: DAO Core (In Progress)
+### Stage 2: The Order (In Progress)
 - [ ] Star Skrumpey holder verification
 - [ ] DAO governance smart contracts
 - [ ] Proposal creation and voting system
 - [ ] Treasury management
 
-### Phase 3: Community Features
-- [ ] Member profiles with NFT display
-- [ ] Community forum
-- [ ] OTC marketplace for Star Skrumpeys
+### Stage 3: Community
+- [ ] Star profiles with NFT display
+- [ ] Star Council forum
+- [ ] Cosmic Exchange marketplace
 - [ ] Achievements and badges
 
-### Phase 4: Expansion
+### Stage 4: Expansion
 - [ ] Mobile optimization
 - [ ] Additional chain support
 - [ ] Partnerships and integrations
 
 ## 🎨 DESIGN PHILOSOPHY
 
-Our design is inspired by classic Nintendo games and retro gaming consoles:
+Our design is inspired by N64-era gaming and synthwave aesthetics:
 
-- **Pixel Art** - All UI elements use a pixel-perfect aesthetic
-- **CRT Effects** - Subtle scanlines for that authentic retro feel
+- **Cozy Gaming Setup** - CRT TV, N64 console, wooden desk
+- **Synthwave Colors** - Deep navy/purple with neon cyan, magenta, gold accents
+- **Neon Glow Effects** - Soft bloom on buttons and cards
+- **CRT Scanlines** - Authentic retro feel
 - **Press Start 2P Font** - Classic gaming typography
-- **Gold & Purple Palette** - Royal colors for Star holders
-- **Cartridge Loading** - The website boots up like a game console
+- **Cartridge Loading** - Insert the SWO cartridge to boot up
 
-## 🤝 CONTRIBUTING
+## 🤝 JOIN THE ORDER
 
 Want to help build the Star World Order? We welcome contributions!
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/awesome-feature`)
-3. Commit your changes (`git commit -m 'Add awesome feature'`)
-4. Push to the branch (`git push origin feature/awesome-feature`)
+2. Create your feature branch (`git checkout -b feature/cosmic-feature`)
+3. Commit your changes (`git commit -m 'Add cosmic feature'`)
+4. Push to the branch (`git push origin feature/cosmic-feature`)
 5. Open a Pull Request
 
 ## 📄 LICENSE
@@ -151,17 +171,16 @@ This project is licensed under the ISC License.
 ## 🌟 COMMUNITY
 
 - **GitHub**: [InverseAltruism/Star-World-Order](https://github.com/InverseAltruism/Star-World-Order)
-- **Discord**: Coming soon
-- **Twitter**: Coming soon
+- **Twitter**: [@skrumpeys](https://twitter.com/skrumpeys)
 
 ---
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║   ⭐ BUILT BY THE STAR WORLD ORDER COMMUNITY ⭐               ║
+║   ✦ 𓆩 STAR WORLD ORDER 𓆪 ✦                                   ║
 ║                                                              ║
-║   Hold a Star Skrumpey. Join the Order. Shape the Future.   ║
+║   chosen by the stars • the order is forming • @skrumpeys    ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```

@@ -23,11 +23,6 @@ const LOADING_CONFIG = {
   INTERVAL_MS: 80,             // Milliseconds between ticks
 } as const;
 
-// Console hardware configuration
-const CONSOLE_CONFIG = {
-  VENT_COUNT: 8,               // Number of vent slots on console top
-} as const;
-
 // ============================================
 // Helper Functions
 // ============================================
@@ -65,7 +60,7 @@ const loadingScreenStyle: CSSProperties = {
   left: 0,
   width: '100vw',
   height: '100vh',
-  background: 'linear-gradient(135deg, #1a0a2e 0%, #0d0d1a 50%, #0a1628 100%)',
+  background: 'linear-gradient(180deg, #0a0a1a 0%, #12122a 50%, #0f0f23 100%)',
   zIndex: 9999,
   display: 'flex',
   alignItems: 'center',
@@ -171,48 +166,28 @@ export default function LoadingScreen() {
       style={loadingScreenStyle}
       data-phase={phase}
       role="application"
-      aria-label="Nintendo-style loading experience"
+      aria-label="Cozy retro gaming setup"
     >
-      {/* Ambient background effects */}
+      {/* Room background with subtle glow */}
+      <div className="swo-room-bg" />
+      
+      {/* Ambient stars in the background */}
       <div className="swo-ambient-stars" />
       
       {/* CRT scanlines overlay */}
       <div className="swo-scanlines" />
       
-      {/* Main scene container that zooms */}
-      <div className={`swo-scene ${isZoomingOrBeyond ? 'zoomed' : ''}`}>
+      {/* ===== COZY GAMING DESK SETUP ===== */}
+      <div className="swo-gaming-setup">
         
-        {/* The Retro Console */}
-        <div className="swo-console">
-          {/* Console body */}
-          <div className="swo-console-body">
-            {/* Top vents */}
-            <div className="swo-console-vents">
-              {[...Array(CONSOLE_CONFIG.VENT_COUNT)].map((_, i) => (
-                <div key={i} className="swo-vent-slot" />
-              ))}
-            </div>
-            
-            {/* Cartridge slot */}
-            <div className="swo-cartridge-slot">
-              <div className="swo-slot-inner" />
-              <div className="swo-slot-label">GAME PAK</div>
-            </div>
-            
-            {/* Power LED */}
-            <div className={`swo-power-led ${phase !== 'waiting' && phase !== 'inserting' ? 'on' : ''}`} />
-            
-            {/* Console branding */}
-            <div className="swo-console-brand">
-              <span className="swo-brand-star">★</span>
-              <span className="swo-brand-text">STAR-64</span>
-            </div>
-          </div>
+        {/* Main scene container that zooms into the TV screen */}
+        <div className={`swo-scene ${isZoomingOrBeyond ? 'zoomed' : ''}`}>
           
-          {/* The Screen/Monitor */}
-          <div className={`swo-monitor ${phase !== 'waiting' && phase !== 'inserting' ? 'on' : ''}`}>
-            <div className="swo-monitor-frame">
-              <div className="swo-screen">
+          {/* The CRT TV/Monitor - sits on top */}
+          <div className={`swo-tv ${phase !== 'waiting' && phase !== 'inserting' ? 'on' : ''}`}>
+            <div className="swo-tv-body">
+              {/* TV Screen */}
+              <div className="swo-tv-screen">
                 {/* Screen off state */}
                 <div className={`swo-screen-off ${phase === 'waiting' || phase === 'inserting' ? 'visible' : ''}`}>
                   <div className="swo-screen-reflection" />
@@ -228,11 +203,11 @@ export default function LoadingScreen() {
                     <div className="swo-pixel-star" />
                   </div>
                   
-                  {/* Title */}
+                  {/* Title - mysterious style */}
                   <h1 className="swo-loading-title">
-                    <span className="swo-title-star">★</span> STAR WORLD ORDER
+                    <span className="swo-title-star">⭐</span> STAR WORLD ORDER
                   </h1>
-                  <p className="swo-loading-subtitle">SKRUMPEY DAO ON MONAD</p>
+                  <p className="swo-loading-subtitle">✦ chosen by the stars ✦</p>
                   
                   {/* Loading bar */}
                   <div className="swo-loading-bar-container">
@@ -245,48 +220,108 @@ export default function LoadingScreen() {
                     <span className="swo-loading-percentage">{loadingProgress}%</span>
                   </div>
                   
-                  <p className="swo-game-text">LOADING STAR WORLD...</p>
+                  <p className="swo-game-text">the order is forming...</p>
                 </div>
                 
                 {/* CRT screen effect */}
                 <div className="swo-screen-crt" />
               </div>
+              
+              {/* TV Controls/Details */}
+              <div className="swo-tv-controls">
+                <div className="swo-tv-brand">STAR-64</div>
+                <div className={`swo-tv-led ${phase !== 'waiting' && phase !== 'inserting' ? 'on' : ''}`} />
+              </div>
             </div>
-            {/* Monitor stand */}
-            <div className="swo-monitor-stand" />
-            <div className="swo-monitor-base" />
+            
+            {/* TV Stand */}
+            <div className="swo-tv-stand" />
+          </div>
+          
+          {/* The N64-style Console - sits below TV, on the desk */}
+          <div className="swo-n64-console">
+            {/* Console top with cartridge slot */}
+            <div className="swo-n64-top">
+              <div className="swo-n64-slot">
+                <div className="swo-n64-slot-inner" />
+              </div>
+              {/* Console ridges/vents on left side */}
+              <div className="swo-n64-ridges">
+                <div className="swo-n64-ridge" />
+                <div className="swo-n64-ridge" />
+                <div className="swo-n64-ridge" />
+              </div>
+            </div>
+            
+            {/* Console body */}
+            <div className="swo-n64-body">
+              {/* Power button */}
+              <div className={`swo-n64-power ${phase !== 'waiting' && phase !== 'inserting' ? 'on' : ''}`}>
+                <span>POWER</span>
+              </div>
+              {/* Reset button */}
+              <div className="swo-n64-reset">
+                <span>RESET</span>
+              </div>
+              {/* N64 Logo area */}
+              <div className="swo-n64-logo">
+                <span className="swo-n64-star">★</span>
+                <span>64</span>
+              </div>
+            </div>
+            
+            {/* Controller ports */}
+            <div className="swo-n64-ports">
+              <div className="swo-n64-port" />
+              <div className="swo-n64-port" />
+            </div>
+            
+            {/* The Cartridge - hovers above console slot until clicked */}
+            <div 
+              className={`swo-cartridge-wrapper ${phase}`}
+              onClick={phase === 'waiting' ? handleInsertCartridge : undefined}
+              onKeyDown={(e) => e.key === 'Enter' && phase === 'waiting' && handleInsertCartridge()}
+              role={phase === 'waiting' ? 'button' : undefined}
+              tabIndex={phase === 'waiting' ? 0 : -1}
+              aria-label={phase === 'waiting' ? 'Click to insert cartridge' : undefined}
+            >
+              <div className="swo-cartridge">
+                {/* Cartridge grip/top with ridges */}
+                <div className="swo-cartridge-grip">
+                  <div className="swo-cartridge-ridges">
+                    <div className="swo-cart-ridge" />
+                    <div className="swo-cart-ridge" />
+                    <div className="swo-cart-ridge" />
+                  </div>
+                </div>
+                {/* Cartridge label - SWO branding with star */}
+                <div className="swo-cartridge-label">
+                  <div className="swo-cartridge-star">★</div>
+                  <div className="swo-cartridge-text">
+                    <span>SWO</span>
+                  </div>
+                </div>
+                {/* Cartridge bottom/connector pins */}
+                <div className="swo-cartridge-bottom">
+                  <div className="swo-cartridge-pins" />
+                </div>
+              </div>
+              
+              {/* Prompt to insert */}
+              {phase === 'waiting' && (
+                <div className="swo-insert-prompt">
+                  <span className="swo-prompt-arrow">▼</span>
+                  <span className="swo-prompt-text">CLICK TO INSERT</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
-        {/* The Cartridge - hovers above slot until clicked */}
-        <div 
-          className={`swo-cartridge-wrapper ${phase}`}
-          onClick={phase === 'waiting' ? handleInsertCartridge : undefined}
-          onKeyDown={(e) => e.key === 'Enter' && phase === 'waiting' && handleInsertCartridge()}
-          role={phase === 'waiting' ? 'button' : undefined}
-          tabIndex={phase === 'waiting' ? 0 : -1}
-          aria-label={phase === 'waiting' ? 'Click to insert cartridge' : undefined}
-        >
-          <div className="swo-cartridge">
-            <div className="swo-cartridge-top" />
-            <div className="swo-cartridge-label">
-              <div className="swo-cartridge-star">★</div>
-              <div className="swo-cartridge-title">STAR</div>
-              <div className="swo-cartridge-title">WORLD</div>
-              <div className="swo-cartridge-title">ORDER</div>
-            </div>
-            <div className="swo-cartridge-bottom">
-              <div className="swo-cartridge-pins" />
-            </div>
-          </div>
-          
-          {/* Prompt to insert */}
-          {phase === 'waiting' && (
-            <div className="swo-insert-prompt">
-              <span className="swo-prompt-arrow">▼</span>
-              <span className="swo-prompt-text">CLICK TO INSERT</span>
-            </div>
-          )}
+        {/* The Wooden Desk */}
+        <div className="swo-desk">
+          <div className="swo-desk-top" />
+          <div className="swo-desk-front" />
         </div>
       </div>
       
@@ -303,7 +338,7 @@ export default function LoadingScreen() {
       {/* Instructions at bottom */}
       {phase === 'waiting' && (
         <div className="swo-instructions">
-          <p>INSERT THE ★ CARTRIDGE TO BEGIN YOUR JOURNEY</p>
+          <p>✦ INSERT THE CARTRIDGE ✦ the stars are calling ✦</p>
         </div>
       )}
     </div>
