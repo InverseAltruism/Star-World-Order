@@ -90,6 +90,67 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 | Web3 | Wagmi 3, Viem 2 |
 | Font | Press Start 2P (Retro Pixel Font) |
 
+## 🌐 MONAD NETWORK REFERENCE
+
+<!-- 
+  Network Reference Information for Monad Mainnet
+  Collection: Skrumpeys on Monad
+-->
+
+### Chain Configuration
+
+| Property | Value |
+|----------|-------|
+| Chain ID | 143 (0x8f) |
+| Currency | MON |
+| Block Gas Limit | 200,000,000 |
+
+### Explorers
+
+| Explorer Name | Explorer URL |
+|---------------|--------------|
+| Monad Vision | https://monadvision.com |
+| Monadscan | https://monadscan.com |
+
+### RPC Endpoints
+
+| RPC Server Address |
+|--------------------|
+| https://rpc.monad.xyz |
+| https://rpc1.monad.xyz |
+| https://rpc2.monad.xyz |
+| https://rpc3.monad.xyz |
+| https://rpc4.monad.xyz |
+| https://rpc-mainnet.monadinfra.com |
+| https://monad-mainnet.drpc.org |
+| https://monad-mainnet.api.onfinality.io/public |
+| https://monad-mainnet-rpc.spidernode.net |
+
+### Contract Addresses
+
+| Contract | Address |
+|----------|---------|
+| Skrumpeys | [0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0](https://monadscan.com/address/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0) |
+
+## ⭐ STAR TRAITS
+
+Star Skrumpeys can have one of the following **constellation variants**:
+
+| Variant | Description |
+|---------|-------------|
+| **aether** | Ethereal cosmic energy |
+| **spectra** | Spectral light patterns |
+| **solveil** | Solar essence |
+| **nebulu** | Nebula-infused |
+| **chroma** | Chromatic brilliance |
+| **rose** | Rose-tinted stardust |
+| **monflare** | Monad flare energy |
+| **auracore** | Core aura manifestation |
+| **parallel** | Parallel dimension aligned |
+| **prime** | Prime constellation |
+
+These traits determine your Star Skrumpey's visual appearance and may influence future DAO mechanics.
+
 ## 🚀 START GAME
 
 ### Prerequisites

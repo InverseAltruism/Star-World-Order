@@ -4,9 +4,40 @@
  * This module handles the logic for determining if a wallet holds a Star Skrumpey NFT.
  * Star Skrumpeys are Skrumpey NFTs that have the "star" trait, granting access to the DAO.
  * 
+ * Skrumpeys Contract: https://monadscan.com/address/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0
+ * 
+ * Star Traits - Constellation Variants:
+ * - aether: Ethereal cosmic energy
+ * - spectra: Spectral light patterns
+ * - solveil: Solar essence
+ * - nebulu: Nebula-infused
+ * - chroma: Chromatic brilliance
+ * - rose: Rose-tinted stardust
+ * - monflare: Monad flare energy
+ * - auracore: Core aura manifestation
+ * - parallel: Parallel dimension aligned
+ * - prime: Prime constellation
+ * 
  * The allow-list of Star Skrumpey IDs will be provided by the team when available.
- * For now, this is a placeholder that can be easily configured.
  */
+
+/**
+ * Star trait constellation variants
+ */
+export const STAR_TRAIT_VARIANTS = [
+  'aether',
+  'spectra',
+  'solveil',
+  'nebulu',
+  'chroma',
+  'rose',
+  'monflare',
+  'auracore',
+  'parallel',
+  'prime',
+] as const;
+
+export type StarTraitVariant = typeof STAR_TRAIT_VARIANTS[number];
 
 // Allow-list of NFT IDs that have the Star trait
 // This will be populated with actual IDs when provided by the team
