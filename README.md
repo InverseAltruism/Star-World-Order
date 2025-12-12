@@ -65,13 +65,64 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 - **📺 Cozy Gaming Setup** - CRT TV, N64 console, and wooden desk create the perfect retro atmosphere
 - **🔒 Star Gate** - Wallet connection works for everyone; DAO controls unlock for Star-trait Skrumpeys (allow-list friendly)
 - **🎨 Synthwave Pixel Art UI** - Neon glows, CRT scanlines, and retro pixel fonts
+- **🔄 Cosmic Exchange** - OTC marketplace for Star Skrumpeys with filtering, sorting, and transaction history
 
 ### UNLOCKING SOON
 - **👤 Star Profiles** - Member profile that spotlights your Skrumpeys (with a star callout)
 - **🏛️ The Order** - DAO governance for star bearers: proposals + voting
 - **💎 Treasury** - Collective cosmic resources with on-chain transparency
 - **💬 Star Council** - Forum-style hub for discussions and lore
-- **🔄 Cosmic Exchange** - OTC-style marketplace for Star Skrumpeys
+
+## 🔄 COSMIC EXCHANGE (OTC MARKETPLACE)
+
+The Cosmic Exchange is a trustless, peer-to-peer marketplace exclusively for Star Skrumpeys. Trade directly without centralized marketplaces like Magic Eden or OpenSea.
+
+### Marketplace Features
+
+| Feature | Description |
+|---------|-------------|
+| **📋 List NFTs** | Set your own price for Star Skrumpeys |
+| **💰 Buy Listings** | Purchase with atomic, trustless transactions |
+| **⭐ My Listings** | Manage and cancel your active listings |
+| **📜 Transaction History** | Track all marketplace activity |
+| **🔍 Filter & Sort** | Find listings by price, variant, and more |
+| **💎 DAO Fee** | 2.5% fee supports DAO treasury |
+
+### Sorting Options
+
+- **Price: Low to High** - Find the best deals first
+- **Price: High to Low** - See premium listings
+- **Newest First** - Latest listings at top
+- **Oldest First** - Original listings first
+- **Token ID** - Sort by NFT number
+
+### Filtering Options
+
+- **Price Range** - Set min/max price in MON
+- **Star Variant** - Filter by constellation type (aether, spectra, solveil, etc.)
+
+### Transaction History
+
+The History tab shows all marketplace activity:
+- 📋 **Listed** - When NFTs are put up for sale
+- 💰 **Sold** - Completed purchases with buyer/seller info
+- ❌ **Cancelled** - Delisted items
+
+### Open Source Libraries Comparison
+
+We evaluated several EVM-compatible NFT marketplace libraries before building our custom solution:
+
+| Library | Version | License | Notes |
+|---------|---------|---------|-------|
+| [@opensea/seaport-js](https://github.com/ProjectOpenSea/seaport-js) | 4.0.5 | MIT | OpenSea's Seaport protocol, ethers v6 compatible, supports custom fee recipients |
+| [@traderxyz/nft-swap-sdk](https://github.com/trader-xyz/nft-swap-sdk) | 0.33.0 | MIT | 0x protocol based, ethers v5 (needs adapter) |
+| [@reservoir0x/reservoir-sdk](https://npmjs.com/package/@reservoir0x/reservoir-sdk) | 2.5.7 | MIT | API-based aggregator, cross-marketplace support |
+
+**Why Custom?** Our custom contract provides:
+- Full control over DAO treasury fee percentage
+- Gas optimization for Monad's high-performance EVM
+- Simpler UX for Star Skrumpey-specific features
+- No dependency on external protocols or APIs
 
 ## 🎛️ DAO ARSENAL (MANUAL EXCERPT)
 - **Access Key:** Hold a Star Skrumpey; IDs can be allow-listed for special drops.
@@ -88,6 +139,7 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 | Frontend | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS 4, Synthwave CSS |
 | Web3 | Wagmi 3, Viem 2 |
+| Smart Contracts | Solidity 0.8.20, OpenZeppelin |
 | Font | Press Start 2P (Retro Pixel Font) |
 
 ## 🌐 MONAD NETWORK REFERENCE
@@ -131,6 +183,108 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 | Contract | Address |
 |----------|---------|
 | Skrumpeys | [0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0](https://monadscan.com/address/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0) |
+| Marketplace | *Pending Deployment* |
+| DAO Treasury | *Pending Deployment* |
+
+## 📜 SMART CONTRACTS
+
+The Star World Order uses custom smart contracts optimized for Monad's high-performance EVM.
+
+### StarSkrumpeyMarketplace.sol
+
+Located in `/contracts/StarSkrumpeyMarketplace.sol`, this is the core OTC marketplace contract.
+
+#### Contract Features
+
+| Feature | Description |
+|---------|-------------|
+| **Fixed-Price Listings** | Sellers set exact MON price |
+| **Trustless Trades** | Atomic NFT ↔ MON swaps |
+| **DAO Fee** | Configurable fee (default 2.5%) to treasury |
+| **Emergency Controls** | Pausable + admin recovery functions |
+| **Gas Optimized** | Designed for Monad's fast block times |
+
+#### Key Functions
+
+```solidity
+// Create a listing - requires prior NFT approval
+function createListing(uint256 tokenId, uint256 price) external returns (uint256 listingId);
+
+// Buy a listed NFT - send exact MON amount
+function buyListing(uint256 listingId) external payable;
+
+// Cancel your own listing
+function cancelListing(uint256 listingId) external;
+
+// View functions
+function getListing(uint256 listingId) external view returns (Listing memory);
+function isTokenListed(uint256 tokenId) external view returns (bool);
+function calculateFees(uint256 price) external view returns (uint256 daoFee, uint256 sellerProceeds);
+```
+
+#### Events
+
+```solidity
+event ListingCreated(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 price);
+event ListingPurchased(uint256 indexed listingId, address indexed buyer, address indexed seller, uint256 tokenId, uint256 price, uint256 daoFee, uint256 sellerProceeds);
+event ListingCancelled(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId);
+```
+
+#### Deployment Instructions
+
+1. **Install Foundry** (if not already installed):
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+
+2. **Compile the contract**:
+```bash
+forge build
+```
+
+3. **Deploy to Monad**:
+```bash
+forge create --rpc-url https://rpc.monad.xyz \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  contracts/StarSkrumpeyMarketplace.sol:StarSkrumpeyMarketplace \
+  --constructor-args \
+    0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0 \
+    $DAO_TREASURY_ADDRESS \
+    250
+```
+
+Constructor arguments:
+- `_skrumpeyNFT`: `0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0` (Skrumpeys contract)
+- `_daoTreasury`: Your DAO treasury multisig address
+- `_feeBps`: `250` (2.5% fee in basis points)
+
+4. **Verify on Monadscan**:
+```bash
+forge verify-contract \
+  --chain-id 143 \
+  --compiler-version v0.8.20 \
+  $DEPLOYED_ADDRESS \
+  contracts/StarSkrumpeyMarketplace.sol:StarSkrumpeyMarketplace
+```
+
+#### Environment Variables
+
+After deployment, update your `.env.local`:
+
+```bash
+NEXT_PUBLIC_MARKETPLACE_CONTRACT=0x... # Deployed marketplace address
+NEXT_PUBLIC_DAO_TREASURY_ADDRESS=0x... # DAO treasury address
+NEXT_PUBLIC_DAO_FEE_BPS=250            # Fee in basis points (250 = 2.5%)
+```
+
+#### Security Considerations
+
+- Contract uses OpenZeppelin's `ReentrancyGuard` to prevent reentrancy attacks
+- `Pausable` allows emergency stopping of marketplace activity
+- Owner can update treasury address and fee percentage
+- Maximum fee capped at 10% (1000 bps)
+- Emergency withdraw function for stuck funds recovery
 
 ## ⭐ STAR TRAITS
 

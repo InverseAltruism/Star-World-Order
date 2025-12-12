@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount, useBalance, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { useDAOAccess } from './useDAOAccess';
@@ -23,14 +23,32 @@ import {
   calculateSellerProceeds,
   getDAOFeePercentage,
   DAO_FEE_BPS,
+  TransactionType,
+  TransactionHistoryEntry,
+  getTransactionHistory,
+  addTransactionToHistory,
+  SortOption,
+  FilterOptions,
+  sortListings,
+  filterListings,
+  STAR_VARIANTS,
+  getSortOptionLabel,
+  getTransactionTypeLabel,
+  getTransactionTypeIcon,
+  getTransactionTypeColor,
+  formatRelativeTime,
 } from '@/lib/marketplace';
 import { SKRUMPEY_CONTRACT_ADDRESS, OwnedToken } from '@/lib/starSkrumpey';
 
 export interface UseMarketplaceResult {
   /** All active listings */
   listings: Listing[];
+  /** Filtered and sorted listings */
+  filteredListings: Listing[];
   /** User's own listings */
   userListings: Listing[];
+  /** Transaction history */
+  transactionHistory: TransactionHistoryEntry[];
   /** Loading state */
   isLoading: boolean;
   /** Error message */
@@ -55,6 +73,16 @@ export interface UseMarketplaceResult {
   availableForListing: OwnedToken[];
   /** Transaction pending state */
   isPending: boolean;
+  /** Current sort option */
+  sortOption: SortOption;
+  /** Set sort option */
+  setSortOption: (option: SortOption) => void;
+  /** Current filter options */
+  filterOptions: FilterOptions;
+  /** Set filter options */
+  setFilterOptions: (options: FilterOptions) => void;
+  /** Clear all filters */
+  clearFilters: () => void;
 }
 
 /**
@@ -80,9 +108,12 @@ export function useMarketplace(): UseMarketplaceResult {
   const { starSkrumpeys, isLoading: isDAOLoading } = useDAOAccess();
   
   const [listings, setListings] = useState<Listing[]>([]);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [sortOption, setSortOption] = useState<SortOption>(SortOption.Newest);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({});
   
   // Get user's MON balance
   const { data: balanceData } = useBalance({
@@ -98,7 +129,7 @@ export function useMarketplace(): UseMarketplaceResult {
   // Check if marketplace contract is deployed
   const isContractDeployed = isMarketplaceConfigured();
   
-  // Load listings
+  // Load listings and history
   const loadListings = useCallback(() => {
     setIsLoading(true);
     try {
@@ -112,6 +143,9 @@ export function useMarketplace(): UseMarketplaceResult {
         const stored = getStoredListings();
         setListings(stored.filter(l => l.status === ListingStatus.Active));
       }
+      // Load transaction history
+      const history = getTransactionHistory();
+      setTransactionHistory(history);
       setError(null);
     } catch (err) {
       setError('Failed to load listings');
@@ -130,6 +164,19 @@ export function useMarketplace(): UseMarketplaceResult {
   const userListings = listings.filter(
     l => address && l.seller.toLowerCase() === address.toLowerCase()
   );
+  
+  // Apply filters and sorting to listings
+  const filteredListings = useMemo(() => {
+    let result = filterListings(listings, filterOptions);
+    result = sortListings(result, sortOption);
+    return result;
+  }, [listings, filterOptions, sortOption]);
+  
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setFilterOptions({});
+    setSortOption(SortOption.Newest);
+  }, []);
   
   // Get Star Skrumpeys available for listing (not already listed)
   const listedTokenIds = new Set(
@@ -225,6 +272,9 @@ export function useMarketplace(): UseMarketplaceResult {
         allListings.push(newListing);
         saveStoredListings(allListings);
         
+        // Add to transaction history
+        addTransactionToHistory(TransactionType.Listed, newListing);
+        
         // Reload listings
         loadListings();
         
@@ -283,6 +333,9 @@ export function useMarketplace(): UseMarketplaceResult {
         if (index !== -1) {
           allListings[index].status = ListingStatus.Sold;
           saveStoredListings(allListings);
+          
+          // Add to transaction history
+          addTransactionToHistory(TransactionType.Sold, listing, address);
         }
         
         // Reload listings
@@ -341,6 +394,9 @@ export function useMarketplace(): UseMarketplaceResult {
         if (index !== -1) {
           allListings[index].status = ListingStatus.Cancelled;
           saveStoredListings(allListings);
+          
+          // Add to transaction history
+          addTransactionToHistory(TransactionType.Cancelled, listing);
         }
         
         // Reload listings
@@ -359,7 +415,9 @@ export function useMarketplace(): UseMarketplaceResult {
   
   return {
     listings,
+    filteredListings,
     userListings,
+    transactionHistory,
     isLoading: isLoading || isDAOLoading,
     error,
     balance,
@@ -372,9 +430,30 @@ export function useMarketplace(): UseMarketplaceResult {
     refresh: loadListings,
     availableForListing,
     isPending,
+    sortOption,
+    setSortOption,
+    filterOptions,
+    setFilterOptions,
+    clearFilters,
   };
 }
 
 // Re-export utilities for use in components
-export { truncateAddress, formatPriceFromWei, ListingStatus, calculateDAOFee, calculateSellerProceeds, getDAOFeePercentage, DAO_FEE_BPS };
-export type { Listing };
+export { 
+  truncateAddress, 
+  formatPriceFromWei, 
+  ListingStatus, 
+  calculateDAOFee, 
+  calculateSellerProceeds, 
+  getDAOFeePercentage, 
+  DAO_FEE_BPS,
+  SortOption,
+  STAR_VARIANTS,
+  getSortOptionLabel,
+  TransactionType,
+  getTransactionTypeLabel,
+  getTransactionTypeIcon,
+  getTransactionTypeColor,
+  formatRelativeTime,
+};
+export type { Listing, FilterOptions, TransactionHistoryEntry };

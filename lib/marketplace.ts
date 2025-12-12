@@ -671,3 +671,275 @@ export function truncateAddress(address: string): string {
   if (!address) return '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
+
+/**
+ * Transaction history event type
+ */
+export enum TransactionType {
+  Listed = 'listed',
+  Sold = 'sold',
+  Cancelled = 'cancelled',
+}
+
+/**
+ * Transaction history entry
+ */
+export interface TransactionHistoryEntry {
+  id: string;
+  type: TransactionType;
+  tokenId: number;
+  seller: string;
+  buyer?: string;
+  price: bigint;
+  priceFormatted: string;
+  starVariant?: string;
+  timestamp: number;
+  txHash?: string;
+}
+
+/**
+ * Storage key for transaction history (demo mode)
+ */
+const HISTORY_STORAGE_KEY = 'swo_marketplace_history';
+
+/**
+ * Get transaction history from localStorage (demo mode)
+ */
+export function getTransactionHistory(): TransactionHistoryEntry[] {
+  if (typeof window === 'undefined') return [];
+  
+  try {
+    const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!stored) return [];
+    
+    const history = JSON.parse(stored) as Array<TransactionHistoryEntry & { price: string }>;
+    return history.map(h => ({
+      ...h,
+      price: BigInt(h.price),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save transaction history to localStorage (demo mode)
+ */
+export function saveTransactionHistory(history: TransactionHistoryEntry[]): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const serializable = history.map(h => ({
+      ...h,
+      price: h.price.toString(),
+    }));
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(serializable));
+  } catch (error) {
+    console.error('Failed to save history:', error);
+  }
+}
+
+/**
+ * Add a transaction to history
+ */
+export function addTransactionToHistory(
+  type: TransactionType,
+  listing: Listing,
+  buyer?: string,
+  txHash?: string
+): void {
+  const history = getTransactionHistory();
+  const entry: TransactionHistoryEntry = {
+    id: generateListingId(),
+    type,
+    tokenId: listing.tokenId,
+    seller: listing.seller,
+    buyer,
+    price: listing.price,
+    priceFormatted: listing.priceFormatted,
+    starVariant: listing.starVariant,
+    timestamp: Date.now(),
+    txHash,
+  };
+  history.unshift(entry); // Add to beginning (newest first)
+  // Keep last 100 transactions
+  if (history.length > 100) {
+    history.splice(100);
+  }
+  saveTransactionHistory(history);
+}
+
+/**
+ * Sort options for listings
+ */
+export enum SortOption {
+  PriceLowHigh = 'price_low_high',
+  PriceHighLow = 'price_high_low',
+  Newest = 'newest',
+  Oldest = 'oldest',
+  TokenId = 'token_id',
+}
+
+/**
+ * Filter options for listings
+ */
+export interface FilterOptions {
+  minPrice?: string;
+  maxPrice?: string;
+  starVariant?: string;
+  seller?: string;
+}
+
+/**
+ * Star trait variants for filtering
+ */
+export const STAR_VARIANTS = [
+  'aether',
+  'spectra',
+  'solveil',
+  'nebulu',
+  'chroma',
+  'rose',
+  'monflare',
+  'auracore',
+  'parallel',
+  'prime',
+] as const;
+
+/**
+ * Sort listings by the specified option
+ */
+export function sortListings(listings: Listing[], sortBy: SortOption): Listing[] {
+  const sorted = [...listings];
+  switch (sortBy) {
+    case SortOption.PriceLowHigh:
+      return sorted.sort((a, b) => Number(a.price - b.price));
+    case SortOption.PriceHighLow:
+      return sorted.sort((a, b) => Number(b.price - a.price));
+    case SortOption.Newest:
+      return sorted.sort((a, b) => b.createdAt - a.createdAt);
+    case SortOption.Oldest:
+      return sorted.sort((a, b) => a.createdAt - b.createdAt);
+    case SortOption.TokenId:
+      return sorted.sort((a, b) => a.tokenId - b.tokenId);
+    default:
+      return sorted;
+  }
+}
+
+/**
+ * Filter listings by the specified options
+ */
+export function filterListings(listings: Listing[], filters: FilterOptions): Listing[] {
+  return listings.filter(listing => {
+    // Filter by min price
+    if (filters.minPrice) {
+      const minWei = parseEther(filters.minPrice);
+      if (listing.price < minWei) return false;
+    }
+    
+    // Filter by max price
+    if (filters.maxPrice) {
+      const maxWei = parseEther(filters.maxPrice);
+      if (listing.price > maxWei) return false;
+    }
+    
+    // Filter by star variant
+    if (filters.starVariant && listing.starVariant !== filters.starVariant) {
+      return false;
+    }
+    
+    // Filter by seller
+    if (filters.seller && listing.seller.toLowerCase() !== filters.seller.toLowerCase()) {
+      return false;
+    }
+    
+    return true;
+  });
+}
+
+/**
+ * Get human-readable label for sort option
+ */
+export function getSortOptionLabel(option: SortOption): string {
+  switch (option) {
+    case SortOption.PriceLowHigh:
+      return 'Price: Low to High';
+    case SortOption.PriceHighLow:
+      return 'Price: High to Low';
+    case SortOption.Newest:
+      return 'Newest First';
+    case SortOption.Oldest:
+      return 'Oldest First';
+    case SortOption.TokenId:
+      return 'Token ID';
+    default:
+      return 'Sort';
+  }
+}
+
+/**
+ * Get human-readable label for transaction type
+ */
+export function getTransactionTypeLabel(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.Listed:
+      return 'Listed';
+    case TransactionType.Sold:
+      return 'Sold';
+    case TransactionType.Cancelled:
+      return 'Cancelled';
+    default:
+      return 'Unknown';
+  }
+}
+
+/**
+ * Get icon for transaction type
+ */
+export function getTransactionTypeIcon(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.Listed:
+      return '📋';
+    case TransactionType.Sold:
+      return '💰';
+    case TransactionType.Cancelled:
+      return '❌';
+    default:
+      return '❓';
+  }
+}
+
+/**
+ * Get color for transaction type
+ */
+export function getTransactionTypeColor(type: TransactionType): string {
+  switch (type) {
+    case TransactionType.Listed:
+      return '#9966ff';
+    case TransactionType.Sold:
+      return '#44ff88';
+    case TransactionType.Cancelled:
+      return '#ff4466';
+    default:
+      return '#666666';
+  }
+}
+
+/**
+ * Format timestamp to relative time
+ */
+export function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'Just now';
+}
