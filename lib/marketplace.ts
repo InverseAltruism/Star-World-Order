@@ -598,6 +598,17 @@ export function generateListingId(): string {
 }
 
 /**
+ * Generate a unique transaction ID (prefixed to avoid collision with listing IDs)
+ */
+export function generateTransactionId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return 'tx_' + crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID
+  return 'tx_' + Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+
+/**
  * Storage key for local listings (demo mode)
  */
 const LISTINGS_STORAGE_KEY = 'swo_marketplace_listings';
@@ -750,7 +761,7 @@ export function addTransactionToHistory(
 ): void {
   const history = getTransactionHistory();
   const entry: TransactionHistoryEntry = {
-    id: generateListingId(),
+    id: generateTransactionId(),
     type,
     tokenId: listing.tokenId,
     seller: listing.seller,

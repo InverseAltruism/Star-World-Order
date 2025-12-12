@@ -117,7 +117,20 @@ function FilterSortControls({
                   step="0.01"
                   placeholder="Min"
                   value={filterOptions.minPrice || ''}
-                  onChange={(e) => onFilterChange({ ...filterOptions, minPrice: e.target.value || undefined })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only accept valid positive numbers or empty string
+                    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, minPrice: value || undefined });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validate on blur - remove invalid values
+                    const value = e.target.value;
+                    if (value && (parseFloat(value) < 0 || isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, minPrice: undefined });
+                    }
+                  }}
                   className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
                 />
                 <span className="text-gray-500 text-[8px]">-</span>
@@ -127,7 +140,20 @@ function FilterSortControls({
                   step="0.01"
                   placeholder="Max"
                   value={filterOptions.maxPrice || ''}
-                  onChange={(e) => onFilterChange({ ...filterOptions, maxPrice: e.target.value || undefined })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only accept valid positive numbers or empty string
+                    if (value === '' || (parseFloat(value) >= 0 && !isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, maxPrice: value || undefined });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validate on blur - remove invalid values
+                    const value = e.target.value;
+                    if (value && (parseFloat(value) < 0 || isNaN(parseFloat(value)))) {
+                      onFilterChange({ ...filterOptions, maxPrice: undefined });
+                    }
+                  }}
                   className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
                 />
               </div>
