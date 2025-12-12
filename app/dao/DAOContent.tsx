@@ -89,8 +89,10 @@ function GovernanceTab() {
 
       {/* Proposals List */}
       <div className="space-y-4">
-        {mockProposals.map((proposal, index) => (
-          <div key={proposal.id} className={`pixel-card p-4 smooth-transition cursor-pointer animate-slide-in-up animate-delay-${index + 1}`}>
+        {mockProposals.map((proposal, index) => {
+          const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+          return (
+          <div key={proposal.id} className={`pixel-card p-4 smooth-transition cursor-pointer animate-slide-in-up ${delayClass}`}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h4 className="text-gray-200 text-[10px] font-bold mb-1">
@@ -149,7 +151,8 @@ function GovernanceTab() {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -168,10 +171,12 @@ function ForumTab() {
 
       {/* Thread List */}
       <div className="space-y-3">
-        {mockThreads.map((thread, index) => (
+        {mockThreads.map((thread, index) => {
+          const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+          return (
           <div 
             key={thread.id} 
-            className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up animate-delay-${index + 1}`}
+            className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
           >
             {/* Pin indicator */}
             {thread.pinned && (
@@ -196,7 +201,8 @@ function ForumTab() {
               💬
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Forum Rules */}

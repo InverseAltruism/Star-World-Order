@@ -213,11 +213,12 @@ export default function WalletConnect() {
           <div className="p-2 space-y-1">
             {connectors.map((connector, index) => {
               const walletInfo = getWalletInfo(connector);
+              const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
               return (
                 <button
                   key={connector.uid}
                   onClick={() => handleConnect(connector.uid)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-[9px] text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ffd700] rounded smooth-transition hover-lift animate-slide-in-left animate-delay-${index + 1}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-[9px] text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ffd700] rounded smooth-transition hover-lift animate-slide-in-left ${delayClass}`}
                 >
                   <span className="text-base smooth-transition">{walletInfo.icon}</span>
                   <span className="flex-1 text-left">{walletInfo.name}</span>

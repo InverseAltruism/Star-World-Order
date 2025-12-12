@@ -51,10 +51,12 @@ export default function Features() {
 
         {/* Features grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
+          {features.map((feature, index) => {
+            const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+            return (
             <div
               key={index}
-              className={`pixel-card p-6 smooth-transition group animate-slide-in-up animate-delay-${index + 1}`}
+              className={`pixel-card p-6 smooth-transition group animate-slide-in-up ${delayClass}`}
             >
               {/* Icon */}
               <div 
@@ -89,7 +91,8 @@ export default function Features() {
                 }}
               />
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Call to action */}

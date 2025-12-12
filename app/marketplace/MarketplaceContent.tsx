@@ -59,13 +59,16 @@ export default function MarketplaceContent() {
                 { icon: '📋', label: 'CREATE LISTINGS', desc: 'List your Star Skrumpeys for sale' },
                 { icon: '💰', label: 'MAKE OFFERS', desc: 'Bid on other listings' },
                 { icon: '🤝', label: 'SECURE TRADES', desc: 'Trustless escrow system' },
-              ].map((feature, i) => (
-                <div key={i} className={`bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-${i + 2}`}>
+              ].map((feature, i) => {
+                const delayClass = `animate-delay-${Math.min(i + 2, 6)}`;
+                return (
+                <div key={i} className={`bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up ${delayClass}`}>
                   <div className="text-2xl mb-2 animate-pixel-float" style={{ animationDelay: `${i * 0.2}s` }}>{feature.icon}</div>
                   <p className="text-[#ffd700] text-[8px] mb-1">{feature.label}</p>
                   <p className="text-gray-500 text-[6px]">{feature.desc}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
             
             {/* Notify Me Button */}
@@ -109,8 +112,10 @@ export default function MarketplaceContent() {
                 { phase: 'Phase 2.2', title: 'Listing & Bidding UI', status: 'upcoming' },
                 { phase: 'Phase 2.3', title: 'Escrow Smart Contracts', status: 'upcoming' },
                 { phase: 'Phase 2.4', title: 'Beta Launch', status: 'upcoming' },
-              ].map((item, i) => (
-                <div key={i} className={`flex items-center gap-3 smooth-transition hover-lift animate-slide-in-left animate-delay-${i + 1}`}>
+              ].map((item, i) => {
+                const delayClass = `animate-delay-${Math.min(i + 1, 6)}`;
+                return (
+                <div key={i} className={`flex items-center gap-3 smooth-transition hover-lift animate-slide-in-left ${delayClass}`}>
                   <div className={`w-3 h-3 rounded-full ${
                     item.status === 'in-progress' ? 'bg-[#ffd700] animate-pulse' :
                     item.status === 'complete' ? 'bg-[#44ff88]' :
@@ -121,7 +126,8 @@ export default function MarketplaceContent() {
                     <span className="text-gray-400 text-[8px] ml-2">{item.title}</span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
