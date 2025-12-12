@@ -18,11 +18,11 @@ export default function Home() {
               <span className="text-[#ffd700] text-xs tracking-wider">STAR WORLD ORDER</span>
               <span className="text-xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
             </div>
-            <p className="text-gray-600 text-[8px] tracking-wide mb-2">
-              A SUB-DAO OF SKRUMPEYS ON MONAD
+            <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">
+              ✦ 𓆩 chosen by the stars 𓆪 ✦
             </p>
             <p className="text-gray-700 text-[8px]">
-              © {new Date().getFullYear()} STAR WORLD ORDER • ALL RIGHTS RESERVED
+              the order is forming • @skrumpeys
             </p>
           </div>
         </div>

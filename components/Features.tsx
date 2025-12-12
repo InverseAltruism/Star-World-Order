@@ -2,38 +2,38 @@ export default function Features() {
   const features = [
     {
       icon: '🏛️',
-      title: 'DAO ACCESS',
-      description: 'EXCLUSIVE GOVERNANCE FOR STAR SKRUMPEY HOLDERS',
+      title: 'THE ORDER',
+      description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
       color: '#ffd700',
     },
     {
       icon: '⚡',
-      title: 'MONAD CHAIN',
-      description: 'HIGH-PERFORMANCE BLOCKCHAIN FOR BLAZING SPEED',
+      title: 'MONAD REALM',
+      description: 'BLAZING FAST COSMIC INFRASTRUCTURE',
       color: '#4488ff',
     },
     {
       icon: '🗳️',
-      title: 'VOTING',
-      description: 'SHAPE THE FUTURE WITH COMMUNITY PROPOSALS',
+      title: 'COSMIC VOTING',
+      description: 'SHAPE DESTINY WITH YOUR FELLOW STAR BEARERS',
       color: '#9966ff',
     },
     {
       icon: '💎',
       title: 'TREASURY',
-      description: 'COLLECTIVE FUNDS MANAGED BY THE DAO',
+      description: 'COLLECTIVE COSMIC RESOURCES',
       color: '#44ff88',
     },
     {
       icon: '💬',
-      title: 'FORUM',
-      description: 'DISCUSS IDEAS WITH FELLOW STAR HOLDERS',
+      title: 'STAR COUNCIL',
+      description: 'COMMUNE WITH FELLOW CHOSEN ONES',
       color: '#ff8844',
     },
     {
       icon: '🔄',
-      title: 'OTC MARKET',
-      description: 'TRADE STAR SKRUMPEYS DIRECTLY (COMING SOON)',
+      title: 'COSMIC EXCHANGE',
+      description: 'TRADE AMONGST THE STARS (SOON™)',
       color: '#ff4466',
     },
   ];
@@ -44,7 +44,7 @@ export default function Features() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-lg md:text-xl text-[#ffd700] mb-4 pixel-glow-gold tracking-wider">
-            ★ DAO FEATURES ★
+            ✦ 𓆩 THE ORDER AWAITS 𓆪 ✦
           </h2>
           <div className="w-32 h-1 bg-gradient-to-r from-transparent via-[#9966ff] to-transparent mx-auto" />
         </div>
@@ -90,10 +90,10 @@ export default function Features() {
         <div className="text-center mt-12">
           <div className="pixel-card inline-block px-8 py-6">
             <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide">
-              READY TO JOIN?
+              ✦ ARE YOU CHOSEN? ✦
             </p>
             <p className="text-gray-500 text-[8px] mb-4">
-              CONNECT YOUR WALLET AND VERIFY YOUR STAR SKRUMPEY
+              connect thy wallet • reveal thy star
             </p>
             <button className="pixel-btn pixel-btn-gold text-[8px]">
               CONNECT WALLET
