@@ -55,9 +55,6 @@ export default function Features() {
             <div
               key={index}
               className="pixel-card p-6 hover:translate-y-[-4px] transition-all duration-300 group"
-              style={{
-                '--hover-glow': feature.color,
-              } as React.CSSProperties}
             >
               {/* Icon */}
               <div 
