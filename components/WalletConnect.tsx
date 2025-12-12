@@ -163,23 +163,23 @@ export default function WalletConnect() {
 
   if (isConnected && address) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 animate-slide-in-right">
         {isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
-            className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse"
+            className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse smooth-transition hover-lift"
           >
             ⚠️ SWITCH TO MONAD
           </button>
         ) : (
-          <div className="text-[8px] text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2">
+          <div className="text-[8px] text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift">
             <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
             {address.slice(0, 6)}...{address.slice(-4)}
           </div>
         )}
         <button
           onClick={() => disconnect()}
-          className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+          className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift"
         >
           EXIT
         </button>
@@ -195,7 +195,7 @@ export default function WalletConnect() {
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
         disabled={!hasConnectors || isPending}
-        className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 ${!hasConnectors || isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift ${!hasConnectors || isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
       >
         {isPending ? 'CONNECTING...' : hasConnectors ? (
           detectedWallet ? `${detectedWallet.icon} CONNECT` : 'CONNECT'
@@ -204,22 +204,23 @@ export default function WalletConnect() {
 
       {/* Wallet Selection Dropdown */}
       {showDropdown && shouldShowDropdown && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
           <div className="p-3 border-b border-[#2a2a4e]">
-            <p className="text-[#ffd700] text-[8px] tracking-wider text-center">
+            <p className="text-[#ffd700] text-[8px] tracking-wider text-center animate-glow-pulse">
               ✦ SELECT WALLET ✦
             </p>
           </div>
           <div className="p-2 space-y-1">
-            {connectors.map((connector) => {
+            {connectors.map((connector, index) => {
               const walletInfo = getWalletInfo(connector);
+              const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
               return (
                 <button
                   key={connector.uid}
                   onClick={() => handleConnect(connector.uid)}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-[9px] text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ffd700] rounded transition-all"
+                  className={`w-full flex items-center gap-3 px-3 py-2 text-[9px] text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ffd700] rounded smooth-transition hover-lift animate-slide-in-left ${delayClass}`}
                 >
-                  <span className="text-base">{walletInfo.icon}</span>
+                  <span className="text-base smooth-transition">{walletInfo.icon}</span>
                   <span className="flex-1 text-left">{walletInfo.name}</span>
                   <span className="text-[#44ff88] text-[6px]">→</span>
                 </button>

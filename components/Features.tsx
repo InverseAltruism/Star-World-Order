@@ -51,14 +51,16 @@ export default function Features() {
 
         {/* Features grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
+          {features.map((feature, index) => {
+            const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+            return (
             <div
               key={index}
-              className="pixel-card p-6 hover:translate-y-[-4px] transition-all duration-300 group"
+              className={`pixel-card p-6 smooth-transition group animate-slide-in-up ${delayClass}`}
             >
               {/* Icon */}
               <div 
-                className="text-4xl mb-4 animate-pixel-float"
+                className="text-4xl mb-4 animate-pixel-float hover-lift cursor-pointer smooth-transition"
                 style={{ animationDelay: `${index * 0.2}s` }}
               >
                 {feature.icon}
@@ -66,7 +68,7 @@ export default function Features() {
               
               {/* Title */}
               <h3 
-                className="text-xs mb-3 tracking-wider transition-all duration-300"
+                className="text-xs mb-3 tracking-wider smooth-transition"
                 style={{ 
                   color: feature.color,
                   textShadow: `0 0 10px ${feature.color}40`,
@@ -82,26 +84,27 @@ export default function Features() {
               
               {/* Bottom accent line with neon glow */}
               <div 
-                className="h-[2px] mt-4 opacity-50 transition-all duration-300 group-hover:opacity-100"
+                className="h-[2px] mt-4 opacity-50 smooth-transition group-hover:opacity-100 group-hover:h-[3px]"
                 style={{ 
                   background: `linear-gradient(90deg, ${feature.color}, transparent)`,
                   boxShadow: `0 0 8px ${feature.color}60`,
                 }}
               />
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Call to action */}
         <div className="text-center mt-12">
-          <div className="pixel-card inline-block px-8 py-6">
-            <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide">
+          <div className="pixel-card inline-block px-8 py-6 animate-slide-in-up animate-delay-6">
+            <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse">
               ✦ ARE YOU CHOSEN? ✦
             </p>
             <p className="text-gray-500 text-[8px] mb-4">
               connect thy wallet • reveal thy star
             </p>
-            <button className="pixel-btn pixel-btn-gold text-[8px]">
+            <button className="pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift">
               CONNECT WALLET
             </button>
           </div>

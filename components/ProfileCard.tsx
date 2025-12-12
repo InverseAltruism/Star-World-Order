@@ -67,21 +67,21 @@ export default function ProfileCard() {
   return (
     <div className="space-y-6">
       {/* Player Stats Box */}
-      <div className="pixel-card p-6">
+      <div className="pixel-card p-6 animate-slide-in-up">
         <div className="flex items-center gap-4 mb-4">
           {/* Avatar */}
           <div className="relative">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl animate-pixel-float">
+            <div className="w-16 h-16 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl animate-pixel-float hover-lift smooth-transition cursor-pointer">
               🐸
             </div>
             {starSkrumpeys.length > 0 && (
-              <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse">⭐</div>
+              <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse animate-glow-pulse">⭐</div>
             )}
           </div>
           
           {/* Player Info */}
           <div className="flex-1">
-            <p className="text-[#ffd700] text-xs tracking-wide mb-1">
+            <p className="text-[#ffd700] text-xs tracking-wide mb-1 animate-glow-pulse">
               {starSkrumpeys.length > 0 ? 'STAR BEARER' : 'SKRUMPEY HOLDER'}
             </p>
             <p className="text-gray-400 text-[8px] font-mono break-all">
@@ -92,15 +92,15 @@ export default function ProfileCard() {
         
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
-          <div className="text-center">
+          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
             <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
             <p className="text-gray-500 text-[6px] tracking-wide">SKRUMPEYS</p>
           </div>
-          <div className="text-center border-x-2 border-[#2a2a4e]">
+          <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
             <p className="text-gray-500 text-[6px] tracking-wide">STAR TRAIT</p>
           </div>
-          <div className="text-center">
+          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#44ff88] text-lg">LVL 1</p>
             <p className="text-gray-500 text-[6px] tracking-wide">RANK</p>
           </div>
@@ -109,22 +109,25 @@ export default function ProfileCard() {
 
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
-        <div className="pixel-card p-4">
-          <h3 className="text-[#ffd700] text-[10px] tracking-wider mb-3 text-center">
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
+          <h3 className="text-[#ffd700] text-[10px] tracking-wider mb-3 text-center animate-glow-pulse">
             ✦ STAR CONSTELLATIONS ✦
           </h3>
           <div className="flex flex-wrap justify-center gap-2">
-            {STAR_TRAIT_VARIANTS.map(variant => {
+            {STAR_TRAIT_VARIANTS.map((variant, index) => {
               const hasVariant = starSkrumpeys.some(s => s.starVariant === variant);
               return (
                 <div 
                   key={variant}
-                  className={`px-2 py-1 rounded text-[6px] border ${
+                  className={`px-2 py-1 rounded text-[6px] border smooth-transition hover-lift ${
                     hasVariant 
                       ? 'border-[#ffd700] bg-[#ffd700]/20' 
                       : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
                   }`}
-                  style={{ color: hasVariant ? getVariantColor(variant) : '#666' }}
+                  style={{ 
+                    color: hasVariant ? getVariantColor(variant) : '#666',
+                    animationDelay: `${index * 0.05}s`
+                  }}
                 >
                   {variant.toUpperCase()}
                 </div>
@@ -144,30 +147,30 @@ export default function ProfileCard() {
       )}
 
       {/* NFT Collection */}
-      <div className="pixel-card p-6">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center">
+      <div className="pixel-card p-6 animate-slide-in-up animate-delay-5">
+        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
           ★ YOUR COLLECTION ★
         </h3>
         
         <div className="grid grid-cols-2 gap-4">
-          {finalDisplaySkrumpeys.map((nft) => (
+          {finalDisplaySkrumpeys.map((nft, index) => (
             <div 
               key={nft.id}
-              className={`relative p-4 rounded-lg border-2 transition-all duration-300 hover:scale-105 ${
+              className={`relative p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} ${
                 nft.hasStar 
-                  ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
-                  : 'border-[#2a2a4e] bg-[#1a1a2e]'
+                  ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
+                  : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
               }`}
             >
               {/* Star badge */}
               {nft.hasStar && (
-                <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse z-10">
+                <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse animate-star-rotate z-10">
                   ⭐
                 </div>
               )}
               
               {/* NFT Image placeholder */}
-              <div className={`w-full aspect-square rounded-lg mb-3 flex items-center justify-center text-4xl ${
+              <div className={`w-full aspect-square rounded-lg mb-3 flex items-center justify-center text-4xl smooth-transition hover-lift ${
                 nft.hasStar 
                   ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
                   : 'bg-[#0a0a15]'

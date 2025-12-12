@@ -30,7 +30,7 @@ export default function Hero() {
         {starPositions.map((star, i) => (
           <div
             key={i}
-            className="absolute text-[#ffd700] opacity-30 animate-pixel-pulse"
+            className="absolute text-[#ffd700] opacity-30 animate-pixel-pulse animate-glow-pulse"
             style={{
               left: star.left,
               top: star.top,
@@ -45,54 +45,55 @@ export default function Hero() {
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-16 text-center">
         {/* Main pixel art star logo with neon glow */}
-        <div className="mb-8 relative">
+        <div className="mb-8 relative animate-slide-in-up">
           <div className="inline-block animate-pixel-float">
             <div 
-              className="w-24 h-24 md:w-32 md:h-32 mx-auto relative"
+              className="w-24 h-24 md:w-32 md:h-32 mx-auto relative hover-lift cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #ffd700 0%, #ff8800 100%)',
                 clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
                 boxShadow: '0 0 40px #ffd700, 0 0 80px rgba(255, 215, 0, 0.5), 0 0 120px rgba(255, 136, 0, 0.3)',
+                transition: 'all 0.3s ease',
               }}
             />
           </div>
         </div>
 
         {/* Title with pixel styling */}
-        <h1 className="text-xl md:text-3xl lg:text-4xl text-[#ffd700] mb-4 pixel-glow-gold animate-text-flicker tracking-wider">
+        <h1 className="text-xl md:text-3xl lg:text-4xl text-[#ffd700] mb-4 pixel-glow-gold animate-text-flicker tracking-wider animate-slide-in-up animate-delay-1">
           STAR WORLD ORDER
         </h1>
         
         {/* Mysterious subtitle - Twitter bio style */}
-        <div className="pixel-card inline-block px-6 py-3 mb-8">
+        <div className="pixel-card inline-block px-6 py-3 mb-8 animate-slide-in-up animate-delay-2">
           <p className="text-[#9966ff] text-[10px] md:text-xs tracking-wide">
             ✦ 𓆩 𝒄𝒐𝒔𝒎𝒊𝒄 𝒎𝒂𝒏𝒅𝒂𝒕𝒆 𓆪 ✦
           </p>
         </div>
 
         {/* Description - mysterious and goofy */}
-        <p className="text-gray-400 text-[10px] md:text-xs max-w-xl mx-auto mb-8 leading-relaxed">
+        <p className="text-gray-400 text-[10px] md:text-xs max-w-xl mx-auto mb-8 leading-relaxed animate-slide-in-up animate-delay-3">
           🟣⭐ chosen by the stars 💜
           <br />
           <span className="text-[#ffd700]">the order is forming</span> ✦ ☉ ~ ᴅᴀᴏ ~ ✦
         </p>
         
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12">
-          <button className="pixel-btn pixel-btn-gold">
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-slide-in-up animate-delay-4">
+          <button className="pixel-btn pixel-btn-gold smooth-transition hover-lift">
             ★ ENTER THE ORDER
           </button>
-          <button className="pixel-btn">
+          <button className="pixel-btn smooth-transition hover-lift">
             DISCOVER MORE
           </button>
         </div>
 
         {/* Pixel art showcase */}
-        <div className="pixel-card p-6 md:p-8 max-w-md mx-auto">
+        <div className="pixel-card p-6 md:p-8 max-w-md mx-auto animate-slide-in-up animate-delay-5">
           <div className="flex items-center justify-center gap-4 mb-4">
-            <span className="text-5xl md:text-7xl animate-pixel-float" style={{ animationDelay: '0s' }}>🐸</span>
+            <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s' }}>🐸</span>
             <span className="text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse">+</span>
-            <span className="text-5xl md:text-7xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
+            <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
           </div>
           <div className="border-t-2 border-[#2a2a4e] pt-4">
             <p className="text-[#ffd700] text-[10px] tracking-wide mb-1">
