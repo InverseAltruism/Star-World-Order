@@ -358,7 +358,7 @@ export default function LoadingScreen() {
                 {phase === 'waiting' && (
                   <div className="swo-insert-prompt">
                     <span className="swo-prompt-arrow">▼</span>
-                    <span className="swo-prompt-text">INSERT CARTRIDGE</span>
+                    <span className="swo-prompt-text">AWAKEN THE ORDER</span>
                   </div>
                 )}
               </div>
