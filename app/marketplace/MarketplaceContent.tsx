@@ -6,15 +6,15 @@ export default function MarketplaceContent() {
   return (
     <>
       {/* Page Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 animate-slide-in-up">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float">🔄</span>
+          <span className="text-2xl animate-pixel-float hover-lift smooth-transition">🔄</span>
           <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
             COSMIC EXCHANGE
           </h1>
-          <span className="text-2xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
+          <span className="text-2xl animate-pixel-float hover-lift smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
         </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide">
+        <p className="text-[#9966ff] text-[10px] tracking-wide animate-glow-pulse">
           ✦ OTC MARKETPLACE FOR STAR SKRUMPEYS ✦
         </p>
       </div>
@@ -26,10 +26,10 @@ export default function MarketplaceContent() {
       >
         {/* Coming Soon Content */}
         <div className="max-w-2xl mx-auto">
-          <div className="pixel-card p-8 text-center">
+          <div className="pixel-card p-8 text-center animate-slide-in-up animate-delay-1">
             {/* Construction Icon */}
             <div className="relative mb-6">
-              <div className="text-6xl mb-4 animate-pixel-float">🚀</div>
+              <div className="text-6xl mb-4 animate-pixel-float hover-lift smooth-transition">🚀</div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-20 h-20 rounded-full bg-[#9966ff]/20 blur-xl animate-pulse" />
               </div>
@@ -60,8 +60,8 @@ export default function MarketplaceContent() {
                 { icon: '💰', label: 'MAKE OFFERS', desc: 'Bid on other listings' },
                 { icon: '🤝', label: 'SECURE TRADES', desc: 'Trustless escrow system' },
               ].map((feature, i) => (
-                <div key={i} className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                  <div className="text-2xl mb-2">{feature.icon}</div>
+                <div key={i} className={`bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-${i + 2}`}>
+                  <div className="text-2xl mb-2 animate-pixel-float" style={{ animationDelay: `${i * 0.2}s` }}>{feature.icon}</div>
                   <p className="text-[#ffd700] text-[8px] mb-1">{feature.label}</p>
                   <p className="text-gray-500 text-[6px]">{feature.desc}</p>
                 </div>
@@ -69,7 +69,7 @@ export default function MarketplaceContent() {
             </div>
             
             {/* Notify Me Button */}
-            <div className="space-y-3">
+            <div className="space-y-3 animate-slide-in-up animate-delay-5">
               <p className="text-gray-500 text-[8px]">
                 Want to be notified when the exchange launches?
               </p>
@@ -77,7 +77,7 @@ export default function MarketplaceContent() {
                 href="https://twitter.com/skrumpeys" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="pixel-btn pixel-btn-gold text-[8px] inline-block"
+                className="pixel-btn pixel-btn-gold text-[8px] inline-block smooth-transition hover-lift"
               >
                 FOLLOW @SKRUMPEYS
               </a>
@@ -99,8 +99,8 @@ export default function MarketplaceContent() {
           </div>
           
           {/* Roadmap Preview */}
-          <div className="pixel-card p-6 mt-6">
-            <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center">
+          <div className="pixel-card p-6 mt-6 animate-slide-in-up animate-delay-6">
+            <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
               ★ MARKETPLACE ROADMAP ★
             </h3>
             <div className="space-y-3">
@@ -110,7 +110,7 @@ export default function MarketplaceContent() {
                 { phase: 'Phase 2.3', title: 'Escrow Smart Contracts', status: 'upcoming' },
                 { phase: 'Phase 2.4', title: 'Beta Launch', status: 'upcoming' },
               ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
+                <div key={i} className={`flex items-center gap-3 smooth-transition hover-lift animate-slide-in-left animate-delay-${i + 1}`}>
                   <div className={`w-3 h-3 rounded-full ${
                     item.status === 'in-progress' ? 'bg-[#ffd700] animate-pulse' :
                     item.status === 'complete' ? 'bg-[#44ff88]' :
