@@ -38,6 +38,11 @@
   image-rendering: crisp-edges;
 }
 
+/* Smooth scrolling for better UX */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   color: var(--foreground);
   background: linear-gradient(180deg, #0a0a1a 0%, #12122a 50%, #1a0a2e 100%);
@@ -1493,4 +1498,85 @@ body::before {
 /* Smooth transitions for all interactive elements */
 .smooth-transition {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================
+   Focus States for Accessibility
+   ============================================ */
+
+/* Custom focus styles for keyboard navigation */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 4px;
+  animation: focusPulse 1s ease-in-out infinite;
+}
+
+@keyframes focusPulse {
+  0%, 100% { outline-color: #ffd700; }
+  50% { outline-color: #ff00ff; }
+}
+
+/* Remove default focus outline for mouse users */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================
+   Enhanced Cursor Interactions
+   ============================================ */
+
+/* Make interactive elements more obvious */
+button,
+a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable pointer events on decorative elements */
+.pointer-events-none {
+  pointer-events: none;
+}
+
+/* ============================================
+   Loading Screen Improvements
+   ============================================ */
+
+/* Prevent text selection during animations */
+.swo-loading-screen * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Smooth cartridge insertion */
+.swo-cartridge-wrapper {
+  will-change: transform;
+}
+
+/* ============================================
+   Performance Optimizations
+   ============================================ */
+
+/* Use hardware acceleration for frequently animated elements */
+.animate-pixel-float,
+.animate-pixel-pulse,
+.animate-star-rotate,
+.animate-glow-pulse,
+.hover-lift {
+  will-change: transform;
+}
+
+/* Optimize for smoother animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
