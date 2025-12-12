@@ -1,17 +1,41 @@
 export default function Hero() {
+  // Pre-generated star positions for consistent rendering (avoid hydration mismatches)
+  const starPositions = [
+    { left: '5%', top: '10%', delay: '0s', size: 12 },
+    { left: '15%', top: '25%', delay: '0.5s', size: 16 },
+    { left: '25%', top: '5%', delay: '1s', size: 10 },
+    { left: '35%', top: '35%', delay: '0.3s', size: 14 },
+    { left: '45%', top: '15%', delay: '0.8s', size: 8 },
+    { left: '55%', top: '40%', delay: '1.2s', size: 18 },
+    { left: '65%', top: '8%', delay: '0.2s', size: 12 },
+    { left: '75%', top: '30%', delay: '0.7s', size: 10 },
+    { left: '85%', top: '18%', delay: '1.5s', size: 16 },
+    { left: '92%', top: '45%', delay: '0.4s', size: 14 },
+    { left: '8%', top: '55%', delay: '1.1s', size: 10 },
+    { left: '20%', top: '70%', delay: '0.6s', size: 12 },
+    { left: '30%', top: '60%', delay: '1.3s', size: 8 },
+    { left: '50%', top: '75%', delay: '0.9s', size: 16 },
+    { left: '70%', top: '65%', delay: '1.4s', size: 10 },
+    { left: '80%', top: '50%', delay: '0.1s', size: 14 },
+    { left: '90%', top: '70%', delay: '0.5s', size: 12 },
+    { left: '12%', top: '80%', delay: '1.0s', size: 18 },
+    { left: '60%', top: '85%', delay: '0.2s', size: 10 },
+    { left: '95%', top: '90%', delay: '0.8s', size: 8 },
+  ];
+
   return (
     <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
       {/* Animated stars background */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(20)].map((_, i) => (
+        {starPositions.map((star, i) => (
           <div
             key={i}
             className="absolute text-[#ffd700] opacity-30 animate-pixel-pulse"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 2}s`,
-              fontSize: `${8 + Math.random() * 16}px`,
+              left: star.left,
+              top: star.top,
+              animationDelay: star.delay,
+              fontSize: `${star.size}px`,
             }}
           >
             ★

@@ -15,6 +15,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* 
+          Note: Using external font link as fallback. For production optimization,
+          consider using next/font/google when build environment supports it.
+          The CSS provides Courier New as fallback for the pixel font.
+        */}
         <link 
           href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" 
           rel="stylesheet"

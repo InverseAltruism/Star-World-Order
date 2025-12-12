@@ -29,7 +29,7 @@ body {
   overflow-x: hidden;
 }
 
-/* Global CRT scanlines overlay */
+/* Global CRT scanlines overlay - optimized for performance */
 body::before {
   content: '';
   position: fixed;
@@ -39,13 +39,21 @@ body::before {
   height: 100%;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.1),
-    rgba(0, 0, 0, 0.1) 1px,
+    rgba(0, 0, 0, 0.05),
+    rgba(0, 0, 0, 0.05) 1px,
     transparent 1px,
-    transparent 3px
+    transparent 4px
   );
   pointer-events: none;
   z-index: 9998;
+  will-change: auto;
+}
+
+/* Disable scanlines on mobile for better performance */
+@media (max-width: 768px) {
+  body::before {
+    display: none;
+  }
 }
 
 /* Pixel art button style */
