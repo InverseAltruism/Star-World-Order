@@ -2,10 +2,11 @@ import { http, createConfig } from 'wagmi';
 import { defineChain } from 'viem';
 
 // Monad Chain Configuration
-// Uses environment variables with fallback placeholder values for development
+// Chain ID: 143 (0x8f), Currency: MON, Block Gas Limit: 200,000,000
+// Explorers: https://monadvision.com, https://monadscan.com
 const MONAD_CHAIN_ID = process.env.NEXT_PUBLIC_MONAD_CHAIN_ID 
   ? parseInt(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID, 10) 
-  : 41454;
+  : 143;
 
 const MONAD_RPC_URL = process.env.NEXT_PUBLIC_MONAD_RPC_URL || 'https://rpc.monad.xyz';
 
@@ -23,7 +24,7 @@ export const monad = defineChain({
     },
   },
   blockExplorers: {
-    default: { name: 'Explorer', url: 'https://explorer.monad.xyz' },
+    default: { name: 'Monadscan', url: 'https://monadscan.com' },
   },
 });
 
