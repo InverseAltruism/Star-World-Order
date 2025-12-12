@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "compile": "node scripts/compile-contracts.js",
+    "test:network": "node scripts/test-connection.js"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +25,7 @@
     "wagmi": "^3.1.0"
   },
   "devDependencies": {
+    "@openzeppelin/contracts": "^5.4.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^25.0.1",
     "@types/react": "^19.2.7",
@@ -31,6 +34,7 @@
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.10",
     "postcss": "^8.5.6",
+    "solc": "^0.8.31",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   }

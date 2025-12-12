@@ -192,17 +192,17 @@ We evaluated several governance frameworks:
 | Frontend | Next.js 16, React 19, TypeScript |
 | Styling | Tailwind CSS 4, Synthwave CSS |
 | Web3 | Wagmi 3, Viem 2 |
-| Smart Contracts | Solidity 0.8.20, OpenZeppelin |
+| Smart Contracts | Solidity 0.8.20, OpenZeppelin 5.x |
 | Font | Press Start 2P (Retro Pixel Font) |
 
 ## 🌐 MONAD NETWORK REFERENCE
 
 <!-- 
-  Network Reference Information for Monad Mainnet
+  Network Reference Information for Monad
   Collection: Skrumpeys on Monad
 -->
 
-### Chain Configuration
+### Mainnet Configuration
 
 | Property | Value |
 |----------|-------|
@@ -210,15 +210,25 @@ We evaluated several governance frameworks:
 | Currency | MON |
 | Block Gas Limit | 200,000,000 |
 
+### Testnet Configuration
+
+| Property | Value |
+|----------|-------|
+| Chain ID | 10143 (0x279f) |
+| Currency | MON (testnet) |
+| Faucet | https://faucet.monad.xyz |
+
 ### Explorers
 
-| Explorer Name | Explorer URL |
-|---------------|--------------|
-| Monad Vision | https://monadvision.com |
-| Monadscan | https://monadscan.com |
+| Network | Explorer Name | Explorer URL |
+|---------|---------------|--------------|
+| Mainnet | Monad Vision | https://monadvision.com |
+| Mainnet | Monadscan | https://monadscan.com |
+| Testnet | Testnet Monadscan | https://testnet.monadscan.com |
 
 ### RPC Endpoints
 
+**Mainnet:**
 | RPC Server Address |
 |--------------------|
 | https://rpc.monad.xyz |
@@ -231,6 +241,12 @@ We evaluated several governance frameworks:
 | https://monad-mainnet.api.onfinality.io/public |
 | https://monad-mainnet-rpc.spidernode.net |
 
+**Testnet:**
+| RPC Server Address |
+|--------------------|
+| https://testnet-rpc.monad.xyz |
+| https://monad-testnet.drpc.org |
+
 ### Contract Addresses
 
 | Contract | Address |
@@ -242,6 +258,15 @@ We evaluated several governance frameworks:
 ## 📜 SMART CONTRACTS
 
 The Star World Order uses custom smart contracts optimized for Monad's high-performance EVM.
+
+### Contract Compilation
+
+Compile all contracts using:
+```bash
+npm run compile
+```
+
+This will output compiled artifacts to the `/artifacts` directory.
 
 ### StarSkrumpeyMarketplace.sol
 
