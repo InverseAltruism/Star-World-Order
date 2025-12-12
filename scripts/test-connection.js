@@ -104,6 +104,8 @@ function generateTestWallet() {
   const wallet = ethers.Wallet.createRandom();
   
   console.log(`   ⚠️  WARNING: This is for TESTNET ONLY!`);
+  console.log(`   ⚠️  DO NOT share this private key or use on mainnet!`);
+  console.log(`   ⚠️  This wallet is for testing purposes only.`);
   console.log(`   📍 Address: ${wallet.address}`);
   console.log(`   🔐 Private Key: ${wallet.privateKey}`);
   
