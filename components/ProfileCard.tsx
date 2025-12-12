@@ -20,12 +20,15 @@ export default function ProfileCard() {
 
   // Use mock data for demo, real data when available
   const displaySkrumpeys = ownedSkrumpeys.length > 0 
-    ? ownedSkrumpeys.map(id => ({
-        id,
-        name: `Skrumpey #${id}`,
-        hasStar: starSkrumpeys.includes(id),
-        rarity: starSkrumpeys.includes(id) ? 'Star' : 'Common'
-      }))
+    ? ownedSkrumpeys.map(id => {
+        const hasStar = starSkrumpeys.includes(id);
+        return {
+          id,
+          name: `Skrumpey #${id}`,
+          hasStar,
+          rarity: hasStar ? 'Star' : 'Common'
+        };
+      })
     : mockSkrumpeys;
 
   if (!isConnected) {

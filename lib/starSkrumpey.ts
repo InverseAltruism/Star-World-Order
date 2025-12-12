@@ -16,7 +16,8 @@ export const STAR_SKRUMPEY_IDS: number[] = [
 ];
 
 // Skrumpey NFT Contract Address on Monad (placeholder - update when available)
-export const SKRUMPEY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT || '0x0000000000000000000000000000000000000000';
+// Returns undefined if not configured - must be set before production deployment
+export const SKRUMPEY_CONTRACT_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT;
 
 /**
  * Check if a given NFT ID is a Star Skrumpey

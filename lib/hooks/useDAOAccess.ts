@@ -73,8 +73,10 @@ export function useDAOAccess(): UseDAOAccessResult {
     checkAccess();
   }, [checkAccess]);
 
-  // For demo/development: Allow access if allow-list is empty (no restrictions yet)
-  const effectiveAccess = STAR_SKRUMPEY_IDS.length === 0 ? true : hasAccess;
+  // For development: Allow access if allow-list is empty (no restrictions configured yet)
+  // In production with an empty list, access would be denied - configure STAR_SKRUMPEY_IDS before launch
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const effectiveAccess = (isDevelopment && STAR_SKRUMPEY_IDS.length === 0) ? isConnected : hasAccess;
 
   return {
     hasAccess: effectiveAccess,

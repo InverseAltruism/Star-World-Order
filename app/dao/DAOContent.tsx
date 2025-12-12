@@ -116,20 +116,21 @@ function GovernanceTab() {
                   <span className="text-[#44ff88]">FOR: {proposal.votesFor}</span>
                   <span className="text-[#ff4466]">AGAINST: {proposal.votesAgainst}</span>
                 </div>
-                <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden flex">
-                  <div 
-                    className="h-full bg-[#44ff88]" 
-                    style={{ 
-                      width: `${(proposal.votesFor / (proposal.votesFor + proposal.votesAgainst || 1)) * 100}%` 
-                    }} 
-                  />
-                  <div 
-                    className="h-full bg-[#ff4466]" 
-                    style={{ 
-                      width: `${(proposal.votesAgainst / (proposal.votesFor + proposal.votesAgainst || 1)) * 100}%` 
-                    }} 
-                  />
-                </div>
+                {(() => {
+                  const totalVotes = proposal.votesFor + proposal.votesAgainst || 1;
+                  return (
+                    <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden flex">
+                      <div 
+                        className="h-full bg-[#44ff88]" 
+                        style={{ width: `${(proposal.votesFor / totalVotes) * 100}%` }} 
+                      />
+                      <div 
+                        className="h-full bg-[#ff4466]" 
+                        style={{ width: `${(proposal.votesAgainst / totalVotes) * 100}%` }} 
+                      />
+                    </div>
+                  );
+                })()}
               </div>
               <span className="text-gray-500 text-[6px]">
                 Ends: {proposal.endDate}
@@ -301,7 +302,7 @@ export default function DAOContent() {
       {/* Access-gated content */}
       <AccessGate
         title="DAO ACCESS LOCKED"
-        message="Only Star Skrumpey holders may participate in The Order&apos;s governance."
+        message="Only Star Skrumpey holders may participate in The Order's governance."
       >
         {/* Tab Navigation */}
         <div className="flex justify-center gap-2 mb-8">
