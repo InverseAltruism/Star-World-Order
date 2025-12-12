@@ -80,17 +80,17 @@ function GovernanceTab() {
   return (
     <div className="space-y-6">
       {/* Create Proposal Button */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-[#ffd700] text-xs tracking-wider">ACTIVE PROPOSALS</h3>
-        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2">
+      <div className="flex justify-between items-center animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">ACTIVE PROPOSALS</h3>
+        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift">
           + NEW PROPOSAL
         </button>
       </div>
 
       {/* Proposals List */}
       <div className="space-y-4">
-        {mockProposals.map((proposal) => (
-          <div key={proposal.id} className="pixel-card p-4 hover:translate-y-[-2px] transition-all cursor-pointer">
+        {mockProposals.map((proposal, index) => (
+          <div key={proposal.id} className={`pixel-card p-4 smooth-transition cursor-pointer animate-slide-in-up animate-delay-${index + 1}`}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h4 className="text-gray-200 text-[10px] font-bold mb-1">
@@ -140,10 +140,10 @@ function GovernanceTab() {
             {/* Vote Buttons */}
             {proposal.status === 'active' && (
               <div className="flex gap-2 mt-3">
-                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa]">
+                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift">
                   VOTE FOR
                 </button>
-                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]">
+                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift">
                   VOTE AGAINST
                 </button>
               </div>
@@ -159,19 +159,19 @@ function ForumTab() {
   return (
     <div className="space-y-6">
       {/* Forum Header */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-[#ffd700] text-xs tracking-wider">STAR COUNCIL FORUM</h3>
-        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2">
+      <div className="flex justify-between items-center animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">STAR COUNCIL FORUM</h3>
+        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift">
           + NEW THREAD
         </button>
       </div>
 
       {/* Thread List */}
       <div className="space-y-3">
-        {mockThreads.map((thread) => (
+        {mockThreads.map((thread, index) => (
           <div 
             key={thread.id} 
-            className="pixel-card p-4 hover:translate-y-[-2px] transition-all cursor-pointer flex items-center gap-4"
+            className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up animate-delay-${index + 1}`}
           >
             {/* Pin indicator */}
             {thread.pinned && (
@@ -217,13 +217,13 @@ function TreasuryTab() {
   return (
     <div className="space-y-6">
       {/* Treasury Overview */}
-      <div className="pixel-card p-6 text-center">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4">COSMIC TREASURY</h3>
+      <div className="pixel-card p-6 text-center animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">COSMIC TREASURY</h3>
         
         {/* Balance Display */}
-        <div className="bg-[#0a0a15] p-6 rounded-lg border-2 border-[#ffd700]/30 mb-4">
+        <div className="bg-[#0a0a15] p-6 rounded-lg border-2 border-[#ffd700]/30 mb-4 smooth-transition hover-lift">
           <p className="text-gray-500 text-[8px] mb-2">TOTAL BALANCE</p>
-          <p className="text-[#ffd700] text-2xl font-bold pixel-glow-gold">
+          <p className="text-[#ffd700] text-2xl font-bold pixel-glow-gold animate-pixel-pulse">
             💎 42,069 MON
           </p>
           <p className="text-gray-600 text-[6px] mt-2">≈ $XX,XXX USD</p>
@@ -231,15 +231,15 @@ function TreasuryTab() {
 
         {/* Treasury Stats */}
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-[#1a1a2e] p-3 rounded-lg">
+          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-1">
             <p className="text-[#44ff88] text-sm">+1,337</p>
             <p className="text-gray-500 text-[6px]">30D INFLOW</p>
           </div>
-          <div className="bg-[#1a1a2e] p-3 rounded-lg">
+          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p className="text-[#ff4466] text-sm">-420</p>
             <p className="text-gray-500 text-[6px]">30D OUTFLOW</p>
           </div>
-          <div className="bg-[#1a1a2e] p-3 rounded-lg">
+          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#9966ff] text-sm">99</p>
             <p className="text-gray-500 text-[6px]">STAR HOLDERS</p>
           </div>
@@ -247,7 +247,7 @@ function TreasuryTab() {
       </div>
 
       {/* Recent Transactions */}
-      <div className="pixel-card p-6">
+      <div className="pixel-card p-6 animate-slide-in-up animate-delay-4">
         <h3 className="text-[#9966ff] text-xs tracking-wider mb-4">RECENT TRANSACTIONS</h3>
         <div className="space-y-3">
           {[
@@ -255,7 +255,7 @@ function TreasuryTab() {
             { type: 'out', amount: '-200 MON', desc: 'Dev payment', date: '5 days ago' },
             { type: 'in', amount: '+337 MON', desc: 'Mint revenue', date: '1 week ago' },
           ].map((tx, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0">
+            <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2">
               <div className="flex items-center gap-3">
                 <span className={`text-lg ${tx.type === 'in' ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
                   {tx.type === 'in' ? '↓' : '↑'}
@@ -272,7 +272,7 @@ function TreasuryTab() {
           ))}
         </div>
         
-        <button className="w-full mt-4 pixel-btn text-[8px]">
+        <button className="w-full mt-4 pixel-btn text-[8px] smooth-transition hover-lift">
           VIEW ALL TRANSACTIONS
         </button>
       </div>
@@ -286,15 +286,15 @@ export default function DAOContent() {
   return (
     <>
       {/* Page Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 animate-slide-in-up">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float">🏛️</span>
+          <span className="text-2xl animate-pixel-float hover-lift smooth-transition">🏛️</span>
           <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
             THE ORDER
           </h1>
-          <span className="text-2xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
+          <span className="text-2xl animate-pixel-float hover-lift smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
         </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide">
+        <p className="text-[#9966ff] text-[10px] tracking-wide animate-glow-pulse">
           ✦ STAR WORLD ORDER DAO ✦
         </p>
       </div>
@@ -305,16 +305,17 @@ export default function DAOContent() {
         message="Only Star Skrumpey holders may participate in The Order's governance."
       >
         {/* Tab Navigation */}
-        <div className="flex justify-center gap-2 mb-8">
-          {tabs.map((tab) => (
+        <div className="flex justify-center gap-2 mb-8 animate-slide-in-up animate-delay-1">
+          {tabs.map((tab, index) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pixel-btn text-[8px] !px-4 !py-2 ${
+              className={`pixel-btn text-[8px] !px-4 !py-2 smooth-transition hover-lift ${
                 activeTab === tab.id 
                   ? 'pixel-btn-gold' 
                   : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
               }`}
+              style={{ animationDelay: `${0.1 + index * 0.1}s` }}
             >
               <span className="mr-1">{tab.icon}</span>
               {tab.label}
