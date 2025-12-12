@@ -2,8 +2,21 @@
 
 import { useState } from 'react';
 import AccessGate from '@/components/AccessGate';
+import {
+  useGovernance,
+  ProposalState,
+  ThreadCategory,
+  getProposalStateLabel,
+  getProposalStateColor,
+  getCategoryLabel,
+  formatRelativeTime,
+  truncateAddress,
+  formatMON,
+  Proposal,
+  ForumThread,
+} from '@/lib/hooks/useGovernance';
 
-type TabId = 'governance' | 'forum' | 'treasury';
+type TabId = 'governance' | 'forum' | 'staking' | 'treasury';
 
 interface Tab {
   id: TabId;
@@ -14,193 +27,607 @@ interface Tab {
 const tabs: Tab[] = [
   { id: 'governance', label: 'GOVERNANCE', icon: '🗳️' },
   { id: 'forum', label: 'STAR COUNCIL', icon: '💬' },
+  { id: 'staking', label: 'STAKING', icon: '🔒' },
   { id: 'treasury', label: 'TREASURY', icon: '💎' },
 ];
 
-// Mock proposals for demo
-const mockProposals = [
-  {
-    id: 1,
-    title: 'SWO-001: Expand Star Trait Collection',
-    status: 'active',
-    votesFor: 42,
-    votesAgainst: 7,
-    endDate: '2025-01-15',
-    description: 'Proposal to mint additional Star trait NFTs for new members...',
-  },
-  {
-    id: 2,
-    title: 'SWO-002: Treasury Allocation for Dev',
-    status: 'passed',
-    votesFor: 88,
-    votesAgainst: 12,
-    endDate: '2024-12-01',
-    description: 'Allocate 10% of treasury for development efforts...',
-  },
-  {
-    id: 3,
-    title: 'SWO-003: Community Art Contest',
-    status: 'pending',
-    votesFor: 0,
-    votesAgainst: 0,
-    endDate: '2025-02-01',
-    description: 'Host a pixel art contest for community engagement...',
-  },
-];
+/**
+ * Create Proposal Modal
+ */
+function CreateProposalModal({
+  isOpen,
+  onClose,
+  onCreate,
+  isPending,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreate: (title: string, description: string) => Promise<{ success: boolean; error?: string }>;
+  isPending: boolean;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-// Mock forum threads
-const mockThreads = [
-  {
-    id: 1,
-    title: 'Welcome to Star World Order!',
-    author: '0x1234...abcd',
-    replies: 24,
-    lastActivity: '2 hours ago',
-    pinned: true,
-  },
-  {
-    id: 2,
-    title: 'Ideas for next proposal',
-    author: '0x5678...efgh',
-    replies: 12,
-    lastActivity: '5 hours ago',
-    pinned: false,
-  },
-  {
-    id: 3,
-    title: 'Star Skrumpey lore discussion',
-    author: '0x9abc...ijkl',
-    replies: 45,
-    lastActivity: '1 day ago',
-    pinned: false,
-  },
-];
+  if (!isOpen) return null;
 
-function GovernanceTab() {
+  const handleSubmit = async () => {
+    setError(null);
+    const result = await onCreate(title, description);
+    if (result.success) {
+      setTitle('');
+      setDescription('');
+      onClose();
+    } else {
+      setError(result.error || 'Failed to create proposal');
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Create Proposal Button */}
-      <div className="flex justify-between items-center animate-slide-in-up">
-        <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">ACTIVE PROPOSALS</h3>
-        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift">
-          + NEW PROPOSAL
-        </button>
-      </div>
-
-      {/* Proposals List */}
-      <div className="space-y-4">
-        {mockProposals.map((proposal, index) => {
-          const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
-          return (
-          <div key={proposal.id} className={`pixel-card p-4 smooth-transition cursor-pointer animate-slide-in-up ${delayClass}`}>
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h4 className="text-gray-200 text-[10px] font-bold mb-1">
-                  {proposal.title}
-                </h4>
-                <p className="text-gray-500 text-[8px]">
-                  {proposal.description.slice(0, 60)}...
-                </p>
-              </div>
-              <span className={`text-[6px] px-2 py-1 rounded ${
-                proposal.status === 'active' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
-                proposal.status === 'passed' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
-                'bg-[#9966ff]/20 text-[#9966ff]'
-              }`}>
-                {proposal.status.toUpperCase()}
-              </span>
-            </div>
-
-            {/* Voting Progress */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="flex justify-between text-[6px] mb-1">
-                  <span className="text-[#44ff88]">FOR: {proposal.votesFor}</span>
-                  <span className="text-[#ff4466]">AGAINST: {proposal.votesAgainst}</span>
-                </div>
-                {(() => {
-                  const totalVotes = proposal.votesFor + proposal.votesAgainst || 1;
-                  return (
-                    <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden flex">
-                      <div 
-                        className="h-full bg-[#44ff88]" 
-                        style={{ width: `${(proposal.votesFor / totalVotes) * 100}%` }} 
-                      />
-                      <div 
-                        className="h-full bg-[#ff4466]" 
-                        style={{ width: `${(proposal.votesAgainst / totalVotes) * 100}%` }} 
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-              <span className="text-gray-500 text-[6px]">
-                Ends: {proposal.endDate}
-              </span>
-            </div>
-
-            {/* Vote Buttons */}
-            {proposal.status === 'active' && (
-              <div className="flex gap-2 mt-3">
-                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift">
-                  VOTE FOR
-                </button>
-                <button className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift">
-                  VOTE AGAINST
-                </button>
-              </div>
-            )}
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
+          ✦ CREATE NEW PROPOSAL ✦
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="text-[#9966ff] text-[8px] block mb-2">PROPOSAL TITLE</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter a short, descriptive title..."
+              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition"
+            />
           </div>
-          );
-        })}
+          
+          <div>
+            <label className="text-[#9966ff] text-[8px] block mb-2">DESCRIPTION</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your proposal in detail. Include rationale, expected outcomes, and any relevant information..."
+              rows={6}
+              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+            />
+          </div>
+          
+          {error && (
+            <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+              ⚠️ {error}
+            </div>
+          )}
+          
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+            >
+              CANCEL
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isPending || !title.trim() || !description.trim()}
+              className="flex-1 pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPending ? '⏳ CREATING...' : '✨ CREATE PROPOSAL'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function ForumTab() {
+/**
+ * Vote Modal
+ */
+function VoteModal({
+  isOpen,
+  proposal,
+  onClose,
+  onVote,
+  isPending,
+}: {
+  isOpen: boolean;
+  proposal: Proposal | null;
+  onClose: () => void;
+  onVote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  isPending: boolean;
+}) {
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen || !proposal) return null;
+
+  const handleVote = async (support: boolean) => {
+    setError(null);
+    const result = await onVote(proposal.id, support, reason || undefined);
+    if (result.success) {
+      setReason('');
+      onClose();
+    } else {
+      setError(result.error || 'Failed to cast vote');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
+          🗳️ CAST YOUR VOTE
+        </h3>
+        
+        <div className="mb-4">
+          <h4 className="text-gray-200 text-[10px] font-bold mb-2">{proposal.title}</h4>
+          <p className="text-gray-500 text-[8px]">{proposal.description.slice(0, 200)}...</p>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="text-[#9966ff] text-[8px] block mb-2">REASON (OPTIONAL)</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Explain your vote (optional)..."
+              rows={3}
+              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+            />
+          </div>
+          
+          {error && (
+            <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+              ⚠️ {error}
+            </div>
+          )}
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleVote(true)}
+              disabled={isPending}
+              className="flex-1 pixel-btn text-[8px] !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+            >
+              {isPending ? '...' : '✓ VOTE FOR'}
+            </button>
+            <button
+              onClick={() => handleVote(false)}
+              disabled={isPending}
+              className="flex-1 pixel-btn text-[8px] !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+            >
+              {isPending ? '...' : '✕ VOTE AGAINST'}
+            </button>
+          </div>
+          
+          <button
+            onClick={onClose}
+            className="w-full pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+          >
+            CANCEL
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Governance Tab Component
+ */
+function GovernanceTab({
+  proposals,
+  onCreateProposal,
+  onVote,
+  hasVoted,
+  votingPower,
+  isLoading,
+}: {
+  proposals: Proposal[];
+  onCreateProposal: (title: string, description: string) => Promise<{ success: boolean; error?: string }>;
+  onVote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  hasVoted: (proposalId: string) => boolean;
+  votingPower: number;
+  isLoading: boolean;
+}) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleCreate = async (title: string, description: string) => {
+    setIsPending(true);
+    const result = await onCreateProposal(title, description);
+    setIsPending(false);
+    return result;
+  };
+
+  const handleVote = async (proposalId: string, support: boolean, reason?: string) => {
+    setIsPending(true);
+    const result = await onVote(proposalId, support, reason);
+    setIsPending(false);
+    return result;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="pixel-card p-8 text-center animate-slide-in-up">
+        <div className="text-4xl mb-4 animate-spin">⭐</div>
+        <p className="text-[#ffd700] text-xs animate-pixel-pulse">LOADING PROPOSALS...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Create Proposal Modal */}
+      <CreateProposalModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreate}
+        isPending={isPending}
+      />
+      
+      {/* Vote Modal */}
+      <VoteModal
+        isOpen={selectedProposal !== null}
+        proposal={selectedProposal}
+        onClose={() => setSelectedProposal(null)}
+        onVote={handleVote}
+        isPending={isPending}
+      />
+
+      {/* Header */}
+      <div className="flex justify-between items-center animate-slide-in-up">
+        <div>
+          <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">GOVERNANCE</h3>
+          <p className="text-gray-500 text-[7px]">Your voting power: {votingPower} ⭐</p>
+        </div>
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift"
+        >
+          + NEW PROPOSAL
+        </button>
+      </div>
+
+      {/* Proposals List */}
+      {proposals.length === 0 ? (
+        <div className="pixel-card p-8 text-center animate-slide-in-up">
+          <div className="text-4xl mb-4 animate-pixel-float">📜</div>
+          <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO PROPOSALS YET</h3>
+          <p className="text-gray-500 text-[8px]">Be the first to create a proposal for The Order!</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {proposals.map((proposal, index) => {
+            const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+            const totalVotes = proposal.forVotes + proposal.againstVotes || 1;
+            const hasUserVoted = hasVoted(proposal.id);
+            const isActive = proposal.state === ProposalState.Active;
+            
+            return (
+              <div key={proposal.id} className={`pixel-card p-4 smooth-transition animate-slide-in-up ${delayClass}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <h4 className="text-gray-200 text-[10px] font-bold mb-1">
+                      {proposal.title}
+                    </h4>
+                    <p className="text-gray-500 text-[8px]">
+                      {proposal.description.slice(0, 100)}...
+                    </p>
+                    <p className="text-gray-600 text-[6px] mt-1">
+                      Proposed by {truncateAddress(proposal.proposer)} • {formatRelativeTime(proposal.createdAt)}
+                    </p>
+                  </div>
+                  <span 
+                    className="text-[6px] px-2 py-1 rounded"
+                    style={{ 
+                      backgroundColor: `${getProposalStateColor(proposal.state)}20`,
+                      color: getProposalStateColor(proposal.state)
+                    }}
+                  >
+                    {getProposalStateLabel(proposal.state).toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Voting Progress */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-[6px] mb-1">
+                      <span className="text-[#44ff88]">FOR: {proposal.forVotes}</span>
+                      <span className="text-[#ff4466]">AGAINST: {proposal.againstVotes}</span>
+                    </div>
+                    <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden flex">
+                      <div 
+                        className="h-full bg-[#44ff88] smooth-transition" 
+                        style={{ width: `${(proposal.forVotes / totalVotes) * 100}%` }} 
+                      />
+                      <div 
+                        className="h-full bg-[#ff4466] smooth-transition" 
+                        style={{ width: `${(proposal.againstVotes / totalVotes) * 100}%` }} 
+                      />
+                    </div>
+                  </div>
+                  <span className="text-gray-500 text-[6px]">
+                    {proposal.forVotes + proposal.againstVotes} votes
+                  </span>
+                </div>
+
+                {/* Vote Buttons */}
+                {isActive && !hasUserVoted && (
+                  <div className="flex gap-2 mt-3">
+                    <button 
+                      onClick={() => setSelectedProposal(proposal)}
+                      className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift"
+                    >
+                      🗳️ CAST VOTE
+                    </button>
+                  </div>
+                )}
+                
+                {isActive && hasUserVoted && (
+                  <div className="mt-3 text-center">
+                    <span className="text-[#44ff88] text-[8px]">✓ You have voted on this proposal</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Forum Tab Component
+ */
+function ForumTab({
+  threads,
+  onCreateThread,
+  onReply,
+  votingPower,
+  isLoading,
+}: {
+  threads: ForumThread[];
+  onCreateThread: (title: string, content: string, category: ThreadCategory) => Promise<{ success: boolean; error?: string }>;
+  onReply: (threadId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  votingPower: number;
+  isLoading: boolean;
+}) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<ForumThread | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [newCategory, setNewCategory] = useState<ThreadCategory>(ThreadCategory.General);
+  const [replyContent, setReplyContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleCreateThread = async () => {
+    setError(null);
+    setIsPending(true);
+    const result = await onCreateThread(newTitle, newContent, newCategory);
+    setIsPending(false);
+    if (result.success) {
+      setNewTitle('');
+      setNewContent('');
+      setNewCategory(ThreadCategory.General);
+      setShowCreateModal(false);
+    } else {
+      setError(result.error || 'Failed to create thread');
+    }
+  };
+
+  const handleReply = async () => {
+    if (!selectedThread) return;
+    setError(null);
+    setIsPending(true);
+    const result = await onReply(selectedThread.id, replyContent);
+    setIsPending(false);
+    if (result.success) {
+      setReplyContent('');
+    } else {
+      setError(result.error || 'Failed to add reply');
+    }
+  };
+
+  // Sort threads: pinned first, then by last activity
+  const sortedThreads = [...threads].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return b.updatedAt - a.updatedAt;
+  });
+
+  if (isLoading) {
+    return (
+      <div className="pixel-card p-8 text-center animate-slide-in-up">
+        <div className="text-4xl mb-4 animate-spin">⭐</div>
+        <p className="text-[#ffd700] text-xs animate-pixel-pulse">LOADING FORUM...</p>
+      </div>
+    );
+  }
+
+  // Thread View
+  if (selectedThread) {
+    return (
+      <div className="space-y-4 animate-slide-in-up">
+        <button 
+          onClick={() => setSelectedThread(null)}
+          className="text-[#9966ff] text-[8px] hover:text-[#ffd700] smooth-transition"
+        >
+          ← Back to threads
+        </button>
+        
+        <div className="pixel-card p-4">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <span className="text-[#9966ff] text-[6px] uppercase">{getCategoryLabel(selectedThread.category)}</span>
+              <h3 className="text-[#ffd700] text-sm font-bold">{selectedThread.title}</h3>
+              <p className="text-gray-500 text-[7px]">
+                by {selectedThread.author} • {formatRelativeTime(selectedThread.createdAt)}
+              </p>
+            </div>
+            {selectedThread.pinned && <span className="text-[#ffd700]">📌</span>}
+          </div>
+          
+          <div className="bg-[#0a0a15] rounded-lg p-4 mb-4">
+            <p className="text-gray-300 text-[9px] whitespace-pre-wrap">{selectedThread.content}</p>
+          </div>
+          
+          {/* Replies */}
+          <div className="space-y-3 mb-4">
+            <h4 className="text-[#9966ff] text-[8px]">REPLIES ({selectedThread.replies.length})</h4>
+            {selectedThread.replies.map((reply) => (
+              <div key={reply.id} className="bg-[#1a1a2e] rounded-lg p-3">
+                <p className="text-gray-300 text-[8px]">{reply.content}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-gray-500 text-[6px]">
+                    {reply.author} • {formatRelativeTime(reply.createdAt)}
+                  </span>
+                  <span className="text-gray-600 text-[6px]">❤️ {reply.likes}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Reply Form */}
+          {!selectedThread.locked && (
+            <div className="space-y-3">
+              <textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Write your reply..."
+                rows={3}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+              />
+              {error && (
+                <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+                  ⚠️ {error}
+                </div>
+              )}
+              <button
+                onClick={handleReply}
+                disabled={isPending || !replyContent.trim()}
+                className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50"
+              >
+                {isPending ? '⏳ POSTING...' : '💬 POST REPLY'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Create Thread Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+            <h3 className="text-[#ffd700] text-sm tracking-wider mb-4">✦ NEW THREAD ✦</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[#9966ff] text-[8px] block mb-2">CATEGORY</label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as ThreadCategory)}
+                  className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-2 text-white text-[10px] focus:border-[#ffd700] focus:outline-none cursor-pointer"
+                >
+                  {Object.values(ThreadCategory).map((cat) => (
+                    <option key={cat} value={cat}>{getCategoryLabel(cat)}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-[#9966ff] text-[8px] block mb-2">TITLE</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Thread title..."
+                  className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition"
+                />
+              </div>
+              
+              <div>
+                <label className="text-[#9966ff] text-[8px] block mb-2">CONTENT</label>
+                <textarea
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder="Write your thread content..."
+                  rows={5}
+                  className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+                />
+              </div>
+              
+              {error && (
+                <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+                  ⚠️ {error}
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={handleCreateThread}
+                  disabled={isPending || !newTitle.trim() || !newContent.trim()}
+                  className="flex-1 pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift disabled:opacity-50"
+                >
+                  {isPending ? '⏳ CREATING...' : '✨ CREATE'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Forum Header */}
       <div className="flex justify-between items-center animate-slide-in-up">
         <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">STAR COUNCIL FORUM</h3>
-        <button className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift">
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift"
+        >
           + NEW THREAD
         </button>
       </div>
 
       {/* Thread List */}
       <div className="space-y-3">
-        {mockThreads.map((thread, index) => {
+        {sortedThreads.map((thread, index) => {
           const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
           return (
-          <div 
-            key={thread.id} 
-            className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
-          >
-            {/* Pin indicator */}
-            {thread.pinned && (
-              <span className="text-[#ffd700] text-xs">📌</span>
-            )}
-            
-            <div className="flex-1">
-              <h4 className={`text-[10px] font-bold mb-1 ${
-                thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'
-              }`}>
-                {thread.title}
-              </h4>
-              <div className="flex items-center gap-4 text-[6px] text-gray-500">
-                <span>by {thread.author}</span>
-                <span>{thread.replies} replies</span>
-                <span>{thread.lastActivity}</span>
+            <div 
+              key={thread.id} 
+              onClick={() => setSelectedThread(thread)}
+              className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
+            >
+              {thread.pinned && <span className="text-[#ffd700] text-xs">📌</span>}
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[#9966ff] text-[6px] uppercase">{getCategoryLabel(thread.category)}</span>
+                </div>
+                <h4 className={`text-[10px] font-bold mb-1 ${thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'}`}>
+                  {thread.title}
+                </h4>
+                <div className="flex items-center gap-4 text-[6px] text-gray-500">
+                  <span>by {thread.author}</span>
+                  <span>{thread.replies.length} replies</span>
+                  <span>{formatRelativeTime(thread.updatedAt)}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Reply icon */}
-            <div className="text-gray-600 text-xs">
-              💬
+              <div className="text-gray-600 text-xs">💬</div>
             </div>
-          </div>
           );
         })}
       </div>
@@ -219,6 +646,143 @@ function ForumTab() {
   );
 }
 
+/**
+ * Staking Tab Component
+ */
+function StakingTab({
+  stakingSummary,
+  availableTokens,
+  onStake,
+  onRequestUnstake,
+  onUnstake,
+  isLoading,
+}: {
+  stakingSummary: { stakedTokens: number[]; totalStaked: number; totalPendingRewards: bigint } | null;
+  availableTokens: Array<{ tokenId: number; starVariant?: string }>;
+  onStake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
+  onRequestUnstake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
+  onUnstake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
+  isLoading: boolean;
+}) {
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleStake = async (tokenId: number) => {
+    setError(null);
+    setIsPending(true);
+    const result = await onStake(tokenId);
+    setIsPending(false);
+    if (!result.success) {
+      setError(result.error || 'Failed to stake');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="pixel-card p-8 text-center animate-slide-in-up">
+        <div className="text-4xl mb-4 animate-spin">⭐</div>
+        <p className="text-[#ffd700] text-xs animate-pixel-pulse">LOADING STAKING...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Staking Overview */}
+      <div className="pixel-card p-6 text-center animate-slide-in-up">
+        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">🔒 STAKING</h3>
+        
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#9966ff]/30">
+            <p className="text-gray-500 text-[8px] mb-1">STAKED NFTs</p>
+            <p className="text-[#9966ff] text-xl font-bold">
+              {stakingSummary?.totalStaked || 0} ⭐
+            </p>
+          </div>
+          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#44ff88]/30">
+            <p className="text-gray-500 text-[8px] mb-1">PENDING REWARDS</p>
+            <p className="text-[#44ff88] text-xl font-bold">
+              {stakingSummary ? formatMON(stakingSummary.totalPendingRewards) : '0'} MON
+            </p>
+          </div>
+        </div>
+        
+        {/* Staking Benefits */}
+        <div className="bg-[#1a1a2e] rounded-lg p-4 mb-4 text-left">
+          <p className="text-[#ffd700] text-[8px] mb-2">✦ STAKING BENEFITS ✦</p>
+          <ul className="text-gray-400 text-[7px] space-y-1">
+            <li>• Earn MON rewards over time</li>
+            <li>• Higher multiplier for longer staking</li>
+            <li>• 1 week: 1.1x | 1 month: 1.3x | 3 months: 1.5x</li>
+            <li>• 6 months: 1.75x | 1 year: 2x rewards</li>
+          </ul>
+        </div>
+      </div>
+
+      {error && (
+        <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Available to Stake */}
+      {availableTokens.length > 0 && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-1">
+          <h4 className="text-[#9966ff] text-[8px] mb-3">AVAILABLE TO STAKE</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {availableTokens.map((token) => (
+              <div key={token.tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center">
+                <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
+                <p className="text-gray-200 text-[8px] font-bold">#{token.tokenId}</p>
+                {token.starVariant && (
+                  <p className="text-[#9966ff] text-[6px] uppercase">{token.starVariant}</p>
+                )}
+                <button
+                  onClick={() => handleStake(token.tokenId)}
+                  disabled={isPending}
+                  className="mt-2 w-full pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+                >
+                  {isPending ? '...' : 'STAKE'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Currently Staked */}
+      {stakingSummary && stakingSummary.stakedTokens.length > 0 && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
+          <h4 className="text-[#ffd700] text-[8px] mb-3">CURRENTLY STAKED</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {stakingSummary.stakedTokens.map((tokenId) => (
+              <div key={tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center border-2 border-[#ffd700]/30">
+                <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
+                <p className="text-[#ffd700] text-[8px] font-bold">#{tokenId}</p>
+                <p className="text-[#44ff88] text-[6px]">STAKED ✓</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Info */}
+      <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-3">
+        <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">ℹ️ STAKING INFO</p>
+        <ul className="text-gray-500 text-[6px] space-y-1">
+          <li>• Stake your Star Skrumpeys to earn MON rewards</li>
+          <li>• 7-day cooldown period to unstake</li>
+          <li>• Emergency unstake available with 10% penalty</li>
+          <li>• Staked NFTs still count for governance voting</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Treasury Tab Component
+ */
 function TreasuryTab() {
   return (
     <div className="space-y-6">
@@ -257,9 +821,10 @@ function TreasuryTab() {
         <h3 className="text-[#9966ff] text-xs tracking-wider mb-4">RECENT TRANSACTIONS</h3>
         <div className="space-y-3">
           {[
-            { type: 'in', amount: '+500 MON', desc: 'Royalties', date: '2 days ago' },
-            { type: 'out', amount: '-200 MON', desc: 'Dev payment', date: '5 days ago' },
-            { type: 'in', amount: '+337 MON', desc: 'Mint revenue', date: '1 week ago' },
+            { type: 'in', amount: '+500 MON', desc: 'Marketplace Fees', date: '2 days ago' },
+            { type: 'out', amount: '-200 MON', desc: 'Dev Payment (SWO-002)', date: '5 days ago' },
+            { type: 'in', amount: '+337 MON', desc: 'Royalties', date: '1 week ago' },
+            { type: 'in', amount: '+150 MON', desc: 'Staking Deposits', date: '2 weeks ago' },
           ].map((tx, i) => (
             <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2">
               <div className="flex items-center gap-3">
@@ -282,12 +847,49 @@ function TreasuryTab() {
           VIEW ALL TRANSACTIONS
         </button>
       </div>
+
+      {/* Treasury Sources */}
+      <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
+        <p className="text-[#ffd700] text-[8px] tracking-wide mb-2">💰 TREASURY SOURCES</p>
+        <ul className="text-gray-500 text-[6px] space-y-1">
+          <li>• 2.5% fee from Cosmic Exchange trades</li>
+          <li>• NFT royalties from secondary sales</li>
+          <li>• Staking protocol fees</li>
+          <li>• Community donations</li>
+        </ul>
+      </div>
     </div>
   );
 }
 
 export default function DAOContent() {
   const [activeTab, setActiveTab] = useState<TabId>('governance');
+  
+  const {
+    proposals,
+    threads,
+    stakingSummary,
+    votingPower,
+    isLoadingProposals,
+    isLoadingThreads,
+    isLoadingStaking,
+    createNewProposal,
+    vote,
+    hasVoted,
+    createNewThread,
+    replyToThread,
+    stakeNFT,
+    requestUnstakeNFT,
+    unstakeNFT,
+    isGovernanceDeployed,
+    isStakingDeployed,
+  } = useGovernance();
+  
+  // Get available tokens from DAO access (would come from useDAOAccess in real implementation)
+  const availableTokens = stakingSummary 
+    ? Array.from({ length: 3 }, (_, i) => ({ tokenId: 1000 + i, starVariant: ['aether', 'spectra', 'solveil'][i] }))
+        .filter(t => !stakingSummary.stakedTokens.includes(t.tokenId))
+    : [];
 
   return (
     <>
@@ -310,8 +912,23 @@ export default function DAOContent() {
         title="DAO ACCESS LOCKED"
         message="Only Star Skrumpey holders may participate in The Order's governance."
       >
+        {/* Demo Mode Notice */}
+        {!isGovernanceDeployed && (
+          <div className="pixel-card p-3 mb-6 bg-[#ffd700]/10 border-2 border-[#ffd700]/30 animate-slide-in-up">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="text-[#ffd700] text-[9px] font-bold">DEMO MODE</p>
+                <p className="text-gray-400 text-[7px]">
+                  Governance contracts not deployed. Data is stored locally for demonstration.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tab Navigation */}
-        <div className="flex justify-center gap-2 mb-8 animate-slide-in-up animate-delay-1">
+        <div className="flex flex-wrap justify-center gap-2 mb-8 animate-slide-in-up animate-delay-1">
           {tabs.map((tab, index) => (
             <button
               key={tab.id}
@@ -331,8 +948,35 @@ export default function DAOContent() {
 
         {/* Tab Content */}
         <div className="max-w-3xl mx-auto">
-          {activeTab === 'governance' && <GovernanceTab />}
-          {activeTab === 'forum' && <ForumTab />}
+          {activeTab === 'governance' && (
+            <GovernanceTab
+              proposals={proposals}
+              onCreateProposal={createNewProposal}
+              onVote={vote}
+              hasVoted={hasVoted}
+              votingPower={votingPower}
+              isLoading={isLoadingProposals}
+            />
+          )}
+          {activeTab === 'forum' && (
+            <ForumTab
+              threads={threads}
+              onCreateThread={createNewThread}
+              onReply={replyToThread}
+              votingPower={votingPower}
+              isLoading={isLoadingThreads}
+            />
+          )}
+          {activeTab === 'staking' && (
+            <StakingTab
+              stakingSummary={stakingSummary}
+              availableTokens={availableTokens}
+              onStake={stakeNFT}
+              onRequestUnstake={requestUnstakeNFT}
+              onUnstake={unstakeNFT}
+              isLoading={isLoadingStaking}
+            />
+          )}
           {activeTab === 'treasury' && <TreasuryTab />}
         </div>
       </AccessGate>
