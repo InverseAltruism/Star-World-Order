@@ -1,6 +1,28 @@
 'use client';
 
-import { useState, useEffect, CSSProperties } from 'react';
+import { useState, useEffect, useRef, CSSProperties } from 'react';
+
+// Helper function to safely access sessionStorage
+const getSessionStorage = (key: string): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return sessionStorage.getItem(key);
+    }
+  } catch {
+    // sessionStorage not available (SSR, privacy mode, etc.)
+  }
+  return null;
+};
+
+const setSessionStorage = (key: string, value: string): void => {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.setItem(key, value);
+    }
+  } catch {
+    // sessionStorage not available (SSR, privacy mode, etc.)
+  }
+};
 
 // Inline styles as fallback to ensure loading screen renders correctly
 const loadingScreenStyle: CSSProperties = {
@@ -22,10 +44,11 @@ export default function LoadingScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [phase, setPhase] = useState<'cartridge' | 'boot' | 'loading' | 'done'>('cartridge');
   const [showLoading, setShowLoading] = useState(true);
+  const loadingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check if user has already seen loading screen this session
-    const hasSeenLoading = sessionStorage.getItem('swo-loading-seen');
+    const hasSeenLoading = getSessionStorage('swo-loading-seen');
     if (hasSeenLoading) {
       setShowLoading(false);
       return;
@@ -42,10 +65,13 @@ export default function LoadingScreen() {
     }, 2500);
 
     // Phase 3: Loading progress (incremental over 2s)
-    const loadingInterval = setInterval(() => {
+    loadingIntervalRef.current = setInterval(() => {
       setLoadingProgress((prev) => {
         if (prev >= 100) {
-          clearInterval(loadingInterval);
+          if (loadingIntervalRef.current) {
+            clearInterval(loadingIntervalRef.current);
+            loadingIntervalRef.current = null;
+          }
           return 100;
         }
         return prev + 5;
@@ -55,7 +81,7 @@ export default function LoadingScreen() {
     // Phase 4: Complete and fade out
     const doneTimer = setTimeout(() => {
       setPhase('done');
-      sessionStorage.setItem('swo-loading-seen', 'true');
+      setSessionStorage('swo-loading-seen', 'true');
     }, 4500);
 
     // Final cleanup - hide loading screen
@@ -68,13 +94,15 @@ export default function LoadingScreen() {
       clearTimeout(bootTimer);
       clearTimeout(doneTimer);
       clearTimeout(hideTimer);
-      clearInterval(loadingInterval);
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+      }
     };
   }, []);
 
   // Skip loading screen
   const handleSkip = () => {
-    sessionStorage.setItem('swo-loading-seen', 'true');
+    setSessionStorage('swo-loading-seen', 'true');
     setShowLoading(false);
   };
 
