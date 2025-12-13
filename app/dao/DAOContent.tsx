@@ -15,6 +15,7 @@ import {
   Proposal,
   ForumThread,
 } from '@/lib/hooks/useGovernance';
+import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
 type TabId = 'governance' | 'forum' | 'staking' | 'treasury';
 
@@ -647,33 +648,91 @@ function ForumTab({
 }
 
 /**
- * Staking Tab Component
+ * Staking Tab Component - Updated with STAR points system
+ * 
+ * New mechanics:
+ * - 1 Star Skrumpey = 1 STAR per 24 hours
+ * - Multiple NFTs can be staked
+ * - No unstaking period (immediate unstake)
+ * - STAR tokens usable in governance with sqrt weighting
  */
 function StakingTab({
-  stakingSummary,
-  availableTokens,
-  onStake,
-  onRequestUnstake,
-  onUnstake,
   isLoading,
 }: {
-  stakingSummary: { stakedTokens: number[]; totalStaked: number; totalPendingRewards: bigint } | null;
-  availableTokens: Array<{ tokenId: number; starVariant?: string }>;
-  onStake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
-  onRequestUnstake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
-  onUnstake: (tokenId: number) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
 }) {
+  const {
+    starBalance,
+    pendingStars,
+    totalStars,
+    stakedNFTs,
+    availableToStake,
+    votingPower,
+    stakeNFT,
+    stakeAll,
+    unstakeNFT,
+    claimStars,
+    timeUntilNextStar,
+    history,
+  } = useStarPoints();
+  
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleStake = async (tokenId: number) => {
+  const handleStake = (tokenId: number, starVariant?: string) => {
     setError(null);
+    setSuccessMessage(null);
     setIsPending(true);
-    const result = await onStake(tokenId);
+    
+    const result = stakeNFT(tokenId, starVariant);
     setIsPending(false);
+    
     if (!result.success) {
       setError(result.error || 'Failed to stake');
+    } else {
+      setSuccessMessage(`Staked NFT #${tokenId}! You'll earn ${STAR_PER_NFT_PER_DAY} STAR per day.`);
+    }
+  };
+
+  const handleStakeAll = () => {
+    setError(null);
+    setSuccessMessage(null);
+    setIsPending(true);
+    
+    const result = stakeAll();
+    setIsPending(false);
+    
+    if (result.stakedCount > 0) {
+      setSuccessMessage(`Staked ${result.stakedCount} NFTs! You'll earn ${result.stakedCount * STAR_PER_NFT_PER_DAY} STAR per day.`);
+    }
+  };
+
+  const handleUnstake = (tokenId: number) => {
+    setError(null);
+    setSuccessMessage(null);
+    setIsPending(true);
+    
+    const result = unstakeNFT(tokenId);
+    setIsPending(false);
+    
+    if (!result.success) {
+      setError(result.error || 'Failed to unstake');
+    } else {
+      setSuccessMessage(`Unstaked NFT #${tokenId}! Claimed ${result.claimedStars} STAR.`);
+    }
+  };
+
+  const handleClaimAll = () => {
+    setError(null);
+    setSuccessMessage(null);
+    
+    const result = claimStars();
+    
+    if (result.claimed > 0) {
+      setSuccessMessage(`Claimed ${result.claimed} STAR!`);
+    } else {
+      setError('No STAR to claim yet. Keep staking!');
     }
   };
 
@@ -688,57 +747,139 @@ function StakingTab({
 
   return (
     <div className="space-y-6">
-      {/* Staking Overview */}
+      {/* STAR Balance Overview */}
       <div className="pixel-card p-6 text-center animate-slide-in-up">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">🔒 STAKING</h3>
+        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">⭐ STAR STAKING</h3>
         
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#9966ff]/30">
-            <p className="text-gray-500 text-[8px] mb-1">STAKED NFTs</p>
-            <p className="text-[#9966ff] text-xl font-bold">
-              {stakingSummary?.totalStaked || 0} ⭐
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#ffd700]/30">
+            <p className="text-gray-500 text-[8px] mb-1">STAR BALANCE</p>
+            <p className="text-[#ffd700] text-xl font-bold">
+              {formatStarAmount(starBalance)} ⭐
             </p>
           </div>
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#44ff88]/30">
-            <p className="text-gray-500 text-[8px] mb-1">PENDING REWARDS</p>
+            <p className="text-gray-500 text-[8px] mb-1">PENDING STAR</p>
             <p className="text-[#44ff88] text-xl font-bold">
-              {stakingSummary ? formatMON(stakingSummary.totalPendingRewards) : '0'} MON
+              {formatStarAmount(pendingStars)} ⭐
+            </p>
+          </div>
+          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#9966ff]/30">
+            <p className="text-gray-500 text-[8px] mb-1">STAKED NFTs</p>
+            <p className="text-[#9966ff] text-xl font-bold">
+              {stakedNFTs.length} 🐸
+            </p>
+          </div>
+          <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#00ffff]/30">
+            <p className="text-gray-500 text-[8px] mb-1">VOTING POWER</p>
+            <p className="text-[#00ffff] text-xl font-bold">
+              {votingPower?.weightedVotingPower.toFixed(2) || '0'}
             </p>
           </div>
         </div>
         
+        {/* Time Until Next STAR */}
+        {timeUntilNextStar && stakedNFTs.length > 0 && (
+          <div className="bg-[#1a1a2e] rounded-lg p-4 mb-4">
+            <p className="text-gray-500 text-[8px] mb-2">NEXT STAR IN</p>
+            <p className="text-[#ffd700] text-lg font-bold animate-pixel-pulse">
+              {String(timeUntilNextStar.hours).padStart(2, '0')}:
+              {String(timeUntilNextStar.minutes).padStart(2, '0')}:
+              {String(timeUntilNextStar.seconds).padStart(2, '0')}
+            </p>
+            <p className="text-gray-600 text-[6px] mt-1">
+              +{stakedNFTs.length * STAR_PER_NFT_PER_DAY} STAR ({stakedNFTs.length} staked NFTs)
+            </p>
+          </div>
+        )}
+        
+        {/* Claim Button */}
+        {pendingStars > 0 && (
+          <button
+            onClick={handleClaimAll}
+            className="pixel-btn pixel-btn-gold text-[8px] !px-6 !py-2 smooth-transition hover-lift animate-pixel-pulse"
+          >
+            ✨ CLAIM {pendingStars} STAR ✨
+          </button>
+        )}
+        
         {/* Staking Benefits */}
-        <div className="bg-[#1a1a2e] rounded-lg p-4 mb-4 text-left">
-          <p className="text-[#ffd700] text-[8px] mb-2">✦ STAKING BENEFITS ✦</p>
+        <div className="bg-[#1a1a2e] rounded-lg p-4 mt-4 text-left">
+          <p className="text-[#ffd700] text-[8px] mb-2">✦ STAR STAKING BENEFITS ✦</p>
           <ul className="text-gray-400 text-[7px] space-y-1">
-            <li>• Earn MON rewards over time</li>
-            <li>• Higher multiplier for longer staking</li>
-            <li>• 1 week: 1.1x | 1 month: 1.3x | 3 months: 1.5x</li>
-            <li>• 6 months: 1.75x | 1 year: 2x rewards</li>
+            <li>• Earn <span className="text-[#ffd700]">{STAR_PER_NFT_PER_DAY} STAR</span> per NFT every 24 hours</li>
+            <li>• Stake multiple NFTs to multiply earnings</li>
+            <li>• <span className="text-[#44ff88]">NO unstaking period</span> - unstake anytime!</li>
+            <li>• Use STAR for governance voting (√STAR + NFT count)</li>
+            <li>• Late joiners stay competitive with sqrt weighting</li>
           </ul>
         </div>
       </div>
 
+      {/* Voting Power Breakdown */}
+      {votingPower && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-1">
+          <h4 className="text-[#9966ff] text-[8px] mb-3">VOTING POWER BREAKDOWN</h4>
+          <div className="bg-[#0a0a15] rounded-lg p-4">
+            <div className="space-y-2 text-[7px]">
+              <div className="flex justify-between">
+                <span className="text-gray-500">NFT Voting Power:</span>
+                <span className="text-[#9966ff]">{votingPower.nftVotingPower.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">STAR Voting Power (√{formatStarAmount(votingPower.starBalance + votingPower.pendingStars)}):</span>
+                <span className="text-[#ffd700]">{votingPower.starVotingPower.toFixed(2)}</span>
+              </div>
+              <div className="border-t border-[#2a2a4e] pt-2 flex justify-between">
+                <span className="text-gray-300">Total Weighted Power:</span>
+                <span className="text-[#00ffff] font-bold">{votingPower.weightedVotingPower.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-gray-600 text-[6px] mt-3">
+              ℹ️ Weighted voting uses √STAR + NFT count to balance early vs late members
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="text-[#44ff88] text-[8px] bg-[#44ff88]/10 px-3 py-2 rounded animate-slide-in-up">
+          ✓ {successMessage}
+        </div>
+      )}
       {error && (
-        <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+        <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded animate-slide-in-up">
           ⚠️ {error}
         </div>
       )}
 
       {/* Available to Stake */}
-      {availableTokens.length > 0 && (
-        <div className="pixel-card p-4 animate-slide-in-up animate-delay-1">
-          <h4 className="text-[#9966ff] text-[8px] mb-3">AVAILABLE TO STAKE</h4>
+      {availableToStake.length > 0 && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-[#9966ff] text-[8px]">AVAILABLE TO STAKE ({availableToStake.length})</h4>
+            {availableToStake.length > 1 && (
+              <button
+                onClick={handleStakeAll}
+                disabled={isPending}
+                className="pixel-btn text-[6px] !py-1 !px-2 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift disabled:opacity-50"
+              >
+                STAKE ALL
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {availableTokens.map((token) => (
+            {availableToStake.map((token) => (
               <div key={token.tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center">
                 <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
                 <p className="text-gray-200 text-[8px] font-bold">#{token.tokenId}</p>
                 {token.starVariant && (
                   <p className="text-[#9966ff] text-[6px] uppercase">{token.starVariant}</p>
                 )}
+                <p className="text-[#44ff88] text-[5px] mt-1">+{STAR_PER_NFT_PER_DAY} STAR/day</p>
                 <button
-                  onClick={() => handleStake(token.tokenId)}
+                  onClick={() => handleStake(token.tokenId, token.starVariant)}
                   disabled={isPending}
                   className="mt-2 w-full pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
                 >
@@ -751,15 +892,50 @@ function StakingTab({
       )}
 
       {/* Currently Staked */}
-      {stakingSummary && stakingSummary.stakedTokens.length > 0 && (
-        <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
-          <h4 className="text-[#ffd700] text-[8px] mb-3">CURRENTLY STAKED</h4>
+      {stakedNFTs.length > 0 && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-3">
+          <h4 className="text-[#ffd700] text-[8px] mb-3">CURRENTLY STAKED ({stakedNFTs.length})</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {stakingSummary.stakedTokens.map((tokenId) => (
-              <div key={tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center border-2 border-[#ffd700]/30">
+            {stakedNFTs.map((nft) => (
+              <div key={nft.tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center border-2 border-[#ffd700]/30">
                 <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
-                <p className="text-[#ffd700] text-[8px] font-bold">#{tokenId}</p>
-                <p className="text-[#44ff88] text-[6px]">STAKED ✓</p>
+                <p className="text-[#ffd700] text-[8px] font-bold">#{nft.tokenId}</p>
+                {nft.starVariant && (
+                  <p className="text-[#9966ff] text-[6px] uppercase">{nft.starVariant}</p>
+                )}
+                <p className="text-[#44ff88] text-[5px]">EARNING ⭐</p>
+                <button
+                  onClick={() => handleUnstake(nft.tokenId)}
+                  disabled={isPending}
+                  className="mt-2 w-full pixel-btn text-[6px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+                >
+                  {isPending ? '...' : 'UNSTAKE'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent History */}
+      {history.length > 0 && (
+        <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
+          <h4 className="text-[#9966ff] text-[8px] mb-3">RECENT ACTIVITY</h4>
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {history.slice(0, 10).map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 text-[7px]">
+                <div className="flex items-center gap-2">
+                  <span className={
+                    tx.type === 'claim' ? 'text-[#44ff88]' :
+                    tx.type === 'stake' ? 'text-[#9966ff]' :
+                    tx.type === 'unstake' ? 'text-[#ff4466]' :
+                    'text-[#ffd700]'
+                  }>
+                    {tx.type === 'claim' ? '✨' : tx.type === 'stake' ? '📥' : tx.type === 'unstake' ? '📤' : '🗳️'}
+                  </span>
+                  <span className="text-gray-400">{tx.description}</span>
+                </div>
+                <span className="text-gray-600">{formatRelativeTime(tx.timestamp)}</span>
               </div>
             ))}
           </div>
@@ -767,13 +943,14 @@ function StakingTab({
       )}
 
       {/* Info */}
-      <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-3">
-        <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">ℹ️ STAKING INFO</p>
+      <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
+        <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">ℹ️ STAR SYSTEM INFO</p>
         <ul className="text-gray-500 text-[6px] space-y-1">
-          <li>• Stake your Star Skrumpeys to earn MON rewards</li>
-          <li>• 7-day cooldown period to unstake</li>
-          <li>• Emergency unstake available with 10% penalty</li>
-          <li>• Staked NFTs still count for governance voting</li>
+          <li>• Stake your Star Skrumpeys to earn STAR tokens</li>
+          <li>• <span className="text-[#44ff88]">Instant unstaking</span> - no cooldown period!</li>
+          <li>• STAR earned = Days staked × NFTs staked × {STAR_PER_NFT_PER_DAY}</li>
+          <li>• Governance voting power = √(STAR) + NFT count</li>
+          <li>• Sqrt weighting ensures late joiners stay competitive</li>
         </ul>
       </div>
     </div>
@@ -969,11 +1146,6 @@ export default function DAOContent() {
           )}
           {activeTab === 'staking' && (
             <StakingTab
-              stakingSummary={stakingSummary}
-              availableTokens={availableTokens}
-              onStake={stakeNFT}
-              onRequestUnstake={requestUnstakeNFT}
-              onUnstake={unstakeNFT}
               isLoading={isLoadingStaking}
             />
           )}

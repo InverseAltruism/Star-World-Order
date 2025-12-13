@@ -35,6 +35,13 @@ export default function Header() {
             <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full smooth-transition" />
           </Link>
           <Link 
+            href="/hangout" 
+            className="text-[10px] text-gray-300 hover:text-[#44ff88] smooth-transition uppercase tracking-wider hover-lift relative group"
+          >
+            Hangout
+            <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full smooth-transition" />
+          </Link>
+          <Link 
             href="/profile" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] smooth-transition uppercase tracking-wider hidden sm:block hover-lift relative group"
           >

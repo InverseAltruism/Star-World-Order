@@ -68,10 +68,13 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 - **🔄 Cosmic Exchange** - OTC marketplace for Star Skrumpeys with filtering, sorting, and transaction history
 - **🏛️ The Order (DAO)** - Full governance system with proposals, voting, and treasury management
 - **💬 Star Council Forum** - Community discussions with threads, replies, and categories
-- **🔒 NFT Staking** - Stake your Star Skrumpeys to earn rewards with time-based multipliers
+- **⭐ STAR Staking** - 1 NFT = 1 STAR per 24H, multiple staking, no unstaking period
+- **🗳️ Weighted Governance** - Use STAR for voting with sqrt weighting for fairness
+- **🎮 Hangout Hub** - Gaming lobby to meet other DAO members with chat and sprites
 
 ### UNLOCKING SOON
-- **👤 Star Profiles** - Member profile that spotlights your Skrumpeys (with a star callout)
+- **🎤 Voice Chat** - Talk with fellow Star bearers in real-time
+- **🛒 Point Shop** - Spend STAR on exclusive rewards
 - **🌐 Cross-chain Support** - Expand to additional EVM chains
 
 ## 🔄 COSMIC EXCHANGE (OTC MARKETPLACE)
@@ -134,9 +137,9 @@ The Star World Order DAO provides comprehensive governance features for Star Skr
 | Feature | Description |
 |---------|-------------|
 | **📜 Proposals** | Create and vote on governance proposals |
-| **🗳️ Voting** | NFT-weighted voting (1 Star Skrumpey = 1 vote) |
+| **🗳️ Voting** | Weighted voting with √STAR + NFT count |
 | **💬 Forum** | Star Council discussions with categories |
-| **🔒 Staking** | Stake NFTs for rewards with time multipliers |
+| **⭐ STAR Staking** | 1 NFT = 1 STAR per 24H, instant unstake |
 | **💎 Treasury** | View DAO treasury balance and transactions |
 
 ### Proposal Lifecycle
@@ -147,18 +150,16 @@ The Star World Order DAO provides comprehensive governance features for Star Skr
 4. **Succeeded** - Passed the vote
 5. **Executed** - Implemented by the DAO
 
-### Staking Rewards
+### STAR Staking System
 
-Stake your Star Skrumpeys to earn MON rewards:
+Stake your Star Skrumpeys to earn STAR tokens:
 
-| Duration | Multiplier |
-|----------|------------|
-| Base | 1.0x |
-| 1 week | 1.1x |
-| 1 month | 1.3x |
-| 3 months | 1.5x |
-| 6 months | 1.75x |
-| 1 year | 2.0x |
+| Feature | Value |
+|---------|-------|
+| **Earn Rate** | 1 STAR per NFT per 24 hours |
+| **Multiple Staking** | Yes - stake all NFTs |
+| **Lock Period** | None - instant unstake |
+| **Governance Use** | √STAR + NFT = voting power |
 
 ### Open Source Governance Libraries
 
@@ -470,10 +471,82 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 - [x] Basic achievements and badges framework
 - [x] Discord and X (Twitter) social connect integration
 
-### Stage 4: Expansion (In Progress)
+### Stage 4: STAR Points & Hangout Hub ✅
+- [x] **STAR Points System** - Earn STAR tokens by staking
+- [x] **1 Star Skrumpey = 1 STAR per 24H** staking rewards
+- [x] **Multiple NFT staking** - Stake all your Star Skrumpeys
+- [x] **No unstaking period** - Instant unstake anytime
+- [x] **Weighted governance** - √STAR + NFT count for fairness
+- [x] **Hangout Hub** - Gaming lobby for DAO members
+- [x] **Online presence** - See who's online in real-time
+- [x] **Chat system** - Text chat with emotes
+- [x] **Pixel sprites** - 2D sprite display for members
+
+### Stage 5: Expansion (In Progress)
+- [ ] Voice chat integration
+- [ ] Point shop for STAR rewards
 - [ ] Mobile optimization
 - [ ] Additional chain support
 - [ ] Partnerships and integrations
+
+## ⭐ STAR POINTS SYSTEM
+
+Star World Order features a unique STAR points system for staking and governance.
+
+### Staking Mechanics
+
+| Feature | Description |
+|---------|-------------|
+| **Earn Rate** | 1 STAR per staked NFT every 24 hours |
+| **Multiple Staking** | Stake all your Star Skrumpeys simultaneously |
+| **No Lock Period** | Unstake instantly at any time |
+| **Auto-Claim** | Pending STAR automatically calculated |
+
+### Governance Weighting
+
+To balance early supporters with late joiners, we use a **square root weighting** system:
+
+```
+Voting Power = √(STAR Balance) + NFT Count
+```
+
+This ensures:
+- **Early supporters** are rewarded for loyalty (accumulated STAR)
+- **Late joiners** remain competitive (NFT count still matters)
+- **Whale prevention** - Square root prevents STAR hoarding dominance
+
+### Example Voting Power
+
+| User | STAR Balance | NFT Count | √STAR | Voting Power |
+|------|--------------|-----------|-------|--------------|
+| Early Bird | 100 | 2 | 10 | 12 |
+| New Member | 4 | 3 | 2 | 5 |
+| Whale | 900 | 1 | 30 | 31 |
+
+Notice how the whale with 900 STAR only has ~2.5x the voting power of someone with 100 STAR, rather than 9x.
+
+## 🎮 HANGOUT HUB
+
+The Hangout Hub is a retro gaming lobby where Star Skrumpey holders can meet and chat.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Gaming Lobby** | Visual arcade-style lobby with member sprites |
+| **Online Presence** | See who's online in real-time |
+| **Status Updates** | Set your status (Online, Away, Busy) |
+| **Text Chat** | Chat with fellow Star bearers |
+| **Emotes** | Express yourself with pixel art emotes |
+| **Pixel Sprites** | Your Skrumpey variant displayed as avatar |
+| **Voice Chat** | Coming soon! |
+
+### Accessing the Hub
+
+1. Connect your wallet
+2. Ensure you hold a Star Skrumpey
+3. Navigate to `/hangout` or click "Hangout" in the header
+4. Your presence will be automatically broadcast to other members
 
 ## 🔗 SOCIAL CONNECT
 
