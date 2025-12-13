@@ -111,30 +111,59 @@ function getWalletInfo(connector: { name?: string; id?: string; icon?: string | 
   return { name, icon: '💳' };
 }
 
+// Helper function to check if wallet provider is available
+function hasWalletProvider(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !!(window as { ethereum?: unknown }).ethereum;
+}
+
+// Helper function to get the ethereum provider
+function getEthereumProvider(): unknown | null {
+  if (typeof window === 'undefined') return null;
+  return (window as { ethereum?: unknown }).ethereum || null;
+}
+
 export default function WalletConnect() {
   const { address, isConnected, chain } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const [showDropdown, setShowDropdown] = useState(false);
   const [detectedWallet, setDetectedWallet] = useState<WalletInfo | null>(null);
+  const [showNoWalletMessage, setShowNoWalletMessage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Detect installed wallet
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ethereum = (window as { ethereum?: unknown }).ethereum;
-      if (ethereum) {
-        setDetectedWallet(detectWalletType(ethereum));
-      }
+    const provider = getEthereumProvider();
+    if (provider) {
+      setDetectedWallet(detectWalletType(provider));
     }
   }, []);
+
+  // Show helpful message when connection fails due to no wallet
+  // Check for common error patterns indicating missing wallet
+  useEffect(() => {
+    if (error) {
+      const errorMessage = error.message?.toLowerCase() || '';
+      const isNoWalletError = 
+        errorMessage.includes('not found') || 
+        errorMessage.includes('no provider') ||
+        errorMessage.includes('not installed') ||
+        errorMessage.includes('no ethereum');
+      
+      if (isNoWalletError) {
+        setShowNoWalletMessage(true);
+      }
+    }
+  }, [error]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
+        setShowNoWalletMessage(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -143,11 +172,20 @@ export default function WalletConnect() {
 
   // Check if any connectors are available
   const hasConnectors = connectors.length > 0;
+  
+  // Check if wallet provider is actually available (not just a connector)
+  const walletAvailable = hasWalletProvider();
 
   // Check if connected to wrong network
   const isWrongNetwork = isConnected && chain?.id !== monad.id;
 
   const handleConnect = (connectorId?: string) => {
+    // Check if wallet provider exists before attempting connection
+    if (!walletAvailable) {
+      setShowNoWalletMessage(true);
+      return;
+    }
+    
     const connector = connectorId 
       ? connectors.find(c => c.id === connectorId || c.uid === connectorId)
       : connectors[0];
@@ -194,16 +232,56 @@ export default function WalletConnect() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
-        disabled={!hasConnectors || isPending}
-        className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift ${!hasConnectors || isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
+        disabled={isPending}
+        className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift ${isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
       >
-        {isPending ? 'CONNECTING...' : hasConnectors ? (
+        {isPending ? 'CONNECTING...' : (
           detectedWallet ? `${detectedWallet.icon} CONNECT` : 'CONNECT'
-        ) : 'NO WALLET'}
+        )}
       </button>
 
+      {/* No Wallet Detected Message */}
+      {showNoWalletMessage && (
+        <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1a2e] border-2 border-[#ff4466] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
+          <div className="p-3 border-b border-[#2a2a4e]">
+            <p className="text-[#ff4466] text-[8px] tracking-wider text-center">
+              ⚠️ NO WALLET DETECTED
+            </p>
+          </div>
+          <div className="p-4 space-y-3">
+            <p className="text-gray-300 text-[8px] text-center">
+              Install a Web3 wallet to connect:
+            </p>
+            <div className="space-y-2">
+              <a 
+                href="https://metamask.io/download/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+              >
+                🦊 Get MetaMask
+              </a>
+              <a 
+                href="https://rabby.io/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+              >
+                🐰 Get Rabby
+              </a>
+            </div>
+            <button
+              onClick={() => setShowNoWalletMessage(false)}
+              className="w-full text-[8px] text-gray-500 hover:text-gray-300 smooth-transition mt-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Selection Dropdown */}
-      {showDropdown && shouldShowDropdown && (
+      {showDropdown && shouldShowDropdown && !showNoWalletMessage && (
         <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
           <div className="p-3 border-b border-[#2a2a4e]">
             <p className="text-[#ffd700] text-[8px] tracking-wider text-center animate-glow-pulse">
