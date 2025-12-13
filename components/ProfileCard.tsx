@@ -52,6 +52,62 @@ function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolea
  */
 export default function ProfileCard() {
   const { address, ownedSkrumpeys, starSkrumpeys, isConnected } = useDAOAccess();
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Load profile on mount
+  useState(() => {
+    if (address) {
+      fetch(`/api/profile?address=${address}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.profile) {
+            setDisplayName(data.profile.display_name || '');
+            setBio(data.profile.bio || '');
+          }
+        })
+        .catch(console.error);
+    }
+  });
+
+  const handleSaveProfile = async () => {
+    if (!address) return;
+    
+    setIsSavingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          displayName: displayName.trim(),
+          bio: bio.trim(),
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setProfileSuccess(true);
+        setIsEditingProfile(false);
+        setTimeout(() => setProfileSuccess(false), 3000);
+      } else {
+        setProfileError(data.error || 'Failed to save profile');
+      }
+    } catch (error) {
+      setProfileError('Network error. Please try again.');
+      console.error('Failed to save profile:', error);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // Convert owned tokens to display format
   const displaySkrumpeys = ownedSkrumpeys.map(token => ({
@@ -108,6 +164,94 @@ export default function ProfileCard() {
 
   return (
     <div className="space-y-6">
+      {/* Profile Edit Box */}
+      <div className="pixel-card p-6 animate-slide-in-up">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[#9966ff] text-sm tracking-wider">
+            ✦ PROFILE SETTINGS ✦
+          </h3>
+          {!isEditingProfile && (
+            <button
+              onClick={() => setIsEditingProfile(true)}
+              className="pixel-btn text-[10px] !px-3 !py-1"
+            >
+              EDIT
+            </button>
+          )}
+        </div>
+        
+        {isEditingProfile ? (
+          <div className="space-y-4">
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-2">Display Name</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your display name (3-20 characters)"
+                maxLength={20}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-2">Bio</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us about yourself (max 200 characters)"
+                maxLength={200}
+                rows={3}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none resize-none"
+              />
+              <p className="text-gray-600 text-[8px] mt-1">{bio.length}/200 characters</p>
+            </div>
+            
+            {profileError && (
+              <p className="text-[#ff4466] text-[10px] bg-[#ff4466]/10 px-3 py-2 rounded">
+                ⚠️ {profileError}
+              </p>
+            )}
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile}
+                className="pixel-btn pixel-btn-gold text-[10px] !px-4 disabled:opacity-50"
+              >
+                {isSavingProfile ? 'SAVING...' : 'SAVE'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  setProfileError(null);
+                }}
+                className="pixel-btn text-[10px] !px-4"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div>
+              <p className="text-gray-500 text-[9px]">Display Name</p>
+              <p className="text-white text-[11px]">{displayName || 'Not set'}</p>
+            </div>
+            {bio && (
+              <div>
+                <p className="text-gray-500 text-[9px]">Bio</p>
+                <p className="text-gray-300 text-[10px] leading-relaxed">{bio}</p>
+              </div>
+            )}
+            {profileSuccess && (
+              <p className="text-[#44ff88] text-[10px] bg-[#44ff88]/10 px-3 py-2 rounded">
+                ✓ Profile saved successfully!
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Player Stats Box */}
       <div className="pixel-card p-6 animate-slide-in-up">
         <div className="flex items-center gap-4 mb-4">

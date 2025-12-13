@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { senderAddress, message, messageType, displayName } = body;
+    const { senderAddress, message, messageType } = body;
     
     if (!senderAddress || !message) {
       return NextResponse.json(
@@ -50,6 +50,11 @@ export async function POST(request: NextRequest) {
     
     // Limit message length
     const trimmedMessage = message.slice(0, 500);
+    
+    // Try to get display name from user profile
+    const { getUserProfile } = await import('@/lib/db');
+    const profile = getUserProfile(senderAddress);
+    const displayName = profile?.display_name || undefined;
     
     const newMessage = addChatMessage(
       senderAddress,

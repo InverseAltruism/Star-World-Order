@@ -22,6 +22,10 @@ export default function AccessGate({
   message = 'Only Star Skrumpey holders may enter this realm.'
 }: AccessGateProps) {
   const { hasAccess, isLoading, isConnected } = useDAOAccess();
+  
+  // Check if dev mode is active
+  const devModeActive = process.env.NODE_ENV === 'development' && 
+    process.env.NEXT_PUBLIC_DEV_ACCESS_ENABLED === 'true';
 
   // Show loading state
   if (isLoading) {
@@ -139,5 +143,23 @@ export default function AccessGate({
   }
 
   // User has access - show protected content
-  return <>{children}</>;
+  return (
+    <>
+      {/* Dev Mode Indicator */}
+      {devModeActive && (
+        <div className="fixed bottom-4 right-4 z-50 animate-slide-in-right">
+          <div className="pixel-card p-3 bg-[#ff4466]/20 border-[#ff4466] backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-[#ff4466] text-xl animate-pixel-pulse">🛠️</span>
+              <div>
+                <p className="text-[#ff4466] text-[10px] font-bold">DEV MODE ACTIVE</p>
+                <p className="text-gray-400 text-[8px]">Access bypass enabled</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
