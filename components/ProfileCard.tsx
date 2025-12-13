@@ -277,7 +277,7 @@ export default function ProfileCard() {
                 rows={3}
                 className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none resize-none"
               />
-              <p className="text-gray-600 text-[8px] mt-1">{bio.length}/200 characters</p>
+              <p className="text-gray-600 text-xs mt-1">{bio.length}/200 characters</p>
             </div>
             
             {profileError && (
@@ -338,7 +338,7 @@ export default function ProfileCard() {
               return (
                 <div 
                   key={variant}
-                  className={`px-2 py-1 rounded text-[8px] border smooth-transition hover-lift ${
+                  className={`px-2 py-1 rounded text-xs border smooth-transition hover-lift ${
                     hasVariant 
                       ? 'border-[#ffd700] bg-[#ffd700]/20' 
                       : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
@@ -359,7 +359,7 @@ export default function ProfileCard() {
       {/* Demo Data Notice */}
       {showDemoData && (
         <div className="text-center">
-          <p className="text-gray-500 text-[8px] bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
+          <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
             📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
           </p>
         </div>
@@ -401,7 +401,7 @@ export default function ProfileCard() {
               }`}>
                 {nft.name}
               </p>
-              <p className="text-[8px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
+              <p className="text-xs" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
                 {nft.rarity}
               </p>
             </div>

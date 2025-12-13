@@ -280,6 +280,7 @@ function MemberCard({ user }: { user: OnlineUser }) {
 
 /**
  * Chat Message Component
+ * Displays individual chat messages with sender name prominently shown
  */
 function ChatMessageItem({ message }: { message: ChatMessage }) {
   const isSystem = message.type === 'system';
@@ -310,10 +311,13 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   
   return (
     <div className="py-2 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
-      <div className="flex items-baseline gap-2">
-        <span className="text-gray-500 text-xs">{formatTime(message.timestamp)}</span>
-        <span className="text-[#9966ff] text-sm font-bold">{message.sender}:</span>
-        <span className="text-gray-300 text-sm break-words">{message.message}</span>
+      <div className="flex items-start gap-2">
+        <span className="text-gray-500 text-xs shrink-0 mt-0.5">{formatTime(message.timestamp)}</span>
+        <div className="flex-1 min-w-0">
+          <span className="text-[#ffd700] text-sm font-bold">{message.sender}</span>
+          <span className="text-gray-400 text-sm">: </span>
+          <span className="text-gray-200 text-sm break-words">{message.message}</span>
+        </div>
       </div>
     </div>
   );
@@ -510,10 +514,11 @@ function Chat({
     setInputValue('');
   }, [address, inputValue, displayName]);
   
-  // Handle key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // Handle key press - use onKeyDown to prevent form submission issues
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      e.stopPropagation();
       sendMessage();
     }
   };
@@ -567,7 +572,7 @@ function Chat({
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           placeholder={address ? "Type a message... (use /me for emotes)" : "Connect wallet to chat"}
           disabled={!address}
           className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-sm focus:border-[#ffd700] focus:outline-none smooth-transition disabled:opacity-50"
@@ -591,7 +596,7 @@ function Chat({
 }
 
 /**
- * Voice Chat Component
+ * Voice Chat Component - Compact version
  * UI ready for WebRTC integration
  */
 function VoiceChat({ 
@@ -638,147 +643,122 @@ function VoiceChat({
   }, [isDeafened]);
   
   return (
-    <div className="pixel-card p-4 animate-slide-in-up animate-delay-2 relative z-50">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
-          VOICE CHAT
+    <div className="pixel-card p-3 animate-slide-in-up animate-delay-2 relative z-50">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse flex items-center gap-2">
+          <span>🎙️</span> VOICE
         </h3>
-        <span className={`text-xs px-2 py-1 rounded ${
+        <span className={`text-[10px] px-2 py-0.5 rounded ${
           isInCall 
             ? 'text-[#44ff88] bg-[#44ff88]/10' 
             : 'text-[#9966ff] bg-[#9966ff]/10'
         }`}>
-          {isInCall ? `${participants.length} IN CALL` : 'LOBBY CHAT'}
+          {isInCall ? `${participants.length} IN CALL` : 'AVAILABLE'}
         </span>
       </div>
       
-      <div className="bg-[#0a0a15] rounded-lg p-4 border-2 border-[#2a2a4e]">
+      <div className="bg-[#0a0a15] rounded-lg p-3 border-2 border-[#2a2a4e]">
         {!isInCall ? (
-          // Not in call - show join button
-          <div className="text-center">
-            <div className="text-4xl mb-3 animate-pixel-pulse">🎙️</div>
-            <p className="text-gray-400 text-sm mb-4">
-              Join the voice channel to talk with
-              <br />
-              fellow Star bearers in real-time.
+          // Not in call - show compact join button
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400 text-xs">
+              Talk with Star bearers
             </p>
             
             <button
               onClick={handleJoinCall}
               disabled={!address}
-              className="pixel-btn pixel-btn-gold text-xs !px-6 smooth-transition hover-lift disabled:opacity-50"
+              className="pixel-btn pixel-btn-gold text-[10px] !px-3 !py-1.5 smooth-transition hover-lift disabled:opacity-50"
             >
-              JOIN VOICE
+              JOIN
             </button>
-            
-            {!address && (
-              <p className="text-gray-600 text-xs mt-2">
-                Connect wallet to use voice chat
-              </p>
-            )}
           </div>
         ) : (
-          // In call - show controls and participants
-          <div>
-            {/* Participants */}
-            <div className="mb-4">
-              <p className="text-[#9966ff] text-[7px] mb-2">IN CHANNEL</p>
-              <div className="flex flex-wrap gap-2">
-                {participants.map((p) => (
-                  <div 
-                    key={p.address}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-[6px] ${
-                      p.isSpeaking 
-                        ? 'bg-[#44ff88]/20 border border-[#44ff88]' 
-                        : 'bg-[#1a1a2e] border border-[#2a2a4e]'
-                    }`}
-                  >
-                    <span className={p.isMuted ? 'opacity-50' : ''}>
-                      {p.isMuted ? '🔇' : '🎤'}
-                    </span>
-                    <span className="text-gray-300">
-                      {truncateAddress(p.address)}
-                    </span>
-                    {p.address.toLowerCase() === address?.toLowerCase() && (
-                      <span className="text-[#ffd700]">(you)</span>
-                    )}
-                  </div>
-                ))}
-                
-                {/* 
-                 * Demo: Show other online users as potential voice participants
-                 * In production, replace with actual voice session participants from /api/voice
-                 * These are shown with opacity-50 to indicate they haven't actually joined voice
-                 */}
-                {onlineUsers.slice(0, 2).filter(u => u.address.toLowerCase() !== address?.toLowerCase()).map((user) => (
-                  <div 
-                    key={user.address}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[6px] bg-[#1a1a2e] border border-[#2a2a4e] opacity-50"
-                    title="Available to join voice"
-                  >
-                    <span>🔇</span>
-                    <span className="text-gray-400">
-                      {truncateAddress(user.address)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Voice level indicator (visual only - replace with actual audio level in production) */}
-            <div className="mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-[6px] text-gray-500">LEVEL:</span>
-                <div className="flex-1 h-2 bg-[#1a1a2e] rounded overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-75 ${
-                      isMuted ? 'w-0' : 'w-1/4'
-                    } bg-gradient-to-r from-[#44ff88] via-[#ffd700] to-[#ff4466]`}
-                  />
+          // In call - show compact controls and participants
+          <div className="space-y-2">
+            {/* Participants - compact */}
+            <div className="flex flex-wrap gap-1">
+              {participants.map((p) => (
+                <div 
+                  key={p.address}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${
+                    p.isSpeaking 
+                      ? 'bg-[#44ff88]/20 border border-[#44ff88]' 
+                      : 'bg-[#1a1a2e] border border-[#2a2a4e]'
+                  }`}
+                >
+                  <span className={p.isMuted ? 'opacity-50' : ''}>
+                    {p.isMuted ? '🔇' : '🎤'}
+                  </span>
+                  <span className="text-gray-300">
+                    {truncateAddress(p.address)}
+                  </span>
+                  {p.address.toLowerCase() === address?.toLowerCase() && (
+                    <span className="text-[#ffd700]">(you)</span>
+                  )}
                 </div>
+              ))}
+              
+              {/* Show other online users as potential participants */}
+              {onlineUsers.slice(0, 2).filter(u => u.address.toLowerCase() !== address?.toLowerCase()).map((user) => (
+                <div 
+                  key={user.address}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-[#1a1a2e] border border-[#2a2a4e] opacity-50"
+                  title="Available to join voice"
+                >
+                  <span>🔇</span>
+                  <span className="text-gray-400">
+                    {truncateAddress(user.address)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Voice level indicator - compact */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500">LEVEL</span>
+              <div className="flex-1 h-1.5 bg-[#1a1a2e] rounded overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-75 ${
+                    isMuted ? 'w-0' : 'w-1/4'
+                  } bg-gradient-to-r from-[#44ff88] via-[#ffd700] to-[#ff4466]`}
+                />
               </div>
             </div>
             
-            {/* Controls */}
-            <div className="flex justify-center gap-3">
+            {/* Controls - compact buttons */}
+            <div className="flex justify-center gap-2">
               <button
                 onClick={toggleMute}
-                className={`pixel-btn text-[7px] !px-3 !py-2 smooth-transition ${
+                className={`pixel-btn text-[10px] !px-2 !py-1 smooth-transition ${
                   isMuted 
                     ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
                     : '!bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] text-black'
                 }`}
               >
-                {isMuted ? '🔇 UNMUTE' : '🎤 MUTE'}
+                {isMuted ? '🔇' : '🎤'}
               </button>
               
               <button
                 onClick={toggleDeafen}
-                className={`pixel-btn text-[7px] !px-3 !py-2 smooth-transition ${
+                className={`pixel-btn text-[10px] !px-2 !py-1 smooth-transition ${
                   isDeafened 
                     ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
                     : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
                 }`}
               >
-                {isDeafened ? '🔇 DEAFENED' : '🔊 DEAFEN'}
+                {isDeafened ? '🔇' : '🔊'}
               </button>
               
               <button
                 onClick={handleLeaveCall}
-                className="pixel-btn text-[7px] !px-3 !py-2 smooth-transition !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+                className="pixel-btn text-[10px] !px-2 !py-1 smooth-transition !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
               >
-                📴 LEAVE
+                📴
               </button>
             </div>
           </div>
         )}
-      </div>
-      
-      {/* Voice chat info */}
-      <div className="mt-3 text-center">
-        <p className="text-gray-600 text-xs">
-          Voice uses WebRTC for peer-to-peer audio
-        </p>
       </div>
     </div>
   );
@@ -833,13 +813,13 @@ export default function HangoutContent() {
         <div className="pixel-card p-3 mb-6 flex flex-wrap items-center justify-between gap-4 animate-slide-in-up">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-[8px] text-gray-500">STATUS:</span>
+              <span className="text-xs text-gray-500">STATUS:</span>
               <div className="flex gap-1">
                 {(['online', 'away', 'busy'] as const).map((status) => (
                   <button
                     key={status}
                     onClick={() => handleStatusChange(status)}
-                    className={`text-[7px] px-2 py-1 rounded smooth-transition ${
+                    className={`text-[10px] px-2 py-1 rounded smooth-transition ${
                       activeStatus === status
                         ? status === 'online' ? 'bg-[#44ff88] text-black' :
                           status === 'away' ? 'bg-[#ffd700] text-black' :
@@ -854,7 +834,7 @@ export default function HangoutContent() {
             </div>
           </div>
           
-          <div className="flex items-center gap-4 text-[8px]">
+          <div className="flex items-center gap-4 text-xs">
             <div>
               <span className="text-gray-500">STAR Balance:</span>
               <span className="text-[#ffd700] ml-1">{formatStarAmount(totalStars)} ⭐</span>

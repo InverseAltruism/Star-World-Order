@@ -23,7 +23,21 @@ export default function AccessGate({
 }: AccessGateProps) {
   const { hasAccess, isLoading, isConnected } = useDAOAccess();
   
-  // Check if dev mode is active
+  /**
+   * Development Mode Access Bypass
+   * 
+   * When enabled, this allows viewing all protected pages without:
+   * - Connecting a wallet
+   * - Holding a Star Skrumpey NFT
+   * 
+   * HOW TO ENABLE DEV MODE:
+   * 1. Copy .env.example to .env.local
+   * 2. Add or uncomment: NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
+   * 3. Restart the dev server (npm run dev)
+   * 
+   * IMPORTANT: This only works when NODE_ENV=development (npm run dev)
+   * Production builds (npm run build && npm start) ignore this setting
+   */
   const devModeActive = process.env.NODE_ENV === 'development' && 
     process.env.NEXT_PUBLIC_DEV_ACCESS_ENABLED === 'true';
 
@@ -46,7 +60,9 @@ export default function AccessGate({
   }
 
   // Show locked screen for non-holders or disconnected wallets
-  if (!isConnected || !hasAccess) {
+  // EXCEPTION: In dev mode with NEXT_PUBLIC_DEV_ACCESS_ENABLED=true, bypass all access checks
+  // This allows developers to view and test all pages without needing a wallet or NFT
+  if ((!isConnected || !hasAccess) && !devModeActive) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="pixel-card p-8 text-center max-w-lg relative overflow-hidden animate-slide-in-up">

@@ -162,12 +162,12 @@ function VoteModal({
         
         <div className="mb-4">
           <h4 className="text-gray-200 text-[10px] font-bold mb-2">{proposal.title}</h4>
-          <p className="text-gray-500 text-[8px]">{proposal.description.slice(0, 200)}...</p>
+          <p className="text-gray-500 text-xs">{proposal.description.slice(0, 200)}...</p>
         </div>
         
         <div className="space-y-4">
           <div>
-            <label className="text-[#9966ff] text-[8px] block mb-2">REASON (OPTIONAL)</label>
+            <label className="text-[#9966ff] text-xs block mb-2">REASON (OPTIONAL)</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -178,7 +178,7 @@ function VoteModal({
           </div>
           
           {error && (
-            <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+            <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
               ⚠️ {error}
             </div>
           )}
@@ -187,14 +187,14 @@ function VoteModal({
             <button
               onClick={() => handleVote(true)}
               disabled={isPending}
-              className="flex-1 pixel-btn text-[8px] !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+              className="flex-1 pixel-btn text-xs !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
             >
               {isPending ? '...' : '✓ VOTE FOR'}
             </button>
             <button
               onClick={() => handleVote(false)}
               disabled={isPending}
-              className="flex-1 pixel-btn text-[8px] !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+              className="flex-1 pixel-btn text-xs !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
             >
               {isPending ? '...' : '✕ VOTE AGAINST'}
             </button>
@@ -202,7 +202,7 @@ function VoteModal({
           
           <button
             onClick={onClose}
-            className="w-full pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+            className="w-full pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
           >
             CANCEL
           </button>
@@ -280,11 +280,11 @@ function GovernanceTab({
       <div className="flex justify-between items-center animate-slide-in-up">
         <div>
           <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">GOVERNANCE</h3>
-          <p className="text-gray-500 text-[7px]">Your voting power: {votingPower} ⭐</p>
+          <p className="text-gray-500 text-[10px]">Your voting power: {votingPower} ⭐</p>
         </div>
         <button 
           onClick={() => setShowCreateModal(true)}
-          className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift"
+          className="pixel-btn pixel-btn-gold text-xs !px-3 !py-2 smooth-transition hover-lift"
         >
           + NEW PROPOSAL
         </button>
@@ -295,7 +295,7 @@ function GovernanceTab({
         <div className="pixel-card p-8 text-center animate-slide-in-up">
           <div className="text-4xl mb-4 animate-pixel-float">📜</div>
           <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO PROPOSALS YET</h3>
-          <p className="text-gray-500 text-[8px]">Be the first to create a proposal for The Order!</p>
+          <p className="text-gray-500 text-xs">Be the first to create a proposal for The Order!</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -312,15 +312,15 @@ function GovernanceTab({
                     <h4 className="text-gray-200 text-[10px] font-bold mb-1">
                       {proposal.title}
                     </h4>
-                    <p className="text-gray-500 text-[8px]">
+                    <p className="text-gray-500 text-xs">
                       {proposal.description.slice(0, 100)}...
                     </p>
-                    <p className="text-gray-600 text-[6px] mt-1">
+                    <p className="text-gray-600 text-[10px] mt-1">
                       Proposed by {truncateAddress(proposal.proposer)} • {formatRelativeTime(proposal.createdAt)}
                     </p>
                   </div>
                   <span 
-                    className="text-[6px] px-2 py-1 rounded"
+                    className="text-[10px] px-2 py-1 rounded"
                     style={{ 
                       backgroundColor: `${getProposalStateColor(proposal.state)}20`,
                       color: getProposalStateColor(proposal.state)
@@ -333,7 +333,7 @@ function GovernanceTab({
                 {/* Voting Progress */}
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <div className="flex justify-between text-[6px] mb-1">
+                    <div className="flex justify-between text-[10px] mb-1">
                       <span className="text-[#44ff88]">FOR: {proposal.forVotes}</span>
                       <span className="text-[#ff4466]">AGAINST: {proposal.againstVotes}</span>
                     </div>
@@ -348,7 +348,7 @@ function GovernanceTab({
                       />
                     </div>
                   </div>
-                  <span className="text-gray-500 text-[6px]">
+                  <span className="text-gray-500 text-[10px]">
                     {proposal.forVotes + proposal.againstVotes} votes
                   </span>
                 </div>
@@ -358,7 +358,7 @@ function GovernanceTab({
                   <div className="flex gap-2 mt-3">
                     <button 
                       onClick={() => setSelectedProposal(proposal)}
-                      className="flex-1 pixel-btn text-[6px] !py-1 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift"
+                      className="flex-1 pixel-btn text-[10px] !py-1 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift"
                     >
                       🗳️ CAST VOTE
                     </button>
@@ -367,7 +367,7 @@ function GovernanceTab({
                 
                 {isActive && hasUserVoted && (
                   <div className="mt-3 text-center">
-                    <span className="text-[#44ff88] text-[8px]">✓ You have voted on this proposal</span>
+                    <span className="text-[#44ff88] text-xs">✓ You have voted on this proposal</span>
                   </div>
                 )}
               </div>
@@ -557,7 +557,7 @@ function ForumTab({
             
             <div className="space-y-4">
               <div>
-                <label className="text-[#9966ff] text-[8px] block mb-2">CATEGORY</label>
+                <label className="text-[#9966ff] text-xs block mb-2">CATEGORY</label>
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value as ThreadCategory)}
@@ -570,7 +570,7 @@ function ForumTab({
               </div>
               
               <div>
-                <label className="text-[#9966ff] text-[8px] block mb-2">TITLE</label>
+                <label className="text-[#9966ff] text-xs block mb-2">TITLE</label>
                 <input
                   type="text"
                   value={newTitle}
@@ -581,7 +581,7 @@ function ForumTab({
               </div>
               
               <div>
-                <label className="text-[#9966ff] text-[8px] block mb-2">CONTENT</label>
+                <label className="text-[#9966ff] text-xs block mb-2">CONTENT</label>
                 <textarea
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
@@ -592,7 +592,7 @@ function ForumTab({
               </div>
               
               {error && (
-                <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+                <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
                   ⚠️ {error}
                 </div>
               )}
@@ -600,14 +600,14 @@ function ForumTab({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+                  className="flex-1 pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
                 >
                   CANCEL
                 </button>
                 <button
                   onClick={handleCreateThread}
                   disabled={isPending || !newTitle.trim() || !newContent.trim()}
-                  className="flex-1 pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift disabled:opacity-50"
+                  className="flex-1 pixel-btn pixel-btn-gold text-xs smooth-transition hover-lift disabled:opacity-50"
                 >
                   {isPending ? '⏳ CREATING...' : '✨ CREATE'}
                 </button>
@@ -780,25 +780,25 @@ function StakingTab({
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#ffd700]/30">
-            <p className="text-gray-500 text-[8px] mb-1">STAR BALANCE</p>
+            <p className="text-gray-500 text-xs mb-1">STAR BALANCE</p>
             <p className="text-[#ffd700] text-xl font-bold">
               {formatStarAmount(starBalance)} ⭐
             </p>
           </div>
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#44ff88]/30">
-            <p className="text-gray-500 text-[8px] mb-1">PENDING STAR</p>
+            <p className="text-gray-500 text-xs mb-1">PENDING STAR</p>
             <p className="text-[#44ff88] text-xl font-bold">
               {formatStarAmount(pendingStars)} ⭐
             </p>
           </div>
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#9966ff]/30">
-            <p className="text-gray-500 text-[8px] mb-1">STAKED NFTs</p>
+            <p className="text-gray-500 text-xs mb-1">STAKED NFTs</p>
             <p className="text-[#9966ff] text-xl font-bold">
               {stakedNFTs.length} 🐸
             </p>
           </div>
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#00ffff]/30">
-            <p className="text-gray-500 text-[8px] mb-1">VOTING POWER</p>
+            <p className="text-gray-500 text-xs mb-1">VOTING POWER</p>
             <p className="text-[#00ffff] text-xl font-bold">
               {votingPower?.weightedVotingPower.toFixed(2) || '0'}
             </p>
@@ -808,13 +808,13 @@ function StakingTab({
         {/* Time Until Next STAR */}
         {timeUntilNextStar && stakedNFTs.length > 0 && (
           <div className="bg-[#1a1a2e] rounded-lg p-4 mb-4">
-            <p className="text-gray-500 text-[8px] mb-2">NEXT STAR IN</p>
+            <p className="text-gray-500 text-xs mb-2">NEXT STAR IN</p>
             <p className="text-[#ffd700] text-lg font-bold animate-pixel-pulse">
               {String(timeUntilNextStar.hours).padStart(2, '0')}:
               {String(timeUntilNextStar.minutes).padStart(2, '0')}:
               {String(timeUntilNextStar.seconds).padStart(2, '0')}
             </p>
-            <p className="text-gray-600 text-[6px] mt-1">
+            <p className="text-gray-600 text-[10px] mt-1">
               +{stakedNFTs.length * STAR_PER_NFT_PER_DAY} STAR ({stakedNFTs.length} staked NFTs)
             </p>
           </div>
@@ -824,7 +824,7 @@ function StakingTab({
         {pendingStars > 0 && (
           <button
             onClick={handleClaimAll}
-            className="pixel-btn pixel-btn-gold text-[8px] !px-6 !py-2 smooth-transition hover-lift animate-pixel-pulse"
+            className="pixel-btn pixel-btn-gold text-xs !px-6 !py-2 smooth-transition hover-lift animate-pixel-pulse"
           >
             ✨ CLAIM {pendingStars} STAR ✨
           </button>
@@ -846,9 +846,9 @@ function StakingTab({
       {/* Voting Power Breakdown */}
       {votingPower && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-1">
-          <h4 className="text-[#9966ff] text-[8px] mb-3">VOTING POWER BREAKDOWN</h4>
+          <h4 className="text-[#9966ff] text-xs mb-3">VOTING POWER BREAKDOWN</h4>
           <div className="bg-[#0a0a15] rounded-lg p-4">
-            <div className="space-y-2 text-[7px]">
+            <div className="space-y-2 text-[10px]">
               <div className="flex justify-between">
                 <span className="text-gray-500">NFT Voting Power:</span>
                 <span className="text-[#9966ff]">{votingPower.nftVotingPower.toFixed(2)}</span>
@@ -865,7 +865,7 @@ function StakingTab({
                 <span className="text-[#00ffff] font-bold">{votingPower.weightedVotingPower.toFixed(2)}</span>
               </div>
             </div>
-            <p className="text-gray-600 text-[6px] mt-3">
+            <p className="text-gray-600 text-[10px] mt-3">
               ℹ️ Weighted voting uses √STAR + NFT count to balance early vs late members
             </p>
           </div>
@@ -874,12 +874,12 @@ function StakingTab({
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="text-[#44ff88] text-[8px] bg-[#44ff88]/10 px-3 py-2 rounded animate-slide-in-up">
+        <div className="text-[#44ff88] text-xs bg-[#44ff88]/10 px-3 py-2 rounded animate-slide-in-up">
           ✓ {successMessage}
         </div>
       )}
       {error && (
-        <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded animate-slide-in-up">
+        <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded animate-slide-in-up">
           ⚠️ {error}
         </div>
       )}
@@ -888,12 +888,12 @@ function StakingTab({
       {availableToStake.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
           <div className="flex justify-between items-center mb-3">
-            <h4 className="text-[#9966ff] text-[8px]">AVAILABLE TO STAKE ({availableToStake.length})</h4>
+            <h4 className="text-[#9966ff] text-xs">AVAILABLE TO STAKE ({availableToStake.length})</h4>
             {availableToStake.length > 1 && (
               <button
                 onClick={handleStakeAll}
                 disabled={isPending}
-                className="pixel-btn text-[6px] !py-1 !px-2 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift disabled:opacity-50"
+                className="pixel-btn text-[10px] !py-1 !px-2 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift disabled:opacity-50"
               >
                 STAKE ALL
               </button>
@@ -903,15 +903,15 @@ function StakingTab({
             {availableToStake.map((token) => (
               <div key={token.tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center">
                 <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
-                <p className="text-gray-200 text-[8px] font-bold">#{token.tokenId}</p>
+                <p className="text-gray-200 text-xs font-bold">#{token.tokenId}</p>
                 {token.starVariant && (
-                  <p className="text-[#9966ff] text-[6px] uppercase">{token.starVariant}</p>
+                  <p className="text-[#9966ff] text-[10px] uppercase">{token.starVariant}</p>
                 )}
                 <p className="text-[#44ff88] text-[5px] mt-1">+{STAR_PER_NFT_PER_DAY} STAR/day</p>
                 <button
                   onClick={() => handleStake(token.tokenId, token.starVariant)}
                   disabled={isPending}
-                  className="mt-2 w-full pixel-btn text-[6px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+                  className="mt-2 w-full pixel-btn text-[10px] !py-1 !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
                 >
                   {isPending ? '...' : 'STAKE'}
                 </button>
@@ -924,20 +924,20 @@ function StakingTab({
       {/* Currently Staked */}
       {stakedNFTs.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-3">
-          <h4 className="text-[#ffd700] text-[8px] mb-3">CURRENTLY STAKED ({stakedNFTs.length})</h4>
+          <h4 className="text-[#ffd700] text-xs mb-3">CURRENTLY STAKED ({stakedNFTs.length})</h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {stakedNFTs.map((nft) => (
               <div key={nft.tokenId} className="bg-[#1a1a2e] rounded-lg p-3 text-center border-2 border-[#ffd700]/30">
                 <div className="text-2xl mb-2 animate-pixel-float">🐸⭐</div>
-                <p className="text-[#ffd700] text-[8px] font-bold">#{nft.tokenId}</p>
+                <p className="text-[#ffd700] text-xs font-bold">#{nft.tokenId}</p>
                 {nft.starVariant && (
-                  <p className="text-[#9966ff] text-[6px] uppercase">{nft.starVariant}</p>
+                  <p className="text-[#9966ff] text-[10px] uppercase">{nft.starVariant}</p>
                 )}
                 <p className="text-[#44ff88] text-[5px]">EARNING ⭐</p>
                 <button
                   onClick={() => handleUnstake(nft.tokenId)}
                   disabled={isPending}
-                  className="mt-2 w-full pixel-btn text-[6px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+                  className="mt-2 w-full pixel-btn text-[10px] !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
                 >
                   {isPending ? '...' : 'UNSTAKE'}
                 </button>
@@ -950,10 +950,10 @@ function StakingTab({
       {/* Recent History */}
       {history.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
-          <h4 className="text-[#9966ff] text-[8px] mb-3">RECENT ACTIVITY</h4>
+          <h4 className="text-[#9966ff] text-xs mb-3">RECENT ACTIVITY</h4>
           <div className="space-y-2 max-h-[200px] overflow-y-auto">
             {history.slice(0, 10).map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 text-[7px]">
+              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 text-[10px]">
                 <div className="flex items-center gap-2">
                   <span className={
                     tx.type === 'claim' ? 'text-[#44ff88]' :
@@ -999,26 +999,26 @@ function TreasuryTab() {
         
         {/* Balance Display */}
         <div className="bg-[#0a0a15] p-6 rounded-lg border-2 border-[#ffd700]/30 mb-4 smooth-transition hover-lift">
-          <p className="text-gray-500 text-[8px] mb-2">TOTAL BALANCE</p>
+          <p className="text-gray-500 text-xs mb-2">TOTAL BALANCE</p>
           <p className="text-[#ffd700] text-2xl font-bold pixel-glow-gold animate-pixel-pulse">
             💎 42,069 MON
           </p>
-          <p className="text-gray-600 text-[6px] mt-2">≈ $XX,XXX USD</p>
+          <p className="text-gray-600 text-[10px] mt-2">≈ $XX,XXX USD</p>
         </div>
 
         {/* Treasury Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-1">
             <p className="text-[#44ff88] text-sm">+1,337</p>
-            <p className="text-gray-500 text-[6px]">30D INFLOW</p>
+            <p className="text-gray-500 text-[10px]">30D INFLOW</p>
           </div>
           <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p className="text-[#ff4466] text-sm">-420</p>
-            <p className="text-gray-500 text-[6px]">30D OUTFLOW</p>
+            <p className="text-gray-500 text-[10px]">30D OUTFLOW</p>
           </div>
           <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#9966ff] text-sm">99</p>
-            <p className="text-gray-500 text-[6px]">STAR HOLDERS</p>
+            <p className="text-gray-500 text-[10px]">STAR HOLDERS</p>
           </div>
         </div>
       </div>
@@ -1039,8 +1039,8 @@ function TreasuryTab() {
                   {tx.type === 'in' ? '↓' : '↑'}
                 </span>
                 <div>
-                  <p className="text-gray-300 text-[8px]">{tx.desc}</p>
-                  <p className="text-gray-600 text-[6px]">{tx.date}</p>
+                  <p className="text-gray-300 text-xs">{tx.desc}</p>
+                  <p className="text-gray-600 text-[10px]">{tx.date}</p>
                 </div>
               </div>
               <p className={`text-[10px] ${tx.type === 'in' ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
@@ -1050,15 +1050,15 @@ function TreasuryTab() {
           ))}
         </div>
         
-        <button className="w-full mt-4 pixel-btn text-[8px] smooth-transition hover-lift">
+        <button className="w-full mt-4 pixel-btn text-xs smooth-transition hover-lift">
           VIEW ALL TRANSACTIONS
         </button>
       </div>
 
       {/* Treasury Sources */}
       <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
-        <p className="text-[#ffd700] text-[8px] tracking-wide mb-2">💰 TREASURY SOURCES</p>
-        <ul className="text-gray-500 text-[6px] space-y-1">
+        <p className="text-[#ffd700] text-xs tracking-wide mb-2">💰 TREASURY SOURCES</p>
+        <ul className="text-gray-500 text-[10px] space-y-1">
           <li>• 2.5% fee from Cosmic Exchange trades</li>
           <li>• NFT royalties from secondary sales</li>
           <li>• Staking protocol fees</li>
@@ -1122,7 +1122,7 @@ export default function DAOContent() {
               <span className="text-xl">⚠️</span>
               <div>
                 <p className="text-[#ffd700] text-[9px] font-bold">DEMO MODE</p>
-                <p className="text-gray-400 text-[7px]">
+                <p className="text-gray-400 text-[10px]">
                   Governance contracts not deployed. Data is stored locally for demonstration.
                 </p>
               </div>
@@ -1136,7 +1136,7 @@ export default function DAOContent() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pixel-btn text-[8px] !px-4 !py-2 smooth-transition hover-lift ${
+              className={`pixel-btn text-xs !px-4 !py-2 smooth-transition hover-lift ${
                 activeTab === tab.id 
                   ? 'pixel-btn-gold' 
                   : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
