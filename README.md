@@ -468,11 +468,156 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 - [x] Star Council forum with categories, threads, and replies
 - [x] Cosmic Exchange OTC marketplace with filtering, sorting, and transaction history
 - [x] Basic achievements and badges framework
+- [x] Discord and X (Twitter) social connect integration
 
 ### Stage 4: Expansion (In Progress)
 - [ ] Mobile optimization
 - [ ] Additional chain support
 - [ ] Partnerships and integrations
+
+## 🔗 SOCIAL CONNECT
+
+Star World Order supports connecting your Discord and X (Twitter) accounts to enhance your Star Profile. This feature allows community verification and enables future social features.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Discord Connect** | Link your Discord account via OAuth2 |
+| **X (Twitter) Connect** | Link your X account via OAuth 2.0 with PKCE |
+| **Demo Mode** | Test the UI without OAuth configuration |
+| **Secure Storage** | Connections stored securely in SQLite database |
+
+### Setup Requirements
+
+To enable full social connect functionality, you need:
+
+1. **Discord OAuth App**: Create at [Discord Developer Portal](https://discord.com/developers/applications)
+2. **X (Twitter) OAuth App**: Create at [Twitter Developer Portal](https://developer.twitter.com/)
+3. **SQLite Database**: For storing social connections (see Database Setup below)
+
+### Environment Variables
+
+```bash
+# Discord OAuth2
+NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
+NEXT_PUBLIC_DISCORD_REDIRECT_URI=http://localhost:3000/api/auth/callback/discord
+
+# X (Twitter) OAuth 2.0
+NEXT_PUBLIC_X_CLIENT_ID=your_x_client_id
+NEXT_PUBLIC_X_REDIRECT_URI=http://localhost:3000/api/auth/callback/x
+```
+
+## 💾 DATABASE SETUP (SQLite)
+
+Star World Order uses SQLite for persistent storage of social connections and other user data. This provides a lightweight, serverless database solution.
+
+### Prerequisites
+
+- Node.js 18+
+- SQLite3 (usually pre-installed on Linux/macOS)
+
+### Setup Steps
+
+1. **Create the data directory**:
+```bash
+mkdir -p data
+```
+
+2. **Set the database path** in `.env.local`:
+```bash
+DATABASE_URL=file:./data/swo.db
+```
+
+3. **Initialize the database** (run the schema):
+```bash
+# Using SQLite CLI
+sqlite3 data/swo.db < scripts/init-db.sql
+
+# Or programmatically via the app's initialization
+npm run db:init
+```
+
+### Database Schema
+
+The social connections table stores linked social accounts:
+
+```sql
+CREATE TABLE IF NOT EXISTS social_connections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('discord', 'x')),
+  platform_user_id TEXT NOT NULL,
+  username TEXT NOT NULL,
+  display_name TEXT,
+  avatar_url TEXT,
+  access_token TEXT,
+  refresh_token TEXT,
+  token_expires_at DATETIME,
+  connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(wallet_address, platform)
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_connections_wallet ON social_connections(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_social_connections_platform ON social_connections(platform);
+```
+
+### NUC Server Setup
+
+If running SQLite on a NUC (Intel Next Unit of Computing):
+
+1. **SSH into your NUC**:
+```bash
+ssh user@your-nuc-ip
+```
+
+2. **Install SQLite** (if not present):
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install sqlite3
+
+# Fedora
+sudo dnf install sqlite
+```
+
+3. **Create the database directory**:
+```bash
+sudo mkdir -p /opt/swo/data
+sudo chown $USER:$USER /opt/swo/data
+```
+
+4. **Initialize the database**:
+```bash
+sqlite3 /opt/swo/data/swo.db
+```
+
+5. **Run the schema** (copy from above or use the init script):
+```sql
+.read /path/to/init-db.sql
+```
+
+6. **Configure the app** to connect to the NUC database:
+```bash
+# In your deployment's .env file
+DATABASE_URL=file:/opt/swo/data/swo.db
+```
+
+### Next Steps for Full Implementation
+
+1. **Create API routes** for OAuth callbacks:
+   - `/api/auth/callback/discord` - Handle Discord OAuth callback
+   - `/api/auth/callback/x` - Handle X OAuth callback
+
+2. **Add server-side database operations**:
+   - Create a `lib/db.ts` module for database connections
+   - Add CRUD operations for social connections
+
+3. **Implement token refresh** for expired OAuth tokens
+
+4. **Add social features**:
+   - Display verified social accounts on profiles
+   - Enable community features based on verified accounts
 
 ## 🎨 DESIGN PHILOSOPHY
 
