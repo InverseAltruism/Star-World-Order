@@ -253,11 +253,11 @@ export function updateOnlinePresence(
     data.nftTokenId || null,
     data.starVariant || null,
     data.status || null,
-    data.lastMessage || null,
-    data.lastMessage || null,
-    data.lastMessage || null,
-    now,
-    now,
+    data.lastMessage || null,  // CASE check for last_message
+    data.lastMessage || null,  // CASE value for last_message
+    data.lastMessage || null,  // CASE check for last_message_at
+    data.lastMessage ? now : null,  // CASE value for last_message_at (timestamp when message exists)
+    now,  // last_seen
     walletAddress.toLowerCase()
   );
   

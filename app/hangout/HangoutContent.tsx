@@ -98,10 +98,10 @@ function ChatBubble({ message, isVisible }: { message: string; isVisible: boolea
   if (!isVisible || !message) return null;
   
   return (
-    <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-20 animate-slide-in-up">
+    <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20 animate-slide-in-up">
       {/* Bubble */}
-      <div className="relative bg-[#1a1a3a] border-2 border-[#ffd700] rounded-lg px-2 py-1 max-w-[120px]">
-        <p className="text-[6px] text-gray-200 break-words text-center whitespace-pre-wrap">
+      <div className="relative bg-[#1a1a3a] border-2 border-[#ffd700] rounded-lg px-2 py-1 max-w-[140px]">
+        <p className="text-[8px] text-gray-200 break-words text-center whitespace-pre-wrap leading-tight">
           {message}
         </p>
         {/* Bubble tail */}
@@ -628,11 +628,16 @@ function VoiceChat({
                   </div>
                 ))}
                 
-                {/* Simulated other participants for demo */}
+                {/* 
+                 * Demo: Show other online users as potential voice participants
+                 * In production, replace with actual voice session participants from /api/voice
+                 * These are shown with opacity-50 to indicate they haven't actually joined voice
+                 */}
                 {onlineUsers.slice(0, 2).filter(u => u.address.toLowerCase() !== address?.toLowerCase()).map((user) => (
                   <div 
                     key={user.address}
                     className="flex items-center gap-1 px-2 py-1 rounded-full text-[6px] bg-[#1a1a2e] border border-[#2a2a4e] opacity-50"
+                    title="Available to join voice"
                   >
                     <span>🔇</span>
                     <span className="text-gray-400">
@@ -643,7 +648,7 @@ function VoiceChat({
               </div>
             </div>
             
-            {/* Voice level indicator (visual only) */}
+            {/* Voice level indicator (visual only - replace with actual audio level in production) */}
             <div className="mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-[6px] text-gray-500">LEVEL:</span>
