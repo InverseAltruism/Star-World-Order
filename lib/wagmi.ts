@@ -1,4 +1,4 @@
-import { http, createConfig } from 'wagmi';
+import { http, createConfig, fallback } from 'wagmi';
 import { defineChain } from 'viem';
 import { injected } from 'wagmi/connectors';
 
@@ -18,6 +18,23 @@ const isTestnet = MONAD_CHAIN_ID === 10143;
 // Get a free project ID at https://cloud.walletconnect.com/
 export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
+// Fallback RPC URLs to handle rate limiting (429 errors)
+// Multiple endpoints provide redundancy and load balancing
+const MONAD_MAINNET_RPC_URLS = [
+  MONAD_RPC_URL,
+  'https://rpc1.monad.xyz',
+  'https://rpc2.monad.xyz',
+  'https://rpc3.monad.xyz',
+  'https://rpc4.monad.xyz',
+  'https://rpc-mainnet.monadinfra.com',
+  'https://monad-mainnet.drpc.org',
+];
+
+const MONAD_TESTNET_RPC_URLS = [
+  'https://testnet-rpc.monad.xyz',
+  'https://monad-testnet.drpc.org',
+];
+
 // Network configuration
 // Mainnet: Chain ID 143, Currency: MON, Block Gas Limit: 200,000,000
 // Testnet: Chain ID 10143, Currency: MON (testnet), Faucet: https://faucet.monad.xyz
@@ -31,7 +48,7 @@ export const monad = defineChain({
   },
   rpcUrls: {
     default: {
-      http: [MONAD_RPC_URL],
+      http: isTestnet ? MONAD_TESTNET_RPC_URLS : MONAD_MAINNET_RPC_URLS,
     },
   },
   blockExplorers: {
@@ -53,19 +70,30 @@ export const networkInfo = {
 
 // Connectors for wallet connection
 // injected() supports browser extension wallets (MetaMask, Trust Wallet, Phantom, etc.)
-// We use multiple injected connectors with different targets for better wallet detection
+// Note: For mobile wallet support via QR code, set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+// and install @walletconnect/ethereum-provider
 const connectors = [
   // Generic injected connector - auto-detects available wallets
+  // Supports: MetaMask, Trust Wallet, Phantom, Coinbase Wallet, Rabby, Brave Wallet, etc.
   injected({
     shimDisconnect: true,
   }),
 ];
 
+// Create fallback transport with multiple RPC endpoints
+// This helps avoid 429 rate limiting errors by distributing requests
+const rpcUrls = isTestnet ? MONAD_TESTNET_RPC_URLS : MONAD_MAINNET_RPC_URLS;
+const transports = rpcUrls.map(url => http(url, {
+  retryCount: 3,
+  retryDelay: 1000,
+  timeout: 10000,
+}));
+
 export const config = createConfig({
   chains: [monad],
   connectors,
   transports: {
-    [monad.id]: http(),
+    [monad.id]: fallback(transports),
   },
   ssr: true,
 });

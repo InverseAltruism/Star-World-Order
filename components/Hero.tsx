@@ -1,4 +1,10 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+
 export default function Hero() {
+  const router = useRouter();
+
   // Pre-generated star positions for consistent rendering (avoid hydration mismatches)
   const starPositions = [
     { left: '5%', top: '10%', delay: '0s', size: 12 },
@@ -22,6 +28,18 @@ export default function Hero() {
     { left: '60%', top: '85%', delay: '0.2s', size: 10 },
     { left: '95%', top: '90%', delay: '0.8s', size: 8 },
   ];
+
+  const handleEnterTheOrder = () => {
+    router.push('/dao');
+  };
+
+  const handleDiscoverMore = () => {
+    // Scroll to the about/features section
+    const aboutSection = document.getElementById('about');
+    if (aboutSection) {
+      aboutSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
@@ -80,10 +98,16 @@ export default function Hero() {
         
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-slide-in-up animate-delay-4">
-          <button className="pixel-btn pixel-btn-gold smooth-transition hover-lift">
+          <button 
+            onClick={handleEnterTheOrder}
+            className="pixel-btn pixel-btn-gold smooth-transition hover-lift"
+          >
             ★ ENTER THE ORDER
           </button>
-          <button className="pixel-btn smooth-transition hover-lift">
+          <button 
+            onClick={handleDiscoverMore}
+            className="pixel-btn smooth-transition hover-lift"
+          >
             DISCOVER MORE
           </button>
         </div>

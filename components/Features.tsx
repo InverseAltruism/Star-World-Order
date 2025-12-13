@@ -1,3 +1,7 @@
+'use client';
+
+import WalletConnect from './WalletConnect';
+
 export default function Features() {
   const features = [
     {
@@ -104,9 +108,7 @@ export default function Features() {
             <p className="text-gray-500 text-[8px] mb-4">
               connect thy wallet • reveal thy star
             </p>
-            <button className="pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift">
-              CONNECT WALLET
-            </button>
+            <WalletConnect />
           </div>
         </div>
       </div>
