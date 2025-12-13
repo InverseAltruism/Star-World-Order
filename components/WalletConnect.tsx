@@ -111,6 +111,18 @@ function getWalletInfo(connector: { name?: string; id?: string; icon?: string | 
   return { name, icon: '💳' };
 }
 
+// Helper function to check if wallet provider is available
+function hasWalletProvider(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !!(window as { ethereum?: unknown }).ethereum;
+}
+
+// Helper function to get the ethereum provider
+function getEthereumProvider(): unknown | null {
+  if (typeof window === 'undefined') return null;
+  return (window as { ethereum?: unknown }).ethereum || null;
+}
+
 export default function WalletConnect() {
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors, isPending, error } = useConnect();
@@ -123,19 +135,26 @@ export default function WalletConnect() {
 
   // Detect installed wallet
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ethereum = (window as { ethereum?: unknown }).ethereum;
-      if (ethereum) {
-        setDetectedWallet(detectWalletType(ethereum));
-      }
+    const provider = getEthereumProvider();
+    if (provider) {
+      setDetectedWallet(detectWalletType(provider));
     }
   }, []);
 
   // Show helpful message when connection fails due to no wallet
+  // Check for common error patterns indicating missing wallet
   useEffect(() => {
-    if (error?.message?.toLowerCase().includes('not found') || 
-        error?.message?.toLowerCase().includes('no provider')) {
-      setShowNoWalletMessage(true);
+    if (error) {
+      const errorMessage = error.message?.toLowerCase() || '';
+      const isNoWalletError = 
+        errorMessage.includes('not found') || 
+        errorMessage.includes('no provider') ||
+        errorMessage.includes('not installed') ||
+        errorMessage.includes('no ethereum');
+      
+      if (isNoWalletError) {
+        setShowNoWalletMessage(true);
+      }
     }
   }, [error]);
 
@@ -155,14 +174,14 @@ export default function WalletConnect() {
   const hasConnectors = connectors.length > 0;
   
   // Check if wallet provider is actually available (not just a connector)
-  const hasWalletProvider = typeof window !== 'undefined' && !!(window as { ethereum?: unknown }).ethereum;
+  const walletAvailable = hasWalletProvider();
 
   // Check if connected to wrong network
   const isWrongNetwork = isConnected && chain?.id !== monad.id;
 
   const handleConnect = (connectorId?: string) => {
     // Check if wallet provider exists before attempting connection
-    if (!hasWalletProvider) {
+    if (!walletAvailable) {
       setShowNoWalletMessage(true);
       return;
     }
