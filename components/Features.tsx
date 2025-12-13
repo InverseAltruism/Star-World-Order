@@ -82,7 +82,7 @@ export default function Features() {
               </h3>
               
               {/* Description */}
-              <p className="text-gray-500 text-[8px] leading-relaxed tracking-wide">
+              <p className="text-gray-500 text-xs leading-relaxed tracking-wide">
                 {feature.description}
               </p>
               
@@ -105,7 +105,7 @@ export default function Features() {
             <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse">
               ✦ ARE YOU CHOSEN? ✦
             </p>
-            <p className="text-gray-500 text-[8px] mb-4">
+            <p className="text-gray-500 text-xs mb-4">
               connect thy wallet • reveal thy star
             </p>
             <WalletConnect />

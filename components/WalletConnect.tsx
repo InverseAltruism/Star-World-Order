@@ -205,19 +205,19 @@ export default function WalletConnect() {
         {isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
-            className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse smooth-transition hover-lift"
+            className="pixel-btn text-xs !px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse smooth-transition hover-lift"
           >
             ⚠️ SWITCH TO MONAD
           </button>
         ) : (
-          <div className="text-[8px] text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift">
+          <div className="text-xs text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift">
             <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
             {address.slice(0, 6)}...{address.slice(-4)}
           </div>
         )}
         <button
           onClick={() => disconnect()}
-          className="pixel-btn text-[8px] !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift"
+          className="pixel-btn text-xs !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift"
         >
           EXIT
         </button>
@@ -233,7 +233,7 @@ export default function WalletConnect() {
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
         disabled={isPending}
-        className={`pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift ${isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
+        className={`pixel-btn pixel-btn-gold text-xs !px-4 !py-2 smooth-transition hover-lift ${isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
       >
         {isPending ? 'CONNECTING...' : (
           detectedWallet ? `${detectedWallet.icon} CONNECT` : 'CONNECT'
@@ -244,12 +244,12 @@ export default function WalletConnect() {
       {showNoWalletMessage && (
         <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1a2e] border-2 border-[#ff4466] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
           <div className="p-3 border-b border-[#2a2a4e]">
-            <p className="text-[#ff4466] text-[8px] tracking-wider text-center">
+            <p className="text-[#ff4466] text-xs tracking-wider text-center">
               ⚠️ NO WALLET DETECTED
             </p>
           </div>
           <div className="p-4 space-y-3">
-            <p className="text-gray-300 text-[8px] text-center">
+            <p className="text-gray-300 text-xs text-center">
               Install a Web3 wallet to connect:
             </p>
             <div className="space-y-2">
@@ -257,7 +257,7 @@ export default function WalletConnect() {
                 href="https://metamask.io/download/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+                className="block w-full text-center px-3 py-2 text-xs text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
               >
                 🦊 Get MetaMask
               </a>
@@ -265,7 +265,7 @@ export default function WalletConnect() {
                 href="https://phantom.app/download" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+                className="block w-full text-center px-3 py-2 text-xs text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
               >
                 👻 Get Phantom
               </a>
@@ -273,7 +273,7 @@ export default function WalletConnect() {
                 href="https://trustwallet.com/download" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+                className="block w-full text-center px-3 py-2 text-xs text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
               >
                 🛡️ Get Trust Wallet
               </a>
@@ -281,14 +281,14 @@ export default function WalletConnect() {
                 href="https://rabby.io/" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+                className="block w-full text-center px-3 py-2 text-xs text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
               >
                 🐰 Get Rabby
               </a>
             </div>
             <button
               onClick={() => setShowNoWalletMessage(false)}
-              className="w-full text-[8px] text-gray-500 hover:text-gray-300 smooth-transition mt-2"
+              className="w-full text-xs text-gray-500 hover:text-gray-300 smooth-transition mt-2"
             >
               Dismiss
             </button>
@@ -300,7 +300,7 @@ export default function WalletConnect() {
       {showDropdown && shouldShowDropdown && !showNoWalletMessage && (
         <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
           <div className="p-3 border-b border-[#2a2a4e]">
-            <p className="text-[#ffd700] text-[8px] tracking-wider text-center animate-glow-pulse">
+            <p className="text-[#ffd700] text-xs tracking-wider text-center animate-glow-pulse">
               ✦ SELECT WALLET ✦
             </p>
           </div>
@@ -316,13 +316,13 @@ export default function WalletConnect() {
                 >
                   <span className="text-base smooth-transition">{walletInfo.icon}</span>
                   <span className="flex-1 text-left">{walletInfo.name}</span>
-                  <span className="text-[#44ff88] text-[6px]">→</span>
+                  <span className="text-[#44ff88] text-[10px]">→</span>
                 </button>
               );
             })}
           </div>
           <div className="p-2 border-t border-[#2a2a4e]">
-            <p className="text-gray-600 text-[6px] text-center">
+            <p className="text-gray-600 text-[10px] text-center">
               Connect to Monad Network
             </p>
           </div>

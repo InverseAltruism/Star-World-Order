@@ -69,7 +69,7 @@ function FilterSortControls({
           <select
             value={sortOption}
             onChange={(e) => onSortChange(e.target.value as SortOption)}
-            className="bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-[8px] text-gray-200 focus:border-[#ffd700] focus:outline-none smooth-transition cursor-pointer appearance-none pr-8"
+            className="bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-xs text-gray-200 focus:border-[#ffd700] focus:outline-none smooth-transition cursor-pointer appearance-none pr-8"
           >
             {Object.values(SortOption).map((option) => (
               <option key={option} value={option}>
@@ -83,7 +83,7 @@ function FilterSortControls({
         {/* Filter Toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`pixel-btn text-[8px] !px-3 !py-2 smooth-transition ${
+          className={`pixel-btn text-xs !px-3 !py-2 smooth-transition ${
             showFilters || hasActiveFilters 
               ? '!bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff]' 
               : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
@@ -96,7 +96,7 @@ function FilterSortControls({
         {hasActiveFilters && (
           <button
             onClick={onClearFilters}
-            className="text-[#ff4466] text-[8px] hover:underline smooth-transition"
+            className="text-[#ff4466] text-xs hover:underline smooth-transition"
           >
             ✕ Clear
           </button>
@@ -109,7 +109,7 @@ function FilterSortControls({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Price Range */}
             <div>
-              <label className="text-[#9966ff] text-[7px] block mb-2">PRICE RANGE (MON)</label>
+              <label className="text-[#9966ff] text-[10px] block mb-2">PRICE RANGE (MON)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -131,9 +131,9 @@ function FilterSortControls({
                       onFilterChange({ ...filterOptions, minPrice: undefined });
                     }
                   }}
-                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
+                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-xs text-white focus:border-[#ffd700] focus:outline-none"
                 />
-                <span className="text-gray-500 text-[8px]">-</span>
+                <span className="text-gray-500 text-xs">-</span>
                 <input
                   type="number"
                   min="0"
@@ -154,18 +154,18 @@ function FilterSortControls({
                       onFilterChange({ ...filterOptions, maxPrice: undefined });
                     }
                   }}
-                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none"
+                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-xs text-white focus:border-[#ffd700] focus:outline-none"
                 />
               </div>
             </div>
             
             {/* Star Variant */}
             <div>
-              <label className="text-[#9966ff] text-[7px] block mb-2">STAR VARIANT</label>
+              <label className="text-[#9966ff] text-[10px] block mb-2">STAR VARIANT</label>
               <select
                 value={filterOptions.starVariant || ''}
                 onChange={(e) => onFilterChange({ ...filterOptions, starVariant: e.target.value || undefined })}
-                className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[8px] text-white focus:border-[#ffd700] focus:outline-none cursor-pointer"
+                className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-xs text-white focus:border-[#ffd700] focus:outline-none cursor-pointer"
               >
                 <option value="">All Variants</option>
                 {STAR_VARIANTS.map((variant) => (
@@ -216,7 +216,7 @@ function BrowseTab({
           ACTIVE LISTINGS ({listings.length})
         </h3>
         <div className="bg-[#1a1a2e] px-3 py-1 rounded-lg border border-[#2a2a4e]">
-          <span className="text-[#44ff88] text-[8px]">💎 {balanceFormatted} MON</span>
+          <span className="text-[#44ff88] text-xs">💎 {balanceFormatted} MON</span>
         </div>
       </div>
       
@@ -234,7 +234,7 @@ function BrowseTab({
         <div className="pixel-card p-8 text-center animate-slide-in-up">
           <div className="text-4xl mb-4 animate-pixel-float">🌌</div>
           <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO LISTINGS FOUND</h3>
-          <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
+          <p className="text-gray-500 text-xs max-w-sm mx-auto">
             No listings match your current filters. Try adjusting your search criteria.
           </p>
         </div>
@@ -261,11 +261,11 @@ function BrowseTab({
                       Star Skrumpey #{listing.tokenId}
                     </h4>
                     {listing.starVariant && (
-                      <span className="text-[#9966ff] text-[8px] uppercase">
+                      <span className="text-[#9966ff] text-xs uppercase">
                         ✦ {listing.starVariant}
                       </span>
                     )}
-                    <p className="text-gray-500 text-[6px] mt-1">
+                    <p className="text-gray-500 text-[10px] mt-1">
                       Seller: {truncateAddress(listing.seller)}
                       {isOwnListing && <span className="text-[#ffd700] ml-1">(YOU)</span>}
                     </p>
@@ -275,7 +275,7 @@ function BrowseTab({
                 {/* Price and Action */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-500 text-[6px]">PRICE</p>
+                    <p className="text-gray-500 text-[10px]">PRICE</p>
                     <p className="text-[#ffd700] text-sm font-bold">
                       {listing.priceFormatted} MON
                     </p>
@@ -284,7 +284,7 @@ function BrowseTab({
                     <button
                       onClick={() => onBuy(listing.id)}
                       disabled={isPending}
-                      className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="pixel-btn pixel-btn-gold text-xs !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isPending ? 'PROCESSING...' : '💰 BUY NOW'}
                     </button>
@@ -314,7 +314,7 @@ function HistoryTab({
       <div className="pixel-card p-8 text-center animate-slide-in-up">
         <div className="text-4xl mb-4 animate-pixel-float">📜</div>
         <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO TRANSACTION HISTORY</h3>
-        <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
+        <p className="text-gray-500 text-xs max-w-sm mx-auto">
           Your marketplace activity will appear here once you start trading Star Skrumpeys.
         </p>
       </div>
@@ -362,13 +362,13 @@ function HistoryTab({
                       Star Skrumpey #{entry.tokenId}
                     </span>
                     {entry.starVariant && (
-                      <span className="text-[#9966ff] text-[7px] uppercase">
+                      <span className="text-[#9966ff] text-[10px] uppercase">
                         ✦ {entry.starVariant}
                       </span>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2 text-[7px] text-gray-500">
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     {entry.type === TransactionType.Sold ? (
                       <>
                         <span>From: {truncateAddress(entry.seller)}</span>
@@ -387,7 +387,7 @@ function HistoryTab({
                   <p className="text-[#ffd700] text-[10px] font-bold">
                     {entry.priceFormatted} MON
                   </p>
-                  <p className="text-gray-500 text-[6px]">
+                  <p className="text-gray-500 text-[10px]">
                     {formatRelativeTime(entry.timestamp)}
                   </p>
                 </div>
@@ -443,7 +443,7 @@ function CreateListingTab({
             <span className="text-xl">⚠️</span>
             <div>
               <p className="text-[#ffd700] text-[10px] font-bold">DEMO MODE</p>
-              <p className="text-gray-400 text-[8px]">
+              <p className="text-gray-400 text-xs">
                 Marketplace contract not deployed. Listings are stored locally for demonstration.
               </p>
             </div>
@@ -461,7 +461,7 @@ function CreateListingTab({
           <div className="text-center py-8">
             <div className="text-4xl mb-4 animate-pixel-float">🌟</div>
             <p className="text-gray-400 text-[10px] mb-2">No Star Skrumpeys available to list</p>
-            <p className="text-gray-500 text-[8px]">
+            <p className="text-gray-500 text-xs">
               All your Star Skrumpeys are already listed or you don&apos;t own any.
             </p>
           </div>
@@ -469,7 +469,7 @@ function CreateListingTab({
           <div className="space-y-4">
             {/* Token Selection */}
             <div>
-              <label className="text-[#9966ff] text-[8px] block mb-2">SELECT STAR SKRUMPEY</label>
+              <label className="text-[#9966ff] text-xs block mb-2">SELECT STAR SKRUMPEY</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {availableTokens.map((token) => (
                   <button
@@ -482,9 +482,9 @@ function CreateListingTab({
                     }`}
                   >
                     <div className="text-xl mb-1 animate-pixel-float">🐸⭐</div>
-                    <p className="text-gray-200 text-[8px]">#{token.tokenId}</p>
+                    <p className="text-gray-200 text-xs">#{token.tokenId}</p>
                     {token.starVariant && (
-                      <p className="text-[#9966ff] text-[6px] uppercase">{token.starVariant}</p>
+                      <p className="text-[#9966ff] text-[10px] uppercase">{token.starVariant}</p>
                     )}
                   </button>
                 ))}
@@ -493,7 +493,7 @@ function CreateListingTab({
 
             {/* Price Input */}
             <div>
-              <label className="text-[#9966ff] text-[8px] block mb-2">LISTING PRICE (MON)</label>
+              <label className="text-[#9966ff] text-xs block mb-2">LISTING PRICE (MON)</label>
               <div className="relative">
                 <input
                   type="number"
@@ -517,18 +517,18 @@ function CreateListingTab({
                   const sellerProceeds = calculateSellerProceeds(priceWei);
                   return (
                     <div className="mt-3 bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
-                      <p className="text-[#ffd700] text-[8px] mb-2">💰 FEE BREAKDOWN</p>
+                      <p className="text-[#ffd700] text-xs mb-2">💰 FEE BREAKDOWN</p>
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[7px]">
+                        <div className="flex justify-between text-[10px]">
                           <span className="text-gray-500">Sale Price:</span>
                           <span className="text-white">{price} MON</span>
                         </div>
-                        <div className="flex justify-between text-[7px]">
+                        <div className="flex justify-between text-[10px]">
                           <span className="text-gray-500">DAO Treasury Fee ({getDAOFeePercentage()}%):</span>
                           <span className="text-[#9966ff]">-{formatPriceFromWei(daoFee)} MON</span>
                         </div>
                         <div className="border-t border-[#2a2a4e] pt-1 mt-1">
-                          <div className="flex justify-between text-[8px]">
+                          <div className="flex justify-between text-xs">
                             <span className="text-[#44ff88]">You Receive:</span>
                             <span className="text-[#44ff88] font-bold">{formatPriceFromWei(sellerProceeds)} MON</span>
                           </div>
@@ -544,7 +544,7 @@ function CreateListingTab({
 
             {/* Error Message */}
             {error && (
-              <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
+              <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
                 ⚠️ {error}
               </div>
             )}
@@ -560,8 +560,8 @@ function CreateListingTab({
 
             {/* Info */}
             <div className="bg-[#1a1a2e] rounded-lg p-3 mt-4">
-              <p className="text-[#9966ff] text-[8px] mb-1">ℹ️ LISTING INFO</p>
-              <ul className="text-gray-500 text-[6px] space-y-1">
+              <p className="text-[#9966ff] text-xs mb-1">ℹ️ LISTING INFO</p>
+              <ul className="text-gray-500 text-[10px] space-y-1">
                 <li>• Your NFT will be listed for the exact price you set</li>
                 <li>• Buyers pay the full amount in MON to purchase</li>
                 <li>• A {getDAOFeePercentage()}% fee goes to the DAO Treasury on each sale</li>
@@ -593,7 +593,7 @@ function MyListingsTab({
       <div className="pixel-card p-8 text-center animate-slide-in-up">
         <div className="text-4xl mb-4 animate-pixel-float">📭</div>
         <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO ACTIVE LISTINGS</h3>
-        <p className="text-gray-500 text-[8px] max-w-sm mx-auto">
+        <p className="text-gray-500 text-xs max-w-sm mx-auto">
           You haven&apos;t listed any Star Skrumpeys yet. Go to the Create Listing tab to list your first one!
         </p>
       </div>
@@ -627,7 +627,7 @@ function MyListingsTab({
                       {listing.priceFormatted} MON
                     </p>
                     {listing.starVariant && (
-                      <span className="text-[#9966ff] text-[6px] uppercase">
+                      <span className="text-[#9966ff] text-[10px] uppercase">
                         ✦ {listing.starVariant}
                       </span>
                     )}
@@ -635,7 +635,7 @@ function MyListingsTab({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <span className={`text-[6px] px-2 py-1 rounded ${
+                  <span className={`text-[10px] px-2 py-1 rounded ${
                     listing.status === ListingStatus.Active
                       ? 'bg-[#44ff88]/20 text-[#44ff88]'
                       : 'bg-gray-500/20 text-gray-500'
@@ -646,7 +646,7 @@ function MyListingsTab({
                     <button
                       onClick={() => onCancel(listing.id)}
                       disabled={isPending}
-                      className="pixel-btn text-[8px] !px-3 !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+                      className="pixel-btn text-xs !px-3 !py-1 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
                     >
                       {isPending ? '...' : '✕ CANCEL'}
                     </button>
@@ -690,7 +690,7 @@ function TransactionModal({
         {status !== 'pending' && (
           <button
             onClick={onClose}
-            className="pixel-btn text-[8px] smooth-transition hover-lift"
+            className="pixel-btn text-xs smooth-transition hover-lift"
           >
             CLOSE
           </button>
@@ -808,7 +808,7 @@ export default function MarketplaceContent() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`pixel-btn text-[8px] !px-4 !py-2 smooth-transition hover-lift ${
+                  className={`pixel-btn text-xs !px-4 !py-2 smooth-transition hover-lift ${
                     activeTab === tab.id 
                       ? 'pixel-btn-gold' 
                       : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
@@ -822,7 +822,7 @@ export default function MarketplaceContent() {
               {/* Refresh Button */}
               <button
                 onClick={refresh}
-                className="pixel-btn text-[8px] !px-2 !py-2 !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+                className="pixel-btn text-xs !px-2 !py-2 !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
                 title="Refresh listings"
               >
                 🔄
@@ -873,8 +873,8 @@ export default function MarketplaceContent() {
               <div className="flex items-center gap-3">
                 <span className="text-xl animate-pixel-float">ℹ️</span>
                 <div className="flex-1">
-                  <p className="text-[#9966ff] text-[8px] mb-1">DIRECT CONTRACT TRADING • {getDAOFeePercentage()}% DAO FEE</p>
-                  <p className="text-gray-500 text-[6px]">
+                  <p className="text-[#9966ff] text-xs mb-1">DIRECT CONTRACT TRADING • {getDAOFeePercentage()}% DAO FEE</p>
+                  <p className="text-gray-500 text-[10px]">
                     Trade Star Skrumpeys directly without Magic Eden or OpenSea. 
                     A {getDAOFeePercentage()}% fee from each sale goes to the DAO Treasury to fund community initiatives.
                     {!isContractDeployed && ' Currently running in demo mode.'}
