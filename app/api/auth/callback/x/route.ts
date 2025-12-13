@@ -75,8 +75,15 @@ export async function GET(request: NextRequest) {
     const storedState = request.cookies.get('x_oauth_state')?.value;
     const walletAddress = request.cookies.get('x_wallet_address')?.value;
 
-    // Validate state to prevent CSRF attacks
-    if (storedState && state !== storedState) {
+    // Validate state to prevent CSRF attacks - require both states to exist and match
+    if (!storedState || !codeVerifier) {
+      console.error('Missing OAuth cookies - possible session expired or CSRF attack');
+      return NextResponse.redirect(
+        new URL('/profile?error=Session%20expired%20-%20please%20try%20connecting%20again', request.url)
+      );
+    }
+
+    if (state !== storedState) {
       console.error('State mismatch - possible CSRF attack');
       return NextResponse.redirect(
         new URL('/profile?error=Invalid%20state%20parameter', request.url)

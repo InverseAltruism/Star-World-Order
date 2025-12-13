@@ -34,6 +34,35 @@ interface SocialConnectionResponse {
 }
 
 /**
+ * Transform database connections to SocialConnection format
+ */
+function transformDbConnections(dbConnections: SocialConnectionResponse): SocialConnection[] {
+  const fetchedConnections: SocialConnection[] = [];
+  
+  if (dbConnections.discord) {
+    fetchedConnections.push({
+      platform: 'discord',
+      connected: true,
+      username: dbConnections.discord.username,
+      userId: dbConnections.discord.platform_user_id,
+      connectedAt: new Date(),
+    });
+  }
+  
+  if (dbConnections.x) {
+    fetchedConnections.push({
+      platform: 'x',
+      connected: true,
+      username: `@${dbConnections.x.username}`,
+      userId: dbConnections.x.platform_user_id,
+      connectedAt: new Date(),
+    });
+  }
+  
+  return fetchedConnections;
+}
+
+/**
  * Social Connect Component
  * Provides Discord and X (Twitter) connect buttons in retro pixel art style
  * 
@@ -60,29 +89,7 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
         const data = await response.json();
         
         if (data.success && data.connections) {
-          const fetchedConnections: SocialConnection[] = [];
-          const dbConnections = data.connections as SocialConnectionResponse;
-          
-          if (dbConnections.discord) {
-            fetchedConnections.push({
-              platform: 'discord',
-              connected: true,
-              username: dbConnections.discord.username,
-              userId: dbConnections.discord.platform_user_id,
-              connectedAt: new Date(),
-            });
-          }
-          
-          if (dbConnections.x) {
-            fetchedConnections.push({
-              platform: 'x',
-              connected: true,
-              username: `@${dbConnections.x.username}`,
-              userId: dbConnections.x.platform_user_id,
-              connectedAt: new Date(),
-            });
-          }
-          
+          const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
           setLocalConnections(fetchedConnections);
           onConnectionChange?.(fetchedConnections);
         }
@@ -112,29 +119,7 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
           .then(res => res.json())
           .then(data => {
             if (data.success && data.connections) {
-              const fetchedConnections: SocialConnection[] = [];
-              const dbConnections = data.connections as SocialConnectionResponse;
-              
-              if (dbConnections.discord) {
-                fetchedConnections.push({
-                  platform: 'discord',
-                  connected: true,
-                  username: dbConnections.discord.username,
-                  userId: dbConnections.discord.platform_user_id,
-                  connectedAt: new Date(),
-                });
-              }
-              
-              if (dbConnections.x) {
-                fetchedConnections.push({
-                  platform: 'x',
-                  connected: true,
-                  username: `@${dbConnections.x.username}`,
-                  userId: dbConnections.x.platform_user_id,
-                  connectedAt: new Date(),
-                });
-              }
-              
+              const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
               setLocalConnections(fetchedConnections);
               onConnectionChange?.(fetchedConnections);
             }

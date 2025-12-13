@@ -21,6 +21,13 @@ export interface SocialConnectionRecord {
 }
 
 /**
+ * Validate Ethereum wallet address format
+ */
+function isValidWalletAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+/**
  * GET - Retrieve social connections for a wallet address
  */
 export async function GET(request: NextRequest) {
@@ -31,6 +38,13 @@ export async function GET(request: NextRequest) {
     if (!walletAddress) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidWalletAddress(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
         { status: 400 }
       );
     }
@@ -76,6 +90,13 @@ export async function DELETE(request: NextRequest) {
     if (!walletAddress || !platform) {
       return NextResponse.json(
         { success: false, error: 'Wallet address and platform are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidWalletAddress(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
         { status: 400 }
       );
     }

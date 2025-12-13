@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(authUrl);
 
     // Set cookies to store OAuth parameters (HTTP-only for security)
+    // Note: sameSite: 'lax' is required for OAuth callbacks - 'strict' would prevent
+    // cookies from being sent on the redirect back from Twitter's OAuth page
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
