@@ -45,3 +45,10 @@ next-env.d.ts
 
 # Screenshots (test artifacts)
 /screenshots/
+
+# Test results
+/test-results/
+
+# SQLite WAL files
+*.db-shm
+*.db-wal
