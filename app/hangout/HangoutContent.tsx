@@ -183,6 +183,70 @@ function SkrumpeySprite({
 }
 
 /**
+ * Lobby Avatar Component with fallback for large avatars
+ */
+function LobbyAvatar({ user }: { user: OnlineUser }) {
+  const [imageError, setImageError] = useState(false);
+  const profilePicUrl = user.nftTokenId 
+    ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
+    : null;
+  
+  if (!profilePicUrl || imageError) {
+    return (
+      <SkrumpeySprite 
+        tokenId={user.nftTokenId}
+        variant={user.starVariant}
+        status={user.status}
+        size="lg"
+      />
+    );
+  }
+  
+  return (
+    <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-[#ffd700] animate-pixel-float">
+      <img
+        src={profilePicUrl}
+        alt={`Skrumpey #${user.nftTokenId}`}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
+/**
+ * Member Avatar Component with fallback
+ */
+function MemberAvatar({ user }: { user: OnlineUser }) {
+  const [imageError, setImageError] = useState(false);
+  const profilePicUrl = user.nftTokenId 
+    ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
+    : null;
+  
+  if (!profilePicUrl || imageError) {
+    return (
+      <SkrumpeySprite 
+        tokenId={user.nftTokenId} 
+        variant={user.starVariant} 
+        status={user.status}
+        size="md"
+      />
+    );
+  }
+  
+  return (
+    <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-[#ffd700] flex-shrink-0">
+      <img
+        src={profilePicUrl}
+        alt={`Skrumpey #${user.nftTokenId}`}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
+/**
  * Online Member Card - with profile picture
  */
 function MemberCard({ user }: { user: OnlineUser }) {
@@ -192,41 +256,9 @@ function MemberCard({ user }: { user: OnlineUser }) {
     busy: 'Busy',
   };
   
-  const profilePicUrl = user.nftTokenId 
-    ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
-    : null;
-  
   return (
     <div className="pixel-card p-3 flex items-center gap-3 smooth-transition hover-lift cursor-pointer">
-      {profilePicUrl ? (
-        <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-[#ffd700] flex-shrink-0">
-          <img
-            src={profilePicUrl}
-            alt={`Skrumpey #${user.nftTokenId}`}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to sprite if image fails to load
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden w-full h-full">
-            <SkrumpeySprite 
-              tokenId={user.nftTokenId} 
-              variant={user.starVariant} 
-              status={user.status}
-              size="md"
-            />
-          </div>
-        </div>
-      ) : (
-        <SkrumpeySprite 
-          tokenId={user.nftTokenId} 
-          variant={user.starVariant} 
-          status={user.status}
-          size="md"
-        />
-      )}
+      <MemberAvatar user={user} />
       <div className="flex-1 min-w-0">
         <p className="text-gray-200 text-sm font-bold truncate">
           {user.displayName || truncateAddress(user.address)}
@@ -361,57 +393,24 @@ function Lobby({
               Be the first to hang out!
             </div>
           ) : (
-            sortedUsers.map((user, index) => {
-              const profilePicUrl = user.nftTokenId 
-                ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
-                : null;
-              
-              return (
-                <div 
-                  key={user.address}
-                  className="relative flex flex-col items-center gap-1 animate-slide-in-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  {/* Chat Bubble */}
-                  <ChatBubble 
-                    message={user.lastMessage || ''} 
-                    isVisible={!!user.lastMessage}
-                  />
-                  
-                  {profilePicUrl ? (
-                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-[#ffd700] animate-pixel-float">
-                      <img
-                        src={profilePicUrl}
-                        alt={`Skrumpey #${user.nftTokenId}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                      <div className="hidden w-full h-full">
-                        <SkrumpeySprite 
-                          tokenId={user.nftTokenId}
-                          variant={user.starVariant}
-                          status={user.status}
-                          size="lg"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <SkrumpeySprite 
-                      tokenId={user.nftTokenId}
-                      variant={user.starVariant}
-                      status={user.status}
-                      size="lg"
-                    />
-                  )}
-                  <span className="text-xs text-gray-400 truncate max-w-[80px]">
-                    {user.displayName || truncateAddress(user.address)}
-                  </span>
-                </div>
-              );
-            })
+            sortedUsers.map((user, index) => (
+              <div 
+                key={user.address}
+                className="relative flex flex-col items-center gap-1 animate-slide-in-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                {/* Chat Bubble */}
+                <ChatBubble 
+                  message={user.lastMessage || ''} 
+                  isVisible={!!user.lastMessage}
+                />
+                
+                <LobbyAvatar user={user} />
+                <span className="text-xs text-gray-400 truncate max-w-[80px]">
+                  {user.displayName || truncateAddress(user.address)}
+                </span>
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -441,7 +440,30 @@ function Chat({
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [displayName, setDisplayName] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Load user display name once when address changes
+  useEffect(() => {
+    if (!address) {
+      setDisplayName(undefined);
+      return;
+    }
+    
+    const fetchDisplayName = async () => {
+      try {
+        const response = await fetch(`/api/profile?address=${address}`);
+        const data = await response.json();
+        if (data.success && data.profile?.display_name) {
+          setDisplayName(data.profile.display_name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      }
+    };
+    
+    fetchDisplayName();
+  }, [address]);
   
   // Load messages
   useEffect(() => {
@@ -463,23 +485,11 @@ function Chat({
   }, [messages]);
   
   // Send message
-  const sendMessage = useCallback(async () => {
+  const sendMessage = useCallback(() => {
     if (!address || !inputValue.trim()) return;
     
     const isEmote = inputValue.startsWith('/me ');
     const messageText = isEmote ? inputValue.slice(4) : inputValue;
-    
-    // Fetch user profile to get display name
-    let displayName: string | undefined;
-    try {
-      const response = await fetch(`/api/profile?address=${address}`);
-      const data = await response.json();
-      if (data.success && data.profile?.display_name) {
-        displayName = data.profile.display_name;
-      }
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-    }
     
     // Use crypto.randomUUID if available for robust ID generation
     const messageId = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -498,7 +508,7 @@ function Chat({
     saveChatMessage(newMessage);
     setMessages(prev => [...prev, newMessage]);
     setInputValue('');
-  }, [address, inputValue]);
+  }, [address, inputValue, displayName]);
   
   // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent) => {

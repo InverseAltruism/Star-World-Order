@@ -6,6 +6,33 @@ import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/li
 import SocialConnect from './SocialConnect';
 
 /**
+ * Profile Avatar Component with fallback
+ */
+function ProfileAvatar({ tokenId }: { tokenId: number }) {
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId);
+
+  if (imageError) {
+    return (
+      <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
+        🐸
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#ffd700]">
+      <img
+        src={imageUrl}
+        alt={`Skrumpey #${tokenId}`}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
+/**
  * NFT Image Component with loading and error states
  */
 function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
@@ -170,21 +197,7 @@ export default function ProfileCard() {
           {/* Avatar - Use first Star Skrumpey as profile picture */}
           <div className="relative">
             {starSkrumpeys.length > 0 ? (
-              <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#ffd700]">
-                <img
-                  src={getSkrumpeyImageUrl(starSkrumpeys[0].tokenId)}
-                  alt={`Skrumpey #${starSkrumpeys[0].tokenId}`}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to emoji if image fails to load
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                  }}
-                />
-                <div className="hidden w-full h-full bg-gradient-to-br from-[#9966ff] to-[#ffd700] flex items-center justify-center text-3xl">
-                  🐸
-                </div>
-              </div>
+              <ProfileAvatar tokenId={starSkrumpeys[0].tokenId} />
             ) : (
               <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
                 🐸

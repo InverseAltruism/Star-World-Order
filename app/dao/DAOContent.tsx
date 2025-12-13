@@ -424,6 +424,9 @@ function ForumTab({
     setError(null);
     setIsPending(true);
     
+    // Save original state for potential revert
+    const originalThread = selectedThread;
+    
     // Optimistic update - add reply immediately to UI
     const optimisticReply = {
       id: `temp-${Date.now()}`,
@@ -451,7 +454,7 @@ function ForumTab({
       }
     } else {
       // Revert optimistic update on error
-      setSelectedThread(selectedThread);
+      setSelectedThread(originalThread);
       setError(result.error || 'Failed to add reply');
     }
   };
