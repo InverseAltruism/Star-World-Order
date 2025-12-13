@@ -307,10 +307,10 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
       const result = ownershipChecks[i];
       
       // Check if the call succeeded and the owner matches
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (result.status === 'success' && (result as any).result) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const owner = ((result as any).result as string).toLowerCase();
+      // Viem's multicall with allowFailure returns { status: 'success', result: T } | { status: 'failure', error: Error }
+      if (result.status === 'success') {
+        // For ownerOf, result is the owner address (string)
+        const owner = String(result.result).toLowerCase();
         if (owner === address.toLowerCase()) {
           ownedStars.push({
             tokenId: STAR_SKRUMPEY_IDS[i],

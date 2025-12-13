@@ -11,7 +11,7 @@
  * - Detailed logging for debugging
  */
 
-import { createPublicClient, http, PublicClient, Transport } from 'viem';
+import { createPublicClient, http, PublicClient } from 'viem';
 import { monad } from './wagmi';
 import { logger } from './logger';
 
