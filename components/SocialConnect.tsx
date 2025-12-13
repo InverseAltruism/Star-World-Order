@@ -6,10 +6,7 @@ import {
   isDiscordConfigured,
   isXConfigured,
   getDiscordOAuthUrl,
-  getXOAuthUrl,
   generateOAuthState,
-  generateCodeVerifier,
-  generateCodeChallenge,
   storeOAuthState,
   SocialConnection,
 } from '@/lib/socialConnect';
@@ -21,11 +18,55 @@ interface SocialConnectProps {
   onConnectionChange?: (connections: SocialConnection[]) => void;
 }
 
+interface SocialConnectionResponse {
+  discord: {
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    platform_user_id: string;
+  } | null;
+  x: {
+    username: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    platform_user_id: string;
+  } | null;
+}
+
+/**
+ * Transform database connections to SocialConnection format
+ */
+function transformDbConnections(dbConnections: SocialConnectionResponse): SocialConnection[] {
+  const fetchedConnections: SocialConnection[] = [];
+  
+  if (dbConnections.discord) {
+    fetchedConnections.push({
+      platform: 'discord',
+      connected: true,
+      username: dbConnections.discord.username,
+      userId: dbConnections.discord.platform_user_id,
+      connectedAt: new Date(),
+    });
+  }
+  
+  if (dbConnections.x) {
+    fetchedConnections.push({
+      platform: 'x',
+      connected: true,
+      username: `@${dbConnections.x.username}`,
+      userId: dbConnections.x.platform_user_id,
+      connectedAt: new Date(),
+    });
+  }
+  
+  return fetchedConnections;
+}
+
 /**
  * Social Connect Component
  * Provides Discord and X (Twitter) connect buttons in retro pixel art style
  * 
- * Note: Full functionality requires:
+ * Full functionality includes:
  * 1. OAuth API keys configured in environment variables
  * 2. Server-side API routes for OAuth callback handling
  * 3. SQLite database for storing connections
@@ -33,13 +74,68 @@ interface SocialConnectProps {
 export default function SocialConnect({ connections = [], onConnectionChange }: SocialConnectProps) {
   const { address, isConnected } = useAccount();
   const [isConnecting, setIsConnecting] = useState<'discord' | 'x' | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState<'discord' | 'x' | null>(null);
   const [localConnections, setLocalConnections] = useState<SocialConnection[]>(connections);
   const [showNotConfigured, setShowNotConfigured] = useState<'discord' | 'x' | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Update local connections when prop changes
+  // Fetch connections from database on mount and when address changes
   useEffect(() => {
-    setLocalConnections(connections);
-  }, [connections]);
+    async function fetchConnections() {
+      if (!address) return;
+      
+      try {
+        const response = await fetch(`/api/social-connections?wallet=${address}`);
+        const data = await response.json();
+        
+        if (data.success && data.connections) {
+          const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
+          setLocalConnections(fetchedConnections);
+          onConnectionChange?.(fetchedConnections);
+        }
+      } catch (error) {
+        console.error('Failed to fetch social connections:', error);
+      }
+    }
+    
+    fetchConnections();
+  }, [address, onConnectionChange]);
+
+  // Check URL for success/error messages from OAuth callback
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    if (success) {
+      setMessage({ type: 'success', text: decodeURIComponent(success) });
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Refresh connections
+      if (address) {
+        fetch(`/api/social-connections?wallet=${address}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.connections) {
+              const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
+              setLocalConnections(fetchedConnections);
+              onConnectionChange?.(fetchedConnections);
+            }
+          })
+          .catch(console.error);
+      }
+    } else if (error) {
+      setMessage({ type: 'error', text: decodeURIComponent(error) });
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
+    // Clear message after 5 seconds
+    const timer = setTimeout(() => setMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [address, onConnectionChange]);
 
   const discordConfigured = isDiscordConfigured();
   const xConfigured = isXConfigured();
@@ -83,30 +179,40 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
 
     setIsConnecting('x');
     
-    try {
-      const state = generateOAuthState();
-      const codeVerifier = generateCodeVerifier();
-      const codeChallenge = await generateCodeChallenge(codeVerifier);
-      
-      storeOAuthState('x', state, codeVerifier);
-      
-      const oauthUrl = getXOAuthUrl(state, codeChallenge);
-      if (oauthUrl) {
-        window.location.href = oauthUrl;
-      }
-    } catch (error) {
-      console.error('Failed to initiate X OAuth:', error);
-      setIsConnecting(null);
-    }
+    // Use server-side OAuth initiation for X (Twitter)
+    // This handles PKCE and cookie setting properly
+    window.location.href = `/api/auth/x?wallet=${address}`;
   }, [isConnected, address, xConfigured]);
 
   const handleDisconnect = useCallback(async (platform: 'discord' | 'x') => {
-    // In demo mode, just remove from local state
-    // In production, this would call an API to remove from database
-    const newConnections = localConnections.filter(c => c.platform !== platform);
-    setLocalConnections(newConnections);
-    onConnectionChange?.(newConnections);
-  }, [localConnections, onConnectionChange]);
+    if (!address) return;
+    
+    setIsDisconnecting(platform);
+    
+    try {
+      const response = await fetch('/api/social-connections', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: address, platform }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const newConnections = localConnections.filter(c => c.platform !== platform);
+        setLocalConnections(newConnections);
+        onConnectionChange?.(newConnections);
+        setMessage({ type: 'success', text: `${platform === 'x' ? 'X' : 'Discord'} disconnected successfully` });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect' });
+      }
+    } catch (error) {
+      console.error('Failed to disconnect:', error);
+      setMessage({ type: 'error', text: 'Failed to disconnect' });
+    } finally {
+      setIsDisconnecting(null);
+    }
+  }, [address, localConnections, onConnectionChange]);
 
   // Demo connect for when APIs are not configured
   const handleDemoConnect = useCallback((platform: 'discord' | 'x') => {
@@ -138,6 +244,17 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
         Connect your social accounts to enhance your Star Profile
       </p>
 
+      {/* Status Message */}
+      {message && (
+        <div className={`mb-4 px-3 py-2 rounded border text-[8px] text-center animate-slide-in-up ${
+          message.type === 'success' 
+            ? 'bg-[#44ff88]/20 border-[#44ff88]/40 text-[#44ff88]' 
+            : 'bg-[#ff4466]/20 border-[#ff4466]/40 text-[#ff4466]'
+        }`}>
+          {message.type === 'success' ? '✓ ' : '✗ '}{message.text}
+        </div>
+      )}
+
       <div className="space-y-3">
         {/* Discord Connection */}
         <div className="flex items-center justify-between p-3 rounded-lg border-2 border-[#5865F2]/30 bg-[#5865F2]/10 hover:border-[#5865F2]/60 smooth-transition">
@@ -164,9 +281,10 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
           {discordConnection?.connected ? (
             <button
               onClick={() => handleDisconnect('discord')}
-              className="px-3 py-1.5 text-[8px] border-2 border-[#ff4466] text-[#ff4466] rounded hover:bg-[#ff4466]/20 smooth-transition"
+              disabled={isDisconnecting === 'discord'}
+              className="px-3 py-1.5 text-[8px] border-2 border-[#ff4466] text-[#ff4466] rounded hover:bg-[#ff4466]/20 smooth-transition disabled:opacity-50"
             >
-              DISCONNECT
+              {isDisconnecting === 'discord' ? 'DISCONNECTING...' : 'DISCONNECT'}
             </button>
           ) : (
             <button
@@ -217,9 +335,10 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
           {xConnection?.connected ? (
             <button
               onClick={() => handleDisconnect('x')}
-              className="px-3 py-1.5 text-[8px] border-2 border-[#ff4466] text-[#ff4466] rounded hover:bg-[#ff4466]/20 smooth-transition"
+              disabled={isDisconnecting === 'x'}
+              className="px-3 py-1.5 text-[8px] border-2 border-[#ff4466] text-[#ff4466] rounded hover:bg-[#ff4466]/20 smooth-transition disabled:opacity-50"
             >
-              DISCONNECT
+              {isDisconnecting === 'x' ? 'DISCONNECTING...' : 'DISCONNECT'}
             </button>
           ) : (
             <button
