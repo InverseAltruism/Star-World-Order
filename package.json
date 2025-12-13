@@ -10,13 +10,15 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "compile": "node scripts/compile-contracts.js",
-    "test:network": "node scripts/test-connection.js"
+    "test:network": "node scripts/test-connection.js",
+    "db:init": "mkdir -p data && sqlite3 data/swo.db < scripts/init-db.sql"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@tanstack/react-query": "^5.90.12",
+    "better-sqlite3": "^12.5.0",
     "ethers": "^6.16.0",
     "next": "^16.0.10",
     "react": "^19.2.3",
@@ -27,6 +29,7 @@
   "devDependencies": {
     "@openzeppelin/contracts": "^5.4.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.0.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

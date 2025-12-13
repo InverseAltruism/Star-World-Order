@@ -16,9 +16,17 @@ interface ChatMessage {
   type: 'chat' | 'system' | 'emote';
 }
 
-// Storage key for chat
+// Extended online user with chat bubble
+interface OnlineUserWithBubble extends OnlineUser {
+  lastMessage?: string;
+  lastMessageAt?: number;
+}
+
+// Storage keys
 const CHAT_STORAGE_KEY = 'swo_hangout_chat';
+const CHAT_BUBBLES_KEY = 'swo_chat_bubbles';
 const MAX_MESSAGES = 100;
+const BUBBLE_DURATION = 8000; // Chat bubble visible for 8 seconds
 
 /**
  * Get chat messages from storage
@@ -34,6 +42,36 @@ function getChatMessages(): ChatMessage[] {
 }
 
 /**
+ * Get chat bubbles (recent messages per user)
+ */
+function getChatBubbles(): Record<string, { message: string; timestamp: number }> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const stored = localStorage.getItem(CHAT_BUBBLES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Save chat bubble for a user
+ */
+function saveChatBubble(address: string, message: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const bubbles = getChatBubbles();
+    bubbles[address.toLowerCase()] = {
+      message: message.slice(0, 50), // Limit bubble message length
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(CHAT_BUBBLES_KEY, JSON.stringify(bubbles));
+  } catch (error) {
+    console.error('Failed to save chat bubble:', error);
+  }
+}
+
+/**
  * Save chat message
  */
 function saveChatMessage(message: ChatMessage): void {
@@ -43,9 +81,35 @@ function saveChatMessage(message: ChatMessage): void {
     messages.push(message);
     // Keep only last MAX_MESSAGES
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)));
+    
+    // Also update chat bubble for this user
+    if (message.type === 'chat') {
+      saveChatBubble(message.senderAddress, message.message);
+    }
   } catch (error) {
     console.error('Failed to save chat message:', error);
   }
+}
+
+/**
+ * Chat Bubble Component - Shows above avatars in the lobby
+ */
+function ChatBubble({ message, isVisible }: { message: string; isVisible: boolean }) {
+  if (!isVisible || !message) return null;
+  
+  return (
+    <div className="absolute -top-14 left-1/2 -translate-x-1/2 z-20 animate-slide-in-up">
+      {/* Bubble */}
+      <div className="relative bg-[#1a1a3a] border-2 border-[#ffd700] rounded-lg px-2 py-1 max-w-[140px]">
+        <p className="text-[8px] text-gray-200 break-words text-center whitespace-pre-wrap leading-tight">
+          {message}
+        </p>
+        {/* Bubble tail */}
+        <div className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-[#ffd700]" />
+        <div className="absolute -bottom-[4px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-[#1a1a3a]" />
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -202,12 +266,27 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
 function Lobby({
   onlineUsers,
   address,
+  chatBubbles,
 }: {
   onlineUsers: OnlineUser[];
   address: string | undefined;
+  chatBubbles: Record<string, { message: string; timestamp: number }>;
 }) {
+  const now = Date.now();
+  
+  // Enhance users with chat bubble data
+  const usersWithBubbles: OnlineUserWithBubble[] = onlineUsers.map(user => {
+    const bubble = chatBubbles[user.address.toLowerCase()];
+    const isRecent = bubble && (now - bubble.timestamp < BUBBLE_DURATION);
+    return {
+      ...user,
+      lastMessage: isRecent ? bubble.message : undefined,
+      lastMessageAt: isRecent ? bubble.timestamp : undefined,
+    };
+  });
+  
   // Sort users - current user first, then by last seen
-  const sortedUsers = [...onlineUsers].sort((a, b) => {
+  const sortedUsers = [...usersWithBubbles].sort((a, b) => {
     if (address && a.address.toLowerCase() === address.toLowerCase()) return -1;
     if (address && b.address.toLowerCase() === address.toLowerCase()) return 1;
     return b.lastSeen - a.lastSeen;
@@ -225,7 +304,7 @@ function Lobby({
       </div>
       
       {/* Visual Lobby Area */}
-      <div className="bg-[#0a0a15] rounded-lg p-4 mb-4 min-h-[200px] relative border-2 border-[#2a2a4e]">
+      <div className="bg-[#0a0a15] rounded-lg p-4 mb-4 min-h-[250px] relative border-2 border-[#2a2a4e] overflow-hidden">
         {/* Retro grid floor */}
         <div 
           className="absolute inset-0 opacity-20"
@@ -241,8 +320,12 @@ function Lobby({
         <div className="absolute bottom-2 left-2 text-xl opacity-30">📺</div>
         <div className="absolute bottom-2 right-2 text-xl opacity-30">🎮</div>
         
-        {/* Users in lobby */}
-        <div className="relative z-10 flex flex-wrap justify-center gap-4 py-4">
+        {/* Neon lights decoration */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#9966ff]/50 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#ffd700]/50 to-transparent" />
+        
+        {/* Users in lobby with chat bubbles */}
+        <div className="relative z-10 flex flex-wrap justify-center gap-6 py-8 pt-12">
           {sortedUsers.length === 0 ? (
             <div className="text-gray-500 text-[8px] text-center py-8">
               <span className="text-4xl block mb-2 animate-pixel-float">🌟</span>
@@ -254,9 +337,15 @@ function Lobby({
             sortedUsers.map((user, index) => (
               <div 
                 key={user.address}
-                className="flex flex-col items-center gap-1 animate-slide-in-up"
+                className="relative flex flex-col items-center gap-1 animate-slide-in-up"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
+                {/* Chat Bubble */}
+                <ChatBubble 
+                  message={user.lastMessage || ''} 
+                  isVisible={!!user.lastMessage}
+                />
+                
                 <SkrumpeySprite 
                   tokenId={user.nftTokenId}
                   variant={user.starVariant}
@@ -425,10 +514,51 @@ function Chat({
 }
 
 /**
- * Voice Chat Component (Placeholder)
+ * Voice Chat Component
+ * UI ready for WebRTC integration
  */
-function VoiceChat() {
+function VoiceChat({ 
+  address,
+  onlineUsers,
+}: { 
+  address: string | undefined;
+  onlineUsers: OnlineUser[];
+}) {
+  const [isInCall, setIsInCall] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [participants, setParticipants] = useState<Array<{ address: string; isMuted: boolean; isSpeaking: boolean }>>([]);
+  
+  // Simulate joining/leaving voice chat
+  const handleJoinCall = useCallback(() => {
+    if (!address) return;
+    setIsInCall(true);
+    setIsMuted(true);
+    // Add current user as participant
+    setParticipants([{ address, isMuted: true, isSpeaking: false }]);
+  }, [address]);
+  
+  const handleLeaveCall = useCallback(() => {
+    setIsInCall(false);
+    setParticipants([]);
+    setIsMuted(true);
+    setIsDeafened(false);
+  }, []);
+  
+  const toggleMute = useCallback(() => {
+    setIsMuted(prev => !prev);
+    // Update participant status
+    setParticipants(prev => prev.map(p => 
+      p.address === address ? { ...p, isMuted: !isMuted } : p
+    ));
+  }, [address, isMuted]);
+  
+  const toggleDeafen = useCallback(() => {
+    setIsDeafened(prev => !prev);
+    if (!isDeafened) {
+      setIsMuted(true);
+    }
+  }, [isDeafened]);
   
   return (
     <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
@@ -436,32 +566,142 @@ function VoiceChat() {
         <h3 className="text-[#ffd700] text-[10px] tracking-wider animate-glow-pulse">
           🎤 VOICE CHAT
         </h3>
-        <span className="text-[#ff4466] text-[6px] px-2 py-1 bg-[#ff4466]/10 rounded">
-          COMING SOON
+        <span className={`text-[6px] px-2 py-1 rounded ${
+          isInCall 
+            ? 'text-[#44ff88] bg-[#44ff88]/10' 
+            : 'text-[#9966ff] bg-[#9966ff]/10'
+        }`}>
+          {isInCall ? `${participants.length} IN CALL` : 'LOBBY CHAT'}
         </span>
       </div>
       
-      <div className="bg-[#0a0a15] rounded-lg p-4 text-center border-2 border-[#2a2a4e]">
-        <div className="text-4xl mb-2 opacity-50">🎙️</div>
-        <p className="text-gray-500 text-[8px] mb-4">
-          Voice chat is coming soon!
-          <br />
-          Talk with fellow Star bearers in real-time.
+      <div className="bg-[#0a0a15] rounded-lg p-4 border-2 border-[#2a2a4e]">
+        {!isInCall ? (
+          // Not in call - show join button
+          <div className="text-center">
+            <div className="text-4xl mb-3 animate-pixel-pulse">🎙️</div>
+            <p className="text-gray-400 text-[8px] mb-4">
+              Join the voice channel to talk with
+              <br />
+              fellow Star bearers in real-time.
+            </p>
+            
+            <button
+              onClick={handleJoinCall}
+              disabled={!address}
+              className="pixel-btn pixel-btn-gold text-[8px] !px-6 smooth-transition hover-lift disabled:opacity-50"
+            >
+              🔊 JOIN VOICE
+            </button>
+            
+            {!address && (
+              <p className="text-gray-600 text-[6px] mt-2">
+                Connect wallet to use voice chat
+              </p>
+            )}
+          </div>
+        ) : (
+          // In call - show controls and participants
+          <div>
+            {/* Participants */}
+            <div className="mb-4">
+              <p className="text-[#9966ff] text-[7px] mb-2">IN CHANNEL</p>
+              <div className="flex flex-wrap gap-2">
+                {participants.map((p) => (
+                  <div 
+                    key={p.address}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-[6px] ${
+                      p.isSpeaking 
+                        ? 'bg-[#44ff88]/20 border border-[#44ff88]' 
+                        : 'bg-[#1a1a2e] border border-[#2a2a4e]'
+                    }`}
+                  >
+                    <span className={p.isMuted ? 'opacity-50' : ''}>
+                      {p.isMuted ? '🔇' : '🎤'}
+                    </span>
+                    <span className="text-gray-300">
+                      {truncateAddress(p.address)}
+                    </span>
+                    {p.address.toLowerCase() === address?.toLowerCase() && (
+                      <span className="text-[#ffd700]">(you)</span>
+                    )}
+                  </div>
+                ))}
+                
+                {/* 
+                 * Demo: Show other online users as potential voice participants
+                 * In production, replace with actual voice session participants from /api/voice
+                 * These are shown with opacity-50 to indicate they haven't actually joined voice
+                 */}
+                {onlineUsers.slice(0, 2).filter(u => u.address.toLowerCase() !== address?.toLowerCase()).map((user) => (
+                  <div 
+                    key={user.address}
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-[6px] bg-[#1a1a2e] border border-[#2a2a4e] opacity-50"
+                    title="Available to join voice"
+                  >
+                    <span>🔇</span>
+                    <span className="text-gray-400">
+                      {truncateAddress(user.address)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Voice level indicator (visual only - replace with actual audio level in production) */}
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[6px] text-gray-500">LEVEL:</span>
+                <div className="flex-1 h-2 bg-[#1a1a2e] rounded overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-75 ${
+                      isMuted ? 'w-0' : 'w-1/4'
+                    } bg-gradient-to-r from-[#44ff88] via-[#ffd700] to-[#ff4466]`}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Controls */}
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={toggleMute}
+                className={`pixel-btn text-[7px] !px-3 !py-2 smooth-transition ${
+                  isMuted 
+                    ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
+                    : '!bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] text-black'
+                }`}
+              >
+                {isMuted ? '🔇 UNMUTE' : '🎤 MUTE'}
+              </button>
+              
+              <button
+                onClick={toggleDeafen}
+                className={`pixel-btn text-[7px] !px-3 !py-2 smooth-transition ${
+                  isDeafened 
+                    ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
+                    : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
+                }`}
+              >
+                {isDeafened ? '🔇 DEAFENED' : '🔊 DEAFEN'}
+              </button>
+              
+              <button
+                onClick={handleLeaveCall}
+                className="pixel-btn text-[7px] !px-3 !py-2 smooth-transition !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+              >
+                📴 LEAVE
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Voice chat info */}
+      <div className="mt-3 text-center">
+        <p className="text-gray-600 text-[6px]">
+          💡 Voice uses WebRTC for peer-to-peer audio
         </p>
-        
-        <div className="flex justify-center gap-3">
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className={`pixel-btn text-[7px] !px-3 !py-1 smooth-transition ${
-              isMuted 
-                ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
-                : '!bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa]'
-            }`}
-            disabled
-          >
-            {isMuted ? '🔇 MUTED' : '🔊 UNMUTED'}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -474,6 +714,20 @@ export default function HangoutContent() {
   const { address } = useAccount();
   const { onlineUsers, updatePresence, votingPower, totalStars } = useStarPoints();
   const [activeStatus, setActiveStatus] = useState<'online' | 'away' | 'busy'>('online');
+  const [chatBubbles, setChatBubbles] = useState<Record<string, { message: string; timestamp: number }>>({});
+  
+  // Load and refresh chat bubbles
+  useEffect(() => {
+    const loadBubbles = () => {
+      setChatBubbles(getChatBubbles());
+    };
+    
+    loadBubbles();
+    // Refresh bubbles every second to handle expiration
+    const interval = setInterval(loadBubbles, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Update status
   const handleStatusChange = (status: 'online' | 'away' | 'busy') => {
@@ -545,13 +799,13 @@ export default function HangoutContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column - Lobby */}
           <div className="lg:row-span-2">
-            <Lobby onlineUsers={onlineUsers} address={address} />
+            <Lobby onlineUsers={onlineUsers} address={address} chatBubbles={chatBubbles} />
           </div>
           
           {/* Right Column - Chat & Voice */}
           <div className="space-y-6">
             <Chat address={address} />
-            <VoiceChat />
+            <VoiceChat address={address} onlineUsers={onlineUsers} />
           </div>
         </div>
 
