@@ -262,6 +262,22 @@ export default function WalletConnect() {
                 🦊 Get MetaMask
               </a>
               <a 
+                href="https://phantom.app/download" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+              >
+                👻 Get Phantom
+              </a>
+              <a 
+                href="https://trustwallet.com/download" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block w-full text-center px-3 py-2 text-[8px] text-[#ffd700] bg-[#2a2a4e] hover:bg-[#3a3a5e] rounded smooth-transition"
+              >
+                🛡️ Get Trust Wallet
+              </a>
+              <a 
                 href="https://rabby.io/" 
                 target="_blank" 
                 rel="noopener noreferrer"
