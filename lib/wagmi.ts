@@ -57,6 +57,13 @@ export const monad = defineChain({
       url: isTestnet ? 'https://testnet.monadscan.com' : 'https://monadscan.com' 
     },
   },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      // Multicall3 deployed at canonical address on Monad mainnet
+      // Used for batched RPC calls to prevent rate limiting
+    },
+  },
   testnet: isTestnet,
 });
 
