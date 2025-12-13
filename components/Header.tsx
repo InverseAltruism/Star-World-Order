@@ -16,10 +16,10 @@ export default function Header() {
             <span className="text-2xl animate-pixel-float inline-block hover-lift smooth-transition">⭐</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-[#ffd700] text-xs tracking-wider pixel-glow-gold">
+            <span className="text-[#ffd700] text-sm tracking-wider pixel-glow-gold">
               SWO
             </span>
-            <span className="text-[#9966ff] text-[8px] hidden sm:block tracking-wide">
+            <span className="text-[#9966ff] text-[10px] hidden sm:block tracking-wide">
               STAR WORLD ORDER
             </span>
           </div>
@@ -29,31 +29,71 @@ export default function Header() {
         <nav className="flex items-center gap-3 md:gap-5">
           <Link 
             href="/dao" 
-            className="text-[10px] text-gray-300 hover:text-[#ffd700] smooth-transition uppercase tracking-wider hover-lift relative group"
+            className="text-[12px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
           >
             DAO
-            <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full smooth-transition" />
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
           </Link>
           <Link 
             href="/hangout" 
-            className="text-[10px] text-gray-300 hover:text-[#44ff88] smooth-transition uppercase tracking-wider hover-lift relative group"
+            className="text-[12px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
           >
             Hangout
-            <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full smooth-transition" />
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
           </Link>
           <Link 
             href="/profile" 
-            className="text-[10px] text-gray-300 hover:text-[#ffd700] smooth-transition uppercase tracking-wider hidden sm:block hover-lift relative group"
+            className="text-[12px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
           >
             Profile
-            <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full smooth-transition" />
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
           </Link>
           <Link 
             href="/marketplace" 
-            className="text-[10px] text-gray-300 hover:text-[#ff00ff] smooth-transition uppercase tracking-wider hidden md:block hover-lift relative group"
+            className="text-[12px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
           >
             Exchange
-            <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full smooth-transition" />
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
           </Link>
           <WalletConnect />
         </nav>

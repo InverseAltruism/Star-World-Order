@@ -1,8 +1,49 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
-import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
+import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import SocialConnect from './SocialConnect';
+
+/**
+ * NFT Image Component with loading and error states
+ */
+function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId);
+
+  return (
+    <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
+      hasStar 
+        ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
+        : 'bg-[#0a0a15]'
+    }`}>
+      {/* Show placeholder while loading or on error */}
+      {(!imageLoaded || imageError) && (
+        <div className="absolute inset-0 flex items-center justify-center text-4xl">
+          <span className="animate-pixel-float" style={{ animationDelay: `${tokenId % 3 * 0.3}s` }}>
+            🐸
+          </span>
+        </div>
+      )}
+      
+      {/* Actual NFT image */}
+      {!imageError && (
+        <img
+          src={imageUrl}
+          alt={name}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
+          loading="lazy"
+        />
+      )}
+    </div>
+  );
+}
 
 /**
  * Profile Card Component
@@ -11,6 +52,62 @@ import SocialConnect from './SocialConnect';
  */
 export default function ProfileCard() {
   const { address, ownedSkrumpeys, starSkrumpeys, isConnected } = useDAOAccess();
+  const [displayName, setDisplayName] = useState('');
+  const [bio, setBio] = useState('');
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Load profile on mount
+  useEffect(() => {
+    if (address) {
+      fetch(`/api/profile?address=${address}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.profile) {
+            setDisplayName(data.profile.display_name || '');
+            setBio(data.profile.bio || '');
+          }
+        })
+        .catch(console.error);
+    }
+  }, [address]);
+
+  const handleSaveProfile = async () => {
+    if (!address) return;
+    
+    setIsSavingProfile(true);
+    setProfileError(null);
+    setProfileSuccess(false);
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          displayName: displayName.trim(),
+          bio: bio.trim(),
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setProfileSuccess(true);
+        setIsEditingProfile(false);
+        setTimeout(() => setProfileSuccess(false), 3000);
+      } else {
+        setProfileError(data.error || 'Failed to save profile');
+      }
+    } catch (error) {
+      setProfileError('Network error. Please try again.');
+      console.error('Failed to save profile:', error);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   // Convert owned tokens to display format
   const displaySkrumpeys = ownedSkrumpeys.map(token => ({
@@ -67,6 +164,94 @@ export default function ProfileCard() {
 
   return (
     <div className="space-y-6">
+      {/* Profile Edit Box */}
+      <div className="pixel-card p-6 animate-slide-in-up">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[#9966ff] text-sm tracking-wider">
+            ✦ PROFILE SETTINGS ✦
+          </h3>
+          {!isEditingProfile && (
+            <button
+              onClick={() => setIsEditingProfile(true)}
+              className="pixel-btn text-[10px] !px-3 !py-1"
+            >
+              EDIT
+            </button>
+          )}
+        </div>
+        
+        {isEditingProfile ? (
+          <div className="space-y-4">
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-2">Display Name</label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your display name (3-20 characters)"
+                maxLength={20}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 text-[10px] block mb-2">Bio</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us about yourself (max 200 characters)"
+                maxLength={200}
+                rows={3}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none resize-none"
+              />
+              <p className="text-gray-600 text-[8px] mt-1">{bio.length}/200 characters</p>
+            </div>
+            
+            {profileError && (
+              <p className="text-[#ff4466] text-[10px] bg-[#ff4466]/10 px-3 py-2 rounded">
+                ⚠️ {profileError}
+              </p>
+            )}
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSavingProfile}
+                className="pixel-btn pixel-btn-gold text-[10px] !px-4 disabled:opacity-50"
+              >
+                {isSavingProfile ? 'SAVING...' : 'SAVE'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditingProfile(false);
+                  setProfileError(null);
+                }}
+                className="pixel-btn text-[10px] !px-4"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div>
+              <p className="text-gray-500 text-[9px]">Display Name</p>
+              <p className="text-white text-[11px]">{displayName || 'Not set'}</p>
+            </div>
+            {bio && (
+              <div>
+                <p className="text-gray-500 text-[9px]">Bio</p>
+                <p className="text-gray-300 text-[10px] leading-relaxed">{bio}</p>
+              </div>
+            )}
+            {profileSuccess && (
+              <p className="text-[#44ff88] text-[10px] bg-[#44ff88]/10 px-3 py-2 rounded">
+                ✓ Profile saved successfully!
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Player Stats Box */}
       <div className="pixel-card p-6 animate-slide-in-up">
         <div className="flex items-center gap-4 mb-4">
@@ -82,10 +267,10 @@ export default function ProfileCard() {
           
           {/* Player Info */}
           <div className="flex-1">
-            <p className="text-[#ffd700] text-xs tracking-wide mb-1 animate-glow-pulse">
+            <p className="text-[#ffd700] text-sm tracking-wide mb-1 animate-glow-pulse">
               {starSkrumpeys.length > 0 ? 'STAR BEARER' : 'SKRUMPEY HOLDER'}
             </p>
-            <p className="text-gray-400 text-[8px] font-mono break-all">
+            <p className="text-gray-400 text-[10px] font-mono break-all">
               {address?.slice(0, 10)}...{address?.slice(-8)}
             </p>
           </div>
@@ -95,15 +280,15 @@ export default function ProfileCard() {
         <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
             <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">SKRUMPEYS</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">SKRUMPEYS</p>
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">STAR TRAIT</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">STAR TRAIT</p>
           </div>
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#44ff88] text-lg">LVL 1</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">RANK</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">RANK</p>
           </div>
         </div>
       </div>
@@ -111,7 +296,7 @@ export default function ProfileCard() {
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
-          <h3 className="text-[#ffd700] text-[10px] tracking-wider mb-3 text-center animate-glow-pulse">
+          <h3 className="text-[#ffd700] text-[12px] tracking-wider mb-3 text-center animate-glow-pulse">
             ✦ STAR CONSTELLATIONS ✦
           </h3>
           <div className="flex flex-wrap justify-center gap-2">
@@ -120,7 +305,7 @@ export default function ProfileCard() {
               return (
                 <div 
                   key={variant}
-                  className={`px-2 py-1 rounded text-[6px] border smooth-transition hover-lift ${
+                  className={`px-2 py-1 rounded text-[8px] border smooth-transition hover-lift ${
                     hasVariant 
                       ? 'border-[#ffd700] bg-[#ffd700]/20' 
                       : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
@@ -149,7 +334,7 @@ export default function ProfileCard() {
 
       {/* NFT Collection */}
       <div className="pixel-card p-6 animate-slide-in-up animate-delay-5">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
+        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
           ★ YOUR COLLECTION ★
         </h3>
         
@@ -170,24 +355,20 @@ export default function ProfileCard() {
                 </div>
               )}
               
-              {/* NFT Image placeholder */}
-              <div className={`w-full aspect-square rounded-lg mb-3 flex items-center justify-center text-4xl smooth-transition hover-lift ${
-                nft.hasStar 
-                  ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
-                  : 'bg-[#0a0a15]'
-              }`}>
-                <span className="animate-pixel-float" style={{ animationDelay: `${nft.id % 3 * 0.3}s` }}>
-                  🐸
-                </span>
-              </div>
+              {/* NFT Image */}
+              <NFTImage 
+                tokenId={nft.id} 
+                hasStar={nft.hasStar}
+                name={nft.name}
+              />
               
               {/* NFT Info */}
-              <p className={`text-[8px] font-bold tracking-wide ${
+              <p className={`text-[10px] font-bold tracking-wide ${
                 nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
               }`}>
                 {nft.name}
               </p>
-              <p className="text-[6px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
+              <p className="text-[8px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
                 {nft.rarity}
               </p>
             </div>

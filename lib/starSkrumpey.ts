@@ -76,6 +76,21 @@ export function isStarSkrumpeyId(tokenId: number): boolean {
 }
 
 /**
+ * Get the star constellation variant for a token ID
+ * Uses a deterministic mapping based on token ID
+ */
+export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | undefined {
+  if (!isStarSkrumpeyId(tokenId)) {
+    return undefined;
+  }
+  
+  // Use token ID to deterministically assign a variant
+  // This ensures the same token always gets the same variant
+  const index = tokenId % STAR_TRAIT_VARIANTS.length;
+  return STAR_TRAIT_VARIANTS[index];
+}
+
+/**
  * Star trait constellation variants
  */
 export const STAR_TRAIT_VARIANTS = [
@@ -114,6 +129,18 @@ export interface OwnedToken {
 // Skrumpey NFT Contract Address on Monad
 // Must be configured in .env.local before production deployment
 export const SKRUMPEY_CONTRACT_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT;
+
+// IPFS base URL for Skrumpey images
+export const SKRUMPEY_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu';
+
+/**
+ * Get the IPFS image URL for a Skrumpey token
+ * @param tokenId - The token ID of the Skrumpey NFT
+ * @returns The full IPFS URL for the NFT image
+ */
+export function getSkrumpeyImageUrl(tokenId: number): string {
+  return `${SKRUMPEY_IPFS_BASE}/${tokenId}.png`;
+}
 
 // Development access override - only works in development mode
 // Set NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local to enable
@@ -312,9 +339,11 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
         // For ownerOf, result is the owner address (string)
         const owner = String(result.result).toLowerCase();
         if (owner === address.toLowerCase()) {
+          const tokenId = STAR_SKRUMPEY_IDS[i];
           ownedStars.push({
-            tokenId: STAR_SKRUMPEY_IDS[i],
+            tokenId,
             hasStar: true,
+            starVariant: getStarVariantForTokenId(tokenId),
           });
         }
       }
@@ -401,7 +430,7 @@ export async function fetchUserSkrumpeys(address: string): Promise<OwnedToken[]>
         return {
           tokenId: tokenIdNum,
           hasStar,
-          // Star variant would require metadata fetch - omit for performance
+          starVariant: hasStar ? getStarVariantForTokenId(tokenIdNum) : undefined,
         };
       } catch {
         return null;

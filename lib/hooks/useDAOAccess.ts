@@ -1,14 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useAccount } from 'wagmi';
-import { 
-  checkStarOwnershipBatched,
-  hasStarSkrumpey, 
-  getStarSkrumpeys,
-  DEV_ACCESS_ENABLED,
-  OwnedToken 
-} from '@/lib/starSkrumpey';
+import { useContext } from 'react';
+import { OwnedToken } from '@/lib/starSkrumpey';
+import { DAOAccessContext } from '@/lib/contexts/DAOAccessContext';
 
 export interface UseDAOAccessResult {
   /** Whether the wallet has DAO access (holds a Star Skrumpey) */
@@ -43,71 +37,21 @@ export interface UseDAOAccessResult {
  * NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local
  * 
  * Returns access status, owned NFTs, and loading state
+ * 
+ * This hook now uses the DAOAccessContext when available, which provides:
+ * - Caching with 5-minute TTL
+ * - Request deduplication
+ * - localStorage persistence across page navigations
  */
 export function useDAOAccess(): UseDAOAccessResult {
-  const { address, isConnected } = useAccount();
-  const [hasAccess, setHasAccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [ownedSkrumpeys, setOwnedSkrumpeys] = useState<OwnedToken[]>([]);
-  const [starSkrumpeys, setStarSkrumpeys] = useState<OwnedToken[]>([]);
-  const [lastChecked, setLastChecked] = useState<number | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  const checkAccess = useCallback(async () => {
-    if (!address || !isConnected) {
-      setHasAccess(false);
-      setOwnedSkrumpeys([]);
-      setStarSkrumpeys([]);
-      setError(null);
-      setLastChecked(null);
-      setRetryCount(0);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Use the new batched multicall approach to avoid rate limiting
-      const owned = await checkStarOwnershipBatched(address);
-      setOwnedSkrumpeys(owned);
-      
-      const stars = getStarSkrumpeys(owned);
-      setStarSkrumpeys(stars);
-      
-      setHasAccess(hasStarSkrumpey(owned));
-      setLastChecked(Date.now());
-      setRetryCount(0); // Reset retry count on success
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to check DAO access';
-      setError(message);
-      setHasAccess(false);
-      setRetryCount(prev => prev + 1);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address, isConnected]);
-
-  useEffect(() => {
-    checkAccess();
-  }, [checkAccess]);
-
-  // Development access override - only enabled when explicitly configured
-  // Set NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local to enable
-  // This allows testing the DAO features without holding a Star Skrumpey
-  const effectiveAccess = DEV_ACCESS_ENABLED ? isConnected : hasAccess;
-
-  return {
-    hasAccess: effectiveAccess,
-    isLoading,
-    error,
-    ownedSkrumpeys,
-    starSkrumpeys,
-    isConnected,
-    address,
-    refresh: checkAccess,
-    lastChecked,
-    retryCount,
-  };
+  const context = useContext(DAOAccessContext);
+  
+  if (context === undefined) {
+    throw new Error(
+      'useDAOAccess must be used within a DAOAccessProvider. ' +
+      'Wrap your app with <DAOAccessProvider> in providers.tsx'
+    );
+  }
+  
+  return context;
 }
