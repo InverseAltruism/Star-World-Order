@@ -183,7 +183,7 @@ function SkrumpeySprite({
 }
 
 /**
- * Online Member Card
+ * Online Member Card - with profile picture
  */
 function MemberCard({ user }: { user: OnlineUser }) {
   const statusText = {
@@ -192,23 +192,50 @@ function MemberCard({ user }: { user: OnlineUser }) {
     busy: 'Busy',
   };
   
+  const profilePicUrl = user.nftTokenId 
+    ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
+    : null;
+  
   return (
     <div className="pixel-card p-3 flex items-center gap-3 smooth-transition hover-lift cursor-pointer">
-      <SkrumpeySprite 
-        tokenId={user.nftTokenId} 
-        variant={user.starVariant} 
-        status={user.status}
-        size="md"
-      />
+      {profilePicUrl ? (
+        <div className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-[#ffd700] flex-shrink-0">
+          <img
+            src={profilePicUrl}
+            alt={`Skrumpey #${user.nftTokenId}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to sprite if image fails to load
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          <div className="hidden w-full h-full">
+            <SkrumpeySprite 
+              tokenId={user.nftTokenId} 
+              variant={user.starVariant} 
+              status={user.status}
+              size="md"
+            />
+          </div>
+        </div>
+      ) : (
+        <SkrumpeySprite 
+          tokenId={user.nftTokenId} 
+          variant={user.starVariant} 
+          status={user.status}
+          size="md"
+        />
+      )}
       <div className="flex-1 min-w-0">
-        <p className="text-gray-200 text-[11px] font-bold truncate">
+        <p className="text-gray-200 text-sm font-bold truncate">
           {user.displayName || truncateAddress(user.address)}
         </p>
-        <p className="text-gray-500 text-[9px]">
-          {user.starVariant ? `${user.starVariant} ⭐` : 'Star Bearer'}
+        <p className="text-gray-500 text-xs">
+          {user.starVariant ? `${user.starVariant}` : 'Star Bearer'}
         </p>
       </div>
-      <div className={`text-[8px] px-2 py-1 rounded ${
+      <div className={`text-xs px-2 py-1 rounded ${
         user.status === 'online' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
         user.status === 'away' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
         'bg-[#ff4466]/20 text-[#ff4466]'
@@ -234,7 +261,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   if (isSystem) {
     return (
       <div className="text-center py-1">
-        <span className="text-[#9966ff] text-[9px] italic">{message.message}</span>
+        <span className="text-[#9966ff] text-xs italic">{message.message}</span>
       </div>
     );
   }
@@ -242,7 +269,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   if (isEmote) {
     return (
       <div className="py-1">
-        <span className="text-[#ffd700] text-[10px]">
+        <span className="text-[#ffd700] text-sm">
           * {message.sender} {message.message}
         </span>
       </div>
@@ -250,11 +277,11 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   }
   
   return (
-    <div className="py-1 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
+    <div className="py-2 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
       <div className="flex items-baseline gap-2">
-        <span className="text-gray-500 text-[8px]">{formatTime(message.timestamp)}</span>
-        <span className="text-[#9966ff] text-[10px] font-bold">{message.sender}:</span>
-        <span className="text-gray-300 text-[10px] break-words">{message.message}</span>
+        <span className="text-gray-500 text-xs">{formatTime(message.timestamp)}</span>
+        <span className="text-[#9966ff] text-sm font-bold">{message.sender}:</span>
+        <span className="text-gray-300 text-sm break-words">{message.message}</span>
       </div>
     </div>
   );
@@ -295,10 +322,10 @@ function Lobby({
   return (
     <div className="pixel-card p-4 h-full animate-slide-in-up">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
-          🎮 GAME LOBBY
+        <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
+          GAME LOBBY
         </h3>
-        <span className="text-[#44ff88] text-[10px]">
+        <span className="text-[#44ff88] text-sm">
           {onlineUsers.length} Online
         </span>
       </div>
@@ -327,45 +354,73 @@ function Lobby({
         {/* Users in lobby with chat bubbles */}
         <div className="relative z-10 flex flex-wrap justify-center gap-6 py-8 pt-12">
           {sortedUsers.length === 0 ? (
-            <div className="text-gray-500 text-[8px] text-center py-8">
+            <div className="text-gray-500 text-sm text-center py-8">
               <span className="text-4xl block mb-2 animate-pixel-float">🌟</span>
               No one else in the lobby yet...
               <br />
               Be the first to hang out!
             </div>
           ) : (
-            sortedUsers.map((user, index) => (
-              <div 
-                key={user.address}
-                className="relative flex flex-col items-center gap-1 animate-slide-in-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                {/* Chat Bubble */}
-                <ChatBubble 
-                  message={user.lastMessage || ''} 
-                  isVisible={!!user.lastMessage}
-                />
-                
-                <SkrumpeySprite 
-                  tokenId={user.nftTokenId}
-                  variant={user.starVariant}
-                  status={user.status}
-                  size="lg"
-                />
-                <span className="text-[6px] text-gray-400 truncate max-w-[60px]">
-                  {truncateAddress(user.address)}
-                </span>
-              </div>
-            ))
+            sortedUsers.map((user, index) => {
+              const profilePicUrl = user.nftTokenId 
+                ? `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/${user.nftTokenId}.png`
+                : null;
+              
+              return (
+                <div 
+                  key={user.address}
+                  className="relative flex flex-col items-center gap-1 animate-slide-in-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {/* Chat Bubble */}
+                  <ChatBubble 
+                    message={user.lastMessage || ''} 
+                    isVisible={!!user.lastMessage}
+                  />
+                  
+                  {profilePicUrl ? (
+                    <div className="relative w-16 h-16 rounded-lg overflow-hidden border-2 border-[#ffd700] animate-pixel-float">
+                      <img
+                        src={profilePicUrl}
+                        alt={`Skrumpey #${user.nftTokenId}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="hidden w-full h-full">
+                        <SkrumpeySprite 
+                          tokenId={user.nftTokenId}
+                          variant={user.starVariant}
+                          status={user.status}
+                          size="lg"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <SkrumpeySprite 
+                      tokenId={user.nftTokenId}
+                      variant={user.starVariant}
+                      status={user.status}
+                      size="lg"
+                    />
+                  )}
+                  <span className="text-xs text-gray-400 truncate max-w-[80px]">
+                    {user.displayName || truncateAddress(user.address)}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
       
       {/* Online Members List */}
-      <h4 className="text-[#9966ff] text-[10px] mb-2">MEMBERS ONLINE</h4>
+      <h4 className="text-[#9966ff] text-sm mb-2">MEMBERS ONLINE</h4>
       <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-pixel">
         {sortedUsers.length === 0 ? (
-          <p className="text-gray-500 text-[7px] text-center py-4">No members online</p>
+          <p className="text-gray-500 text-xs text-center py-4">No members online</p>
         ) : (
           sortedUsers.map((user) => (
             <MemberCard key={user.address} user={user} />
@@ -408,11 +463,23 @@ function Chat({
   }, [messages]);
   
   // Send message
-  const sendMessage = useCallback(() => {
+  const sendMessage = useCallback(async () => {
     if (!address || !inputValue.trim()) return;
     
     const isEmote = inputValue.startsWith('/me ');
     const messageText = isEmote ? inputValue.slice(4) : inputValue;
+    
+    // Fetch user profile to get display name
+    let displayName: string | undefined;
+    try {
+      const response = await fetch(`/api/profile?address=${address}`);
+      const data = await response.json();
+      if (data.success && data.profile?.display_name) {
+        displayName = data.profile.display_name;
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+    }
     
     // Use crypto.randomUUID if available for robust ID generation
     const messageId = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -421,7 +488,7 @@ function Chat({
     
     const newMessage: ChatMessage = {
       id: messageId,
-      sender: truncateAddress(address),
+      sender: displayName || truncateAddress(address),
       senderAddress: address,
       message: messageText.trim(),
       timestamp: Date.now(),
@@ -447,21 +514,21 @@ function Chat({
   return (
     <div className="pixel-card p-4 h-full flex flex-col animate-slide-in-up animate-delay-1">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
-          💬 STAR CHAT
+        <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
+          STAR CHAT
         </h3>
-        <span className="text-gray-500 text-[8px]">
+        <span className="text-gray-500 text-xs">
           {messages.length} messages
         </span>
       </div>
       
       {/* Messages Area */}
-      <div className="flex-1 bg-[#0a0a15] rounded-lg p-2 mb-4 overflow-y-auto min-h-[300px] max-h-[400px] border-2 border-[#2a2a4e] scrollbar-pixel">
+      <div className="flex-1 bg-[#0a0a15] rounded-lg p-3 mb-4 overflow-y-auto min-h-[300px] max-h-[400px] border-2 border-[#2a2a4e] scrollbar-pixel">
         {messages.length === 0 ? (
           <div className="text-center py-8">
             <span className="text-4xl block mb-2 animate-pixel-float">💬</span>
-            <p className="text-gray-500 text-[10px]">No messages yet</p>
-            <p className="text-gray-600 text-[8px]">Start the conversation!</p>
+            <p className="text-gray-500 text-sm">No messages yet</p>
+            <p className="text-gray-600 text-xs">Start the conversation!</p>
           </div>
         ) : (
           messages.map((msg) => (
@@ -493,19 +560,19 @@ function Chat({
           onKeyPress={handleKeyPress}
           placeholder={address ? "Type a message... (use /me for emotes)" : "Connect wallet to chat"}
           disabled={!address}
-          className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none smooth-transition disabled:opacity-50"
+          className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-sm focus:border-[#ffd700] focus:outline-none smooth-transition disabled:opacity-50"
         />
         <button
           onClick={sendMessage}
           disabled={!address || !inputValue.trim()}
-          className="pixel-btn pixel-btn-gold text-[10px] !px-4 smooth-transition hover-lift disabled:opacity-50"
+          className="pixel-btn pixel-btn-gold text-xs !px-4 smooth-transition hover-lift disabled:opacity-50"
         >
           SEND
         </button>
       </div>
       
       {/* Chat Help */}
-      <div className="mt-2 text-gray-600 text-[8px]">
+      <div className="mt-2 text-gray-600 text-xs">
         <span className="text-[#9966ff]">/me</span> - emote action • 
         <span className="text-[#9966ff]"> Enter</span> - send message
       </div>
@@ -563,10 +630,10 @@ function VoiceChat({
   return (
     <div className="pixel-card p-4 animate-slide-in-up animate-delay-2 relative z-50">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
-          🎤 VOICE CHAT
+        <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
+          VOICE CHAT
         </h3>
-        <span className={`text-[8px] px-2 py-1 rounded ${
+        <span className={`text-xs px-2 py-1 rounded ${
           isInCall 
             ? 'text-[#44ff88] bg-[#44ff88]/10' 
             : 'text-[#9966ff] bg-[#9966ff]/10'
@@ -580,7 +647,7 @@ function VoiceChat({
           // Not in call - show join button
           <div className="text-center">
             <div className="text-4xl mb-3 animate-pixel-pulse">🎙️</div>
-            <p className="text-gray-400 text-[8px] mb-4">
+            <p className="text-gray-400 text-sm mb-4">
               Join the voice channel to talk with
               <br />
               fellow Star bearers in real-time.
@@ -589,13 +656,13 @@ function VoiceChat({
             <button
               onClick={handleJoinCall}
               disabled={!address}
-              className="pixel-btn pixel-btn-gold text-[8px] !px-6 smooth-transition hover-lift disabled:opacity-50"
+              className="pixel-btn pixel-btn-gold text-xs !px-6 smooth-transition hover-lift disabled:opacity-50"
             >
-              🔊 JOIN VOICE
+              JOIN VOICE
             </button>
             
             {!address && (
-              <p className="text-gray-600 text-[6px] mt-2">
+              <p className="text-gray-600 text-xs mt-2">
                 Connect wallet to use voice chat
               </p>
             )}
@@ -699,8 +766,8 @@ function VoiceChat({
       
       {/* Voice chat info */}
       <div className="mt-3 text-center">
-        <p className="text-gray-600 text-[6px]">
-          💡 Voice uses WebRTC for peer-to-peer audio
+        <p className="text-gray-600 text-xs">
+          Voice uses WebRTC for peer-to-peer audio
         </p>
       </div>
     </div>
