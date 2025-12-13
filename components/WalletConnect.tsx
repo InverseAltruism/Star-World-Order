@@ -316,13 +316,13 @@ export default function WalletConnect() {
                 >
                   <span className="text-base smooth-transition">{walletInfo.icon}</span>
                   <span className="flex-1 text-left">{walletInfo.name}</span>
-                  <span className="text-[#44ff88] text-[10px]">→</span>
+                  <span className="text-[#44ff88] text-xs">→</span>
                 </button>
               );
             })}
           </div>
           <div className="p-2 border-t border-[#2a2a4e]">
-            <p className="text-gray-600 text-[10px] text-center">
+            <p className="text-gray-600 text-xs text-center">
               Connect to Monad Network
             </p>
           </div>
