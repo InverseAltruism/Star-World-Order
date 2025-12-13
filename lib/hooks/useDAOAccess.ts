@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { 
-  fetchUserSkrumpeys, 
+  checkStarOwnershipBatched,
   hasStarSkrumpey, 
   getStarSkrumpeys,
   DEV_ACCESS_ENABLED,
@@ -27,6 +27,10 @@ export interface UseDAOAccessResult {
   address: string | undefined;
   /** Refresh access check */
   refresh: () => Promise<void>;
+  /** Timestamp of last successful check */
+  lastChecked: number | null;
+  /** Number of retry attempts made */
+  retryCount: number;
 }
 
 /**
@@ -47,6 +51,8 @@ export function useDAOAccess(): UseDAOAccessResult {
   const [error, setError] = useState<string | null>(null);
   const [ownedSkrumpeys, setOwnedSkrumpeys] = useState<OwnedToken[]>([]);
   const [starSkrumpeys, setStarSkrumpeys] = useState<OwnedToken[]>([]);
+  const [lastChecked, setLastChecked] = useState<number | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const checkAccess = useCallback(async () => {
     if (!address || !isConnected) {
@@ -54,6 +60,8 @@ export function useDAOAccess(): UseDAOAccessResult {
       setOwnedSkrumpeys([]);
       setStarSkrumpeys([]);
       setError(null);
+      setLastChecked(null);
+      setRetryCount(0);
       return;
     }
 
@@ -61,17 +69,21 @@ export function useDAOAccess(): UseDAOAccessResult {
     setError(null);
 
     try {
-      const owned = await fetchUserSkrumpeys(address);
+      // Use the new batched multicall approach to avoid rate limiting
+      const owned = await checkStarOwnershipBatched(address);
       setOwnedSkrumpeys(owned);
       
       const stars = getStarSkrumpeys(owned);
       setStarSkrumpeys(stars);
       
       setHasAccess(hasStarSkrumpey(owned));
+      setLastChecked(Date.now());
+      setRetryCount(0); // Reset retry count on success
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to check DAO access';
       setError(message);
       setHasAccess(false);
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -95,5 +107,7 @@ export function useDAOAccess(): UseDAOAccessResult {
     isConnected,
     address,
     refresh: checkAccess,
+    lastChecked,
+    retryCount,
   };
 }
