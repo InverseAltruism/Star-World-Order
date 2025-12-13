@@ -68,12 +68,12 @@ function CreateProposalModal({
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
-          ✦ CREATE NEW PROPOSAL ✦
+          CREATE NEW PROPOSAL
         </h3>
         
         <div className="space-y-4">
           <div>
-            <label className="text-[#9966ff] text-[8px] block mb-2">PROPOSAL TITLE</label>
+            <label className="text-[#9966ff] text-xs block mb-2">PROPOSAL TITLE</label>
             <input
               type="text"
               value={title}
@@ -84,7 +84,7 @@ function CreateProposalModal({
           </div>
           
           <div>
-            <label className="text-[#9966ff] text-[8px] block mb-2">DESCRIPTION</label>
+            <label className="text-[#9966ff] text-xs block mb-2">DESCRIPTION</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -95,24 +95,24 @@ function CreateProposalModal({
           </div>
           
           {error && (
-            <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
-              ⚠️ {error}
+            <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
+              {error}
             </div>
           )}
           
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+              className="flex-1 pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
             >
               CANCEL
             </button>
             <button
               onClick={handleSubmit}
               disabled={isPending || !title.trim() || !description.trim()}
-              className="flex-1 pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 pixel-btn pixel-btn-gold text-xs smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isPending ? '⏳ CREATING...' : '✨ CREATE PROPOSAL'}
+              {isPending ? 'CREATING...' : 'CREATE PROPOSAL'}
             </button>
           </div>
         </div>
@@ -1075,15 +1075,11 @@ export default function DAOContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition">🏛️</span>
-          <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
-            THE ORDER
-          </h1>
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
-        </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide animate-glow-pulse">
-          ✦ STAR WORLD ORDER DAO ✦
+        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+          THE ORDER
+        </h1>
+        <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
+          Star World Order DAO
         </p>
       </div>
 

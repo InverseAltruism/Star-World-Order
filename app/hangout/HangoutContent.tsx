@@ -561,7 +561,7 @@ function VoiceChat({
   }, [isDeafened]);
   
   return (
-    <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
+    <div className="pixel-card p-4 animate-slide-in-up animate-delay-2 relative z-50">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
           🎤 VOICE CHAT
@@ -739,15 +739,11 @@ export default function HangoutContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition">🎮</span>
-          <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
-            HANGOUT HUB
-          </h1>
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition" style={{ animationDelay: '0.5s' }}>🌟</span>
-        </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide animate-glow-pulse">
-          ✦ MEET FELLOW STAR BEARERS ✦
+        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+          HANGOUT HUB
+        </h1>
+        <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
+          Meet fellow Star bearers
         </p>
       </div>
 
@@ -811,12 +807,12 @@ export default function HangoutContent() {
 
         {/* Info Section */}
         <div className="pixel-card p-4 mt-6 bg-[#0a0a15] animate-slide-in-up animate-delay-3">
-          <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">✦ HANGOUT RULES ✦</p>
-          <ul className="text-gray-500 text-[6px] space-y-1">
+          <p className="text-[#9966ff] text-sm tracking-wide mb-2">HANGOUT RULES</p>
+          <ul className="text-gray-400 text-sm space-y-1">
             <li>• Be respectful to fellow Star bearers</li>
             <li>• Keep conversations appropriate and on-topic</li>
             <li>• No spam or excessive emote usage</li>
-            <li>• Have fun and make new cosmic friends! 🌟</li>
+            <li>• Have fun and make new friends!</li>
           </ul>
         </div>
       </AccessGate>

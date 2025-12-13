@@ -29,7 +29,7 @@ export default function Header() {
         <nav className="flex items-center gap-3 md:gap-5">
           <Link 
             href="/dao" 
-            className="text-[12px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
+            className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
@@ -46,7 +46,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/hangout" 
-            className="text-[12px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
+            className="text-[14px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
@@ -63,7 +63,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/profile" 
-            className="text-[12px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
+            className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
@@ -80,7 +80,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/marketplace" 
-            className="text-[12px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
+            className="text-[14px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
