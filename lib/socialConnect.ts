@@ -125,7 +125,12 @@ export function generateCodeVerifier(): string {
   if (typeof window !== 'undefined' && window.crypto) {
     window.crypto.getRandomValues(array);
   }
-  return btoa(String.fromCharCode.apply(null, Array.from(array)))
+  // Use chunked processing to avoid stack overflow with large arrays
+  let binary = '';
+  for (let i = 0; i < array.length; i++) {
+    binary += String.fromCharCode(array[i]);
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
@@ -143,7 +148,13 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
   const data = encoder.encode(verifier);
   const digest = await window.crypto.subtle.digest('SHA-256', data);
   
-  return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
+  // Use chunked processing to avoid stack overflow with large arrays
+  const bytes = new Uint8Array(digest);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');

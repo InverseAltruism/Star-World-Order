@@ -66,7 +66,8 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
       if (oauthUrl) {
         window.location.href = oauthUrl;
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to initiate Discord OAuth:', error);
       setIsConnecting(null);
     }
   }, [isConnected, address, discordConfigured]);
@@ -93,7 +94,8 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
       if (oauthUrl) {
         window.location.href = oauthUrl;
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to initiate X OAuth:', error);
       setIsConnecting(null);
     }
   }, [isConnected, address, xConfigured]);
