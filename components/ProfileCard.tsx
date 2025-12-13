@@ -123,10 +123,10 @@ export default function ProfileCard() {
           
           {/* Player Info */}
           <div className="flex-1">
-            <p className="text-[#ffd700] text-xs tracking-wide mb-1 animate-glow-pulse">
+            <p className="text-[#ffd700] text-sm tracking-wide mb-1 animate-glow-pulse">
               {starSkrumpeys.length > 0 ? 'STAR BEARER' : 'SKRUMPEY HOLDER'}
             </p>
-            <p className="text-gray-400 text-[8px] font-mono break-all">
+            <p className="text-gray-400 text-[10px] font-mono break-all">
               {address?.slice(0, 10)}...{address?.slice(-8)}
             </p>
           </div>
@@ -136,15 +136,15 @@ export default function ProfileCard() {
         <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
             <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">SKRUMPEYS</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">SKRUMPEYS</p>
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">STAR TRAIT</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">STAR TRAIT</p>
           </div>
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#44ff88] text-lg">LVL 1</p>
-            <p className="text-gray-500 text-[6px] tracking-wide">RANK</p>
+            <p className="text-gray-500 text-[8px] tracking-wide">RANK</p>
           </div>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function ProfileCard() {
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
-          <h3 className="text-[#ffd700] text-[10px] tracking-wider mb-3 text-center animate-glow-pulse">
+          <h3 className="text-[#ffd700] text-[12px] tracking-wider mb-3 text-center animate-glow-pulse">
             ✦ STAR CONSTELLATIONS ✦
           </h3>
           <div className="flex flex-wrap justify-center gap-2">
@@ -161,7 +161,7 @@ export default function ProfileCard() {
               return (
                 <div 
                   key={variant}
-                  className={`px-2 py-1 rounded text-[6px] border smooth-transition hover-lift ${
+                  className={`px-2 py-1 rounded text-[8px] border smooth-transition hover-lift ${
                     hasVariant 
                       ? 'border-[#ffd700] bg-[#ffd700]/20' 
                       : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
@@ -190,7 +190,7 @@ export default function ProfileCard() {
 
       {/* NFT Collection */}
       <div className="pixel-card p-6 animate-slide-in-up animate-delay-5">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
+        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
           ★ YOUR COLLECTION ★
         </h3>
         
@@ -219,12 +219,12 @@ export default function ProfileCard() {
               />
               
               {/* NFT Info */}
-              <p className={`text-[8px] font-bold tracking-wide ${
+              <p className={`text-[10px] font-bold tracking-wide ${
                 nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
               }`}>
                 {nft.name}
               </p>
-              <p className="text-[6px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
+              <p className="text-[8px]" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
                 {nft.rarity}
               </p>
             </div>

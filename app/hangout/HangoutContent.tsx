@@ -201,14 +201,14 @@ function MemberCard({ user }: { user: OnlineUser }) {
         size="md"
       />
       <div className="flex-1 min-w-0">
-        <p className="text-gray-200 text-[9px] font-bold truncate">
+        <p className="text-gray-200 text-[11px] font-bold truncate">
           {user.displayName || truncateAddress(user.address)}
         </p>
-        <p className="text-gray-500 text-[7px]">
+        <p className="text-gray-500 text-[9px]">
           {user.starVariant ? `${user.starVariant} ⭐` : 'Star Bearer'}
         </p>
       </div>
-      <div className={`text-[6px] px-2 py-1 rounded ${
+      <div className={`text-[8px] px-2 py-1 rounded ${
         user.status === 'online' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
         user.status === 'away' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
         'bg-[#ff4466]/20 text-[#ff4466]'
@@ -234,7 +234,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   if (isSystem) {
     return (
       <div className="text-center py-1">
-        <span className="text-[#9966ff] text-[7px] italic">{message.message}</span>
+        <span className="text-[#9966ff] text-[9px] italic">{message.message}</span>
       </div>
     );
   }
@@ -242,7 +242,7 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   if (isEmote) {
     return (
       <div className="py-1">
-        <span className="text-[#ffd700] text-[8px]">
+        <span className="text-[#ffd700] text-[10px]">
           * {message.sender} {message.message}
         </span>
       </div>
@@ -252,9 +252,9 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   return (
     <div className="py-1 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
       <div className="flex items-baseline gap-2">
-        <span className="text-gray-500 text-[6px]">{formatTime(message.timestamp)}</span>
-        <span className="text-[#9966ff] text-[8px] font-bold">{message.sender}:</span>
-        <span className="text-gray-300 text-[8px] break-words">{message.message}</span>
+        <span className="text-gray-500 text-[8px]">{formatTime(message.timestamp)}</span>
+        <span className="text-[#9966ff] text-[10px] font-bold">{message.sender}:</span>
+        <span className="text-gray-300 text-[10px] break-words">{message.message}</span>
       </div>
     </div>
   );
@@ -295,10 +295,10 @@ function Lobby({
   return (
     <div className="pixel-card p-4 h-full animate-slide-in-up">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[10px] tracking-wider animate-glow-pulse">
+        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
           🎮 GAME LOBBY
         </h3>
-        <span className="text-[#44ff88] text-[8px]">
+        <span className="text-[#44ff88] text-[10px]">
           {onlineUsers.length} Online
         </span>
       </div>
@@ -362,7 +362,7 @@ function Lobby({
       </div>
       
       {/* Online Members List */}
-      <h4 className="text-[#9966ff] text-[8px] mb-2">MEMBERS ONLINE</h4>
+      <h4 className="text-[#9966ff] text-[10px] mb-2">MEMBERS ONLINE</h4>
       <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-pixel">
         {sortedUsers.length === 0 ? (
           <p className="text-gray-500 text-[7px] text-center py-4">No members online</p>
@@ -447,10 +447,10 @@ function Chat({
   return (
     <div className="pixel-card p-4 h-full flex flex-col animate-slide-in-up animate-delay-1">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[10px] tracking-wider animate-glow-pulse">
+        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
           💬 STAR CHAT
         </h3>
-        <span className="text-gray-500 text-[6px]">
+        <span className="text-gray-500 text-[8px]">
           {messages.length} messages
         </span>
       </div>
@@ -460,8 +460,8 @@ function Chat({
         {messages.length === 0 ? (
           <div className="text-center py-8">
             <span className="text-4xl block mb-2 animate-pixel-float">💬</span>
-            <p className="text-gray-500 text-[8px]">No messages yet</p>
-            <p className="text-gray-600 text-[6px]">Start the conversation!</p>
+            <p className="text-gray-500 text-[10px]">No messages yet</p>
+            <p className="text-gray-600 text-[8px]">Start the conversation!</p>
           </div>
         ) : (
           messages.map((msg) => (
@@ -493,19 +493,19 @@ function Chat({
           onKeyPress={handleKeyPress}
           placeholder={address ? "Type a message... (use /me for emotes)" : "Connect wallet to chat"}
           disabled={!address}
-          className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[9px] focus:border-[#ffd700] focus:outline-none smooth-transition disabled:opacity-50"
+          className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none smooth-transition disabled:opacity-50"
         />
         <button
           onClick={sendMessage}
           disabled={!address || !inputValue.trim()}
-          className="pixel-btn pixel-btn-gold text-[8px] !px-4 smooth-transition hover-lift disabled:opacity-50"
+          className="pixel-btn pixel-btn-gold text-[10px] !px-4 smooth-transition hover-lift disabled:opacity-50"
         >
           SEND
         </button>
       </div>
       
       {/* Chat Help */}
-      <div className="mt-2 text-gray-600 text-[6px]">
+      <div className="mt-2 text-gray-600 text-[8px]">
         <span className="text-[#9966ff]">/me</span> - emote action • 
         <span className="text-[#9966ff]"> Enter</span> - send message
       </div>
@@ -563,10 +563,10 @@ function VoiceChat({
   return (
     <div className="pixel-card p-4 animate-slide-in-up animate-delay-2">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#ffd700] text-[10px] tracking-wider animate-glow-pulse">
+        <h3 className="text-[#ffd700] text-[12px] tracking-wider animate-glow-pulse">
           🎤 VOICE CHAT
         </h3>
-        <span className={`text-[6px] px-2 py-1 rounded ${
+        <span className={`text-[8px] px-2 py-1 rounded ${
           isInCall 
             ? 'text-[#44ff88] bg-[#44ff88]/10' 
             : 'text-[#9966ff] bg-[#9966ff]/10'

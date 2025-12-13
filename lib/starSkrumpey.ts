@@ -76,6 +76,21 @@ export function isStarSkrumpeyId(tokenId: number): boolean {
 }
 
 /**
+ * Get the star constellation variant for a token ID
+ * Uses a deterministic mapping based on token ID
+ */
+export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | undefined {
+  if (!isStarSkrumpeyId(tokenId)) {
+    return undefined;
+  }
+  
+  // Use token ID to deterministically assign a variant
+  // This ensures the same token always gets the same variant
+  const index = tokenId % STAR_TRAIT_VARIANTS.length;
+  return STAR_TRAIT_VARIANTS[index];
+}
+
+/**
  * Star trait constellation variants
  */
 export const STAR_TRAIT_VARIANTS = [
@@ -324,9 +339,11 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
         // For ownerOf, result is the owner address (string)
         const owner = String(result.result).toLowerCase();
         if (owner === address.toLowerCase()) {
+          const tokenId = STAR_SKRUMPEY_IDS[i];
           ownedStars.push({
-            tokenId: STAR_SKRUMPEY_IDS[i],
+            tokenId,
             hasStar: true,
+            starVariant: getStarVariantForTokenId(tokenId),
           });
         }
       }
@@ -413,7 +430,7 @@ export async function fetchUserSkrumpeys(address: string): Promise<OwnedToken[]>
         return {
           tokenId: tokenIdNum,
           hasStar,
-          // Star variant would require metadata fetch - omit for performance
+          starVariant: hasStar ? getStarVariantForTokenId(tokenIdNum) : undefined,
         };
       } catch {
         return null;
