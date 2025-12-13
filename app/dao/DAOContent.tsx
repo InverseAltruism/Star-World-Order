@@ -68,12 +68,12 @@ function CreateProposalModal({
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
-          ✦ CREATE NEW PROPOSAL ✦
+          CREATE NEW PROPOSAL
         </h3>
         
         <div className="space-y-4">
           <div>
-            <label className="text-[#9966ff] text-[8px] block mb-2">PROPOSAL TITLE</label>
+            <label className="text-[#9966ff] text-xs block mb-2">PROPOSAL TITLE</label>
             <input
               type="text"
               value={title}
@@ -84,7 +84,7 @@ function CreateProposalModal({
           </div>
           
           <div>
-            <label className="text-[#9966ff] text-[8px] block mb-2">DESCRIPTION</label>
+            <label className="text-[#9966ff] text-xs block mb-2">DESCRIPTION</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -95,24 +95,24 @@ function CreateProposalModal({
           </div>
           
           {error && (
-            <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
-              ⚠️ {error}
+            <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
+              {error}
             </div>
           )}
           
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 pixel-btn text-[8px] !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
+              className="flex-1 pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
             >
               CANCEL
             </button>
             <button
               onClick={handleSubmit}
               disabled={isPending || !title.trim() || !description.trim()}
-              className="flex-1 pixel-btn pixel-btn-gold text-[8px] smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 pixel-btn pixel-btn-gold text-xs smooth-transition hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isPending ? '⏳ CREATING...' : '✨ CREATE PROPOSAL'}
+              {isPending ? 'CREATING...' : 'CREATE PROPOSAL'}
             </button>
           </div>
         </div>
@@ -423,11 +423,38 @@ function ForumTab({
     if (!selectedThread) return;
     setError(null);
     setIsPending(true);
+    
+    // Save original state for potential revert
+    const originalThread = selectedThread;
+    
+    // Optimistic update - add reply immediately to UI
+    const optimisticReply = {
+      id: `temp-${Date.now()}`,
+      threadId: selectedThread.id,
+      content: replyContent,
+      author: 'You',
+      likes: 0,
+      createdAt: Date.now(),
+    };
+    
+    setSelectedThread({
+      ...selectedThread,
+      replies: [...selectedThread.replies, optimisticReply],
+    });
+    
     const result = await onReply(selectedThread.id, replyContent);
     setIsPending(false);
+    
     if (result.success) {
       setReplyContent('');
+      // Refresh the thread from the threads list to get the real data
+      const updatedThread = threads.find(t => t.id === selectedThread.id);
+      if (updatedThread) {
+        setSelectedThread(updatedThread);
+      }
     } else {
+      // Revert optimistic update on error
+      setSelectedThread(originalThread);
       setError(result.error || 'Failed to add reply');
     }
   };
@@ -454,7 +481,7 @@ function ForumTab({
       <div className="space-y-4 animate-slide-in-up">
         <button 
           onClick={() => setSelectedThread(null)}
-          className="text-[#9966ff] text-[8px] hover:text-[#ffd700] smooth-transition"
+          className="text-[#9966ff] text-sm hover:text-[#ffd700] smooth-transition"
         >
           ← Back to threads
         </button>
@@ -462,9 +489,9 @@ function ForumTab({
         <div className="pixel-card p-4">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <span className="text-[#9966ff] text-[6px] uppercase">{getCategoryLabel(selectedThread.category)}</span>
-              <h3 className="text-[#ffd700] text-sm font-bold">{selectedThread.title}</h3>
-              <p className="text-gray-500 text-[7px]">
+              <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(selectedThread.category)}</span>
+              <h3 className="text-[#ffd700] text-lg font-bold">{selectedThread.title}</h3>
+              <p className="text-gray-500 text-xs">
                 by {selectedThread.author} • {formatRelativeTime(selectedThread.createdAt)}
               </p>
             </div>
@@ -472,20 +499,20 @@ function ForumTab({
           </div>
           
           <div className="bg-[#0a0a15] rounded-lg p-4 mb-4">
-            <p className="text-gray-300 text-[9px] whitespace-pre-wrap">{selectedThread.content}</p>
+            <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{selectedThread.content}</p>
           </div>
           
           {/* Replies */}
           <div className="space-y-3 mb-4">
-            <h4 className="text-[#9966ff] text-[8px]">REPLIES ({selectedThread.replies.length})</h4>
+            <h4 className="text-[#9966ff] text-sm">REPLIES ({selectedThread.replies.length})</h4>
             {selectedThread.replies.map((reply) => (
               <div key={reply.id} className="bg-[#1a1a2e] rounded-lg p-3">
-                <p className="text-gray-300 text-[8px]">{reply.content}</p>
+                <p className="text-gray-300 text-sm leading-relaxed">{reply.content}</p>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-gray-500 text-[6px]">
+                  <span className="text-gray-500 text-xs">
                     {reply.author} • {formatRelativeTime(reply.createdAt)}
                   </span>
-                  <span className="text-gray-600 text-[6px]">❤️ {reply.likes}</span>
+                  <span className="text-gray-600 text-xs">{reply.likes > 0 ? `❤️ ${reply.likes}` : ''}</span>
                 </div>
               </div>
             ))}
@@ -499,19 +526,19 @@ function ForumTab({
                 onChange={(e) => setReplyContent(e.target.value)}
                 placeholder="Write your reply..."
                 rows={3}
-                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-sm focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
               />
               {error && (
-                <div className="text-[#ff4466] text-[8px] bg-[#ff4466]/10 px-3 py-2 rounded">
-                  ⚠️ {error}
+                <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
+                  {error}
                 </div>
               )}
               <button
                 onClick={handleReply}
                 disabled={isPending || !replyContent.trim()}
-                className="pixel-btn pixel-btn-gold text-[8px] !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50"
+                className="pixel-btn pixel-btn-gold text-xs !px-4 !py-2 smooth-transition hover-lift disabled:opacity-50"
               >
-                {isPending ? '⏳ POSTING...' : '💬 POST REPLY'}
+                {isPending ? 'POSTING...' : 'POST REPLY'}
               </button>
             </div>
           )}
@@ -592,10 +619,10 @@ function ForumTab({
 
       {/* Forum Header */}
       <div className="flex justify-between items-center animate-slide-in-up">
-        <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">STAR COUNCIL FORUM</h3>
+        <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">STAR COUNCIL FORUM</h3>
         <button 
           onClick={() => setShowCreateModal(true)}
-          className="pixel-btn pixel-btn-gold text-[8px] !px-3 !py-2 smooth-transition hover-lift"
+          className="pixel-btn pixel-btn-gold text-xs !px-3 !py-2 smooth-transition hover-lift"
         >
           + NEW THREAD
         </button>
@@ -615,12 +642,12 @@ function ForumTab({
               
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[#9966ff] text-[6px] uppercase">{getCategoryLabel(thread.category)}</span>
+                  <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(thread.category)}</span>
                 </div>
-                <h4 className={`text-[10px] font-bold mb-1 ${thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'}`}>
+                <h4 className={`text-sm font-bold mb-1 ${thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'}`}>
                   {thread.title}
                 </h4>
-                <div className="flex items-center gap-4 text-[6px] text-gray-500">
+                <div className="flex items-center gap-4 text-xs text-gray-500">
                   <span>by {thread.author}</span>
                   <span>{thread.replies.length} replies</span>
                   <span>{formatRelativeTime(thread.updatedAt)}</span>
@@ -635,12 +662,12 @@ function ForumTab({
 
       {/* Forum Rules */}
       <div className="pixel-card p-4 bg-[#0a0a15]">
-        <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">✦ COUNCIL RULES ✦</p>
-        <ul className="text-gray-500 text-[6px] space-y-1">
+        <p className="text-[#9966ff] text-sm tracking-wide mb-2">COUNCIL RULES</p>
+        <ul className="text-gray-400 text-sm space-y-1">
           <li>• Be respectful to fellow Star bearers</li>
-          <li>• Stay on topic - cosmic discussions only</li>
+          <li>• Stay on topic</li>
           <li>• No spam or self-promotion</li>
-          <li>• Have fun! We&apos;re all chosen by the stars</li>
+          <li>• Have fun!</li>
         </ul>
       </div>
     </div>
@@ -749,7 +776,7 @@ function StakingTab({
     <div className="space-y-6">
       {/* STAR Balance Overview */}
       <div className="pixel-card p-6 text-center animate-slide-in-up">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">⭐ STAR STAKING</h3>
+        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">STAR STAKING</h3>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-[#0a0a15] p-4 rounded-lg border-2 border-[#ffd700]/30">
@@ -805,8 +832,8 @@ function StakingTab({
         
         {/* Staking Benefits */}
         <div className="bg-[#1a1a2e] rounded-lg p-4 mt-4 text-left">
-          <p className="text-[#ffd700] text-[8px] mb-2">✦ STAR STAKING BENEFITS ✦</p>
-          <ul className="text-gray-400 text-[7px] space-y-1">
+          <p className="text-[#ffd700] text-sm mb-2">STAR STAKING BENEFITS</p>
+          <ul className="text-gray-400 text-sm space-y-1">
             <li>• Earn <span className="text-[#ffd700]">{STAR_PER_NFT_PER_DAY} STAR</span> per NFT every 24 hours</li>
             <li>• Stake multiple NFTs to multiply earnings</li>
             <li>• <span className="text-[#44ff88]">NO unstaking period</span> - unstake anytime!</li>
@@ -947,8 +974,8 @@ function StakingTab({
 
       {/* Info */}
       <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
-        <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">ℹ️ STAR SYSTEM INFO</p>
-        <ul className="text-gray-500 text-[6px] space-y-1">
+        <p className="text-[#9966ff] text-sm tracking-wide mb-2">STAR SYSTEM INFO</p>
+        <ul className="text-gray-400 text-sm space-y-1">
           <li>• Stake your Star Skrumpeys to earn STAR tokens</li>
           <li>• <span className="text-[#44ff88]">Instant unstaking</span> - no cooldown period!</li>
           <li>• STAR earned = Days staked × NFTs staked × {STAR_PER_NFT_PER_DAY}</li>
@@ -1075,15 +1102,11 @@ export default function DAOContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition">🏛️</span>
-          <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
-            THE ORDER
-          </h1>
-          <span className="text-2xl animate-pixel-float hover-lift smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
-        </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide animate-glow-pulse">
-          ✦ STAR WORLD ORDER DAO ✦
+        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+          THE ORDER
+        </h1>
+        <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
+          Star World Order DAO
         </p>
       </div>
 

@@ -6,6 +6,33 @@ import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/li
 import SocialConnect from './SocialConnect';
 
 /**
+ * Profile Avatar Component with fallback
+ */
+function ProfileAvatar({ tokenId }: { tokenId: number }) {
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId);
+
+  if (imageError) {
+    return (
+      <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
+        🐸
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#ffd700]">
+      <img
+        src={imageUrl}
+        alt={`Skrumpey #${tokenId}`}
+        className="w-full h-full object-cover"
+        onError={() => setImageError(true)}
+      />
+    </div>
+  );
+}
+
+/**
  * NFT Image Component with loading and error states
  */
 function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
@@ -164,11 +191,58 @@ export default function ProfileCard() {
 
   return (
     <div className="space-y-6">
+      {/* Player Stats Box with Profile Picture */}
+      <div className="pixel-card p-6 animate-slide-in-up">
+        <div className="flex items-center gap-4 mb-4">
+          {/* Avatar - Use first Star Skrumpey as profile picture */}
+          <div className="relative">
+            {starSkrumpeys.length > 0 ? (
+              <ProfileAvatar tokenId={starSkrumpeys[0].tokenId} />
+            ) : (
+              <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
+                🐸
+              </div>
+            )}
+          </div>
+          
+          {/* Player Info */}
+          <div className="flex-1">
+            <p className="text-[#ffd700] text-lg tracking-wide mb-1">
+              {displayName || 'Star Bearer'}
+            </p>
+            <p className="text-gray-400 text-xs font-mono break-all">
+              {address?.slice(0, 10)}...{address?.slice(-8)}
+            </p>
+            {starSkrumpeys.length > 0 && (
+              <p className="text-[#9966ff] text-xs mt-1">
+                {starSkrumpeys.length} Star Skrumpey{starSkrumpeys.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        {/* Stats Grid */}
+        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
+          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
+            <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
+            <p className="text-gray-500 text-xs tracking-wide">SKRUMPEYS</p>
+          </div>
+          <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
+            <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
+            <p className="text-gray-500 text-xs tracking-wide">STAR TRAIT</p>
+          </div>
+          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
+            <p className="text-[#44ff88] text-lg">LVL 1</p>
+            <p className="text-gray-500 text-xs tracking-wide">RANK</p>
+          </div>
+        </div>
+      </div>
+
       {/* Profile Edit Box */}
       <div className="pixel-card p-6 animate-slide-in-up">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[#9966ff] text-sm tracking-wider">
-            ✦ PROFILE SETTINGS ✦
+            PROFILE SETTINGS
           </h3>
           {!isEditingProfile && (
             <button
@@ -252,52 +326,11 @@ export default function ProfileCard() {
         )}
       </div>
 
-      {/* Player Stats Box */}
-      <div className="pixel-card p-6 animate-slide-in-up">
-        <div className="flex items-center gap-4 mb-4">
-          {/* Avatar */}
-          <div className="relative">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl animate-pixel-float hover-lift smooth-transition cursor-pointer">
-              🐸
-            </div>
-            {starSkrumpeys.length > 0 && (
-              <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse animate-glow-pulse">⭐</div>
-            )}
-          </div>
-          
-          {/* Player Info */}
-          <div className="flex-1">
-            <p className="text-[#ffd700] text-sm tracking-wide mb-1 animate-glow-pulse">
-              {starSkrumpeys.length > 0 ? 'STAR BEARER' : 'SKRUMPEY HOLDER'}
-            </p>
-            <p className="text-gray-400 text-[10px] font-mono break-all">
-              {address?.slice(0, 10)}...{address?.slice(-8)}
-            </p>
-          </div>
-        </div>
-        
-        {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
-            <p className="text-gray-500 text-[8px] tracking-wide">SKRUMPEYS</p>
-          </div>
-          <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
-            <p className="text-gray-500 text-[8px] tracking-wide">STAR TRAIT</p>
-          </div>
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#44ff88] text-lg">LVL 1</p>
-            <p className="text-gray-500 text-[8px] tracking-wide">RANK</p>
-          </div>
-        </div>
-      </div>
-
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
-          <h3 className="text-[#ffd700] text-[12px] tracking-wider mb-3 text-center animate-glow-pulse">
-            ✦ STAR CONSTELLATIONS ✦
+          <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
+            STAR CONSTELLATIONS
           </h3>
           <div className="flex flex-wrap justify-center gap-2">
             {STAR_TRAIT_VARIANTS.map((variant, index) => {
@@ -335,7 +368,7 @@ export default function ProfileCard() {
       {/* NFT Collection */}
       <div className="pixel-card p-6 animate-slide-in-up animate-delay-5">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
-          ★ YOUR COLLECTION ★
+          YOUR COLLECTION
         </h3>
         
         <div className="grid grid-cols-2 gap-4">
@@ -385,8 +418,8 @@ export default function ProfileCard() {
 
       {/* Achievement Badges Placeholder */}
       <div className="pixel-card p-6">
-        <h3 className="text-[#9966ff] text-xs tracking-wider mb-4 text-center">
-          ✦ ACHIEVEMENTS ✦
+        <h3 className="text-[#9966ff] text-sm tracking-wider mb-4 text-center">
+          ACHIEVEMENTS
         </h3>
         <div className="flex justify-center gap-4">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${
@@ -406,12 +439,12 @@ export default function ProfileCard() {
             🔒
           </div>
         </div>
-        <p className="text-gray-600 text-[6px] text-center mt-3">
+        <p className="text-gray-600 text-xs text-center mt-3">
           MORE BADGES COMING SOON
         </p>
       </div>
 
-      {/* Social Connections */}
+      {/* Social Connections - Moved below Profile Settings */}
       <SocialConnect />
     </div>
   );

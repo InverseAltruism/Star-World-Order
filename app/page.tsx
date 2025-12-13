@@ -14,15 +14,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <span className="text-xl animate-pixel-float hover-lift smooth-transition cursor-pointer">⭐</span>
               <span className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">STAR WORLD ORDER</span>
-              <span className="text-xl animate-pixel-float hover-lift smooth-transition cursor-pointer" style={{ animationDelay: '0.5s' }}>⭐</span>
             </div>
-            <p className="text-[#9966ff] text-[8px] tracking-wide mb-2">
-              ✦ 𓆩 chosen by the stars 𓆪 ✦
+            <p className="text-[#9966ff] text-xs tracking-wide mb-2">
+              A DAO for Skrumpeys with the Constellation trait
             </p>
-            <p className="text-gray-700 text-[8px] hover:text-gray-600 smooth-transition cursor-pointer">
-              the order is forming • @skrumpeys
+            <p className="text-gray-700 text-xs hover:text-gray-600 smooth-transition cursor-pointer">
+              The Order is forming • @skrumpeys
             </p>
           </div>
         </div>

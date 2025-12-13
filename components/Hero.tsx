@@ -78,31 +78,24 @@ export default function Hero() {
         </div>
 
         {/* Title with pixel styling */}
-        <h1 className="text-xl md:text-3xl lg:text-4xl text-[#ffd700] mb-4 pixel-glow-gold animate-text-flicker tracking-wider animate-slide-in-up animate-delay-1">
+        <h1 className="text-xl md:text-3xl lg:text-4xl text-[#ffd700] mb-8 pixel-glow-gold animate-text-flicker tracking-wider animate-slide-in-up animate-delay-1">
           STAR WORLD ORDER
         </h1>
         
-        {/* Mysterious subtitle - Twitter bio style */}
-        <div className="pixel-card inline-block px-6 py-3 mb-8 animate-slide-in-up animate-delay-2">
-          <p className="text-[#9966ff] text-[10px] md:text-xs tracking-wide">
-            ✦ 𓆩 𝒄𝒐𝒔𝒎𝒊𝒄 𝒎𝒂𝒏𝒅𝒂𝒕𝒆 𓆪 ✦
-          </p>
-        </div>
-
-        {/* Description - mysterious and goofy */}
-        <p className="text-gray-400 text-[10px] md:text-xs max-w-xl mx-auto mb-8 leading-relaxed animate-slide-in-up animate-delay-3">
-          🟣⭐ chosen by the stars 💜
+        {/* Description */}
+        <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto mb-8 leading-relaxed animate-slide-in-up animate-delay-2">
+          <span className="text-[#ffd700]">The Order is forming</span>
           <br />
-          <span className="text-[#ffd700]">the order is forming</span> ✦ ☉ ~ ᴅᴀᴏ ~ ✦
+          <span className="text-[#9966ff]">A DAO for Skrumpeys with the Constellation trait</span>
         </p>
         
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-slide-in-up animate-delay-4">
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-slide-in-up animate-delay-3">
           <button 
             onClick={handleEnterTheOrder}
             className="pixel-btn pixel-btn-gold smooth-transition hover-lift"
           >
-            ★ ENTER THE ORDER
+            ENTER THE ORDER
           </button>
           <button 
             onClick={handleDiscoverMore}
@@ -113,18 +106,18 @@ export default function Hero() {
         </div>
 
         {/* Pixel art showcase */}
-        <div className="pixel-card p-6 md:p-8 max-w-md mx-auto animate-slide-in-up animate-delay-5">
+        <div className="pixel-card p-6 md:p-8 max-w-md mx-auto animate-slide-in-up animate-delay-4">
           <div className="flex items-center justify-center gap-4 mb-4">
             <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s' }}>🐸</span>
             <span className="text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse">+</span>
             <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s' }}>⭐</span>
           </div>
           <div className="border-t-2 border-[#2a2a4e] pt-4">
-            <p className="text-[#ffd700] text-[10px] tracking-wide mb-1">
-              ★ STAR SKRUMPEY ★
+            <p className="text-[#ffd700] text-sm tracking-wide mb-1">
+              STAR SKRUMPEY
             </p>
-            <p className="text-gray-500 text-[8px]">
-              your key to the cosmic realm
+            <p className="text-gray-500 text-xs">
+              Skrumpeys with the Constellation trait
             </p>
           </div>
         </div>

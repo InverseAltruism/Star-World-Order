@@ -8,15 +8,11 @@ export default function ProfileContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <span className="text-2xl animate-pixel-float">⭐</span>
-          <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider">
-            STAR PROFILE
-          </h1>
-          <span className="text-2xl animate-pixel-float" style={{ animationDelay: '0.5s' }}>⭐</span>
-        </div>
-        <p className="text-[#9966ff] text-[10px] tracking-wide">
-          ✦ YOUR COSMIC IDENTITY ✦
+        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+          PROFILE
+        </h1>
+        <p className="text-[#9966ff] text-sm tracking-wide">
+          Your Star identity
         </p>
       </div>
 
