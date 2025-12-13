@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import SocialConnect from './SocialConnect';
@@ -60,7 +60,7 @@ export default function ProfileCard() {
   const [profileSuccess, setProfileSuccess] = useState(false);
 
   // Load profile on mount
-  useState(() => {
+  useEffect(() => {
     if (address) {
       fetch(`/api/profile?address=${address}`)
         .then(res => res.json())
@@ -72,7 +72,7 @@ export default function ProfileCard() {
         })
         .catch(console.error);
     }
-  });
+  }, [address]);
 
   const handleSaveProfile = async () => {
     if (!address) return;

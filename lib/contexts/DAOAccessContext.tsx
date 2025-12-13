@@ -35,7 +35,7 @@ interface DAOAccessContextValue {
   retryCount: number;
 }
 
-const DAOAccessContext = createContext<DAOAccessContextValue | undefined>(undefined);
+export const DAOAccessContext = createContext<DAOAccessContextValue | undefined>(undefined);
 
 // In-memory cache for deduplication across components
 let pendingCheck: Promise<OwnedToken[]> | null = null;

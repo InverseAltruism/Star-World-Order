@@ -2,15 +2,7 @@
 
 import { useContext } from 'react';
 import { OwnedToken } from '@/lib/starSkrumpey';
-
-// Import context but make it optional for backward compatibility
-let DAOAccessContext: React.Context<any> | undefined;
-try {
-  const module = require('@/lib/contexts/DAOAccessContext');
-  DAOAccessContext = module.DAOAccessContext;
-} catch {
-  // Context not available, will use standalone mode
-}
+import { DAOAccessContext } from '@/lib/contexts/DAOAccessContext';
 
 export interface UseDAOAccessResult {
   /** Whether the wallet has DAO access (holds a Star Skrumpey) */
@@ -52,21 +44,14 @@ export interface UseDAOAccessResult {
  * - localStorage persistence across page navigations
  */
 export function useDAOAccess(): UseDAOAccessResult {
-  // Try to use context if available
-  if (DAOAccessContext) {
-    try {
-      const context = useContext(DAOAccessContext);
-      if (context) {
-        return context;
-      }
-    } catch {
-      // Context not available, fall through to error
-    }
+  const context = useContext(DAOAccessContext);
+  
+  if (context === undefined) {
+    throw new Error(
+      'useDAOAccess must be used within a DAOAccessProvider. ' +
+      'Wrap your app with <DAOAccessProvider> in providers.tsx'
+    );
   }
-
-  // Context not available - throw helpful error
-  throw new Error(
-    'useDAOAccess must be used within a DAOAccessProvider. ' +
-    'Wrap your app with <DAOAccessProvider> in providers.tsx'
-  );
+  
+  return context;
 }
