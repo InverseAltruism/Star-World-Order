@@ -1,8 +1,49 @@
 'use client';
 
+import { useState } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
-import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
+import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import SocialConnect from './SocialConnect';
+
+/**
+ * NFT Image Component with loading and error states
+ */
+function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId);
+
+  return (
+    <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
+      hasStar 
+        ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
+        : 'bg-[#0a0a15]'
+    }`}>
+      {/* Show placeholder while loading or on error */}
+      {(!imageLoaded || imageError) && (
+        <div className="absolute inset-0 flex items-center justify-center text-4xl">
+          <span className="animate-pixel-float" style={{ animationDelay: `${tokenId % 3 * 0.3}s` }}>
+            🐸
+          </span>
+        </div>
+      )}
+      
+      {/* Actual NFT image */}
+      {!imageError && (
+        <img
+          src={imageUrl}
+          alt={name}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
+          loading="lazy"
+        />
+      )}
+    </div>
+  );
+}
 
 /**
  * Profile Card Component
@@ -170,16 +211,12 @@ export default function ProfileCard() {
                 </div>
               )}
               
-              {/* NFT Image placeholder */}
-              <div className={`w-full aspect-square rounded-lg mb-3 flex items-center justify-center text-4xl smooth-transition hover-lift ${
-                nft.hasStar 
-                  ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
-                  : 'bg-[#0a0a15]'
-              }`}>
-                <span className="animate-pixel-float" style={{ animationDelay: `${nft.id % 3 * 0.3}s` }}>
-                  🐸
-                </span>
-              </div>
+              {/* NFT Image */}
+              <NFTImage 
+                tokenId={nft.id} 
+                hasStar={nft.hasStar}
+                name={nft.name}
+              />
               
               {/* NFT Info */}
               <p className={`text-[8px] font-bold tracking-wide ${

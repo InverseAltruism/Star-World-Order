@@ -115,6 +115,18 @@ export interface OwnedToken {
 // Must be configured in .env.local before production deployment
 export const SKRUMPEY_CONTRACT_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT;
 
+// IPFS base URL for Skrumpey images
+export const SKRUMPEY_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu';
+
+/**
+ * Get the IPFS image URL for a Skrumpey token
+ * @param tokenId - The token ID of the Skrumpey NFT
+ * @returns The full IPFS URL for the NFT image
+ */
+export function getSkrumpeyImageUrl(tokenId: number): string {
+  return `${SKRUMPEY_IPFS_BASE}/${tokenId}.png`;
+}
+
 // Development access override - only works in development mode
 // Set NEXT_PUBLIC_DEV_ACCESS_ENABLED=true in .env.local to enable
 export const DEV_ACCESS_ENABLED = 

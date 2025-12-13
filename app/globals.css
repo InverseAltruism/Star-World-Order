@@ -47,7 +47,7 @@ body {
   color: var(--foreground);
   background: linear-gradient(180deg, #0a0a1a 0%, #12122a 50%, #1a0a2e 100%);
   font-family: var(--font-pixel), monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
   overflow-x: hidden;
   min-height: 100vh;
@@ -97,7 +97,7 @@ body::before {
 /* Pixel art button style with neon glow and N64 gamified animations */
 .pixel-btn {
   font-family: var(--font-pixel), monospace;
-  font-size: 10px;
+  font-size: 12px;
   padding: 12px 24px;
   background: var(--pixel-purple);
   color: white;
