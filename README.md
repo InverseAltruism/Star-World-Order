@@ -70,10 +70,11 @@ Star World Order isn't just another DAO—it's an exclusive realm for those chos
 - **💬 Star Council Forum** - Community discussions with threads, replies, and categories
 - **⭐ STAR Staking** - 1 NFT = 1 STAR per 24H, multiple staking, no unstaking period
 - **🗳️ Weighted Governance** - Use STAR for voting with sqrt weighting for fairness
-- **🎮 Hangout Hub** - Gaming lobby to meet other DAO members with chat and sprites
+- **🎮 Hangout Hub** - Retro gaming lobby to meet other DAO members
+- **💬 Chat Bubbles** - See messages appear above avatars in real-time
+- **🎤 Voice Chat** - WebRTC-ready voice channel for real-time communication
 
 ### UNLOCKING SOON
-- **🎤 Voice Chat** - Talk with fellow Star bearers in real-time
 - **🛒 Point Shop** - Spend STAR on exclusive rewards
 - **🌐 Cross-chain Support** - Expand to additional EVM chains
 
@@ -481,9 +482,11 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 - [x] **Online presence** - See who's online in real-time
 - [x] **Chat system** - Text chat with emotes
 - [x] **Pixel sprites** - 2D sprite display for members
+- [x] **Chat bubbles** - Messages appear above avatars
+- [x] **Voice chat UI** - WebRTC-ready voice channel interface
+- [x] **SQLite database** - Persistent storage for chat, presence, voice
 
 ### Stage 5: Expansion (In Progress)
-- [ ] Voice chat integration
 - [ ] Point shop for STAR rewards
 - [ ] Mobile optimization
 - [ ] Additional chain support
@@ -527,19 +530,37 @@ Notice how the whale with 900 STAR only has ~2.5x the voting power of someone wi
 
 ## 🎮 HANGOUT HUB
 
-The Hangout Hub is a retro gaming lobby where Star Skrumpey holders can meet and chat.
+The Hangout Hub is a retro gaming lobby where Star Skrumpey holders can meet and chat. It features a pixel-art arcade aesthetic with chat bubbles above avatars and voice chat capabilities.
 
 ### Features
 
 | Feature | Description |
 |---------|-------------|
-| **Gaming Lobby** | Visual arcade-style lobby with member sprites |
-| **Online Presence** | See who's online in real-time |
+| **Gaming Lobby** | Visual arcade-style lobby with member sprites and retro grid floor |
+| **Chat Bubbles** | Messages appear as bubbles above member avatars for 8 seconds |
+| **Online Presence** | See who's online in real-time with status indicators |
 | **Status Updates** | Set your status (Online, Away, Busy) |
-| **Text Chat** | Chat with fellow Star bearers |
-| **Emotes** | Express yourself with pixel art emotes |
-| **Pixel Sprites** | Your Skrumpey variant displayed as avatar |
-| **Voice Chat** | Coming soon! |
+| **Text Chat** | Real-time chat with fellow Star bearers |
+| **Emotes** | Express yourself with pixel art emotes (👋 🌟 🔥 💜 🐸 ⭐ 🎮 ✨) |
+| **Pixel Sprites** | Your Skrumpey variant displayed as avatar with neon glow |
+| **Voice Chat** | WebRTC-ready voice channel with mute/deafen controls |
+
+### Chat Bubbles
+
+When members send chat messages, a speech bubble appears above their avatar in the lobby:
+- Bubbles show the first 50 characters of each message
+- Bubbles remain visible for 8 seconds
+- Multiple members can have active bubbles simultaneously
+- Bubbles have a retro pixel-art style with gold border
+
+### Voice Chat
+
+The voice chat feature allows real-time audio communication:
+- Join/Leave voice channel with one click
+- Mute/Unmute your microphone
+- Deafen to mute all incoming audio
+- See who's in the voice channel
+- Visual voice level indicator
 
 ### Accessing the Hub
 
@@ -547,6 +568,7 @@ The Hangout Hub is a retro gaming lobby where Star Skrumpey holders can meet and
 2. Ensure you hold a Star Skrumpey
 3. Navigate to `/hangout` or click "Hangout" in the header
 4. Your presence will be automatically broadcast to other members
+5. Chat messages will appear as bubbles above your avatar
 
 ## 🔗 SOCIAL CONNECT
 
@@ -583,58 +605,86 @@ NEXT_PUBLIC_X_REDIRECT_URI=http://localhost:3000/api/auth/callback/x
 
 ## 💾 DATABASE SETUP (SQLite)
 
-Star World Order uses SQLite for persistent storage of social connections and other user data. This provides a lightweight, serverless database solution.
+Star World Order uses SQLite for persistent storage of chat messages, online presence, voice sessions, social connections, and user profiles. The database file is included in the repository for easy setup.
+
+### Database Location
+
+The SQLite database is located at `data/swo.db` in the repository root. This file is small and included in the repo for immediate use.
 
 ### Prerequisites
 
 - Node.js 18+
 - SQLite3 (usually pre-installed on Linux/macOS)
+- better-sqlite3 npm package (installed automatically)
 
 ### Setup Steps
 
-1. **Create the data directory**:
+1. **Database auto-initializes**: The application automatically creates all tables on first run via `lib/db.ts`
+
+2. **Manual initialization** (optional):
 ```bash
-mkdir -p data
+npm run db:init
 ```
 
-2. **Set the database path** in `.env.local`:
+3. **Set custom database path** in `.env.local` (optional):
 ```bash
 DATABASE_URL=file:./data/swo.db
 ```
 
-3. **Initialize the database** (run the schema):
-```bash
-# Using SQLite CLI
-sqlite3 data/swo.db < scripts/init-db.sql
+### Database Tables
 
-# Or programmatically via the app's initialization
-npm run db:init
-```
+| Table | Purpose |
+|-------|---------|
+| `chat_messages` | Hangout Hub chat history |
+| `online_presence` | Real-time user presence with last message for chat bubbles |
+| `voice_sessions` | Voice chat room sessions |
+| `voice_participants` | Users in voice sessions with mute status |
+| `social_connections` | Discord and X account links |
+| `user_profiles` | User display names, bios, and avatars |
 
-### Database Schema
-
-The social connections table stores linked social accounts:
+### Chat Messages Schema
 
 ```sql
-CREATE TABLE IF NOT EXISTS social_connections (
+CREATE TABLE IF NOT EXISTS chat_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  wallet_address TEXT NOT NULL,
-  platform TEXT NOT NULL CHECK (platform IN ('discord', 'x')),
-  platform_user_id TEXT NOT NULL,
-  username TEXT NOT NULL,
-  display_name TEXT,
-  avatar_url TEXT,
-  access_token TEXT,
-  refresh_token TEXT,
-  token_expires_at DATETIME,
-  connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(wallet_address, platform)
+  sender_address TEXT NOT NULL,
+  sender_display_name TEXT,
+  message TEXT NOT NULL,
+  message_type TEXT NOT NULL DEFAULT 'chat' CHECK (message_type IN ('chat', 'system', 'emote')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE INDEX IF NOT EXISTS idx_social_connections_wallet ON social_connections(wallet_address);
-CREATE INDEX IF NOT EXISTS idx_social_connections_platform ON social_connections(platform);
 ```
+
+### Online Presence Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS online_presence (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL UNIQUE,
+  display_name TEXT,
+  nft_token_id INTEGER,
+  star_variant TEXT,
+  status TEXT NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'away', 'busy')),
+  last_message TEXT,
+  last_message_at DATETIME,
+  last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | GET | Get recent chat messages |
+| `/api/chat` | POST | Send a new chat message |
+| `/api/presence` | GET | Get online users |
+| `/api/presence` | POST | Update user presence |
+| `/api/presence` | DELETE | Remove user presence |
+| `/api/voice` | GET | Get active voice session |
+| `/api/voice` | POST | Create/join voice session |
+| `/api/voice` | PATCH | Update mute status |
+| `/api/voice` | DELETE | Leave/end voice session |
 
 ### NUC Server Setup
 
