@@ -427,6 +427,7 @@ function ForumTab({
     // Optimistic update - add reply immediately to UI
     const optimisticReply = {
       id: `temp-${Date.now()}`,
+      threadId: selectedThread.id,
       content: replyContent,
       author: 'You',
       likes: 0,
