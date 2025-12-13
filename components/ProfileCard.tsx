@@ -2,6 +2,7 @@
 
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
+import SocialConnect from './SocialConnect';
 
 /**
  * Profile Card Component
@@ -228,6 +229,9 @@ export default function ProfileCard() {
           MORE BADGES COMING SOON
         </p>
       </div>
+
+      {/* Social Connections */}
+      <SocialConnect />
     </div>
   );
 }
