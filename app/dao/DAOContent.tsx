@@ -827,8 +827,11 @@ function StakingTab({
                 <span className="text-[#9966ff]">{votingPower.nftVotingPower.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">STAR Voting Power (√{formatStarAmount(votingPower.starBalance + votingPower.pendingStars)}):</span>
+                <span className="text-gray-500">STAR Voting Power:</span>
                 <span className="text-[#ffd700]">{votingPower.starVotingPower.toFixed(2)}</span>
+              </div>
+              <div className="text-gray-600 text-[5px] mb-1">
+                (√{formatStarAmount(votingPower.starBalance + votingPower.pendingStars)} STAR = {votingPower.starVotingPower.toFixed(2)})
               </div>
               <div className="border-t border-[#2a2a4e] pt-2 flex justify-between">
                 <span className="text-gray-300">Total Weighted Power:</span>

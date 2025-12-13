@@ -306,8 +306,9 @@ function Chat({
     };
     
     loadMessages();
-    // Poll for new messages
-    const interval = setInterval(loadMessages, 2000);
+    // Poll for new messages every 5 seconds (reduced frequency for efficiency)
+    // Note: Consider WebSocket for real-time chat in production
+    const interval = setInterval(loadMessages, 5000);
     
     return () => clearInterval(interval);
   }, []);
@@ -324,8 +325,13 @@ function Chat({
     const isEmote = inputValue.startsWith('/me ');
     const messageText = isEmote ? inputValue.slice(4) : inputValue;
     
+    // Use crypto.randomUUID if available for robust ID generation
+    const messageId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? `msg-${crypto.randomUUID()}`
+      : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    
     const newMessage: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: messageId,
       sender: truncateAddress(address),
       senderAddress: address,
       message: messageText.trim(),

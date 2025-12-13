@@ -175,9 +175,14 @@ function addStarTransaction(transaction: Omit<StarTransaction, 'id'>): void {
     const stored = localStorage.getItem(STAR_HISTORY_KEY);
     const history: StarTransaction[] = stored ? JSON.parse(stored) : [];
     
+    // Use crypto.randomUUID() for robust ID generation
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? `star-tx-${crypto.randomUUID()}`
+      : `star-tx-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    
     history.unshift({
       ...transaction,
-      id: `star-tx-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id,
     });
     
     // Keep only last 100 transactions per user
@@ -444,16 +449,16 @@ export function getVotingPowerBreakdown(address: string, nftCount: number): {
 export function recordGovernanceVote(
   address: string,
   proposalId: string,
-  starUsed: number
+  weightedPower: number
 ): void {
   const now = Date.now();
   
   addStarTransaction({
     address: address.toLowerCase(),
     type: 'governance_vote',
-    amount: starUsed,
+    amount: weightedPower,
     timestamp: now,
-    description: `Voted on proposal ${proposalId} with ${starUsed.toFixed(2)} weighted voting power`,
+    description: `Voted on proposal ${proposalId} with ${weightedPower.toFixed(2)} weighted voting power`,
   });
 }
 
