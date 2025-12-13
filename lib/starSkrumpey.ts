@@ -28,6 +28,8 @@
 
 import { createPublicClient, http } from 'viem';
 import { monad } from './wagmi';
+import { getResilientClient, retryWithBackoff } from './rpcClient';
+import { logger } from './logger';
 
 /**
  * Star Skrumpey Token IDs - Allow-list of token IDs with the Star trait
@@ -257,7 +259,92 @@ async function processBatch<T, R>(
 }
 
 /**
- * Fetch user's Skrumpey NFTs from the blockchain
+ * Check Star Skrumpey ownership using batched multicall
+ * 
+ * This is the primary strategy (Tier 1) that checks ownership of all 343 known
+ * Star Skrumpey token IDs in a single batched multicall. This approach makes
+ * O(1) RPC calls regardless of how many NFTs the user owns, avoiding rate limiting.
+ * 
+ * @param address - The wallet address to check
+ * @returns Array of owned Star Skrumpey tokens
+ */
+export async function checkStarOwnershipBatched(address: string): Promise<OwnedToken[]> {
+  if (!SKRUMPEY_CONTRACT_ADDRESS) {
+    logger.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
+    return [];
+  }
+
+  logger.info('Checking Star ownership via batched multicall', { 
+    address: address.slice(0, 10) + '...',
+    totalStarIds: STAR_SKRUMPEY_IDS.length,
+  });
+
+  try {
+    // Get a resilient client with fallback support
+    const client = await getResilientClient();
+
+    // Batch check ownership of all 343 Star Skrumpey IDs using multicall
+    const ownershipChecks = await retryWithBackoff(async () => {
+      logger.debug('Executing multicall for Star ownership', {
+        contractCount: STAR_SKRUMPEY_IDS.length,
+      });
+
+      return await client.multicall({
+        contracts: STAR_SKRUMPEY_IDS.map(tokenId => ({
+          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+          abi: ERC721_ABI,
+          functionName: 'ownerOf',
+          args: [BigInt(tokenId)],
+        })),
+        allowFailure: true, // Allow individual calls to fail (token might not exist)
+      });
+    });
+
+    // Filter to find which Star Skrumpeys are owned by the connected wallet
+    const ownedStars: OwnedToken[] = [];
+    
+    for (let i = 0; i < ownershipChecks.length; i++) {
+      const result = ownershipChecks[i];
+      
+      // Check if the call succeeded and the owner matches
+      // Viem's multicall with allowFailure returns { status: 'success', result: T } | { status: 'failure', error: Error }
+      if (result.status === 'success') {
+        // For ownerOf, result is the owner address (string)
+        const owner = String(result.result).toLowerCase();
+        if (owner === address.toLowerCase()) {
+          ownedStars.push({
+            tokenId: STAR_SKRUMPEY_IDS[i],
+            hasStar: true,
+          });
+        }
+      }
+    }
+
+    logger.info('Star ownership check complete', {
+      address: address.slice(0, 10) + '...',
+      ownedStars: ownedStars.length,
+      tokenIds: ownedStars.map(t => t.tokenId).join(', '),
+    });
+
+    return ownedStars;
+  } catch (error) {
+    logger.error('Failed to check Star ownership via batched multicall', {
+      address: address.slice(0, 10) + '...',
+      error: String(error),
+    });
+    
+    // Return empty array on failure - graceful degradation
+    return [];
+  }
+}
+
+/**
+ * Fetch user's Skrumpey NFTs from the blockchain (Legacy Method)
+ * 
+ * NOTE: This is the old implementation that causes rate limiting issues.
+ * It's kept for backward compatibility and as a fallback, but the new
+ * checkStarOwnershipBatched() function should be preferred.
+ * 
  * Uses the STAR_SKRUMPEY_IDS allow-list for fast Star trait detection
  * This avoids rate limiting from metadata fetches
  * 
@@ -347,6 +434,8 @@ export function getStarSkrumpeys(tokens: OwnedToken[]): OwnedToken[] {
 /**
  * Check if a wallet address has DAO access (holds at least one Star Skrumpey)
  * 
+ * Uses the new batched multicall approach to avoid rate limiting.
+ * 
  * Note: Regular Skrumpey holders (without Star trait) do NOT get access.
  * Only holders of NFTs with star traits in their metadata are granted access.
  * 
@@ -354,6 +443,6 @@ export function getStarSkrumpeys(tokens: OwnedToken[]): OwnedToken[] {
  * @returns Promise<boolean> - true if wallet has DAO access
  */
 export async function checkDAOAccess(address: string): Promise<boolean> {
-  const ownedTokens = await fetchUserSkrumpeys(address);
+  const ownedTokens = await checkStarOwnershipBatched(address);
   return hasStarSkrumpey(ownedTokens);
 }
