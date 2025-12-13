@@ -9,48 +9,67 @@ export default function Features() {
       title: 'THE ORDER',
       description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
       color: '#ffd700',
+      pixelIcon: '◆',
     },
     {
       icon: '⚡',
       title: 'MONAD REALM',
       description: 'BLAZING FAST COSMIC INFRASTRUCTURE',
       color: '#00ffff',
+      pixelIcon: '▸',
     },
     {
       icon: '🗳️',
       title: 'COSMIC VOTING',
       description: 'SHAPE DESTINY WITH YOUR FELLOW STAR BEARERS',
       color: '#ff00ff',
+      pixelIcon: '✦',
     },
     {
       icon: '💎',
       title: 'TREASURY',
       description: 'COLLECTIVE COSMIC RESOURCES',
       color: '#44ff88',
+      pixelIcon: '◈',
     },
     {
       icon: '💬',
       title: 'STAR COUNCIL',
       description: 'COMMUNE WITH FELLOW CHOSEN ONES',
       color: '#ff7b00',
+      pixelIcon: '●',
     },
     {
       icon: '🔄',
       title: 'COSMIC EXCHANGE',
       description: 'TRADE AMONGST THE STARS (SOON™)',
       color: '#ff6ec7',
+      pixelIcon: '◇',
     },
   ];
 
   return (
-    <section id="about" className="relative py-16 md:py-24">
+    <section id="about" className="relative py-16 md:py-24 starfield-bg">
+      {/* Decorative pixel art corners */}
+      <div className="absolute top-8 left-8 text-[#9966ff] text-xl opacity-20 animate-pixel-pulse">◢◣</div>
+      <div className="absolute top-8 right-8 text-[#9966ff] text-xl opacity-20 animate-pixel-pulse">◥◤</div>
+      
       {/* Section header */}
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h2 className="text-lg md:text-xl text-[#ffd700] mb-4 pixel-glow-gold tracking-wider">
-            ✦ 𓆩 THE ORDER AWAITS 𓆪 ✦
-          </h2>
-          <div className="w-32 h-1 bg-gradient-to-r from-transparent via-[#ff00ff] to-transparent mx-auto" />
+          {/* Retro arcade-style header */}
+          <div className="inline-block relative">
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] text-[#9966ff] tracking-widest">
+              ═══════════════
+            </div>
+            <h2 className="text-lg md:text-xl text-[#ffd700] mb-4 tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 2px 2px 0 rgba(0,0,0,0.8)' }}>
+              ✦ 𓆩 THE ORDER AWAITS 𓆪 ✦
+            </h2>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-[#9966ff] tracking-widest">
+              ═══════════════
+            </div>
+          </div>
+          <div className="w-48 h-1 bg-gradient-to-r from-transparent via-[#ff00ff] to-transparent mx-auto mt-6" style={{ boxShadow: '0 0 10px rgba(255, 0, 255, 0.5)' }} />
         </div>
 
         {/* Features grid */}
@@ -62,27 +81,38 @@ export default function Features() {
               key={index}
               className={`pixel-card p-6 smooth-transition group animate-slide-in-up ${delayClass}`}
             >
-              {/* Icon */}
+              {/* Pixel art corner indicator */}
+              <div 
+                className="absolute top-2 right-2 text-[10px] opacity-30 group-hover:opacity-60 smooth-transition"
+                style={{ color: feature.color }}
+              >
+                {feature.pixelIcon}
+              </div>
+              
+              {/* Icon with enhanced glow */}
               <div 
                 className="text-4xl mb-4 animate-pixel-float hover-lift cursor-pointer smooth-transition"
-                style={{ animationDelay: `${index * 0.2}s` }}
+                style={{ 
+                  animationDelay: `${index * 0.2}s`,
+                  filter: `drop-shadow(0 0 8px ${feature.color}40)`,
+                }}
               >
                 {feature.icon}
               </div>
               
-              {/* Title */}
+              {/* Title with better visibility */}
               <h3 
-                className="text-xs mb-3 tracking-wider smooth-transition"
+                className="text-xs mb-3 tracking-wider smooth-transition font-bold"
                 style={{ 
                   color: feature.color,
-                  textShadow: `0 0 10px ${feature.color}40`,
+                  textShadow: `0 0 10px ${feature.color}60, 1px 1px 0 rgba(0,0,0,0.8)`,
                 }}
               >
                 {feature.title}
               </h3>
               
-              {/* Description */}
-              <p className="text-gray-500 text-xs leading-relaxed tracking-wide">
+              {/* Description with improved readability */}
+              <p className="text-gray-400 text-xs leading-relaxed tracking-wide" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.5)' }}>
                 {feature.description}
               </p>
               
@@ -94,6 +124,11 @@ export default function Features() {
                   boxShadow: `0 0 8px ${feature.color}60`,
                 }}
               />
+              
+              {/* Pixel decoration on hover */}
+              <div className="absolute bottom-2 left-2 text-[8px] opacity-0 group-hover:opacity-40 smooth-transition" style={{ color: feature.color }}>
+                ◢
+              </div>
             </div>
             );
           })}
@@ -101,14 +136,23 @@ export default function Features() {
 
         {/* Call to action */}
         <div className="text-center mt-12">
-          <div className="pixel-card inline-block px-8 py-6 animate-slide-in-up animate-delay-6">
-            <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse">
-              ✦ ARE YOU CHOSEN? ✦
+          <div className="pixel-card inline-block px-8 py-6 animate-slide-in-up animate-delay-6 relative">
+            {/* Decorative border */}
+            <div className="absolute inset-2 border border-[#ffd700]/20 rounded pointer-events-none" />
+            
+            <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
+              ★ ARE YOU CHOSEN? ★
             </p>
-            <p className="text-gray-500 text-xs mb-4">
+            <p className="text-gray-400 text-xs mb-4">
               connect thy wallet • reveal thy star
             </p>
             <WalletConnect />
+            
+            {/* Pixel corner decorations */}
+            <div className="absolute top-1 left-1 text-[6px] text-[#ffd700] opacity-30">◢</div>
+            <div className="absolute top-1 right-1 text-[6px] text-[#ffd700] opacity-30">◣</div>
+            <div className="absolute bottom-1 left-1 text-[6px] text-[#ffd700] opacity-30">◥</div>
+            <div className="absolute bottom-1 right-1 text-[6px] text-[#ffd700] opacity-30">◤</div>
           </div>
         </div>
       </div>
