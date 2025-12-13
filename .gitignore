@@ -42,3 +42,13 @@ next-env.d.ts
 .idea/
 *.swp
 *.swo
+
+# Screenshots (test artifacts)
+/screenshots/
+
+# Test results
+/test-results/
+
+# SQLite WAL files
+*.db-shm
+*.db-wal
