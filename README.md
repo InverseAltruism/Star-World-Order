@@ -463,13 +463,13 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 - [x] Star Council forum with threads and replies
 - [x] NFT staking with time-based multipliers (StarSkrumpeyStaking.sol)
 
-### Stage 3: Community (In Progress)
-- [ ] Star profiles with NFT display
-- [ ] Star Council forum
-- [ ] Cosmic Exchange marketplace
-- [ ] Achievements and badges
+### Stage 3: Community ✅
+- [x] Star profiles with NFT display
+- [x] Star Council forum with categories, threads, and replies
+- [x] Cosmic Exchange OTC marketplace with filtering, sorting, and transaction history
+- [x] Basic achievements and badges framework
 
-### Stage 4: Expansion
+### Stage 4: Expansion (In Progress)
 - [ ] Mobile optimization
 - [ ] Additional chain support
 - [ ] Partnerships and integrations
