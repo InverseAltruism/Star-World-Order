@@ -864,19 +864,11 @@ function VoiceChatInline({
       
       <div className="bg-[#0a0a15] rounded-lg p-3 border-2 border-[#2a2a4e]">
         {!isInCall ? (
-          // Not in call - show compact join button
-          <div className="flex items-center justify-between">
-            <p className="text-gray-400 text-xs">
-              Talk with Star bearers
+          // Not in call - show Coming Soon message
+          <div className="flex items-center justify-center py-2">
+            <p className="text-[#9966ff] text-xs tracking-wide">
+              Coming Soon ~DN
             </p>
-            
-            <button
-              onClick={handleJoinCall}
-              disabled={!address}
-              className="pixel-btn pixel-btn-gold text-[10px] !px-3 !py-1.5 smooth-transition hover-lift disabled:opacity-50"
-            >
-              JOIN
-            </button>
           </div>
         ) : (
           // In call - show compact controls and participants
@@ -1144,19 +1136,11 @@ function VoiceChat({
       
       <div className="bg-[#0a0a15] rounded-lg p-3 border-2 border-[#2a2a4e]">
         {!isInCall ? (
-          // Not in call - show compact join button
-          <div className="flex items-center justify-between">
-            <p className="text-gray-400 text-xs">
-              Talk with Star bearers
+          // Not in call - show Coming Soon message
+          <div className="flex items-center justify-center py-2">
+            <p className="text-[#9966ff] text-xs tracking-wide">
+              Coming Soon ~DN
             </p>
-            
-            <button
-              onClick={handleJoinCall}
-              disabled={!address}
-              className="pixel-btn pixel-btn-gold text-[10px] !px-3 !py-1.5 smooth-transition hover-lift disabled:opacity-50"
-            >
-              JOIN
-            </button>
           </div>
         ) : (
           // In call - show compact controls and participants

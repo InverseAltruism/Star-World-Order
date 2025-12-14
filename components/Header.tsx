@@ -30,12 +30,12 @@ export default function Header() {
         </Link>
 
         {/* Navigation */}
-        <nav className="flex items-center gap-3 md:gap-5">
+        <nav className="flex items-center gap-2 md:gap-4">
           {isProduction ? (
-            <div className="flex flex-col items-center">
-              <span className="text-xs">🔒</span>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-[10px] leading-none">🔒</span>
               <span 
-                className="text-[14px] text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                className="text-[11px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
                 title="Locked in production"
               >
                 DAO
@@ -44,7 +44,7 @@ export default function Header() {
           ) : (
             <Link 
               href="/dao" 
-              className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
+              className="text-[11px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
               style={{ 
                 transition: 'color 0.3s ease',
                 willChange: 'color'
@@ -62,13 +62,13 @@ export default function Header() {
           )}
           <Link 
             href="/hangout" 
-            className="text-[14px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
+            className="text-[11px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
             }}
           >
-            Hangout
+            HANGOUT
             <span 
               className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full" 
               style={{ 
@@ -79,13 +79,13 @@ export default function Header() {
           </Link>
           <Link 
             href="/profile" 
-            className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
+            className="text-[11px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
             }}
           >
-            Profile
+            PROFILE
             <span 
               className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
               style={{ 
@@ -95,25 +95,25 @@ export default function Header() {
             />
           </Link>
           {isProduction ? (
-            <div className="hidden md:flex flex-col items-center">
-              <span className="text-xs">🔒</span>
+            <div className="hidden md:flex flex-col items-center gap-0.5">
+              <span className="text-[10px] leading-none">🔒</span>
               <span 
-                className="text-[14px] text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                className="text-[11px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
                 title="Locked in production"
               >
-                Exchange
+                EXCHANGE
               </span>
             </div>
           ) : (
             <Link 
               href="/marketplace" 
-              className="text-[14px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
+              className="text-[11px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
               style={{ 
                 transition: 'color 0.3s ease',
                 willChange: 'color'
               }}
             >
-              Exchange
+              EXCHANGE
               <span 
                 className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
                 style={{ 
