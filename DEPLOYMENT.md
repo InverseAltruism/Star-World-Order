@@ -61,33 +61,66 @@ Vercel is the recommended platform for deploying Next.js applications.
 
 4. **Deploy**
 
-## Self-Hosting
+## Self-Hosting (NUC Server)
 
-### Using Node.js Server
+Star World Order runs on an Intel NUC with the following setup:
 
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
+### Directory Structure
 
-2. **Start the production server**
-   ```bash
-   npm run start
-   ```
+```
+/opt/star_world_order/
+├── DEV/                    # dev branch (port 3081)
+├── PROD/                   # main branch (port 3080)
+├── deploy-dev.sh           # Deploy script for DEV
+├── deploy-prod.sh          # Deploy script for PROD
+├── health-check.sh         # Health monitoring
+└── logs/                   # Health check logs
+```
 
-3. **Use a process manager** (PM2 recommended)
-   ```bash
-   npm install -g pm2
-   pm2 start npm --name "swo" -- start
-   pm2 save
-   pm2 startup
-   ```
+### Systemd Service
 
-### Using Docker
+The production app runs as a systemd service:
+
+```bash
+# Check status
+sudo systemctl status star-world
+
+# Restart service
+sudo systemctl restart star-world
+
+# View logs
+sudo journalctl -u star-world -f
+```
+
+### Deployment Commands
+
+```bash
+# Deploy to DEV
+cd /opt/star_world_order/DEV
+git pull origin dev
+npm install
+NEXT_PUBLIC_ENV_MODE=dev npm run build
+npm start -- -p 3081
+
+# Deploy to PROD
+cd /opt/star_world_order/PROD
+git pull origin main
+npm install
+NEXT_PUBLIC_ENV_MODE=prod npm run build
+sudo systemctl restart star-world
+```
+
+### SSL/HTTPS
+
+- **Provider**: Let's Encrypt (Certbot)
+- **Reverse Proxy**: Nginx
+- **Auto-renewal**: Configured via cron
+
+### Using Docker (Alternative)
 
 1. **Create Dockerfile**
    ```dockerfile
-   FROM node:18-alpine
+   FROM node:20.11-alpine
    WORKDIR /app
    COPY package*.json ./
    RUN npm ci --only=production
@@ -144,7 +177,7 @@ Consider adding:
 ## Troubleshooting
 
 ### Build Failures
-- Check Node.js version (18+ required)
+- Check Node.js version (20+ required, 22 recommended)
 - Verify all dependencies are installed
 - Check environment variables are set
 

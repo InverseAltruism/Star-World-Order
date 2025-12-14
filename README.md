@@ -388,7 +388,7 @@ These traits determine your Star Skrumpey's visual appearance and may influence 
 ## 🚀 START GAME
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+ (22 recommended)
 - A Web3 wallet (MetaMask, Trust Wallet, Phantom)
 - A Star Skrumpey NFT (for DAO access)
 
@@ -406,19 +406,20 @@ npm install
 cp .env.example .env.local
 
 # Start the dev server
-npm run dev
+NEXT_PUBLIC_ENV_MODE=dev npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and insert the ★ cartridge! 
+Open [http://localhost:3000](http://localhost:3000) and insert the ★ cartridge!
 
-### Controls
+### Production Build
 
-| Command | Action |
-|---------|--------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run type-check` | Run TypeScript checks |
+```bash
+# Build for production
+NEXT_PUBLIC_ENV_MODE=prod npm run build
+
+# Start production server
+npm start -- -p 3080
+```
 
 ## 🔐 ACCESS CONTROL
 
@@ -482,6 +483,70 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 ```
 
 **Note**: This override only works in development mode (`npm run dev`). Production builds always enforce Star Skrumpey ownership.
+
+## 🌐 ENVIRONMENT MODES
+
+Star World Order supports two environment modes for feature control:
+
+| Mode | Features | Use Case |
+|------|----------|----------|
+| `dev` | All features unlocked | Local development, testing |
+| `prod` | DAO, Exchange, Enter the Order locked with 🔒 | Production deployment |
+
+### Setting Environment Mode
+
+```bash
+# Development (all features unlocked)
+NEXT_PUBLIC_ENV_MODE=dev npm run dev
+
+# Production (restricted features locked)
+NEXT_PUBLIC_ENV_MODE=prod npm run build
+```
+
+### Auto-Detection
+
+If `NEXT_PUBLIC_ENV_MODE` is not set:
+- `localhost` or `192.168.x.x` → Automatically uses `dev` mode
+- `starworldorder.com` → Automatically uses `prod` mode
+- Unknown domains → Defaults to `prod` for safety
+
+## 🎮 DEMO MODE
+
+Demo Mode allows visitors to preview the app without connecting a wallet. Perfect for showcasing features to potential community members.
+
+### How It Works
+
+1. Click the **🎮 DEMO MODE** button in the header
+2. Enter any wallet address that holds Star Skrumpeys
+3. Browse the app with that wallet's NFT data (read-only)
+4. Click **EXIT DEMO** to return to normal mode
+
+### Features in Demo Mode
+- ✅ View profiles and NFT collections
+- ✅ See feature unlocks based on NFT holdings
+- ✅ Browse the marketplace
+- ❌ Username changes (disabled)
+- ❌ Trading or transfers (disabled)
+- ❌ Any write operations (disabled)
+
+## 🔄 BRANCH WORKFLOW
+
+| Branch | Purpose | Deployment |
+|--------|---------|------------|
+| `main` | Production code | https://starworldorder.com (port 3080) |
+| `dev` | Development/testing | Internal testing (port 3081) |
+
+### Development Workflow
+
+1. **Create PR** targeting `dev` branch
+2. **Review & Merge** PR to `dev`
+3. **Test on DEV** environment
+4. **Promote to PROD**: Merge `dev` → `main`
+5. **Deploy to PROD**: Rebuild and restart service
+
+### For Contributors
+
+All pull requests should target the `dev` branch. Direct PRs to `main` will be rejected.
 
 ## 📋 QUEST LOG
 

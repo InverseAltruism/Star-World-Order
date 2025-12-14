@@ -7,12 +7,26 @@ Thank you for your interest in contributing to the Star World Order (SWO) projec
 1. **Fork the repository**
 2. **Clone your fork**: `git clone https://github.com/YOUR_USERNAME/Star-World-Order.git`
 3. **Install dependencies**: `npm install`
-4. **Create a branch**: `git checkout -b feature/your-feature-name`
+4. **Create a branch from dev**: `git checkout dev && git checkout -b feature/your-feature-name`
 5. **Make your changes**
-6. **Test your changes**: `npm run dev`, `npm run build`, `npm run type-check`
+6. **Test your changes**: 
+   ```bash
+   NEXT_PUBLIC_ENV_MODE=dev npm run dev
+   npm run build
+   npm run type-check
+   ```
 7. **Commit your changes**: `git commit -m "Description of changes"`
 8. **Push to your fork**: `git push origin feature/your-feature-name`
-9. **Create a Pull Request**
+9. **Create a Pull Request targeting the `dev` branch**
+
+### Important: PR Target Branch
+
+⚠️ **All pull requests must target the `dev` branch, not `main`.**
+
+The workflow is:
+1. PRs merge to `dev` first
+2. Changes are tested on the DEV environment
+3. `dev` is then merged to `main` for production release
 
 ## Development Guidelines
 
