@@ -2,6 +2,8 @@
 
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import WalletConnect from './WalletConnect';
+import DemoMode from './DemoMode';
+import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 
 interface AccessGateProps {
   children: React.ReactNode;
@@ -22,6 +24,7 @@ export default function AccessGate({
   message = 'Only Star Skrumpey holders may enter this realm.'
 }: AccessGateProps) {
   const { hasAccess, isLoading, isConnected } = useDAOAccess();
+  const { isDemoMode } = useDemoMode();
   
   /**
    * Development Mode Access Bypass
@@ -131,21 +134,27 @@ export default function AccessGate({
               <p className="text-[#9966ff] text-[8px] tracking-wide animate-glow-pulse">
                 ✦ CONNECT THY WALLET ✦
               </p>
-              <WalletConnect />
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <WalletConnect />
+                <DemoMode className="pixel-btn text-xs !px-4 !py-2" />
+              </div>
             </div>
           ) : (
             <div className="space-y-3 animate-slide-in-up animate-delay-5">
               <p className="text-[#9966ff] text-[8px] tracking-wide animate-glow-pulse">
                 ✦ NO STAR SKRUMPEY DETECTED ✦
               </p>
-              <a 
-                href="https://twitter.com/skrumpeys" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="pixel-btn text-[8px] inline-block smooth-transition hover-lift"
-              >
-                FIND A STAR SKRUMPEY
-              </a>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <a 
+                  href="https://twitter.com/skrumpeys" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="pixel-btn text-[8px] inline-block smooth-transition hover-lift"
+                >
+                  FIND A STAR SKRUMPEY
+                </a>
+                <DemoMode className="pixel-btn text-xs !px-4 !py-2" />
+              </div>
             </div>
           )}
           
@@ -170,6 +179,21 @@ export default function AccessGate({
               <div>
                 <p className="text-[#ff4466] text-[10px] font-bold">DEV MODE ACTIVE</p>
                 <p className="text-gray-400 text-[8px]">Access bypass enabled</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Demo Mode Indicator */}
+      {isDemoMode && (
+        <div className="fixed top-20 right-4 z-50 animate-slide-in-right">
+          <div className="pixel-card p-3 bg-[#ffd700]/20 border-[#ffd700] backdrop-blur-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-[#ffd700] text-xl animate-pixel-pulse">🎮</span>
+              <div>
+                <p className="text-[#ffd700] text-[10px] font-bold">DEMO MODE</p>
+                <p className="text-gray-400 text-[8px]">Read-only preview</p>
               </div>
             </div>
           </div>

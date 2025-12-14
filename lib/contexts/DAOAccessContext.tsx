@@ -110,6 +110,18 @@ function clearCache(address?: string): void {
 
 export function DAOAccessProvider({ children }: { children: ReactNode }) {
   const { address, isConnected } = useAccount();
+  
+  // Import demo mode context if available
+  let demoModeContext: { isDemoMode: boolean; demoWalletAddress: string | null } | null = null;
+  try {
+    // Dynamically import to avoid circular dependency
+    const { useDemoMode } = require('@/lib/contexts/DemoModeContext');
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    demoModeContext = useDemoMode();
+  } catch {
+    // Demo mode not available, continue without it
+  }
+  
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,9 +129,15 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
   const [starSkrumpeys, setStarSkrumpeys] = useState<OwnedToken[]>([]);
   const [lastChecked, setLastChecked] = useState<number | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  
+  // Use demo wallet address if in demo mode, otherwise use connected wallet
+  const effectiveAddress = demoModeContext?.isDemoMode && demoModeContext?.demoWalletAddress
+    ? demoModeContext.demoWalletAddress
+    : address;
+  const effectiveIsConnected = demoModeContext?.isDemoMode ? true : isConnected;
 
   const checkAccess = useCallback(async (forceRefresh = false) => {
-    if (!address || !isConnected) {
+    if (!effectiveAddress || !effectiveIsConnected) {
       setHasAccess(false);
       setOwnedSkrumpeys([]);
       setStarSkrumpeys([]);
@@ -133,10 +151,10 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
 
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
-      const cached = getCachedAccess(address);
+      const cached = getCachedAccess(effectiveAddress);
       if (cached) {
         console.log('Using cached DAO access data', {
-          address: address.slice(0, 10) + '...',
+          address: effectiveAddress.slice(0, 10) + '...',
           age: Math.floor((Date.now() - cached.timestamp) / 1000) + 's',
         });
         setOwnedSkrumpeys(cached.ownedSkrumpeys);
@@ -149,9 +167,9 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
     }
 
     // Request deduplication - if a check is in progress for the same address, reuse it
-    if (pendingCheck && lastCheckAddress === address.toLowerCase()) {
+    if (pendingCheck && lastCheckAddress === effectiveAddress.toLowerCase()) {
       console.log('Reusing pending DAO access check', {
-        address: address.slice(0, 10) + '...',
+        address: effectiveAddress.slice(0, 10) + '...',
       });
       setIsLoading(true);
       try {
@@ -179,8 +197,8 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
 
     try {
       // Start a new check and store it for deduplication
-      lastCheckAddress = address.toLowerCase();
-      pendingCheck = checkStarOwnershipBatched(address);
+      lastCheckAddress = effectiveAddress.toLowerCase();
+      pendingCheck = checkStarOwnershipBatched(effectiveAddress);
       
       const owned = await pendingCheck;
       const stars = getStarSkrumpeys(owned);
@@ -195,7 +213,7 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
       
       // Cache the results
       setCachedAccess({
-        address,
+        address: effectiveAddress,
         hasAccess: access,
         starSkrumpeys: stars,
         ownedSkrumpeys: owned,
@@ -203,7 +221,7 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
       });
       
       console.log('DAO access check complete (cached)', {
-        address: address.slice(0, 10) + '...',
+        address: effectiveAddress.slice(0, 10) + '...',
         hasAccess: access,
         starCount: stars.length,
       });
@@ -218,7 +236,7 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
       pendingCheck = null;
       lastCheckAddress = null;
     }
-  }, [address, isConnected]);
+  }, [effectiveAddress, effectiveIsConnected]);
 
   // Check access when address changes
   useEffect(() => {
@@ -227,13 +245,13 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
 
   // Clear cache when address changes
   useEffect(() => {
-    if (address) {
+    if (effectiveAddress) {
       // Clear any cached data for previous addresses
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         try {
           const data: CachedAccess = JSON.parse(cached);
-          if (data.address.toLowerCase() !== address.toLowerCase()) {
+          if (data.address.toLowerCase() !== effectiveAddress.toLowerCase()) {
             clearCache();
           }
         } catch {
@@ -241,19 +259,19 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [address]);
+  }, [effectiveAddress]);
 
   // Development access override
-  const effectiveAccess = DEV_ACCESS_ENABLED ? isConnected : hasAccess;
+  const devAccessOverride = DEV_ACCESS_ENABLED ? effectiveIsConnected : hasAccess;
 
   const value: DAOAccessContextValue = {
-    hasAccess: effectiveAccess,
+    hasAccess: devAccessOverride,
     isLoading,
     error,
     ownedSkrumpeys,
     starSkrumpeys,
-    isConnected,
-    address,
+    isConnected: effectiveIsConnected,
+    address: effectiveAddress,
     refresh: () => checkAccess(true),
     lastChecked,
     retryCount,

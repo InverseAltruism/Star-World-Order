@@ -8,8 +8,8 @@ Production environment setup documentation for the Star World Order NUC server.
 
 **Server Details**:
 - **Device**: NUC (Intel Next Unit of Computing)
-- **Internal IP**: 192.168.1.124
-- **Public IP**: 92.104.162.171
+- **Internal IP**: `<INTERNAL-IP>` (e.g., 192.168.x.x)
+- **Public IP**: `<YOUR-PUBLIC-IP>`
 
 ## 2. Directory Structure
 
@@ -28,8 +28,8 @@ Production environment setup documentation for the Star World Order NUC server.
 | Service | Port | URL |
 |---------|------|-----|
 | Star World PROD | 3080 | https://starworldorder.com |
-| Star World DEV | 3081 | http://192.168.1.124:3081 |
-| Grafana | 3000 | http://192.168.1.124:3000 |
+| Star World DEV | 3081 | http://`<INTERNAL-IP>`:3081 |
+| Grafana | 3000 | http://`<INTERNAL-IP>`:3000 |
 | Nginx | 80/443 | Reverse proxy |
 
 ## 4. Quick Commands (Aliases)
@@ -70,7 +70,7 @@ Follow this workflow for deploying changes to production:
 1. **Create PR**: Copilot Agent creates PR → targets `dev` branch
 2. **Review & Merge**: Review and merge PR to `dev`
 3. **Deploy to DEV**: Run `/opt/star_world_order/deploy-dev.sh`
-4. **Test DEV**: Test at http://192.168.1.124:3081
+4. **Test DEV**: Test at http://`<INTERNAL-IP>`:3081
 5. **Promote to PROD**: If good → Create PR `dev` → `main` on GitHub, merge
 6. **Deploy to PROD**: Run `/opt/star_world_order/deploy-prod.sh`
 7. **Verify**: Live at https://starworldorder.com
@@ -110,7 +110,7 @@ sudo systemctl restart nginx
 **Health Check System**:
 - Health check runs every **30 minutes** via cron
 - Logs stored in `/opt/star_world_order/logs/health.log`
-- Grafana available for advanced monitoring at http://192.168.1.124:3000
+- Grafana available for advanced monitoring at http://`<INTERNAL-IP>`:3000
 
 **Viewing logs**:
 ```bash
