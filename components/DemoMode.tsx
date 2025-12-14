@@ -89,7 +89,7 @@ export default function DemoMode({ className }: DemoModeProps) {
       </button>
 
       {/* Demo Mode Modal - Rendered via Portal */}
-      {showModal && typeof document !== 'undefined' && createPortal(
+      {typeof document !== 'undefined' && showModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
           <div
             ref={modalRef}
@@ -119,7 +119,7 @@ export default function DemoMode({ className }: DemoModeProps) {
                   setError('');
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' || e.key === 'NumpadEnter') {
                     handleEnterDemoMode();
                   }
                 }}
