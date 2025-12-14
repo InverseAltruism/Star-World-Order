@@ -533,10 +533,10 @@ function Chat({
     }
   }, []);
   
-  // Load messages on mount and poll every 3 seconds
+  // Load messages on mount and poll every 5 seconds
   useEffect(() => {
     loadMessages();
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, [loadMessages]);
   
@@ -733,7 +733,7 @@ function VoiceChat({
   useEffect(() => {
     if (isInCall) {
       loadParticipants();
-      const interval = setInterval(loadParticipants, 5000);
+      const interval = setInterval(loadParticipants, 10000);
       return () => clearInterval(interval);
     }
   }, [isInCall, loadParticipants]);
@@ -979,8 +979,8 @@ export default function HangoutContent() {
     };
     
     loadBubbles();
-    // Refresh bubbles every second to handle expiration
-    const interval = setInterval(loadBubbles, 1000);
+    // Refresh bubbles every 2 seconds to handle expiration
+    const interval = setInterval(loadBubbles, 2000);
     
     return () => clearInterval(interval);
   }, []);

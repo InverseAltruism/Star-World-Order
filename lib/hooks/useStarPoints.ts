@@ -179,9 +179,9 @@ export function useStarPoints(): UseStarPointsResult {
     loadOnlineUsers();
   }, [loadBalance, loadOnlineUsers]);
   
-  // Poll for online users updates every 3 seconds for chat bubbles
+  // Poll for online users updates every 10 seconds for chat bubbles
   useEffect(() => {
-    const interval = setInterval(loadOnlineUsers, 3000);
+    const interval = setInterval(loadOnlineUsers, 10000);
     return () => clearInterval(interval);
   }, [loadOnlineUsers]);
   
@@ -260,7 +260,7 @@ export function useStarPoints(): UseStarPointsResult {
       }
     }
     
-    const interval = setInterval(updatePresenceOnServer, 30000); // Update every 30 seconds
+    const interval = setInterval(updatePresenceOnServer, 60000); // Update every 60 seconds
     
     return () => {
       clearInterval(interval);
