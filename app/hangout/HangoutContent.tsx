@@ -27,6 +27,37 @@ const CHAT_STORAGE_KEY = 'swo_hangout_chat';
 const CHAT_BUBBLES_KEY = 'swo_chat_bubbles';
 const MAX_MESSAGES = 100;
 const BUBBLE_DURATION = 8000; // Chat bubble visible for 8 seconds
+const MAX_LAST_MESSAGE_LENGTH = 50; // Maximum length for last message in chat bubble
+
+// API response types
+interface ApiPresenceUser {
+  wallet_address: string;
+  display_name: string | null;
+  nft_token_id: number | null;
+  star_variant: string | null;
+  status: 'online' | 'away' | 'busy';
+  last_message: string | null;
+  last_message_at: string | null;
+  last_seen: string;
+}
+
+interface ApiChatMessage {
+  id: number;
+  sender_address: string;
+  sender_display_name: string | null;
+  message: string;
+  message_type: 'chat' | 'system' | 'emote';
+  created_at: string;
+}
+
+interface ApiVoiceParticipant {
+  id: number;
+  session_id: string;
+  wallet_address: string;
+  is_muted: number;
+  joined_at: string;
+  left_at: string | null;
+}
 
 /**
  * Get chat messages from storage
@@ -483,7 +514,7 @@ function Chat({
       const data = await response.json();
       if (data.success && data.messages) {
         // Transform server data to ChatMessage format
-        const transformedMessages = data.messages.map((dbMsg: any) => ({
+        const transformedMessages = data.messages.map((dbMsg: ApiChatMessage) => ({
           id: `msg-${dbMsg.id}`,
           sender: dbMsg.sender_display_name || truncateAddress(dbMsg.sender_address),
           senderAddress: dbMsg.sender_address,
@@ -538,7 +569,7 @@ function Chat({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             walletAddress: address,
-            lastMessage: messageText.trim().slice(0, 50),
+            lastMessage: messageText.trim().slice(0, MAX_LAST_MESSAGE_LENGTH),
           }),
         });
         
@@ -671,7 +702,7 @@ function VoiceChat({
       const response = await fetch('/api/voice');
       const data = await response.json();
       if (data.success && data.participants) {
-        const transformedParticipants = data.participants.map((p: any) => ({
+        const transformedParticipants = data.participants.map((p: ApiVoiceParticipant) => ({
           address: p.wallet_address,
           isMuted: p.is_muted === 1,
           isSpeaking: false, // WebRTC speaking detection would be needed for this
@@ -679,7 +710,7 @@ function VoiceChat({
         setParticipants(transformedParticipants);
         
         // Check if current user is in the call
-        if (address && data.participants.some((p: any) => p.wallet_address.toLowerCase() === address.toLowerCase())) {
+        if (address && data.participants.some((p: ApiVoiceParticipant) => p.wallet_address.toLowerCase() === address.toLowerCase())) {
           setIsInCall(true);
           if (data.session) {
             setSessionId(data.session.session_id);
@@ -734,27 +765,33 @@ function VoiceChat({
   
   // Leave voice call via server API
   const handleLeaveCall = useCallback(async () => {
-    if (!address || !sessionId) {
+    if (!address) {
+      // If no address, just clean up local state
       setIsInCall(false);
       setParticipants([]);
       setIsMuted(true);
       setIsDeafened(false);
+      setSessionId(null);
       return;
     }
     
-    try {
-      await fetch('/api/voice', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: address,
-          sessionId,
-        }),
-      });
-    } catch (error) {
-      console.error('Failed to leave voice:', error);
+    // Try to leave via API if we have a sessionId
+    if (sessionId) {
+      try {
+        await fetch('/api/voice', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            sessionId,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to leave voice:', error);
+      }
     }
     
+    // Always clean up local state
     setIsInCall(false);
     setParticipants([]);
     setIsMuted(true);

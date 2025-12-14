@@ -115,7 +115,7 @@ export function useStarPoints(): UseStarPointsResult {
       const data = await response.json();
       if (data.success && data.users) {
         // Transform server data to OnlineUser format
-        const transformedUsers = data.users.map((presence: any) => ({
+        const transformedUsers = data.users.map((presence: ApiPresenceUser) => ({
           address: presence.wallet_address,
           displayName: presence.display_name || undefined,
           nftTokenId: presence.nft_token_id || undefined,
@@ -200,7 +200,7 @@ export function useStarPoints(): UseStarPointsResult {
     };
     
     updatePresenceOnServer();
-    const interval = setInterval(updatePresenceOnServer, 10000); // Update every 10 seconds
+    const interval = setInterval(updatePresenceOnServer, 30000); // Update every 30 seconds
     
     return () => {
       clearInterval(interval);
@@ -358,3 +358,15 @@ export function useStarPoints(): UseStarPointsResult {
 // Re-export types
 export type { StarBalance, StakedNFT, StarTransaction, OnlineUser };
 export { formatStarAmount, STAR_PER_NFT_PER_DAY };
+
+// API response types
+interface ApiPresenceUser {
+  wallet_address: string;
+  display_name: string | null;
+  nft_token_id: number | null;
+  star_variant: string | null;
+  status: 'online' | 'away' | 'busy';
+  last_message: string | null;
+  last_message_at: string | null;
+  last_seen: string;
+}
