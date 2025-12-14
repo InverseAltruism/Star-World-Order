@@ -457,6 +457,9 @@ function Lobby({
         </div>
       </div>
       
+      {/* Voice Chat Section - Inline */}
+      <VoiceChatInline address={address} onlineUsers={onlineUsers} />
+      
       {/* Online Members List */}
       <h4 className="text-[#9966ff] text-sm mb-2">MEMBERS ONLINE</h4>
       <div className="space-y-2 max-h-[200px] overflow-y-auto scrollbar-pixel">
@@ -533,10 +536,10 @@ function Chat({
     }
   }, []);
   
-  // Load messages on mount and poll every 3 seconds
+  // Load messages on mount and poll every 5 seconds
   useEffect(() => {
     loadMessages();
-    const interval = setInterval(loadMessages, 3000);
+    const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
   }, [loadMessages]);
   
@@ -687,7 +690,287 @@ function Chat({
 }
 
 /**
- * Voice Chat Component - Compact version
+ * Voice Chat Component - Inline version for Lobby
+ * UI ready for WebRTC integration
+ */
+function VoiceChatInline({ 
+  address,
+  onlineUsers,
+}: { 
+  address: string | undefined;
+  onlineUsers: OnlineUser[];
+}) {
+  const [isInCall, setIsInCall] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<Array<{ address: string; isMuted: boolean; isSpeaking: boolean }>>([]);
+  
+  // Load participants from server
+  const loadParticipants = useCallback(async () => {
+    try {
+      const response = await fetch('/api/voice');
+      const data = await response.json();
+      if (data.success && data.participants) {
+        const transformedParticipants = data.participants.map((p: ApiVoiceParticipant) => ({
+          address: p.wallet_address,
+          isMuted: p.is_muted === 1,
+          isSpeaking: false, // WebRTC speaking detection would be needed for this
+        }));
+        setParticipants(transformedParticipants);
+        
+        // Check if current user is in the call
+        if (address && data.participants.some((p: ApiVoiceParticipant) => p.wallet_address.toLowerCase() === address.toLowerCase())) {
+          setIsInCall(true);
+          if (data.session) {
+            setSessionId(data.session.session_id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load voice participants:', error);
+    }
+  }, [address]);
+  
+  // Poll for participants updates
+  useEffect(() => {
+    if (isInCall) {
+      loadParticipants();
+      const interval = setInterval(loadParticipants, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [isInCall, loadParticipants]);
+  
+  // Join voice call via server API
+  const handleJoinCall = useCallback(async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          action: 'join',
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setIsInCall(true);
+        setIsMuted(true);
+        if (data.session) {
+          setSessionId(data.session.session_id);
+        }
+        loadParticipants();
+      }
+    } catch (error) {
+      console.error('Failed to join voice:', error);
+      // Fallback to local state
+      setIsInCall(true);
+      setIsMuted(true);
+      setParticipants([{ address, isMuted: true, isSpeaking: false }]);
+    }
+  }, [address, loadParticipants]);
+  
+  // Leave voice call via server API
+  const handleLeaveCall = useCallback(async () => {
+    if (!address) {
+      // If no address, just clean up local state
+      setIsInCall(false);
+      setParticipants([]);
+      setIsMuted(true);
+      setIsDeafened(false);
+      setSessionId(null);
+      return;
+    }
+    
+    // Try to leave via API if we have a sessionId
+    if (sessionId) {
+      try {
+        await fetch('/api/voice', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            sessionId,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to leave voice:', error);
+      }
+    }
+    
+    // Always clean up local state
+    setIsInCall(false);
+    setParticipants([]);
+    setIsMuted(true);
+    setIsDeafened(false);
+    setSessionId(null);
+  }, [address, sessionId]);
+  
+  // Toggle mute via server API
+  const toggleMute = useCallback(async () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    if (sessionId && address) {
+      try {
+        await fetch('/api/voice', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            sessionId,
+            isMuted: newMutedState,
+          }),
+        });
+        loadParticipants();
+      } catch (error) {
+        console.error('Failed to update mute status:', error);
+      }
+    }
+    
+    // Update local participant status
+    setParticipants(prev => prev.map(p => 
+      p.address.toLowerCase() === address?.toLowerCase() ? { ...p, isMuted: newMutedState } : p
+    ));
+  }, [address, isMuted, sessionId, loadParticipants]);
+  
+  const toggleDeafen = useCallback(() => {
+    setIsDeafened(prev => !prev);
+    if (!isDeafened) {
+      setIsMuted(true);
+    }
+  }, [isDeafened]);
+  
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-[#9966ff] text-xs tracking-wider flex items-center gap-2">
+          <span>🎙️</span> VOICE CHAT
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#9966ff]/20 text-[#9966ff] border border-[#9966ff]/40">
+            AUDIO COMING SOON
+          </span>
+        </h4>
+        <span className={`text-[10px] px-2 py-0.5 rounded ${
+          isInCall 
+            ? 'text-[#44ff88] bg-[#44ff88]/10' 
+            : 'text-[#9966ff] bg-[#9966ff]/10'
+        }`}>
+          {isInCall ? `${participants.length} IN CALL` : 'AVAILABLE'}
+        </span>
+      </div>
+      
+      <div className="bg-[#0a0a15] rounded-lg p-3 border-2 border-[#2a2a4e]">
+        {!isInCall ? (
+          // Not in call - show compact join button
+          <div className="flex items-center justify-between">
+            <p className="text-gray-400 text-xs">
+              Talk with Star bearers
+            </p>
+            
+            <button
+              onClick={handleJoinCall}
+              disabled={!address}
+              className="pixel-btn pixel-btn-gold text-[10px] !px-3 !py-1.5 smooth-transition hover-lift disabled:opacity-50"
+            >
+              JOIN
+            </button>
+          </div>
+        ) : (
+          // In call - show compact controls and participants
+          <div className="space-y-2">
+            {/* Participants - compact */}
+            <div className="flex flex-wrap gap-1">
+              {participants.map((p) => (
+                <div 
+                  key={p.address}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${
+                    p.isSpeaking 
+                      ? 'bg-[#44ff88]/20 border border-[#44ff88]' 
+                      : 'bg-[#1a1a2e] border border-[#2a2a4e]'
+                  }`}
+                >
+                  <span className={p.isMuted ? 'opacity-50' : ''}>
+                    {p.isMuted ? '🔇' : '🎤'}
+                  </span>
+                  <span className="text-gray-300">
+                    {truncateAddress(p.address)}
+                  </span>
+                  {p.address.toLowerCase() === address?.toLowerCase() && (
+                    <span className="text-[#ffd700]">(you)</span>
+                  )}
+                </div>
+              ))}
+              
+              {/* Show other online users as potential participants */}
+              {onlineUsers.slice(0, 2).filter(u => u.address.toLowerCase() !== address?.toLowerCase()).map((user) => (
+                <div 
+                  key={user.address}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-[#1a1a2e] border border-[#2a2a4e] opacity-50"
+                  title="Available to join voice"
+                >
+                  <span>🔇</span>
+                  <span className="text-gray-400">
+                    {truncateAddress(user.address)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Voice level indicator - compact */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500">LEVEL</span>
+              <div className="flex-1 h-1.5 bg-[#1a1a2e] rounded overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-75 ${
+                    isMuted ? 'w-0' : 'w-1/4'
+                  } bg-gradient-to-r from-[#44ff88] via-[#ffd700] to-[#ff4466]`}
+                />
+              </div>
+            </div>
+            
+            {/* Controls - compact buttons */}
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={toggleMute}
+                className={`pixel-btn text-[10px] !px-2 !py-1 smooth-transition ${
+                  isMuted 
+                    ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
+                    : '!bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] text-black'
+                }`}
+              >
+                {isMuted ? '🔇' : '🎤'}
+              </button>
+              
+              <button
+                onClick={toggleDeafen}
+                className={`pixel-btn text-[10px] !px-2 !py-1 smooth-transition ${
+                  isDeafened 
+                    ? '!bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]' 
+                    : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
+                }`}
+              >
+                {isDeafened ? '🔇' : '🔊'}
+              </button>
+              
+              <button
+                onClick={handleLeaveCall}
+                className="pixel-btn text-[10px] !px-2 !py-1 smooth-transition !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+              >
+                📴
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Voice Chat Component - Compact version (standalone card)
  * UI ready for WebRTC integration
  */
 function VoiceChat({ 
@@ -733,7 +1016,7 @@ function VoiceChat({
   useEffect(() => {
     if (isInCall) {
       loadParticipants();
-      const interval = setInterval(loadParticipants, 5000);
+      const interval = setInterval(loadParticipants, 10000);
       return () => clearInterval(interval);
     }
   }, [isInCall, loadParticipants]);
@@ -846,6 +1129,9 @@ function VoiceChat({
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse flex items-center gap-2">
           <span>🎙️</span> VOICE
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#9966ff]/20 text-[#9966ff] border border-[#9966ff]/40">
+            AUDIO COMING SOON
+          </span>
         </h3>
         <span className={`text-[10px] px-2 py-0.5 rounded ${
           isInCall 
@@ -979,8 +1265,8 @@ export default function HangoutContent() {
     };
     
     loadBubbles();
-    // Refresh bubbles every second to handle expiration
-    const interval = setInterval(loadBubbles, 1000);
+    // Refresh bubbles every 2 seconds to handle expiration
+    const interval = setInterval(loadBubbles, 2000);
     
     return () => clearInterval(interval);
   }, []);
@@ -1054,10 +1340,9 @@ export default function HangoutContent() {
             <Lobby onlineUsers={onlineUsers} address={address} chatBubbles={chatBubbles} />
           </div>
           
-          {/* Right Column - Chat & Voice */}
-          <div className="space-y-6">
+          {/* Right Column - Chat only */}
+          <div>
             <Chat address={address} refreshPresence={refresh} />
-            <VoiceChat address={address} onlineUsers={onlineUsers} />
           </div>
         </div>
 
