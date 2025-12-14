@@ -120,7 +120,7 @@ sudo systemctl restart star-world
 
 1. **Create Dockerfile**
    ```dockerfile
-   FROM node:20-alpine
+   FROM node:20.11-alpine
    WORKDIR /app
    COPY package*.json ./
    RUN npm ci --only=production
