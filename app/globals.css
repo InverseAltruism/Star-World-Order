@@ -67,7 +67,7 @@ body::after {
   z-index: 9997;
 }
 
-/* Global CRT scanlines overlay - optimized for performance */
+/* Global CRT scanlines overlay - enhanced for retro feel */
 body::before {
   content: '';
   position: fixed;
@@ -77,14 +77,24 @@ body::before {
   height: 100%;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.05),
-    rgba(0, 0, 0, 0.05) 1px,
+    rgba(0, 0, 0, 0.08),
+    rgba(0, 0, 0, 0.08) 1px,
     transparent 1px,
-    transparent 4px
+    transparent 3px
   );
   pointer-events: none;
   z-index: 9998;
   will-change: auto;
+  animation: scanlineFlicker 8s ease-in-out infinite;
+}
+
+/* Subtle scanline flicker for authentic CRT feel */
+@keyframes scanlineFlicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.95; }
+  92% { opacity: 1; }
+  93% { opacity: 0.9; }
+  94% { opacity: 1; }
 }
 
 /* Disable scanlines on mobile for better performance */
@@ -218,51 +228,50 @@ body::before {
 
 /* Pixel card style with neon accents and N64 hover effects */
 .pixel-card {
-  background: linear-gradient(180deg, rgba(26, 26, 46, 0.9) 0%, rgba(13, 13, 26, 0.95) 100%);
+  background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(13, 13, 26, 0.98) 100%);
   border: 4px solid;
-  border-color: #3a3a5e #1a1a2e #1a1a2e #3a3a5e;
+  border-color: #4a4a6e #1a1a2e #1a1a2e #4a4a6e;
   box-shadow: 
-    8px 8px 0 rgba(0,0,0,0.5),
-    inset 0 0 20px rgba(153, 102, 255, 0.05),
-    0 0 0 1px rgba(153, 102, 255, 0.1);
+    8px 8px 0 rgba(0,0,0,0.6),
+    inset 0 0 30px rgba(153, 102, 255, 0.08),
+    0 0 0 1px rgba(153, 102, 255, 0.15),
+    0 0 20px rgba(153, 102, 255, 0.1);
   position: relative;
-  border-radius: 12px;
+  border-radius: 8px;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
 }
 
-/* Shimmer effect on card */
+/* Pixel corner decorations for retro feel */
 .pixel-card::after {
-  content: '';
+  content: '◢';
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 70%
-  );
-  transform: translateX(-100%) translateY(-100%) rotate(45deg);
-  transition: transform 0.6s ease;
+  top: 4px;
+  right: 6px;
+  font-size: 8px;
+  color: rgba(255, 215, 0, 0.3);
   pointer-events: none;
 }
 
-.pixel-card:hover::after {
-  transform: translateX(100%) translateY(100%) rotate(45deg);
+.pixel-card:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 
+    10px 10px 0 rgba(0,0,0,0.6),
+    inset 0 0 50px rgba(153, 102, 255, 0.15),
+    0 0 40px rgba(153, 102, 255, 0.4),
+    0 0 80px rgba(153, 102, 255, 0.2),
+    0 0 0 2px rgba(255, 215, 0, 0.3);
+  border-color: #5a5a7e #2a2a4e #2a2a4e #5a5a7e;
 }
 
-.pixel-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 
-    12px 12px 0 rgba(0,0,0,0.5),
-    inset 0 0 40px rgba(153, 102, 255, 0.15),
-    0 0 30px rgba(153, 102, 255, 0.4),
-    0 0 60px rgba(153, 102, 255, 0.2),
-    0 0 0 2px rgba(153, 102, 255, 0.5);
-  border-color: #5a5a7e #2a2a4e #2a2a4e #5a5a7e;
+.pixel-card:hover::after {
+  color: rgba(255, 215, 0, 0.6);
+  animation: pixelCornerPulse 1s ease-in-out infinite;
+}
+
+@keyframes pixelCornerPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .pixel-card::before {
@@ -1590,4 +1599,372 @@ a,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ============================================
+   Enhanced Retro Pixel Art Styling
+   ============================================ */
+
+/* Pixel-art styled section titles */
+.pixel-title {
+  font-family: var(--font-pixel), monospace;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  position: relative;
+  display: inline-block;
+}
+
+.pixel-title::before,
+.pixel-title::after {
+  content: '✦';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pixel-gold);
+  font-size: 0.6em;
+  animation: pixelPulse 2s ease-in-out infinite;
+}
+
+.pixel-title::before {
+  left: -1.5em;
+}
+
+.pixel-title::after {
+  right: -1.5em;
+}
+
+/* Retro pixel divider line */
+.pixel-divider {
+  height: 4px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    var(--pixel-purple) 10%, 
+    var(--pixel-gold) 50%, 
+    var(--pixel-purple) 90%, 
+    transparent 100%
+  );
+  border: none;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.pixel-divider::before,
+.pixel-divider::after {
+  content: '◆';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--pixel-gold);
+  font-size: 8px;
+}
+
+.pixel-divider::before {
+  left: 10%;
+}
+
+.pixel-divider::after {
+  right: 10%;
+}
+
+/* Enhanced text visibility classes */
+.text-pixel-bright {
+  color: #ffffff;
+  text-shadow: 
+    1px 1px 0 rgba(0, 0, 0, 0.8),
+    -1px -1px 0 rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.text-pixel-gold {
+  color: var(--pixel-gold);
+  text-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(255, 215, 0, 0.5),
+    0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.text-pixel-purple {
+  color: var(--pixel-purple);
+  text-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(153, 102, 255, 0.5);
+}
+
+/* Pixel art badge/label style */
+.pixel-badge {
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+  padding: 4px 8px;
+  background: linear-gradient(180deg, rgba(153, 102, 255, 0.3) 0%, rgba(153, 102, 255, 0.1) 100%);
+  border: 2px solid var(--pixel-purple);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.5),
+    0 0 10px rgba(153, 102, 255, 0.3);
+}
+
+.pixel-badge-gold {
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.3) 0%, rgba(255, 215, 0, 0.1) 100%);
+  border-color: var(--pixel-gold);
+  color: var(--pixel-gold);
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.5),
+    0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+/* Retro coin/token display */
+.pixel-coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
+  padding: 4px 10px;
+  background: linear-gradient(180deg, #2a2a4e 0%, #1a1a2e 100%);
+  border: 2px solid var(--pixel-gold);
+  border-radius: 20px;
+  box-shadow: 
+    3px 3px 0 rgba(0, 0, 0, 0.5),
+    inset 0 0 10px rgba(255, 215, 0, 0.1);
+}
+
+.pixel-coin::before {
+  content: '⭐';
+  font-size: 12px;
+  animation: pixelPulse 2s ease-in-out infinite;
+}
+
+/* Pixelated progress bar */
+.pixel-progress {
+  height: 12px;
+  background: #0a0a15;
+  border: 2px solid #2a2a4e;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pixel-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pixel-purple) 0%, var(--pixel-gold) 100%);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.pixel-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 4px,
+    rgba(0, 0, 0, 0.2) 4px,
+    rgba(0, 0, 0, 0.2) 8px
+  );
+}
+
+/* Arcade-style decorative elements */
+.arcade-decoration {
+  position: relative;
+}
+
+.arcade-decoration::before {
+  content: '🕹️';
+  position: absolute;
+  font-size: 16px;
+  opacity: 0.2;
+  animation: pixelFloat 4s ease-in-out infinite;
+}
+
+/* Starfield background effect */
+.starfield-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.starfield-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(2px 2px at 20% 30%, rgba(255, 215, 0, 0.4), transparent),
+    radial-gradient(2px 2px at 40% 70%, rgba(153, 102, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 60% 20%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 80% 60%, rgba(255, 215, 0, 0.3), transparent),
+    radial-gradient(2px 2px at 10% 80%, rgba(153, 102, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 90% 40%, rgba(255, 255, 255, 0.4), transparent);
+  animation: twinkleStars 4s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes twinkleStars {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Neon glow border animation */
+.neon-border {
+  position: relative;
+}
+
+.neon-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, 
+    var(--pixel-purple), 
+    var(--pixel-gold), 
+    var(--neon-cyan), 
+    var(--neon-magenta),
+    var(--pixel-purple)
+  );
+  background-size: 400% 400%;
+  border-radius: inherit;
+  z-index: -1;
+  animation: neonBorderGlow 8s ease infinite;
+  opacity: 0.6;
+  filter: blur(4px);
+}
+
+@keyframes neonBorderGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Pixel art icon styling */
+.pixel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(180deg, #2a2a4e 0%, #1a1a2e 100%);
+  border: 2px solid #3a3a5e;
+  border-radius: 4px;
+  font-size: 16px;
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.5),
+    inset 0 0 10px rgba(153, 102, 255, 0.1);
+}
+
+.pixel-icon:hover {
+  border-color: var(--pixel-gold);
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(255, 215, 0, 0.4);
+  animation: pixelBounce 0.3s ease;
+}
+
+/* Retro selection highlight */
+::selection {
+  background: var(--pixel-purple);
+  color: white;
+  text-shadow: none;
+}
+
+/* Pixel art scrollbar */
+.scrollbar-pixel::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.scrollbar-pixel::-webkit-scrollbar-track {
+  background: #0a0a15;
+  border: 2px solid #1a1a2e;
+}
+
+.scrollbar-pixel::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3a3a5e 0%, #2a2a4e 100%);
+  border: 2px solid #4a4a6e;
+  border-radius: 2px;
+}
+
+.scrollbar-pixel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4a4a6e 0%, #3a3a5e 100%);
+  border-color: var(--pixel-gold);
+}
+
+/* Glitch effect for titles */
+.glitch-text {
+  position: relative;
+}
+
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.glitch-text:hover::before {
+  animation: glitchTop 0.3s ease infinite;
+  clip-path: polygon(0 0, 100% 0, 100% 33%, 0 33%);
+  color: var(--neon-cyan);
+  opacity: 0.8;
+}
+
+.glitch-text:hover::after {
+  animation: glitchBottom 0.3s ease infinite;
+  clip-path: polygon(0 67%, 100% 67%, 100% 100%, 0 100%);
+  color: var(--neon-magenta);
+  opacity: 0.8;
+}
+
+@keyframes glitchTop {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(2px, -2px); }
+  60% { transform: translate(-1px, 1px); }
+  80% { transform: translate(1px, -1px); }
+}
+
+@keyframes glitchBottom {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(2px, -2px); }
+  40% { transform: translate(-2px, 2px); }
+  60% { transform: translate(1px, -1px); }
+  80% { transform: translate(-1px, 1px); }
+}
+
+/* Fade in animation for page content */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Rainbow neon text animation */
+@keyframes rainbowNeon {
+  0% { color: var(--pixel-gold); text-shadow: 0 0 10px var(--pixel-gold), 0 0 20px var(--pixel-gold); }
+  25% { color: var(--neon-magenta); text-shadow: 0 0 10px var(--neon-magenta), 0 0 20px var(--neon-magenta); }
+  50% { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan); }
+  75% { color: var(--pixel-purple); text-shadow: 0 0 10px var(--pixel-purple), 0 0 20px var(--pixel-purple); }
+  100% { color: var(--pixel-gold); text-shadow: 0 0 10px var(--pixel-gold), 0 0 20px var(--pixel-gold); }
+}
+
+.animate-rainbow-neon {
+  animation: rainbowNeon 4s linear infinite;
 }
