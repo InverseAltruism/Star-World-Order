@@ -92,8 +92,7 @@ export default function DemoMode({ className }: DemoModeProps) {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
           <div
             ref={modalRef}
-            className="pixel-card p-6 max-w-md w-full mx-4 animate-slide-in-up"
-            style={{ position: 'relative', zIndex: 10000 }}
+            className="pixel-card p-6 max-w-md w-full mx-4 animate-slide-in-up relative"
           >
             {/* Header */}
             <div className="mb-6 text-center">
