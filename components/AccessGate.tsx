@@ -187,7 +187,7 @@ export default function AccessGate({
       
       {/* Demo Mode Indicator */}
       {isDemoMode && (
-        <div className="fixed top-20 right-4 z-50 animate-slide-in-right">
+        <div className="fixed top-20 right-4 z-[9998] pointer-events-none">
           <div className="pixel-card p-3 bg-[#ffd700]/20 border-[#ffd700] backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <span className="text-[#ffd700] text-xl animate-pixel-pulse">🎮</span>
