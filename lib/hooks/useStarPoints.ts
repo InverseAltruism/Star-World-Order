@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import { useDAOAccess } from './useDAOAccess';
 import {
@@ -82,6 +82,23 @@ export function useStarPoints(): UseStarPointsResult {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [timeUntilNext, setTimeUntilNext] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Track previous NFT data to avoid redundant updates
+  const prevNFTDataRef = useRef<string>('');
+  
+  // Helper function to fetch display name from profile (DRY principle)
+  const fetchDisplayName = useCallback(async (walletAddress: string): Promise<string | undefined> => {
+    try {
+      const profileResponse = await fetch(`/api/profile?address=${walletAddress}`);
+      const profileData = await profileResponse.json();
+      if (profileData.success && profileData.profile?.display_name) {
+        return profileData.profile.display_name;
+      }
+    } catch (e) {
+      console.error('Failed to fetch profile for presence:', e);
+    }
+    return undefined;
+  }, []);
   
   // Load balance data
   const loadBalance = useCallback(() => {
@@ -174,16 +191,7 @@ export function useStarPoints(): UseStarPointsResult {
     
     const sendInitialPresence = async () => {
       // Fetch display name from profile first (Issue 5 fix)
-      let displayName: string | undefined;
-      try {
-        const profileResponse = await fetch(`/api/profile?address=${address}`);
-        const profileData = await profileResponse.json();
-        if (profileData.success && profileData.profile?.display_name) {
-          displayName = profileData.profile.display_name;
-        }
-      } catch (e) {
-        console.error('Failed to fetch profile for initial presence:', e);
-      }
+      const displayName = await fetchDisplayName(address);
       
       try {
         await fetch('/api/presence', {
@@ -206,7 +214,7 @@ export function useStarPoints(): UseStarPointsResult {
     };
     
     sendInitialPresence();
-  }, [address, isConnected, loadOnlineUsers]);
+  }, [address, isConnected, loadOnlineUsers, fetchDisplayName]);
   
   // Update online presence with NFT data when available and periodically
   useEffect(() => {
@@ -217,16 +225,7 @@ export function useStarPoints(): UseStarPointsResult {
     
     const updatePresenceOnServer = async () => {
       // Fetch display name from profile (Issue 5 fix)
-      let displayName: string | undefined;
-      try {
-        const profileResponse = await fetch(`/api/profile?address=${address}`);
-        const profileData = await profileResponse.json();
-        if (profileData.success && profileData.profile?.display_name) {
-          displayName = profileData.profile.display_name;
-        }
-      } catch (e) {
-        console.error('Failed to fetch profile for presence:', e);
-      }
+      const displayName = await fetchDisplayName(address);
       
       try {
         await fetch('/api/presence', {
@@ -252,8 +251,10 @@ export function useStarPoints(): UseStarPointsResult {
       }
     };
     
-    // Update immediately when NFT data is available
-    if (starSkrumpeys.length > 0) {
+    // Update immediately when NFT data is available and has actually changed
+    const currentNFTData = JSON.stringify(starSkrumpeys.map(s => ({ tokenId: s.tokenId, starVariant: s.starVariant })));
+    if (starSkrumpeys.length > 0 && currentNFTData !== prevNFTDataRef.current) {
+      prevNFTDataRef.current = currentNFTData;
       updatePresenceOnServer();
     }
     
@@ -263,18 +264,19 @@ export function useStarPoints(): UseStarPointsResult {
       clearInterval(interval);
       if (address) {
         // Remove presence on disconnect using sendBeacon for reliability (Issue 3 fix)
-        const data = JSON.stringify({ walletAddress: address });
+        // sendBeacon uses POST, so we add _method field for the server to handle as DELETE
+        const data = JSON.stringify({ walletAddress: address, _method: 'DELETE' });
         const blob = new Blob([data], { type: 'application/json' });
         
         // Try sendBeacon first (more reliable on page close)
         if (navigator.sendBeacon) {
           navigator.sendBeacon('/api/presence', blob);
         } else {
-          // Fallback to fetch
+          // Fallback to fetch with DELETE method
           fetch('/api/presence', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: data,
+            body: JSON.stringify({ walletAddress: address }),
           }).catch(() => {
             // Fallback to localStorage
             removeOnlinePresence(address);
@@ -282,7 +284,7 @@ export function useStarPoints(): UseStarPointsResult {
         }
       }
     };
-  }, [address, isConnected, starSkrumpeys, loadOnlineUsers]);
+  }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
   
   // Calculate voting power
   const votingPower = useMemo(() => {
@@ -355,16 +357,7 @@ export function useStarPoints(): UseStarPointsResult {
     if (!address) return;
     
     // Fetch display name from profile (Issue 5 fix)
-    let displayName: string | undefined;
-    try {
-      const profileResponse = await fetch(`/api/profile?address=${address}`);
-      const profileData = await profileResponse.json();
-      if (profileData.success && profileData.profile?.display_name) {
-        displayName = profileData.profile.display_name;
-      }
-    } catch (e) {
-      console.error('Failed to fetch profile for presence update:', e);
-    }
+    const displayName = await fetchDisplayName(address);
     
     const firstStar = starSkrumpeys[0];
     try {
@@ -389,7 +382,7 @@ export function useStarPoints(): UseStarPointsResult {
         status,
       });
     }
-  }, [address, starSkrumpeys, loadOnlineUsers]);
+  }, [address, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
   
   // Refresh all data
   const refresh = useCallback(() => {

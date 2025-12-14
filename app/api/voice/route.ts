@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     
     if (action === 'join') {
       let session = getActiveVoiceSession();
+      const sessionCreated = !session;
       
       // Auto-create session if none exists (Issue 4 fix)
       if (!session) {
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
         session,
         participant,
         participants,
-        message: session ? 'Joined session' : 'Created and joined session',
+        message: sessionCreated ? 'Created and joined session' : 'Joined session',
       });
     }
     
