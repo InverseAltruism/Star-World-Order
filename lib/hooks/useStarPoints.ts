@@ -252,10 +252,12 @@ export function useStarPoints(): UseStarPointsResult {
     };
     
     // Update immediately when NFT data is available and has actually changed
-    const currentNFTData = JSON.stringify(starSkrumpeys.map(s => ({ tokenId: s.tokenId, starVariant: s.starVariant })));
-    if (starSkrumpeys.length > 0 && currentNFTData !== prevNFTDataRef.current) {
-      prevNFTDataRef.current = currentNFTData;
-      updatePresenceOnServer();
+    if (starSkrumpeys.length > 0) {
+      const currentNFTData = JSON.stringify(starSkrumpeys.map(s => ({ tokenId: s.tokenId, starVariant: s.starVariant })));
+      if (currentNFTData !== prevNFTDataRef.current) {
+        prevNFTDataRef.current = currentNFTData;
+        updatePresenceOnServer();
+      }
     }
     
     const interval = setInterval(updatePresenceOnServer, 30000); // Update every 30 seconds
@@ -269,7 +271,7 @@ export function useStarPoints(): UseStarPointsResult {
         const blob = new Blob([data], { type: 'application/json' });
         
         // Try sendBeacon first (more reliable on page close)
-        if (navigator.sendBeacon) {
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
           navigator.sendBeacon('/api/presence', blob);
         } else {
           // Fallback to fetch with DELETE method
