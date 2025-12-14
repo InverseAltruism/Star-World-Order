@@ -620,6 +620,7 @@ body::before {
   font-size: 22px;
   filter: drop-shadow(0 0 10px rgba(255, 255, 200, 0.6));
   animation: swoMoonGlow 4s ease-in-out infinite;
+  will-change: transform, filter;
 }
 
 @keyframes swoMoonGlow {
@@ -718,7 +719,8 @@ body::before {
   height: 3px;
   background: rgba(255, 255, 255, 0.4);
   border-radius: 50%;
-  animation: swoDustFloat 12s linear infinite;
+  animation: swoDustFloat 8s linear infinite;
+  will-change: transform, opacity;
 }
 
 @keyframes swoDustFloat {
