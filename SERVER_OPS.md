@@ -169,12 +169,15 @@ Quick reference for critical system files:
 ## Quick Reference
 
 ### Emergency Contacts
-- **Server Admin**: Check internal documentation
+- **GitHub Repository**: https://github.com/InverseAltruism/Star-World-Order
 - **Domain Registrar**: GoDaddy (starworldorder.com)
+- **Server Admin**: Contact via GitHub issues for urgent matters
 
 ### Backup Strategy
-- Automated backups via systemd timer
-- Database snapshots stored in `/opt/star_world_order/backups/`
+- **SQLite Database**: The application uses SQLite for persistent storage (chat, presence, voice, social connections)
+- Database location: `/opt/star_world_order/data/swo.db`
+- Recommended: Regular backups of the SQLite database and application directory
+- Database snapshots can be stored in `/opt/star_world_order/backups/` (configure as needed)
 
 ### Server Specs
 - **CPU**: Intel NUC processor
