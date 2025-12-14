@@ -190,7 +190,7 @@ export default function AccessGate({
         <div className="fixed top-20 right-4 z-[1000] pointer-events-none">
           <div className="pixel-card p-3 bg-[#ffd700]/20 border-[#ffd700] backdrop-blur-sm">
             <div className="flex items-center gap-2">
-              <span className="text-[#ffd700] text-xl animate-pixel-pulse">🎮</span>
+              <span className="text-[#ffd700] text-xl">🎮</span>
               <div>
                 <p className="text-[#ffd700] text-[10px] font-bold">DEMO MODE</p>
                 <p className="text-gray-400 text-[8px]">Read-only preview</p>
