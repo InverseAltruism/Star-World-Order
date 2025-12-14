@@ -15,7 +15,7 @@ export default function Header() {
       
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3 smooth-transition hover:opacity-90 hover:scale-105">
+        <Link href="/" className="flex items-center gap-3 smooth-transition hover:opacity-90 hover:scale-105 flex-shrink-0">
           <div className="relative">
             <span className="text-2xl animate-pixel-float inline-block hover-lift smooth-transition">⭐</span>
           </div>
@@ -32,10 +32,10 @@ export default function Header() {
         {/* Navigation */}
         <nav className="flex items-center gap-2 md:gap-4">
           {isProduction ? (
-            <div className="flex flex-col items-center gap-0.5">
+            <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
               <span className="text-[10px] leading-none">🔒</span>
               <span 
-                className="text-[11px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
+                className="text-[10px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
                 title="Locked in production"
               >
                 DAO
@@ -44,7 +44,7 @@ export default function Header() {
           ) : (
             <Link 
               href="/dao" 
-              className="text-[11px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
+              className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group flex-shrink-0"
               style={{ 
                 transition: 'color 0.3s ease',
                 willChange: 'color'
@@ -62,7 +62,7 @@ export default function Header() {
           )}
           <Link 
             href="/hangout" 
-            className="text-[11px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
+            className="text-[10px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group flex-shrink-0"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
@@ -79,7 +79,7 @@ export default function Header() {
           </Link>
           <Link 
             href="/profile" 
-            className="text-[11px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group"
+            className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group flex-shrink-0"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
@@ -95,10 +95,10 @@ export default function Header() {
             />
           </Link>
           {isProduction ? (
-            <div className="hidden md:flex flex-col items-center gap-0.5">
+            <div className="hidden md:flex flex-col items-center gap-0.5 flex-shrink-0">
               <span className="text-[10px] leading-none">🔒</span>
               <span 
-                className="text-[11px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
+                className="text-[10px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
                 title="Locked in production"
               >
                 EXCHANGE
@@ -107,7 +107,7 @@ export default function Header() {
           ) : (
             <Link 
               href="/marketplace" 
-              className="text-[11px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
+              className="text-[10px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group flex-shrink-0"
               style={{ 
                 transition: 'color 0.3s ease',
                 willChange: 'color'
@@ -123,8 +123,12 @@ export default function Header() {
               />
             </Link>
           )}
-          <DemoMode />
-          <WalletConnect />
+          <div className="flex-shrink-0">
+            <DemoMode />
+          </div>
+          <div className="flex-shrink-0">
+            <WalletConnect />
+          </div>
         </nav>
       </div>
       

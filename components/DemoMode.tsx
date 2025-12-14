@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { isAddress } from 'viem';
 
@@ -64,7 +65,7 @@ export default function DemoMode({ className }: DemoModeProps) {
   if (isDemoMode) {
     return (
       <div className="flex items-center gap-2">
-        <div className="text-xs text-[#ffd700] bg-[#1a1a2e] px-3 py-2 border-2 border-[#ffd700] flex items-center gap-2 animate-glow-pulse">
+        <div className="text-xs text-[#ffd700] bg-[#1a1a2e] px-3 py-2 border-2 border-[#ffd700] flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#ffd700] animate-pulse" />
           DEMO MODE
         </div>
@@ -87,8 +88,8 @@ export default function DemoMode({ className }: DemoModeProps) {
         🎮 DEMO MODE
       </button>
 
-      {/* Demo Mode Modal */}
-      {showModal && (
+      {/* Demo Mode Modal - Rendered via Portal */}
+      {showModal && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
           <div
             ref={modalRef}
@@ -116,6 +117,11 @@ export default function DemoMode({ className }: DemoModeProps) {
                 onChange={(e) => {
                   setWalletInput(e.target.value);
                   setError('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleEnterDemoMode();
+                  }
                 }}
                 placeholder="0x..."
                 className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] text-gray-300 px-3 py-2 text-xs focus:border-[#ffd700] focus:outline-none"
@@ -149,13 +155,17 @@ export default function DemoMode({ className }: DemoModeProps) {
             {/* Buttons */}
             <div className="flex gap-3">
               <button
-                onClick={handleEnterDemoMode}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEnterDemoMode();
+                }}
                 className="pixel-btn pixel-btn-gold flex-1 text-xs"
               >
                 ENTER DEMO MODE
               </button>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setShowModal(false);
                   setError('');
                   setWalletInput('');
@@ -166,7 +176,8 @@ export default function DemoMode({ className }: DemoModeProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
