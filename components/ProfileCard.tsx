@@ -1,9 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import SocialConnect from './SocialConnect';
+
+/**
+ * Skrumpey display data interface
+ */
+interface SkrumpeyDisplayData {
+  id: number;
+  name: string;
+  hasStar: boolean;
+  rarity: string;
+  starVariant?: StarTraitVariant;
+}
+
+/**
+ * Skrumpey Inspect Modal - Shows detailed view of an NFT
+ */
+function SkrumpeyInspectModal({
+  skrumpey,
+  onClose,
+  getVariantColor,
+}: {
+  skrumpey: SkrumpeyDisplayData;
+  onClose: () => void;
+  getVariantColor: (variant?: string) => string;
+}) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(skrumpey.id);
+
+  // Close modal on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-slide-in-up"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      
+      {/* Modal Content */}
+      <div 
+        className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
+          title="Close (ESC)"
+        >
+          ✕
+        </button>
+
+        {/* Star Badge */}
+        {skrumpey.hasStar && (
+          <div className="absolute -top-3 -right-3 text-3xl animate-pixel-pulse animate-star-rotate z-20">
+            ⭐
+          </div>
+        )}
+
+        {/* Large NFT Image */}
+        <div className={`w-full aspect-square rounded-lg mb-4 overflow-hidden relative ${
+          skrumpey.hasStar 
+            ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30 border-2 border-[#ffd700] shadow-[0_0_30px_rgba(255,215,0,0.4)]' 
+            : 'bg-[#0a0a15] border-2 border-[#2a2a4e]'
+        }`}>
+          {/* Placeholder */}
+          {(!imageLoaded || imageError) && (
+            <div className="absolute inset-0 flex items-center justify-center text-8xl">
+              <span className="animate-pixel-float">🐸</span>
+            </div>
+          )}
+          
+          {/* NFT Image */}
+          {!imageError && (
+            <img
+              src={imageUrl}
+              alt={skrumpey.name}
+              className={`w-full h-full object-cover transition-opacity duration-300 ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+          )}
+        </div>
+
+        {/* NFT Details */}
+        <div className="space-y-3">
+          {/* Name and ID */}
+          <div className="text-center">
+            <h3 className={`text-xl font-bold tracking-wide mb-1 ${
+              skrumpey.hasStar ? 'text-[#ffd700] animate-glow-pulse' : 'text-white'
+            }`}>
+              {skrumpey.name}
+            </h3>
+            <p className="text-gray-500 text-xs">Token ID: #{skrumpey.id}</p>
+          </div>
+
+          {/* Rarity / Star Variant */}
+          <div className="flex justify-center">
+            <div 
+              className={`px-4 py-2 rounded-lg text-sm font-bold border-2 ${
+                skrumpey.hasStar 
+                  ? 'border-[#ffd700] bg-[#ffd700]/20' 
+                  : 'border-[#2a2a4e] bg-[#1a1a2e]'
+              }`}
+              style={{ color: skrumpey.hasStar ? getVariantColor(skrumpey.starVariant) : '#888' }}
+            >
+              {skrumpey.rarity}
+            </div>
+          </div>
+
+          {/* Star Info */}
+          {skrumpey.hasStar && (
+            <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
+              <p className="text-[#ffd700] text-xs text-center mb-2">✦ STAR SKRUMPEY ✦</p>
+              <p className="text-gray-400 text-[10px] text-center leading-relaxed">
+                This Skrumpey holds the power of the {skrumpey.starVariant?.toUpperCase()} constellation, 
+                granting exclusive access to the Star World Order DAO.
+              </p>
+            </div>
+          )}
+
+          {/* Stats Placeholder */}
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#2a2a4e]">
+            <div className="text-center">
+              <p className="text-[#9966ff] text-sm">LVL</p>
+              <p className="text-white text-xs">1</p>
+            </div>
+            <div className="text-center border-x border-[#2a2a4e]">
+              <p className="text-[#44ff88] text-sm">XP</p>
+              <p className="text-white text-xs">0</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[#ff6ec7] text-sm">RANK</p>
+              <p className="text-white text-xs">—</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Profile Avatar Component with fallback
@@ -85,6 +245,12 @@ export default function ProfileCard() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [selectedSkrumpey, setSelectedSkrumpey] = useState<SkrumpeyDisplayData | null>(null);
+
+  // Close modal handler
+  const closeModal = useCallback(() => {
+    setSelectedSkrumpey(null);
+  }, []);
 
   // Load profile on mount
   useEffect(() => {
@@ -326,6 +492,9 @@ export default function ProfileCard() {
         )}
       </div>
 
+      {/* Social Connections - Below Username Settings */}
+      <SocialConnect />
+
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
@@ -370,11 +539,15 @@ export default function ProfileCard() {
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
           YOUR COLLECTION
         </h3>
+        <p className="text-gray-500 text-[8px] text-center mb-4">
+          Click on a Skrumpey to inspect
+        </p>
         
         <div className="grid grid-cols-2 gap-4">
           {finalDisplaySkrumpeys.map((nft, index) => (
             <div 
               key={nft.id}
+              onClick={() => setSelectedSkrumpey(nft)}
               className={`relative p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} ${
                 nft.hasStar 
                   ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
@@ -444,8 +617,14 @@ export default function ProfileCard() {
         </p>
       </div>
 
-      {/* Social Connections - Moved below Profile Settings */}
-      <SocialConnect />
+      {/* Skrumpey Inspect Modal */}
+      {selectedSkrumpey && (
+        <SkrumpeyInspectModal
+          skrumpey={selectedSkrumpey}
+          onClose={closeModal}
+          getVariantColor={getVariantColor}
+        />
+      )}
     </div>
   );
 }
