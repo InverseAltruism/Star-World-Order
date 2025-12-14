@@ -6,7 +6,8 @@ import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/li
 import SocialConnect from './SocialConnect';
 
 /**
- * Skrumpey display data interface
+ * Interface defining the structure for Skrumpey NFT display data
+ * Used in collection grid components and the inspect modal
  */
 interface SkrumpeyDisplayData {
   id: number;
@@ -45,9 +46,10 @@ function SkrumpeyInspectModal({
 
   // Prevent body scroll when modal is open
   useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = originalOverflow;
     };
   }, []);
 
@@ -138,7 +140,7 @@ function SkrumpeyInspectModal({
             <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
               <p className="text-[#ffd700] text-xs text-center mb-2">✦ STAR SKRUMPEY ✦</p>
               <p className="text-gray-400 text-[10px] text-center leading-relaxed">
-                This Skrumpey holds the power of the {skrumpey.starVariant?.toUpperCase()} constellation, 
+                This Skrumpey holds the power of the {skrumpey.starVariant?.toUpperCase() || 'UNKNOWN'} constellation, 
                 granting exclusive access to the Star World Order DAO.
               </p>
             </div>
