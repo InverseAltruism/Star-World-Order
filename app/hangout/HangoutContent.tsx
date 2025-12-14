@@ -26,7 +26,7 @@ interface OnlineUserWithBubble extends OnlineUser {
 const CHAT_STORAGE_KEY = 'swo_hangout_chat';
 const CHAT_BUBBLES_KEY = 'swo_chat_bubbles';
 const MAX_MESSAGES = 100;
-const BUBBLE_DURATION = 8000; // Chat bubble visible for 8 seconds
+const BUBBLE_DURATION = 15000; // Chat bubble visible for 15 seconds
 const MAX_LAST_MESSAGE_LENGTH = 50; // Maximum length for last message in chat bubble
 
 // API response types
@@ -477,8 +477,10 @@ function Lobby({
  */
 function Chat({
   address,
+  refreshPresence,
 }: {
   address: string | undefined;
+  refreshPresence?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -575,6 +577,11 @@ function Chat({
         
         setInputValue('');
         loadMessages(); // Refresh messages
+        
+        // Trigger immediate presence refresh for chat bubbles
+        if (refreshPresence) {
+          refreshPresence();
+        }
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -596,7 +603,7 @@ function Chat({
       setMessages(prev => [...prev, newMessage]);
       setInputValue('');
     }
-  }, [address, inputValue, displayName, loadMessages]);
+  }, [address, inputValue, displayName, loadMessages, refreshPresence]);
   
   // Handle key press - use onKeyDown to prevent form submission issues
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -961,7 +968,7 @@ function VoiceChat({
  */
 export default function HangoutContent() {
   const { address } = useAccount();
-  const { onlineUsers, updatePresence, votingPower, totalStars } = useStarPoints();
+  const { onlineUsers, updatePresence, votingPower, totalStars, refresh } = useStarPoints();
   const [activeStatus, setActiveStatus] = useState<'online' | 'away' | 'busy'>('online');
   const [chatBubbles, setChatBubbles] = useState<Record<string, { message: string; timestamp: number }>>({});
   
@@ -1049,7 +1056,7 @@ export default function HangoutContent() {
           
           {/* Right Column - Chat & Voice */}
           <div className="space-y-6">
-            <Chat address={address} />
+            <Chat address={address} refreshPresence={refresh} />
             <VoiceChat address={address} onlineUsers={onlineUsers} />
           </div>
         </div>

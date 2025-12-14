@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import { useDAOAccess } from './useDAOAccess';
 import {
@@ -83,6 +83,23 @@ export function useStarPoints(): UseStarPointsResult {
   const [timeUntilNext, setTimeUntilNext] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
+  // Track previous NFT data to avoid redundant updates
+  const prevNFTDataRef = useRef<string>('');
+  
+  // Helper function to fetch display name from profile (DRY principle)
+  const fetchDisplayName = useCallback(async (walletAddress: string): Promise<string | undefined> => {
+    try {
+      const profileResponse = await fetch(`/api/profile?address=${walletAddress}`);
+      const profileData = await profileResponse.json();
+      if (profileData.success && profileData.profile?.display_name) {
+        return profileData.profile.display_name;
+      }
+    } catch (e) {
+      console.error('Failed to fetch profile for presence:', e);
+    }
+    return undefined;
+  }, []);
+  
   // Load balance data
   const loadBalance = useCallback(() => {
     if (!address) {
@@ -162,13 +179,44 @@ export function useStarPoints(): UseStarPointsResult {
     loadOnlineUsers();
   }, [loadBalance, loadOnlineUsers]);
   
-  // Poll for online users updates every 10 seconds
+  // Poll for online users updates every 3 seconds for chat bubbles
   useEffect(() => {
-    const interval = setInterval(loadOnlineUsers, 10000);
+    const interval = setInterval(loadOnlineUsers, 3000);
     return () => clearInterval(interval);
   }, [loadOnlineUsers]);
   
-  // Update online presence periodically using server API
+  // Send initial presence immediately when address is available (Issue 2 fix)
+  useEffect(() => {
+    if (!address || !isConnected) return;
+    
+    const sendInitialPresence = async () => {
+      // Fetch display name from profile first (Issue 5 fix)
+      const displayName = await fetchDisplayName(address);
+      
+      try {
+        await fetch('/api/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            displayName,
+            status: 'online',
+          }),
+        });
+        loadOnlineUsers();
+      } catch (error) {
+        console.error('Failed to send initial presence:', error);
+        // Fallback to localStorage
+        updateOnlinePresence(address, {
+          status: 'online',
+        });
+      }
+    };
+    
+    sendInitialPresence();
+  }, [address, isConnected, loadOnlineUsers, fetchDisplayName]);
+  
+  // Update online presence with NFT data when available and periodically
   useEffect(() => {
     if (!address || !isConnected) return;
     
@@ -176,12 +224,16 @@ export function useStarPoints(): UseStarPointsResult {
     const firstStar = starSkrumpeys[0];
     
     const updatePresenceOnServer = async () => {
+      // Fetch display name from profile (Issue 5 fix)
+      const displayName = await fetchDisplayName(address);
+      
       try {
         await fetch('/api/presence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             walletAddress: address,
+            displayName,
             nftTokenId: firstStar?.tokenId,
             starVariant: firstStar?.starVariant,
             status: 'online',
@@ -199,24 +251,42 @@ export function useStarPoints(): UseStarPointsResult {
       }
     };
     
-    updatePresenceOnServer();
+    // Update immediately when NFT data is available and has actually changed
+    if (starSkrumpeys.length > 0) {
+      const currentNFTData = JSON.stringify(starSkrumpeys.map(s => ({ tokenId: s.tokenId, starVariant: s.starVariant })));
+      if (currentNFTData !== prevNFTDataRef.current) {
+        prevNFTDataRef.current = currentNFTData;
+        updatePresenceOnServer();
+      }
+    }
+    
     const interval = setInterval(updatePresenceOnServer, 30000); // Update every 30 seconds
     
     return () => {
       clearInterval(interval);
       if (address) {
-        // Remove presence on disconnect
-        fetch('/api/presence', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress: address }),
-        }).catch(() => {
-          // Fallback to localStorage
-          removeOnlinePresence(address);
-        });
+        // Remove presence on disconnect using sendBeacon for reliability (Issue 3 fix)
+        // sendBeacon uses POST, so we add _method field for the server to handle as DELETE
+        const data = JSON.stringify({ walletAddress: address, _method: 'DELETE' });
+        const blob = new Blob([data], { type: 'application/json' });
+        
+        // Try sendBeacon first (more reliable on page close)
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon('/api/presence', blob);
+        } else {
+          // Fallback to fetch with DELETE method
+          fetch('/api/presence', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletAddress: address }),
+          }).catch(() => {
+            // Fallback to localStorage
+            removeOnlinePresence(address);
+          });
+        }
       }
     };
-  }, [address, isConnected, starSkrumpeys, loadOnlineUsers]);
+  }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
   
   // Calculate voting power
   const votingPower = useMemo(() => {
@@ -288,6 +358,9 @@ export function useStarPoints(): UseStarPointsResult {
   const updatePresence = useCallback(async (status: 'online' | 'away' | 'busy') => {
     if (!address) return;
     
+    // Fetch display name from profile (Issue 5 fix)
+    const displayName = await fetchDisplayName(address);
+    
     const firstStar = starSkrumpeys[0];
     try {
       await fetch('/api/presence', {
@@ -295,6 +368,7 @@ export function useStarPoints(): UseStarPointsResult {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           walletAddress: address,
+          displayName,
           nftTokenId: firstStar?.tokenId,
           starVariant: firstStar?.starVariant,
           status,
@@ -310,7 +384,7 @@ export function useStarPoints(): UseStarPointsResult {
         status,
       });
     }
-  }, [address, starSkrumpeys, loadOnlineUsers]);
+  }, [address, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
   
   // Refresh all data
   const refresh = useCallback(() => {

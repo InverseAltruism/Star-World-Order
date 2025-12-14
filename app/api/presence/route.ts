@@ -35,13 +35,22 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, displayName, nftTokenId, starVariant, status, lastMessage } = body;
+    const { walletAddress, displayName, nftTokenId, starVariant, status, lastMessage, _method } = body;
     
     if (!walletAddress) {
       return NextResponse.json(
         { success: false, error: 'Wallet address required' },
         { status: 400 }
       );
+    }
+    
+    // Handle DELETE via POST (for sendBeacon compatibility)
+    if (_method === 'DELETE') {
+      removeOnlinePresence(walletAddress);
+      return NextResponse.json({
+        success: true,
+        message: 'Presence removed',
+      });
     }
     
     // Validate status

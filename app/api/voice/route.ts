@@ -89,12 +89,12 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'join') {
-      const session = getActiveVoiceSession();
+      let session = getActiveVoiceSession();
+      const sessionCreated = !session;
+      
+      // Auto-create session if none exists (Issue 4 fix)
       if (!session) {
-        return NextResponse.json(
-          { success: false, error: 'No active session to join' },
-          { status: 404 }
-        );
+        session = createVoiceSession(walletAddress);
       }
       
       const participant = joinVoiceSession(session.session_id, walletAddress);
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         session,
         participant,
         participants,
-        message: 'Joined session',
+        message: sessionCreated ? 'Created and joined session' : 'Joined session',
       });
     }
     

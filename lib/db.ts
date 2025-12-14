@@ -285,18 +285,18 @@ export function updateOnlinePresence(
 }
 
 /**
- * Get all online users (active within the last 5 minutes)
+ * Get all online users (active within the last 2 minutes)
  */
 export function getOnlineUsers(): OnlinePresence[] {
   const db = getDatabase();
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   
   const stmt = db.prepare(`
     SELECT * FROM online_presence 
     WHERE last_seen > ?
     ORDER BY last_seen DESC
   `);
-  return stmt.all(fiveMinutesAgo) as OnlinePresence[];
+  return stmt.all(twoMinutesAgo) as OnlinePresence[];
 }
 
 /**
