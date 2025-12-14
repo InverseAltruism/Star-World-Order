@@ -427,7 +427,7 @@ body::before {
   to { opacity: 0; pointer-events: none; }
 }
 
-/* Room background with subtle purple glow */
+/* Room background with warm cozy glow */
 .swo-room-bg {
   position: absolute;
   top: 0;
@@ -435,8 +435,14 @@ body::before {
   width: 100%;
   height: 100%;
   background: 
-    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(153, 102, 255, 0.08) 0%, transparent 70%),
-    linear-gradient(180deg, #0a0a1a 0%, #12122a 50%, #0f0f23 100%);
+    /* Warm lamp glow from left side */
+    radial-gradient(ellipse 40% 60% at 15% 55%, rgba(255, 180, 100, 0.12) 0%, transparent 60%),
+    /* Subtle moonlight from top-left window */
+    radial-gradient(ellipse 35% 40% at 12% 25%, rgba(150, 180, 255, 0.08) 0%, transparent 50%),
+    /* Center TV glow area */
+    radial-gradient(ellipse 50% 45% at 50% 40%, rgba(153, 102, 255, 0.1) 0%, transparent 70%),
+    /* Base gradient - warmer tones */
+    linear-gradient(180deg, #0d0d1a 0%, #14122a 40%, #1a1528 70%, #0f0d1a 100%);
   pointer-events: none;
 }
 
@@ -585,6 +591,257 @@ body::before {
 
 .swo-poster-skrumpey {
   background: radial-gradient(circle at 70% 70%, rgba(153, 102, 255, 0.18), transparent 60%), #0f1b2f;
+}
+
+/* ===== COZY ROOM ELEMENTS ===== */
+
+/* Window with moonlight */
+.swo-window {
+  position: absolute;
+  top: 8%;
+  left: 8%;
+  width: 80px;
+  height: 100px;
+  background: linear-gradient(180deg, #0a0a20 0%, #151535 100%);
+  border: 4px solid #3a3a5e;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 
+    inset 0 0 20px rgba(100, 150, 255, 0.15),
+    0 0 30px rgba(100, 150, 255, 0.08);
+}
+
+.swo-window::before {
+  content: '🌙';
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 200, 0.6));
+  animation: swoMoonGlow 4s ease-in-out infinite;
+}
+
+@keyframes swoMoonGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 10px rgba(255, 255, 200, 0.5));
+    transform: translateX(-50%) scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 18px rgba(255, 255, 200, 0.8));
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+/* Window frame crossbars */
+.swo-window-frame {
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(90deg, transparent 48%, #3a3a5e 48%, #3a3a5e 52%, transparent 52%),
+    linear-gradient(0deg, transparent 48%, #3a3a5e 48%, #3a3a5e 52%, transparent 52%);
+  pointer-events: none;
+}
+
+/* Moonlight ray coming through */
+.swo-moonlight {
+  position: absolute;
+  top: 100%;
+  left: 20%;
+  width: 100px;
+  height: 300px;
+  background: linear-gradient(
+    180deg,
+    rgba(180, 200, 255, 0.12) 0%,
+    rgba(150, 180, 255, 0.06) 40%,
+    transparent 100%
+  );
+  transform: skewX(-15deg);
+  animation: swoMoonlightSway 8s ease-in-out infinite;
+}
+
+@keyframes swoMoonlightSway {
+  0%, 100% { opacity: 0.7; transform: skewX(-15deg) translateX(0); }
+  50% { opacity: 1; transform: skewX(-12deg) translateX(10px); }
+}
+
+/* Wall poster */
+.swo-wall-poster {
+  position: absolute;
+  top: 8%;
+  right: 10%;
+  width: 70px;
+  height: 90px;
+  background: linear-gradient(135deg, #1a1a3a 0%, #12122a 100%);
+  border: 3px solid #4a4a6e;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 
+    4px 4px 0 rgba(0,0,0,0.4),
+    inset 0 0 15px rgba(153, 102, 255, 0.1);
+  animation: swoPosterSway 6s ease-in-out infinite;
+}
+
+@keyframes swoPosterSway {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+.swo-poster-emoji {
+  font-size: 24px;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5));
+}
+
+.swo-poster-text {
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+  color: #ffd700;
+  letter-spacing: 2px;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+}
+
+/* Floating dust particles */
+.swo-dust-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.swo-dust {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  animation: swoDustFloat 12s linear infinite;
+}
+
+@keyframes swoDustFloat {
+  0% { 
+    transform: translateY(100vh) rotate(0deg); 
+    opacity: 0;
+  }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  100% { 
+    transform: translateY(-20vh) rotate(360deg); 
+    opacity: 0;
+  }
+}
+
+/* Desk lamp with warm glow */
+.swo-desk-lamp {
+  position: absolute;
+  bottom: 46%;
+  left: 8%;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.swo-lamp-shade {
+  width: 40px;
+  height: 22px;
+  background: linear-gradient(180deg, #ffb347 0%, #e69500 100%);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  position: relative;
+  box-shadow: 
+    0 -3px 20px rgba(255, 180, 100, 0.5),
+    0 -6px 40px rgba(255, 180, 100, 0.3),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.swo-lamp-arm {
+  width: 4px;
+  height: 30px;
+  background: linear-gradient(90deg, #555 0%, #888 50%, #555 100%);
+  border-radius: 2px;
+}
+
+.swo-lamp-base {
+  width: 28px;
+  height: 8px;
+  background: linear-gradient(90deg, #444 0%, #666 50%, #444 100%);
+  border-radius: 3px;
+}
+
+.swo-lamp-glow {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 200px;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 200, 120, 0.25) 0%,
+    rgba(255, 180, 100, 0.1) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: swoLampPulse 3s ease-in-out infinite;
+}
+
+@keyframes swoLampPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* Small potted plant */
+.swo-plant {
+  position: absolute;
+  bottom: 42%;
+  right: 8%;
+  z-index: 6;
+}
+
+.swo-plant-emoji {
+  font-size: 32px;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(68, 255, 136, 0.3));
+  animation: swoPlantSway 5s ease-in-out infinite;
+}
+
+@keyframes swoPlantSway {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+/* Snacks and drink on desk */
+.swo-snacks {
+  position: absolute;
+  bottom: 40%;
+  right: 22%;
+  display: flex;
+  gap: 8px;
+  z-index: 6;
+}
+
+.swo-snack {
+  font-size: 20px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.swo-drink {
+  animation: swoSnackWiggle 4s ease-in-out infinite;
+}
+
+.swo-chips {
+  animation: swoSnackWiggle 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+@keyframes swoSnackWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(3deg); }
+  20% { transform: rotate(-3deg); }
+  30% { transform: rotate(0deg); }
 }
 
 .swo-rug {
@@ -1967,4 +2224,177 @@ a,
 
 .animate-rainbow-neon {
   animation: rainbowNeon 4s linear infinite;
+}
+
+/* ============================================
+   NFT Image Cards for Marketplace
+   ============================================ */
+
+/* Regular size NFT image card */
+.nft-image-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 3px solid #3a3a5e;
+  box-shadow: 
+    4px 4px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 15px rgba(153, 102, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.nft-image-card:hover {
+  border-color: #ffd700;
+  box-shadow: 
+    4px 4px 0 rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+/* Small size NFT image card */
+.nft-image-card-sm {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #3a3a5e;
+  box-shadow: 
+    2px 2px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 10px rgba(153, 102, 255, 0.1);
+}
+
+/* NFT image background with variant-based gradients */
+.nft-image-bg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: linear-gradient(135deg, #1a1a3a 0%, #12122a 100%);
+}
+
+/* Star variant color themes */
+.nft-image-bg[data-variant="aether"] {
+  background: linear-gradient(135deg, #1a2a4a 0%, #0f1a3a 50%, #1a2a4a 100%);
+}
+
+.nft-image-bg[data-variant="spectra"] {
+  background: linear-gradient(135deg, #2a1a4a 0%, #1a0f3a 50%, #2a1a4a 100%);
+}
+
+.nft-image-bg[data-variant="solveil"] {
+  background: linear-gradient(135deg, #3a2a1a 0%, #2a1a0a 50%, #3a2a1a 100%);
+}
+
+.nft-image-bg[data-variant="nebulu"] {
+  background: linear-gradient(135deg, #1a1a3a 0%, #2a1a4a 50%, #1a1a3a 100%);
+}
+
+.nft-image-bg[data-variant="chroma"] {
+  background: linear-gradient(135deg, #2a1a3a 0%, #1a2a3a 50%, #3a1a2a 100%);
+}
+
+.nft-image-bg[data-variant="rose"] {
+  background: linear-gradient(135deg, #3a1a2a 0%, #2a0f1a 50%, #3a1a2a 100%);
+}
+
+.nft-image-bg[data-variant="monflare"] {
+  background: linear-gradient(135deg, #3a1a0a 0%, #2a0a0a 50%, #3a1a0a 100%);
+}
+
+.nft-image-bg[data-variant="auracore"] {
+  background: linear-gradient(135deg, #0a2a3a 0%, #0a1a2a 50%, #0a2a3a 100%);
+}
+
+.nft-image-bg[data-variant="parallel"] {
+  background: linear-gradient(135deg, #1a3a2a 0%, #0a2a1a 50%, #1a3a2a 100%);
+}
+
+.nft-image-bg[data-variant="prime"] {
+  background: linear-gradient(135deg, #2a2a1a 0%, #3a3a0a 50%, #2a2a1a 100%);
+}
+
+/* Frog emoji styling */
+.nft-frog-emoji {
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  animation: nftFrogBounce 2s ease-in-out infinite;
+}
+
+.nft-image-card-sm .nft-frog-emoji {
+  font-size: 20px;
+}
+
+@keyframes nftFrogBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Star badge in corner */
+.nft-star-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 14px;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8));
+  animation: nftStarPulse 1.5s ease-in-out infinite;
+}
+
+.nft-image-card-sm .nft-star-badge {
+  font-size: 10px;
+  top: 2px;
+  right: 2px;
+}
+
+@keyframes nftStarPulse {
+  0%, 100% { 
+    transform: scale(1); 
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8));
+  }
+  50% { 
+    transform: scale(1.15); 
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 1));
+  }
+}
+
+/* Shine effect on hover */
+.nft-image-shine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+.nft-image-card:hover .nft-image-shine {
+  animation: nftShine 0.6s ease forwards;
+}
+
+@keyframes nftShine {
+  from { left: -100%; }
+  to { left: 200%; }
+}
+
+/* Token ID badge */
+.nft-token-id {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-pixel), monospace;
+  font-size: 7px;
+  color: #ffd700;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
 }
