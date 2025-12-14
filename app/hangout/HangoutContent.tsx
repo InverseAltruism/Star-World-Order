@@ -27,6 +27,37 @@ const CHAT_STORAGE_KEY = 'swo_hangout_chat';
 const CHAT_BUBBLES_KEY = 'swo_chat_bubbles';
 const MAX_MESSAGES = 100;
 const BUBBLE_DURATION = 8000; // Chat bubble visible for 8 seconds
+const MAX_LAST_MESSAGE_LENGTH = 50; // Maximum length for last message in chat bubble
+
+// API response types
+interface ApiPresenceUser {
+  wallet_address: string;
+  display_name: string | null;
+  nft_token_id: number | null;
+  star_variant: string | null;
+  status: 'online' | 'away' | 'busy';
+  last_message: string | null;
+  last_message_at: string | null;
+  last_seen: string;
+}
+
+interface ApiChatMessage {
+  id: number;
+  sender_address: string;
+  sender_display_name: string | null;
+  message: string;
+  message_type: 'chat' | 'system' | 'emote';
+  created_at: string;
+}
+
+interface ApiVoiceParticipant {
+  id: number;
+  session_id: string;
+  wallet_address: string;
+  is_muted: number;
+  joined_at: string;
+  left_at: string | null;
+}
 
 /**
  * Get chat messages from storage
@@ -337,14 +368,21 @@ function Lobby({
 }) {
   const now = Date.now();
   
-  // Enhance users with chat bubble data
+  // Enhance users with chat bubble data from server (via onlineUsers)
   const usersWithBubbles: OnlineUserWithBubble[] = onlineUsers.map(user => {
-    const bubble = chatBubbles[user.address.toLowerCase()];
-    const isRecent = bubble && (now - bubble.timestamp < BUBBLE_DURATION);
+    // Use server data first, fall back to localStorage
+    const serverMessage = user.lastMessage;
+    const serverMessageTime = user.lastMessageAt;
+    const isServerRecent = serverMessage && serverMessageTime && (now - serverMessageTime < BUBBLE_DURATION);
+    
+    // Fallback to localStorage bubbles if server data not available/expired
+    const localBubble = chatBubbles[user.address.toLowerCase()];
+    const isLocalRecent = localBubble && (now - localBubble.timestamp < BUBBLE_DURATION);
+    
     return {
       ...user,
-      lastMessage: isRecent ? bubble.message : undefined,
-      lastMessageAt: isRecent ? bubble.timestamp : undefined,
+      lastMessage: isServerRecent ? serverMessage : (isLocalRecent ? localBubble.message : undefined),
+      lastMessageAt: isServerRecent ? serverMessageTime : (isLocalRecent ? localBubble.timestamp : undefined),
     };
   });
   
@@ -469,50 +507,96 @@ function Chat({
     fetchDisplayName();
   }, [address]);
   
-  // Load messages
-  useEffect(() => {
-    const loadMessages = () => {
+  // Load messages from server API
+  const loadMessages = useCallback(async () => {
+    try {
+      const response = await fetch('/api/chat?limit=100');
+      const data = await response.json();
+      if (data.success && data.messages) {
+        // Transform server data to ChatMessage format
+        const transformedMessages = data.messages.map((dbMsg: ApiChatMessage) => ({
+          id: `msg-${dbMsg.id}`,
+          sender: dbMsg.sender_display_name || truncateAddress(dbMsg.sender_address),
+          senderAddress: dbMsg.sender_address,
+          message: dbMsg.message,
+          timestamp: new Date(dbMsg.created_at).getTime(),
+          type: dbMsg.message_type,
+        }));
+        setMessages(transformedMessages);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      // Fallback to localStorage
       setMessages(getChatMessages());
-    };
-    
-    loadMessages();
-    // Poll for new messages every 5 seconds (reduced frequency for efficiency)
-    // Note: Consider WebSocket for real-time chat in production
-    const interval = setInterval(loadMessages, 5000);
-    
-    return () => clearInterval(interval);
+    }
   }, []);
+  
+  // Load messages on mount and poll every 3 seconds
+  useEffect(() => {
+    loadMessages();
+    const interval = setInterval(loadMessages, 3000);
+    return () => clearInterval(interval);
+  }, [loadMessages]);
   
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  // Send message
-  const sendMessage = useCallback(() => {
+  // Send message to server API
+  const sendMessage = useCallback(async () => {
     if (!address || !inputValue.trim()) return;
     
     const isEmote = inputValue.startsWith('/me ');
     const messageText = isEmote ? inputValue.slice(4) : inputValue;
     
-    // Use crypto.randomUUID if available for robust ID generation
-    const messageId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? `msg-${crypto.randomUUID()}`
-      : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-    
-    const newMessage: ChatMessage = {
-      id: messageId,
-      sender: displayName || truncateAddress(address),
-      senderAddress: address,
-      message: messageText.trim(),
-      timestamp: Date.now(),
-      type: isEmote ? 'emote' : 'chat',
-    };
-    
-    saveChatMessage(newMessage);
-    setMessages(prev => [...prev, newMessage]);
-    setInputValue('');
-  }, [address, inputValue, displayName]);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderAddress: address,
+          message: messageText.trim(),
+          messageType: isEmote ? 'emote' : 'chat',
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Also update presence with last message for chat bubble
+        await fetch('/api/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            lastMessage: messageText.trim().slice(0, MAX_LAST_MESSAGE_LENGTH),
+          }),
+        });
+        
+        setInputValue('');
+        loadMessages(); // Refresh messages
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Fallback to localStorage
+      const messageId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `msg-${crypto.randomUUID()}`
+        : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      
+      const newMessage: ChatMessage = {
+        id: messageId,
+        sender: displayName || truncateAddress(address),
+        senderAddress: address,
+        message: messageText.trim(),
+        timestamp: Date.now(),
+        type: isEmote ? 'emote' : 'chat',
+      };
+      
+      saveChatMessage(newMessage);
+      setMessages(prev => [...prev, newMessage]);
+      setInputValue('');
+    }
+  }, [address, inputValue, displayName, loadMessages]);
   
   // Handle key press - use onKeyDown to prevent form submission issues
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -609,31 +693,139 @@ function VoiceChat({
   const [isInCall, setIsInCall] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isDeafened, setIsDeafened] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Array<{ address: string; isMuted: boolean; isSpeaking: boolean }>>([]);
   
-  // Simulate joining/leaving voice chat
-  const handleJoinCall = useCallback(() => {
-    if (!address) return;
-    setIsInCall(true);
-    setIsMuted(true);
-    // Add current user as participant
-    setParticipants([{ address, isMuted: true, isSpeaking: false }]);
+  // Load participants from server
+  const loadParticipants = useCallback(async () => {
+    try {
+      const response = await fetch('/api/voice');
+      const data = await response.json();
+      if (data.success && data.participants) {
+        const transformedParticipants = data.participants.map((p: ApiVoiceParticipant) => ({
+          address: p.wallet_address,
+          isMuted: p.is_muted === 1,
+          isSpeaking: false, // WebRTC speaking detection would be needed for this
+        }));
+        setParticipants(transformedParticipants);
+        
+        // Check if current user is in the call
+        if (address && data.participants.some((p: ApiVoiceParticipant) => p.wallet_address.toLowerCase() === address.toLowerCase())) {
+          setIsInCall(true);
+          if (data.session) {
+            setSessionId(data.session.session_id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load voice participants:', error);
+    }
   }, [address]);
   
-  const handleLeaveCall = useCallback(() => {
+  // Poll for participants updates
+  useEffect(() => {
+    if (isInCall) {
+      loadParticipants();
+      const interval = setInterval(loadParticipants, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isInCall, loadParticipants]);
+  
+  // Join voice call via server API
+  const handleJoinCall = useCallback(async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          action: 'join',
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setIsInCall(true);
+        setIsMuted(true);
+        if (data.session) {
+          setSessionId(data.session.session_id);
+        }
+        loadParticipants();
+      }
+    } catch (error) {
+      console.error('Failed to join voice:', error);
+      // Fallback to local state
+      setIsInCall(true);
+      setIsMuted(true);
+      setParticipants([{ address, isMuted: true, isSpeaking: false }]);
+    }
+  }, [address, loadParticipants]);
+  
+  // Leave voice call via server API
+  const handleLeaveCall = useCallback(async () => {
+    if (!address) {
+      // If no address, just clean up local state
+      setIsInCall(false);
+      setParticipants([]);
+      setIsMuted(true);
+      setIsDeafened(false);
+      setSessionId(null);
+      return;
+    }
+    
+    // Try to leave via API if we have a sessionId
+    if (sessionId) {
+      try {
+        await fetch('/api/voice', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            sessionId,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to leave voice:', error);
+      }
+    }
+    
+    // Always clean up local state
     setIsInCall(false);
     setParticipants([]);
     setIsMuted(true);
     setIsDeafened(false);
-  }, []);
+    setSessionId(null);
+  }, [address, sessionId]);
   
-  const toggleMute = useCallback(() => {
-    setIsMuted(prev => !prev);
-    // Update participant status
+  // Toggle mute via server API
+  const toggleMute = useCallback(async () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    if (sessionId && address) {
+      try {
+        await fetch('/api/voice', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            sessionId,
+            isMuted: newMutedState,
+          }),
+        });
+        loadParticipants();
+      } catch (error) {
+        console.error('Failed to update mute status:', error);
+      }
+    }
+    
+    // Update local participant status
     setParticipants(prev => prev.map(p => 
-      p.address === address ? { ...p, isMuted: !isMuted } : p
+      p.address.toLowerCase() === address?.toLowerCase() ? { ...p, isMuted: newMutedState } : p
     ));
-  }, [address, isMuted]);
+  }, [address, isMuted, sessionId, loadParticipants]);
   
   const toggleDeafen = useCallback(() => {
     setIsDeafened(prev => !prev);

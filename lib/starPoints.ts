@@ -478,6 +478,8 @@ export interface OnlineUser {
   starVariant?: string;
   lastSeen: number;
   status: 'online' | 'away' | 'busy';
+  lastMessage?: string;
+  lastMessageAt?: number;
 }
 
 /**

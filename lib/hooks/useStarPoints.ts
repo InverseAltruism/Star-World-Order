@@ -108,10 +108,31 @@ export function useStarPoints(): UseStarPointsResult {
     }
   }, [address]);
   
-  // Load online users
-  const loadOnlineUsers = useCallback(() => {
-    const users = getOnlineUsers();
-    setOnlineUsers(users);
+  // Load online users from server API
+  const loadOnlineUsers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/presence');
+      const data = await response.json();
+      if (data.success && data.users) {
+        // Transform server data to OnlineUser format
+        const transformedUsers = data.users.map((presence: ApiPresenceUser) => ({
+          address: presence.wallet_address,
+          displayName: presence.display_name || undefined,
+          nftTokenId: presence.nft_token_id || undefined,
+          starVariant: presence.star_variant || undefined,
+          lastSeen: new Date(presence.last_seen).getTime(),
+          status: presence.status,
+          lastMessage: presence.last_message || undefined,
+          lastMessageAt: presence.last_message_at ? new Date(presence.last_message_at).getTime() : undefined,
+        }));
+        setOnlineUsers(transformedUsers);
+      }
+    } catch (error) {
+      console.error('Failed to load online users:', error);
+      // Fallback to localStorage as backup
+      const users = getOnlineUsers();
+      setOnlineUsers(users);
+    }
   }, []);
   
   // Update time until next STAR
@@ -141,29 +162,58 @@ export function useStarPoints(): UseStarPointsResult {
     loadOnlineUsers();
   }, [loadBalance, loadOnlineUsers]);
   
-  // Update online presence periodically
+  // Poll for online users updates every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(loadOnlineUsers, 10000);
+    return () => clearInterval(interval);
+  }, [loadOnlineUsers]);
+  
+  // Update online presence periodically using server API
   useEffect(() => {
     if (!address || !isConnected) return;
     
     // Get the first star skrumpey for avatar
     const firstStar = starSkrumpeys[0];
     
-    const updatePresenceInterval = () => {
-      updateOnlinePresence(address, {
-        nftTokenId: firstStar?.tokenId,
-        starVariant: firstStar?.starVariant,
-        status: 'online',
-      });
-      loadOnlineUsers();
+    const updatePresenceOnServer = async () => {
+      try {
+        await fetch('/api/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress: address,
+            nftTokenId: firstStar?.tokenId,
+            starVariant: firstStar?.starVariant,
+            status: 'online',
+          }),
+        });
+        loadOnlineUsers();
+      } catch (error) {
+        console.error('Failed to update presence:', error);
+        // Fallback to localStorage
+        updateOnlinePresence(address, {
+          nftTokenId: firstStar?.tokenId,
+          starVariant: firstStar?.starVariant,
+          status: 'online',
+        });
+      }
     };
     
-    updatePresenceInterval();
-    const interval = setInterval(updatePresenceInterval, 60000); // Update every minute
+    updatePresenceOnServer();
+    const interval = setInterval(updatePresenceOnServer, 30000); // Update every 30 seconds
     
     return () => {
       clearInterval(interval);
       if (address) {
-        removeOnlinePresence(address);
+        // Remove presence on disconnect
+        fetch('/api/presence', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ walletAddress: address }),
+        }).catch(() => {
+          // Fallback to localStorage
+          removeOnlinePresence(address);
+        });
       }
     };
   }, [address, isConnected, starSkrumpeys, loadOnlineUsers]);
@@ -234,17 +284,32 @@ export function useStarPoints(): UseStarPointsResult {
     return result;
   }, [address, loadBalance]);
   
-  // Update online presence
-  const updatePresence = useCallback((status: 'online' | 'away' | 'busy') => {
+  // Update online presence using server API
+  const updatePresence = useCallback(async (status: 'online' | 'away' | 'busy') => {
     if (!address) return;
     
     const firstStar = starSkrumpeys[0];
-    updateOnlinePresence(address, {
-      nftTokenId: firstStar?.tokenId,
-      starVariant: firstStar?.starVariant,
-      status,
-    });
-    loadOnlineUsers();
+    try {
+      await fetch('/api/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          nftTokenId: firstStar?.tokenId,
+          starVariant: firstStar?.starVariant,
+          status,
+        }),
+      });
+      loadOnlineUsers();
+    } catch (error) {
+      console.error('Failed to update presence:', error);
+      // Fallback to localStorage
+      updateOnlinePresence(address, {
+        nftTokenId: firstStar?.tokenId,
+        starVariant: firstStar?.starVariant,
+        status,
+      });
+    }
   }, [address, starSkrumpeys, loadOnlineUsers]);
   
   // Refresh all data
@@ -293,3 +358,15 @@ export function useStarPoints(): UseStarPointsResult {
 // Re-export types
 export type { StarBalance, StakedNFT, StarTransaction, OnlineUser };
 export { formatStarAmount, STAR_PER_NFT_PER_DAY };
+
+// API response types
+interface ApiPresenceUser {
+  wallet_address: string;
+  display_name: string | null;
+  nft_token_id: number | null;
+  star_variant: string | null;
+  status: 'online' | 'away' | 'busy';
+  last_message: string | null;
+  last_message_at: string | null;
+  last_seen: string;
+}
