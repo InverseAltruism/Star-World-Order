@@ -177,8 +177,54 @@ export default function LoadingScreen() {
       {/* CRT scanlines overlay */}
       <div className="swo-scanlines" />
       
+      {/* ===== COZY ROOM AMBIANCE ELEMENTS ===== */}
+      <div className={`swo-cozy-ambient ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
+        {/* Window with moonlight */}
+        <div className="swo-window">
+          <div className="swo-window-frame" />
+          <div className="swo-moonlight" />
+        </div>
+        
+        {/* Wall poster */}
+        <div className="swo-wall-poster">
+          <span className="swo-poster-emoji">⭐</span>
+          <span className="swo-poster-text">SWO</span>
+        </div>
+        
+        {/* Floating dust particles in the light */}
+        <div className="swo-dust-particles">
+          <span className="swo-dust" style={{ left: '15%', animationDelay: '0s' }} />
+          <span className="swo-dust" style={{ left: '25%', animationDelay: '2s' }} />
+          <span className="swo-dust" style={{ left: '35%', animationDelay: '1s' }} />
+          <span className="swo-dust" style={{ left: '45%', animationDelay: '3s' }} />
+          <span className="swo-dust" style={{ left: '55%', animationDelay: '0.5s' }} />
+          <span className="swo-dust" style={{ left: '65%', animationDelay: '2.5s' }} />
+          <span className="swo-dust" style={{ left: '75%', animationDelay: '1.5s' }} />
+          <span className="swo-dust" style={{ left: '85%', animationDelay: '3.5s' }} />
+        </div>
+      </div>
+      
       {/* ===== COZY GAMING DESK SETUP ===== */}
       <div className={`swo-gaming-setup ${isZoomingOrBeyond ? 'swo-setup-zooming' : ''}`}>
+        {/* Desk lamp with warm glow - left side */}
+        <div className={`swo-desk-lamp ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
+          <div className="swo-lamp-shade" />
+          <div className="swo-lamp-arm" />
+          <div className="swo-lamp-base" />
+          <div className="swo-lamp-glow" />
+        </div>
+        
+        {/* Small potted plant decoration - right side */}
+        <div className={`swo-plant ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
+          <span className="swo-plant-emoji">🪴</span>
+        </div>
+        
+        {/* Snacks and drink on desk */}
+        <div className={`swo-snacks ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
+          <span className="swo-snack swo-drink">🥤</span>
+          <span className="swo-snack swo-chips">🍿</span>
+        </div>
+        
         <div className={`swo-rug ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true" />
         
         {/* Main scene container that zooms into the TV screen */}

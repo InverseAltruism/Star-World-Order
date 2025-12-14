@@ -253,8 +253,14 @@ function BrowseTab({
               >
                 {/* NFT Info */}
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 bg-[#1a1a2e] rounded-lg flex items-center justify-center border border-[#2a2a4e]">
-                    <span className="text-2xl animate-pixel-float">🐸⭐</span>
+                  {/* NFT Image Card */}
+                  <div className="nft-image-card w-20 h-20 relative">
+                    <div className="nft-image-bg" data-variant={listing.starVariant || 'default'}>
+                      <span className="nft-frog-emoji">🐸</span>
+                      <span className="nft-star-badge">⭐</span>
+                    </div>
+                    <div className="nft-image-shine" />
+                    <span className="nft-token-id">#{listing.tokenId}</span>
                   </div>
                   <div className="flex-1">
                     <h4 className="text-gray-200 text-[10px] font-bold mb-1">
@@ -481,7 +487,12 @@ function CreateListingTab({
                         : 'bg-[#1a1a2e] border-[#2a2a4e] hover:border-[#9966ff]'
                     }`}
                   >
-                    <div className="text-xl mb-1 animate-pixel-float">🐸⭐</div>
+                    <div className="nft-image-card-sm mx-auto mb-2">
+                      <div className="nft-image-bg" data-variant={token.starVariant || 'default'}>
+                        <span className="nft-frog-emoji">🐸</span>
+                        <span className="nft-star-badge">⭐</span>
+                      </div>
+                    </div>
                     <p className="text-gray-200 text-xs">#{token.tokenId}</p>
                     {token.starVariant && (
                       <p className="text-[#9966ff] text-[10px] uppercase">{token.starVariant}</p>
@@ -616,8 +627,12 @@ function MyListingsTab({
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#1a1a2e] rounded-lg flex items-center justify-center border border-[#2a2a4e]">
-                    <span className="text-xl animate-pixel-float">🐸⭐</span>
+                  {/* NFT Image Card */}
+                  <div className="nft-image-card-sm">
+                    <div className="nft-image-bg" data-variant={listing.starVariant || 'default'}>
+                      <span className="nft-frog-emoji">🐸</span>
+                      <span className="nft-star-badge">⭐</span>
+                    </div>
                   </div>
                   <div>
                     <h4 className="text-gray-200 text-[10px] font-bold">
