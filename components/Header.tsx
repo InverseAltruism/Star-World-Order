@@ -2,8 +2,12 @@
 
 import Link from 'next/link';
 import WalletConnect from './WalletConnect';
+import DemoMode from './DemoMode';
+import { isProdMode } from '@/lib/config';
 
 export default function Header() {
+  const isProduction = isProdMode();
+
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">
       {/* Top pixel border */}
@@ -27,23 +31,35 @@ export default function Header() {
 
         {/* Navigation */}
         <nav className="flex items-center gap-3 md:gap-5">
-          <Link 
-            href="/dao" 
-            className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
-            style={{ 
-              transition: 'color 0.3s ease',
-              willChange: 'color'
-            }}
-          >
-            DAO
-            <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
+          {isProduction ? (
+            <div className="flex flex-col items-center">
+              <span className="text-xs">🔒</span>
+              <span 
+                className="text-[14px] text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                title="Locked in production"
+              >
+                DAO
+              </span>
+            </div>
+          ) : (
+            <Link 
+              href="/dao" 
+              className="text-[14px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group"
               style={{ 
-                transition: 'width 0.3s ease',
-                willChange: 'width'
+                transition: 'color 0.3s ease',
+                willChange: 'color'
               }}
-            />
-          </Link>
+            >
+              DAO
+              <span 
+                className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
+                style={{ 
+                  transition: 'width 0.3s ease',
+                  willChange: 'width'
+                }}
+              />
+            </Link>
+          )}
           <Link 
             href="/hangout" 
             className="text-[14px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group"
@@ -78,23 +94,36 @@ export default function Header() {
               }}
             />
           </Link>
-          <Link 
-            href="/marketplace" 
-            className="text-[14px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
-            style={{ 
-              transition: 'color 0.3s ease',
-              willChange: 'color'
-            }}
-          >
-            Exchange
-            <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
+          {isProduction ? (
+            <div className="hidden md:flex flex-col items-center">
+              <span className="text-xs">🔒</span>
+              <span 
+                className="text-[14px] text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                title="Locked in production"
+              >
+                Exchange
+              </span>
+            </div>
+          ) : (
+            <Link 
+              href="/marketplace" 
+              className="text-[14px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group"
               style={{ 
-                transition: 'width 0.3s ease',
-                willChange: 'width'
+                transition: 'color 0.3s ease',
+                willChange: 'color'
               }}
-            />
-          </Link>
+            >
+              Exchange
+              <span 
+                className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
+                style={{ 
+                  transition: 'width 0.3s ease',
+                  willChange: 'width'
+                }}
+              />
+            </Link>
+          )}
+          <DemoMode />
           <WalletConnect />
         </nav>
       </div>

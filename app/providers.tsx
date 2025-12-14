@@ -6,6 +6,7 @@ import { config } from '@/lib/wagmi';
 import { useState } from 'react';
 import LoadingScreen from '@/components/LoadingScreen';
 import { DAOAccessProvider } from '@/lib/contexts/DAOAccessContext';
+import { DemoModeProvider } from '@/lib/contexts/DemoModeContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -13,10 +14,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <DAOAccessProvider>
-          <LoadingScreen />
-          {children}
-        </DAOAccessProvider>
+        <DemoModeProvider>
+          <DAOAccessProvider>
+            <LoadingScreen />
+            {children}
+          </DAOAccessProvider>
+        </DemoModeProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
