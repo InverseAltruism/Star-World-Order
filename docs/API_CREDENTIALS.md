@@ -1,31 +1,28 @@
 # 🔐 API Configuration & Credentials
 
-This document contains the necessary API credentials and configuration for the Star World Order application. These credentials are used for social authentication features.
+This document explains how to configure API credentials for the Star World Order application. These credentials are used for social authentication features.
 
-> **⚠️ IMPORTANT**: This repository will be made private. Never commit credentials to a public repository.
+> **⚠️ SECURITY WARNING**: Never commit real API credentials to version control. All credentials must be stored in `.env.local` which is excluded by `.gitignore`.
 
 ## X (Twitter) OAuth 2.0 Configuration
 
-The following credentials are used for Twitter/X login functionality:
+To enable Twitter/X login functionality, you need to create an app in the [Twitter Developer Portal](https://developer.twitter.com/) and configure OAuth 2.0 credentials.
 
-| Key | Value |
-|-----|-------|
-| **API Key** | `eLdLZ9zXTlEHZWwujsUgMVudv` |
-| **API Key Secret** | `UNLMXmJwQEApO51UswW2jXVaCLUkP5GHBNoNUAmWYKkwoCZp8M` |
-| **Bearer Token** | `AAAAAAAAAAAAAAAAAAAAAIC62QEAAAAARwTKZyBxNmTKen1cM778zfg1Isc%3DJ9AmCvHMFmCVPwA7tY8L7nueZXcjlZEgVXvI9T8Mgs37p8UQPC` |
-| **Access Token** | `1688691125811302400-UcYyak7TMHk7bm8O7NnQZKzZlogEpt` |
-| **Access Token Secret** | `6ytZ9xH807RATqaHsVI8p1SxUkniEEK0XZXBpu00aJGno` |
-| **Client ID** | `TmlJTUdKVHNkTzJwR2wtVG1XS1o6MTpjaQ` |
-| **Client Secret** | `rpozGS5-cLYeqHlBsXLh8Z6r2smjewG0Tsm023C3DEzk1GRQxQ` |
+### Getting Your Credentials
+
+1. Visit the [Twitter Developer Portal](https://developer.twitter.com/)
+2. Create a new app or select an existing one
+3. Navigate to your app settings
+4. Find your OAuth 2.0 credentials
 
 ### Environment Variables Setup
 
-Add these to your `.env.local` file:
+Add these to your `.env.local` file with your actual credentials:
 
 ```bash
 # X (Twitter) OAuth 2.0 Configuration
-NEXT_PUBLIC_X_CLIENT_ID=TmlJTUdKVHNkTzJwR2wtVG1XS1o6MTpjaQ
-X_CLIENT_SECRET=rpozGS5-cLYeqHlBsXLh8Z6r2smjewG0Tsm023C3DEzk1GRQxQ
+NEXT_PUBLIC_X_CLIENT_ID=<YOUR-X-CLIENT-ID>
+X_CLIENT_SECRET=<YOUR-X-CLIENT-SECRET>
 NEXT_PUBLIC_X_REDIRECT_URI=http://localhost:3000/api/auth/callback/x
 ```
 
