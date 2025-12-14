@@ -179,18 +179,6 @@ export default function LoadingScreen() {
       
       {/* ===== COZY ROOM AMBIANCE ELEMENTS ===== */}
       <div className={`swo-cozy-ambient ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
-        {/* Window with moonlight */}
-        <div className="swo-window">
-          <div className="swo-window-frame" />
-          <div className="swo-moonlight" />
-        </div>
-        
-        {/* Wall poster */}
-        <div className="swo-wall-poster">
-          <span className="swo-poster-emoji">⭐</span>
-          <span className="swo-poster-text">SWO</span>
-        </div>
-        
         {/* Floating dust particles in the light */}
         <div className="swo-dust-particles">
           <span className="swo-dust" style={{ left: '15%', animationDelay: '0s' }} />
@@ -206,23 +194,9 @@ export default function LoadingScreen() {
       
       {/* ===== COZY GAMING DESK SETUP ===== */}
       <div className={`swo-gaming-setup ${isZoomingOrBeyond ? 'swo-setup-zooming' : ''}`}>
-        {/* Desk lamp with warm glow - left side */}
-        <div className={`swo-desk-lamp ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
-          <div className="swo-lamp-shade" />
-          <div className="swo-lamp-arm" />
-          <div className="swo-lamp-base" />
-          <div className="swo-lamp-glow" />
-        </div>
-        
         {/* Small potted plant decoration - right side */}
         <div className={`swo-plant ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
           <span className="swo-plant-emoji">🪴</span>
-        </div>
-        
-        {/* Snacks and drink on desk */}
-        <div className={`swo-snacks ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
-          <span className="swo-snack swo-drink">🥤</span>
-          <span className="swo-snack swo-chips">🍿</span>
         </div>
         
         <div className={`swo-rug ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true" />
@@ -369,13 +343,6 @@ export default function LoadingScreen() {
         <div className={`swo-desk ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`}>
           <div className="swo-desk-top" />
           <div className="swo-desk-front" />
-        </div>
-        <div className={`swo-controller ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
-          <div className="swo-controller-stick" />
-          <div className="swo-controller-buttons">
-            <span className="swo-btn primary" />
-            <span className="swo-btn secondary" />
-          </div>
         </div>
       </div>
       
