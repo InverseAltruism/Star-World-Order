@@ -53,7 +53,8 @@ function parseTokenURI(tokenURI: string): NFTMetadata | null {
     // Handle base64 encoded data URI
     if (tokenURI.startsWith('data:application/json;base64,')) {
       const base64Data = tokenURI.replace('data:application/json;base64,', '');
-      const jsonStr = atob(base64Data);
+      // Use Buffer.from for Node.js compatibility (atob is browser-only)
+      const jsonStr = Buffer.from(base64Data, 'base64').toString('utf8');
       return JSON.parse(jsonStr);
     }
     
@@ -90,8 +91,10 @@ function extractConstellationVariant(metadata: NFTMetadata): StarTraitVariant | 
     
     if (traitType === 'constellation' || traitType === 'star') {
       // Check if the value matches any known star variant
+      // Both traitValue and variant are lowercase for case-insensitive matching
       for (const variant of STAR_TRAIT_VARIANTS) {
-        if (traitValue.includes(variant.toLowerCase())) {
+        const variantLower = variant.toLowerCase();
+        if (traitValue.includes(variantLower)) {
           return variant;
         }
       }
