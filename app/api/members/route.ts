@@ -11,8 +11,8 @@ import { NextResponse } from 'next/server';
 import { 
   STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
-  getStarVariantForTokenId,
 } from '@/lib/starSkrumpey';
+import { batchFetchStarVariants } from '@/lib/starVariantCache';
 import { getUserProfilesBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
@@ -141,6 +141,18 @@ export async function GET() {
     const allAddresses = Array.from(holderMap.keys());
     const profilesMap = getUserProfilesBatch(allAddresses);
     
+    // Collect all unique token IDs for batch variant fetching
+    const allTokenIds = Array.from(new Set(
+      Array.from(holderMap.values()).flat()
+    ));
+    
+    // Batch fetch star variants for all tokens
+    // Uses actual on-chain metadata with fallback to deterministic mapping
+    logger.info('Fetching star variants for all tokens', {
+      totalTokens: allTokenIds.length,
+    });
+    const variantMap = await batchFetchStarVariants(allTokenIds, true);
+    
     // Transform to member data with enriched profile info
     const members: MemberData[] = [];
     
@@ -148,9 +160,9 @@ export async function GET() {
       // Get user profile from the batch lookup
       const profile = profilesMap.get(address.toLowerCase());
       
-      // Get star variants for each token
+      // Get star variants for each token from the fetched map
       const starVariants = tokenIds
-        .map(id => getStarVariantForTokenId(id))
+        .map(id => variantMap.get(id))
         .filter((v): v is NonNullable<typeof v> => v !== undefined);
       
       // Calculate level based on holdings

@@ -76,8 +76,15 @@ export function isStarSkrumpeyId(tokenId: number): boolean {
 }
 
 /**
- * Get the star constellation variant for a token ID
- * Uses a deterministic mapping based on token ID
+ * Get the star constellation variant for a token ID (LEGACY - Deterministic)
+ * 
+ * NOTE: This function uses a deterministic mapping and does NOT fetch actual metadata.
+ * For real constellation data, use getStarVariantWithMetadata() from starVariantCache.ts
+ * 
+ * This is kept for backward compatibility and as a fallback when metadata
+ * cannot be fetched from the blockchain.
+ * 
+ * @deprecated Use getStarVariantWithMetadata() from starVariantCache.ts for real data
  */
 export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | undefined {
   if (!isStarSkrumpeyId(tokenId)) {
@@ -86,6 +93,7 @@ export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | un
   
   // Use token ID to deterministically assign a variant
   // This ensures the same token always gets the same variant
+  // WARNING: This is NOT the actual constellation variant from metadata
   const index = tokenId % STAR_TRAIT_VARIANTS.length;
   return STAR_TRAIT_VARIANTS[index];
 }
