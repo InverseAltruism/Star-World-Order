@@ -419,6 +419,29 @@ Star Skrumpeys can have one of the following constellation variants:
 
 **Implementation**: See `lib/starSkrumpey.ts` - `STAR_TRAIT_VARIANTS` array
 
+### Fetching Real Variant Data
+
+As of December 2024, the application fetches **actual constellation variants** from blockchain metadata instead of using deterministic mapping.
+
+**How it works:**
+1. Calls `tokenURI(tokenId)` on Skrumpey contract
+2. Parses base64-encoded JSON metadata
+3. Extracts "Constellation" trait from attributes
+4. Caches result in memory to avoid repeated RPC calls
+5. Falls back to deterministic mapping if fetching fails
+
+**Key modules:**
+- `lib/starVariantCache.ts` - Metadata fetching and caching
+- `app/api/members/route.ts` - Uses batch fetching for all members
+- `app/api/members/cache-stats/route.ts` - Cache diagnostics endpoint
+
+**Performance:**
+- First load: 2-5 seconds (batch fetch via multicall)
+- Subsequent loads: Instant (cached in memory)
+- Only 1 RPC call for all 343 Star Skrumpeys
+
+**Documentation**: See `docs/STAR_VARIANT_METADATA.md` for complete guide
+
 ---
 
 ## Database Schema (SQLite)
@@ -563,6 +586,8 @@ CREATE INDEX idx_profiles_wallet ON user_profiles(wallet_address);
 | `/api/social-connections` | GET | Get social connections for wallet |
 | `/api/auth/x` | GET | X (Twitter) OAuth initiation |
 | `/api/auth/callback/x` | GET | X OAuth callback handler |
+| `/api/members` | GET | Get all Star Skrumpey holders with real constellation variants |
+| `/api/members/cache-stats` | GET | Get star variant metadata cache statistics |
 
 **Base URL**: `https://starworldorder.com` (production)
 
@@ -646,7 +671,8 @@ try {
 | File | Purpose |
 |------|---------|
 | `lib/config.ts` | Environment mode detection (dev/prod) |
-| `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks |
+| `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks (legacy) |
+| `lib/starVariantCache.ts` | **NEW** - Fetch real constellation variants from blockchain metadata |
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
 | `lib/db.ts` | SQLite database operations and queries |
@@ -661,6 +687,10 @@ try {
 | `app/exchange/page.tsx` | OTC marketplace page |
 | `app/staking/page.tsx` | NFT staking page |
 | `app/hangout/page.tsx` | Hangout Hub lobby |
+| `app/members/page.tsx` | **NEW** - Members directory with real constellation data |
+| `app/api/members/route.ts` | **UPDATED** - Members API with real metadata fetching |
+| `app/api/members/cache-stats/route.ts` | **NEW** - Cache statistics endpoint |
+| `docs/STAR_VARIANT_METADATA.md` | **NEW** - Complete guide for star variant metadata |
 
 ---
 
