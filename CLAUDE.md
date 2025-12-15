@@ -179,9 +179,9 @@ https://monad-mainnet-rpc.spidernode.net
 | Contract | Address | Status |
 |----------|---------|--------|
 | **Skrumpeys NFT** | `0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0` | ✅ Live on Mainnet |
-| **StarSkrumpeyMarketplace** | TBD | Pending Deployment |
-| **StarSkrumpeyStaking** | TBD | Pending Deployment |
-| **StarWorldOrderGovernor** | TBD | Pending Deployment |
+| **StarSkrumpeyMarketplace** | Not Yet Deployed | Pending Deployment |
+| **StarSkrumpeyStaking** | Not Yet Deployed | Pending Deployment |
+| **StarWorldOrderGovernor** | Not Yet Deployed | Pending Deployment |
 | **Multicall3** | `0xcA11bde05977b3631167028862bE2a173976CA11` | ✅ Live on Mainnet |
 
 ### Skrumpeys NFT Contract
@@ -956,7 +956,7 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 2024
+**Last Updated**: December 15, 2024
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 

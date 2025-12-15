@@ -26,7 +26,7 @@ These 343 pixel art creatures are your key to the cosmic realm. No Star? The ord
 
 To enter the Star World Order, you need:
 
-**A Skrumpey NFT with the Star constellation trait** (343 exist)
+- **A Skrumpey NFT with the Star constellation trait** (343 exist)
 
 Regular Skrumpey holders cannot access DAO features. The Star trait is your cosmic key.
 
@@ -138,7 +138,7 @@ This project is licensed under the ISC License.
 ║                                                              ║
 ║   ✦ 𓆩 STAR WORLD ORDER 𓆪 ✦                                   ║
 ║                                                              ║
-║   chosen by the stars • the order is forming                 ║
+║   chosen by the stars • the order is forming • @skrumpeys    ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
