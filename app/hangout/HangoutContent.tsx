@@ -1264,11 +1264,11 @@ export default function HangoutContent() {
   return (
     <>
       {/* Page Header */}
-      <div className="text-center mb-8 animate-slide-in-up">
-        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+      <div className="text-center mb-8 animate-slide-in-up px-4">
+        <h1 className="text-base sm:text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2 whitespace-nowrap">
           HANGOUT HUB
         </h1>
-        <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
+        <p className="text-xs sm:text-sm text-[#9966ff] tracking-wide animate-glow-pulse">
           Meet fellow Star bearers
         </p>
       </div>

@@ -64,14 +64,14 @@ export default function DemoMode({ className }: DemoModeProps) {
 
   if (isDemoMode) {
     return (
-      <div className="flex items-center gap-2">
-        <div className="text-xs text-[#ffd700] bg-[#1a1a2e] px-3 py-2 border-2 border-[#ffd700] flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-center gap-2">
+        <div className="text-[10px] sm:text-xs text-[#ffd700] bg-[#1a1a2e] px-2 sm:px-3 py-1 sm:py-2 border-2 border-[#ffd700] flex items-center gap-2 whitespace-nowrap">
           <span className="w-2 h-2 rounded-full bg-[#ffd700] animate-pulse" />
           DEMO MODE
         </div>
         <button
           onClick={handleExitDemoMode}
-          className="pixel-btn text-xs !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+          className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-1 sm:!py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] whitespace-nowrap"
         >
           EXIT DEMO
         </button>
@@ -90,10 +90,10 @@ export default function DemoMode({ className }: DemoModeProps) {
 
       {/* Demo Mode Modal - Rendered via Portal */}
       {typeof document !== 'undefined' && showModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">
           <div
             ref={modalRef}
-            className="pixel-card p-6 max-w-md w-full mx-4 animate-slide-in-up relative"
+            className="pixel-card p-4 sm:p-6 max-w-md w-full animate-slide-in-up relative max-h-[90vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="mb-6 text-center">

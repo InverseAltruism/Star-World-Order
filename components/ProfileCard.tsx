@@ -360,8 +360,8 @@ export default function ProfileCard() {
   return (
     <div className="space-y-6">
       {/* Player Stats Box with Profile Picture */}
-      <div className="pixel-card p-6 animate-slide-in-up">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
+        <div className="flex items-center gap-3 sm:gap-4 mb-4">
           {/* Avatar - Use first Star Skrumpey as profile picture */}
           <div className="relative">
             {starSkrumpeys.length > 0 ? (
@@ -374,15 +374,15 @@ export default function ProfileCard() {
           </div>
           
           {/* Player Info */}
-          <div className="flex-1">
-            <p className="text-[#ffd700] text-lg tracking-wide mb-1">
+          <div className="flex-1 min-w-0">
+            <p className="text-[#ffd700] text-base sm:text-lg tracking-wide mb-1 truncate">
               {displayName || 'Star Bearer'}
             </p>
-            <p className="text-gray-400 text-xs font-mono break-all">
+            <p className="text-gray-400 text-[10px] sm:text-xs font-mono truncate">
               {address?.slice(0, 10)}...{address?.slice(-8)}
             </p>
             {starSkrumpeys.length > 0 && (
-              <p className="text-[#9966ff] text-xs mt-1">
+              <p className="text-[#9966ff] text-[10px] sm:text-xs mt-1 truncate">
                 {starSkrumpeys.length} Star Skrumpey{starSkrumpeys.length !== 1 ? 's' : ''}
               </p>
             )}
@@ -390,18 +390,18 @@ export default function ProfileCard() {
         </div>
         
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-4">
+        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-3 sm:pt-4">
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#ffd700] text-lg">{finalDisplaySkrumpeys.length}</p>
-            <p className="text-gray-500 text-xs tracking-wide">SKRUMPEYS</p>
+            <p className="text-[#ffd700] text-base sm:text-lg">{finalDisplaySkrumpeys.length}</p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">SKRUMPEYS</p>
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p className="text-[#ff00ff] text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
-            <p className="text-gray-500 text-xs tracking-wide">STAR TRAIT</p>
+            <p className="text-[#ff00ff] text-base sm:text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">STAR TRAIT</p>
           </div>
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#44ff88] text-lg">LVL 1</p>
-            <p className="text-gray-500 text-xs tracking-wide">RANK</p>
+            <p className="text-[#44ff88] text-base sm:text-lg">LVL 1</p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">RANK</p>
           </div>
         </div>
       </div>
@@ -537,20 +537,20 @@ export default function ProfileCard() {
       )}
 
       {/* NFT Collection */}
-      <div className="pixel-card p-6 animate-slide-in-up animate-delay-5">
-        <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
+      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up animate-delay-5">
+        <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
           YOUR COLLECTION
         </h3>
-        <p className="text-gray-500 text-[8px] text-center mb-4">
+        <p className="text-gray-500 text-[8px] text-center mb-3 sm:mb-4">
           Click on a Skrumpey to inspect
         </p>
         
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
           {finalDisplaySkrumpeys.map((nft, index) => (
             <div 
               key={nft.id}
               onClick={() => setSelectedSkrumpey(nft)}
-              className={`relative p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} ${
+              className={`relative p-3 sm:p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} min-h-[44px] ${
                 nft.hasStar 
                   ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
                   : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
@@ -558,7 +558,7 @@ export default function ProfileCard() {
             >
               {/* Star badge */}
               {nft.hasStar && (
-                <div className="absolute -top-2 -right-2 text-xl animate-pixel-pulse animate-star-rotate z-10">
+                <div className="absolute -top-2 -right-2 text-lg sm:text-xl animate-pixel-pulse animate-star-rotate z-10">
                   ⭐
                 </div>
               )}
@@ -571,12 +571,12 @@ export default function ProfileCard() {
               />
               
               {/* NFT Info */}
-              <p className={`text-[10px] font-bold tracking-wide ${
+              <p className={`text-[9px] sm:text-[10px] font-bold tracking-wide truncate ${
                 nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
               }`}>
                 {nft.name}
               </p>
-              <p className="text-xs" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
+              <p className="text-[10px] sm:text-xs truncate" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
                 {nft.rarity}
               </p>
             </div>

@@ -102,6 +102,17 @@ body::before {
   body::before {
     display: none;
   }
+  
+  /* Reduce font size globally for mobile */
+  body {
+    font-size: 12px;
+  }
+  
+  /* Ensure minimum touch target size */
+  button, a, [role="button"], input[type="button"], input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Pixel art button style with neon glow and N64 gamified animations */
