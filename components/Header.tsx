@@ -160,76 +160,81 @@ export default function Header() {
             <WalletConnect />
           </div>
         </nav>
+      </div>
 
-        {/* Mobile Navigation Menu */}
-        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <nav className="flex flex-col items-center gap-6 p-8">
+      {/* Mobile Navigation Menu - Full screen overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-x-0 top-[61px] bottom-0 z-[100]"
+          style={{ backgroundColor: '#0d0d1a' }}
+        >
+          <nav className="flex flex-col items-center gap-6 p-8 h-full w-full">
             {isProduction ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
-                <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
-                  title="Locked in production"
-                >
-                  DAO
-                </span>
-              </div>
-            ) : (
-              <Link 
-                href="/dao" 
-                className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
-                onClick={() => setMobileMenuOpen(false)}
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-sm leading-none">🔒</span>
+              <span 
+                className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                title="Locked in production"
               >
                 DAO
-              </Link>
-            )}
+              </span>
+            </div>
+          ) : (
             <Link 
-              href="/members" 
-              className="text-sm text-gray-300 hover:text-[#00ffff] uppercase tracking-wider"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              MEMBERS
-            </Link>
-            <Link 
-              href="/hangout" 
-              className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              HANGOUT
-            </Link>
-            <Link 
-              href="/profile" 
+              href="/dao" 
               className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
               onClick={() => setMobileMenuOpen(false)}
             >
-              PROFILE
+              DAO
             </Link>
-            {isProduction ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
-                <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
-                  title="Locked in production"
-                >
-                  EXCHANGE
-                </span>
-              </div>
-            ) : (
-              <Link 
-                href="/marketplace" 
-                className="text-sm text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider"
-                onClick={() => setMobileMenuOpen(false)}
+          )}
+          <Link 
+            href="/members" 
+            className="text-sm text-gray-300 hover:text-[#00ffff] uppercase tracking-wider"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            MEMBERS
+          </Link>
+          <Link 
+            href="/hangout" 
+            className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            HANGOUT
+          </Link>
+          <Link 
+            href="/profile" 
+            className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            PROFILE
+          </Link>
+          {isProduction ? (
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-sm leading-none">🔒</span>
+              <span 
+                className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                title="Locked in production"
               >
                 EXCHANGE
-              </Link>
-            )}
-            <div className="flex flex-col items-center gap-4 pt-4 border-t-2 border-[#2a2a4e]">
-              <DemoMode />
-              <WalletConnect />
+              </span>
             </div>
-          </nav>
-        </div>
+          ) : (
+            <Link 
+              href="/marketplace" 
+              className="text-sm text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              EXCHANGE
+            </Link>
+          )}
+          <div className="flex flex-col items-center gap-4 pt-4 border-t-2 border-[#2a2a4e]">
+            <DemoMode />
+            <WalletConnect />
+          </div>
+        </nav>
       </div>
+      )}
       
       {/* Bottom pixel border */}
       <div className="h-[2px] bg-[#2a2a4e]" />
