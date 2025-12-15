@@ -194,11 +194,6 @@ export default function LoadingScreen() {
       
       {/* ===== COZY GAMING DESK SETUP ===== */}
       <div className={`swo-gaming-setup ${isZoomingOrBeyond ? 'swo-setup-zooming' : ''}`}>
-        {/* Small potted plant decoration - right side */}
-        <div className={`swo-plant ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true">
-          <span className="swo-plant-emoji">🪴</span>
-        </div>
-        
         <div className={`swo-rug ${isZoomingOrBeyond ? 'swo-element-hidden' : ''}`} aria-hidden="true" />
         
         {/* Main scene container that zooms into the TV screen */}

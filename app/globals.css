@@ -795,26 +795,6 @@ body::before {
   50% { opacity: 0.8; }
 }
 
-/* Small potted plant */
-.swo-plant {
-  position: absolute;
-  bottom: 42%;
-  right: 8%;
-  z-index: 6;
-}
-
-.swo-plant-emoji {
-  font-size: 32px;
-  display: block;
-  filter: drop-shadow(0 0 8px rgba(68, 255, 136, 0.3));
-  animation: swoPlantSway 5s ease-in-out infinite;
-}
-
-@keyframes swoPlantSway {
-  0%, 100% { transform: rotate(-2deg); }
-  50% { transform: rotate(2deg); }
-}
-
 /* Snacks and drink on desk */
 .swo-snacks {
   position: absolute;
@@ -1578,9 +1558,15 @@ body::before {
 }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
+  /* Reduce zoom scale to prevent cutoff on mobile */
   .swo-scene.zoomed {
-    transform: scale(var(--swo-zoom-scale-mobile)) translateY(var(--swo-zoom-translate-y-mobile));
+    transform: scale(2.8) translateY(12%);
+  }
+
+  /* Make entire gaming setup smaller on mobile to prevent overflow */
+  .swo-gaming-setup {
+    transform: scale(0.75);
   }
 
   .swo-tv-body {
@@ -1652,6 +1638,20 @@ body::before {
 
   .swo-instructions p {
     font-size: 8px;
+  }
+
+  /* Ensure title doesn't overflow on mobile */
+  .swo-loading-title {
+    font-size: 5px;
+    letter-spacing: 0.3px;
+  }
+
+  .swo-loading-subtitle {
+    font-size: 3px;
+  }
+
+  .swo-loading-bar {
+    width: 70px;
   }
 }
 

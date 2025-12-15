@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
 import { isProdMode } from '@/lib/config';
 
 export default function Header() {
   const isProduction = isProdMode();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">
@@ -29,8 +31,19 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-2 md:gap-4">
+        {/* Mobile Hamburger Button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden flex flex-col gap-1 p-2 z-50"
+          aria-label="Toggle mobile menu"
+        >
+          <span className={`block w-6 h-0.5 bg-[#ffd700] transition-all ${mobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`} />
+          <span className={`block w-6 h-0.5 bg-[#ffd700] transition-all ${mobileMenuOpen ? 'opacity-0' : ''}`} />
+          <span className={`block w-6 h-0.5 bg-[#ffd700] transition-all ${mobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`} />
+        </button>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-2 md:gap-4">
           {isProduction ? (
             <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
               <span className="text-[10px] leading-none">🔒</span>
@@ -130,6 +143,68 @@ export default function Header() {
             <WalletConnect />
           </div>
         </nav>
+
+        {/* Mobile Navigation Menu */}
+        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <nav className="flex flex-col items-center gap-6 p-8">
+            {isProduction ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm leading-none">🔒</span>
+                <span 
+                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  title="Locked in production"
+                >
+                  DAO
+                </span>
+              </div>
+            ) : (
+              <Link 
+                href="/dao" 
+                className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                DAO
+              </Link>
+            )}
+            <Link 
+              href="/hangout" 
+              className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              HANGOUT
+            </Link>
+            <Link 
+              href="/profile" 
+              className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              PROFILE
+            </Link>
+            {isProduction ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm leading-none">🔒</span>
+                <span 
+                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  title="Locked in production"
+                >
+                  EXCHANGE
+                </span>
+              </div>
+            ) : (
+              <Link 
+                href="/marketplace" 
+                className="text-sm text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                EXCHANGE
+              </Link>
+            )}
+            <div className="flex flex-col items-center gap-4 pt-4 border-t-2 border-[#2a2a4e]">
+              <DemoMode />
+              <WalletConnect />
+            </div>
+          </nav>
+        </div>
       </div>
       
       {/* Bottom pixel border */}
