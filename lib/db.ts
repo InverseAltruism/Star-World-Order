@@ -460,6 +460,29 @@ export function getUserProfile(walletAddress: string): UserProfile | null {
 }
 
 /**
+ * Get multiple user profiles by wallet addresses (batch lookup)
+ */
+export function getUserProfilesBatch(walletAddresses: string[]): Map<string, UserProfile> {
+  if (walletAddresses.length === 0) return new Map();
+  
+  const db = getDatabase();
+  const normalizedAddresses = walletAddresses.map(a => a.toLowerCase());
+  
+  // Use parameterized query with IN clause
+  const placeholders = normalizedAddresses.map(() => '?').join(',');
+  const stmt = db.prepare(`SELECT * FROM user_profiles WHERE wallet_address IN (${placeholders})`);
+  const profiles = stmt.all(...normalizedAddresses) as UserProfile[];
+  
+  // Convert to map for O(1) lookup
+  const profileMap = new Map<string, UserProfile>();
+  for (const profile of profiles) {
+    profileMap.set(profile.wallet_address.toLowerCase(), profile);
+  }
+  
+  return profileMap;
+}
+
+/**
  * Update or create user profile
  */
 export function updateUserProfile(

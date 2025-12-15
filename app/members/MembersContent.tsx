@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getSkrumpeyImageUrl, STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
+import { getSkrumpeyImageUrl, STAR_TRAIT_VARIANTS, StarTraitVariant, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
 import { getUserStarBalance, formatStarAmount } from '@/lib/starPoints';
+
+// Max supply constant
+const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
 
 /**
  * Member data interface from API
@@ -379,7 +382,7 @@ function MemberDetailModal({
         {/* Bio */}
         {member.bio && (
           <div className="mb-6 p-3 bg-[#0a0a15] rounded-lg border border-[#2a2a4e]">
-            <p className="text-gray-400 text-xs italic leading-relaxed">&quot;{member.bio}&quot;</p>
+            <p className="text-gray-400 text-xs italic leading-relaxed">&ldquo;{member.bio}&rdquo;</p>
           </div>
         )}
         
@@ -474,7 +477,7 @@ function StatsOverview({
         <p className="text-gray-500 text-[10px] tracking-wider">STAR SKRUMPEYS</p>
       </div>
       <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-3">
-        <p className="text-[#44ff88] text-2xl font-bold">343</p>
+        <p className="text-[#44ff88] text-2xl font-bold">{MAX_STAR_SKRUMPEY_SUPPLY}</p>
         <p className="text-gray-500 text-[10px] tracking-wider">MAX SUPPLY</p>
       </div>
       <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-4">
@@ -605,7 +608,7 @@ export default function MembersContent() {
           STAR BEARERS
         </h1>
         <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
-          The Order&apos;s Cosmic Assembly
+          The Order{"'"}s Cosmic Assembly
         </p>
       </div>
 

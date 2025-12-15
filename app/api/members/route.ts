@@ -13,7 +13,7 @@ import {
   SKRUMPEY_CONTRACT_ADDRESS,
   getStarVariantForTokenId,
 } from '@/lib/starSkrumpey';
-import { getUserProfile } from '@/lib/db';
+import { getUserProfilesBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 
@@ -137,12 +137,16 @@ export async function GET() {
     // Fetch fresh data
     const holderMap = await fetchAllHolders();
     
+    // Batch fetch all user profiles at once (performance optimization)
+    const allAddresses = Array.from(holderMap.keys());
+    const profilesMap = getUserProfilesBatch(allAddresses);
+    
     // Transform to member data with enriched profile info
     const members: MemberData[] = [];
     
     for (const [address, tokenIds] of holderMap.entries()) {
-      // Get user profile from database
-      const profile = getUserProfile(address);
+      // Get user profile from the batch lookup
+      const profile = profilesMap.get(address.toLowerCase());
       
       // Get star variants for each token
       const starVariants = tokenIds
