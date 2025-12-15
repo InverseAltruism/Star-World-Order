@@ -201,23 +201,23 @@ export default function WalletConnect() {
 
   if (isConnected && address) {
     return (
-      <div className="flex items-center gap-2 animate-slide-in-right">
+      <div className="flex flex-col sm:flex-row items-center gap-2 animate-slide-in-right">
         {isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
-            className="pixel-btn text-xs !px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse smooth-transition hover-lift"
+            className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-2 !bg-[#ffa500] !border-[#ffcc00_#cc8000_#cc8000_#ffcc00] animate-pulse smooth-transition hover-lift whitespace-nowrap"
           >
             ⚠️ SWITCH TO MONAD
           </button>
         ) : (
-          <div className="text-xs text-[#44ff88] bg-[#1a1a2e] px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift">
+          <div className="text-[10px] sm:text-xs text-[#44ff88] bg-[#1a1a2e] px-2 sm:px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
             {address.slice(0, 6)}...{address.slice(-4)}
           </div>
         )}
         <button
           onClick={() => disconnect()}
-          className="pixel-btn text-xs !px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift"
+          className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift whitespace-nowrap"
         >
           EXIT
         </button>
@@ -233,7 +233,7 @@ export default function WalletConnect() {
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
         disabled={isPending}
-        className={`pixel-btn pixel-btn-gold text-xs !px-4 !py-2 smooth-transition hover-lift ${isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
+        className={`pixel-btn pixel-btn-gold text-[10px] sm:text-xs !px-3 sm:!px-4 !py-2 smooth-transition hover-lift whitespace-nowrap ${isPending ? 'opacity-50 cursor-not-allowed' : ''} ${isPending ? 'animate-pixel-pulse' : ''}`}
       >
         {isPending ? 'CONNECTING...' : (
           detectedWallet ? `${detectedWallet.icon} CONNECT` : 'CONNECT'
