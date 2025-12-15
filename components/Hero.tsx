@@ -95,28 +95,28 @@ export default function Hero() {
 
         {/* Title with pixel styling and enhanced visibility */}
         <h1 
-          className="text-xl md:text-3xl lg:text-4xl mb-8 tracking-wider animate-slide-in-up animate-delay-1 glitch-text text-pixel-gold"
+          className="text-lg sm:text-xl md:text-3xl lg:text-4xl mb-6 sm:mb-8 tracking-wider animate-slide-in-up animate-delay-1 glitch-text text-pixel-gold px-2"
           data-text="STAR WORLD ORDER"
         >
           STAR WORLD ORDER
         </h1>
         
         {/* Description with better contrast */}
-        <div className="animate-slide-in-up animate-delay-2 mb-8">
-          <p className="text-[#ffd700] text-sm md:text-base mb-2" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.8)' }}>
+        <div className="animate-slide-in-up animate-delay-2 mb-6 sm:mb-8 px-4">
+          <p className="text-[#ffd700] text-xs sm:text-sm md:text-base mb-2" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.8)' }}>
             ✦ The Order is forming ✦
           </p>
-          <p className="text-[#c4a0ff] text-xs md:text-sm max-w-xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8)' }}>
+          <p className="text-[#c4a0ff] text-[10px] sm:text-xs md:text-sm max-w-xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8)' }}>
             A DAO for Skrumpeys with the Constellation trait
           </p>
         </div>
         
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-12 animate-slide-in-up animate-delay-3">
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-8 sm:mb-12 animate-slide-in-up animate-delay-3 px-4">
           {isProduction ? (
             <button 
               disabled
-              className="pixel-btn pixel-btn-gold smooth-transition opacity-50 cursor-not-allowed"
+              className="pixel-btn pixel-btn-gold smooth-transition opacity-50 cursor-not-allowed text-[10px] sm:text-xs"
               title="Locked in production"
             >
               🔒 ENTER THE ORDER 🔒
@@ -124,39 +124,39 @@ export default function Hero() {
           ) : (
             <button 
               onClick={handleEnterTheOrder}
-              className="pixel-btn pixel-btn-gold smooth-transition hover-lift"
+              className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[10px] sm:text-xs"
             >
               ⭐ ENTER THE ORDER ⭐
             </button>
           )}
           <button 
             onClick={handleDiscoverMore}
-            className="pixel-btn smooth-transition hover-lift"
+            className="pixel-btn smooth-transition hover-lift text-[10px] sm:text-xs"
           >
             ▼ DISCOVER MORE
           </button>
         </div>
 
         {/* Pixel art showcase */}
-        <div className="pixel-card p-6 md:p-8 max-w-md mx-auto animate-slide-in-up animate-delay-4">
+        <div className="pixel-card p-4 sm:p-6 md:p-8 max-w-md mx-4 sm:mx-auto animate-slide-in-up animate-delay-4">
           {/* Decorative header */}
-          <div className="flex items-center justify-center gap-2 mb-4 text-[8px] text-[#9966ff] tracking-widest">
+          <div className="flex items-center justify-center gap-2 mb-3 sm:mb-4 text-[8px] text-[#9966ff] tracking-widest">
             <span>◆</span>
             <span>FEATURED</span>
             <span>◆</span>
           </div>
           
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}>🐸</span>
-            <span className="text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
-            <span className="text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}>⭐</span>
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}>🐸</span>
+            <span className="text-2xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
+            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}>⭐</span>
           </div>
           
-          <div className="border-t-2 border-[#3a3a5e] pt-4">
-            <p className="text-[#ffd700] text-sm tracking-wide mb-1" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
+          <div className="border-t-2 border-[#3a3a5e] pt-3 sm:pt-4">
+            <p className="text-[#ffd700] text-xs sm:text-sm tracking-wide mb-1" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
               ★ STAR SKRUMPEY ★
             </p>
-            <p className="text-gray-400 text-xs">
+            <p className="text-gray-400 text-[10px] sm:text-xs">
               Skrumpeys with the Constellation trait
             </p>
           </div>

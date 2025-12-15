@@ -162,8 +162,8 @@ export default function Header() {
         </nav>
 
         {/* Mobile Navigation Menu */}
-        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <nav className="flex flex-col items-center gap-6 p-8">
+        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <nav className="flex flex-col items-center gap-4 p-6 pb-safe">
             {isProduction ? (
               <div className="flex flex-col items-center gap-1">
                 <span className="text-sm leading-none">🔒</span>
@@ -223,9 +223,13 @@ export default function Header() {
                 EXCHANGE
               </Link>
             )}
-            <div className="flex flex-col items-center gap-4 pt-4 border-t-2 border-[#2a2a4e]">
-              <DemoMode />
-              <WalletConnect />
+            <div className="flex flex-col items-center gap-3 pt-4 border-t-2 border-[#2a2a4e] w-full max-w-xs">
+              <div className="w-full flex justify-center">
+                <DemoMode />
+              </div>
+              <div className="w-full flex justify-center">
+                <WalletConnect />
+              </div>
             </div>
           </nav>
         </div>

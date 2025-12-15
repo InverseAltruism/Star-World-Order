@@ -136,7 +136,7 @@ function LevelBadge({ level }: { level: number }) {
   
   return (
     <div 
-      className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border-2 animate-glow-pulse"
+      className="flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 sm:py-1 rounded-lg text-[10px] sm:text-xs font-bold border-2 animate-glow-pulse flex-shrink-0"
       style={{ 
         backgroundColor: `${color}20`,
         borderColor: `${color}80`,
@@ -144,7 +144,7 @@ function LevelBadge({ level }: { level: number }) {
         boxShadow: `0 0 10px ${color}40`,
       }}
     >
-      <span className="text-[10px]">LVL</span>
+      <span className="text-[8px] sm:text-[10px]">LVL</span>
       <span>{level}</span>
     </div>
   );
@@ -161,7 +161,7 @@ function StarVariantsDisplay({ variants }: { variants: string[] }) {
       {variants.slice(0, 3).map((variant) => (
         <span 
           key={variant}
-          className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider border"
+          className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded uppercase tracking-wider border"
           style={{ 
             color: getVariantColor(variant),
             borderColor: `${getVariantColor(variant)}60`,
@@ -172,7 +172,7 @@ function StarVariantsDisplay({ variants }: { variants: string[] }) {
         </span>
       ))}
       {variants.length > 3 && (
-        <span className="text-[9px] px-1.5 py-0.5 rounded text-gray-500 border border-gray-600">
+        <span className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded text-gray-500 border border-gray-600">
           +{variants.length - 3}
         </span>
       )}
@@ -207,7 +207,7 @@ function MemberCard({
   return (
     <div 
       onClick={onClick}
-      className={`pixel-card p-4 cursor-pointer smooth-transition hover-lift animate-slide-in-up ${
+      className={`pixel-card p-3 sm:p-4 cursor-pointer smooth-transition hover-lift animate-slide-in-up ${
         isTop3 ? 'border-2' : ''
       }`}
       style={{
@@ -216,10 +216,10 @@ function MemberCard({
         boxShadow: isTop3 ? `0 0 20px ${rankColors[rank]}30` : undefined,
       }}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Rank Badge */}
         <div 
-          className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0"
           style={{
             backgroundColor: isTop3 ? `${rankColors[rank]}30` : '#1a1a2e',
             color: isTop3 ? rankColors[rank] : '#666',
@@ -229,31 +229,33 @@ function MemberCard({
           {rank === 1 && '👑'}
           {rank === 2 && '🥈'}
           {rank === 3 && '🥉'}
-          {rank > 3 && `#${rank}`}
+          {rank > 3 && (rank <= 99 ? `#${rank}` : rank)}
         </div>
         
         {/* Avatar */}
-        <MemberAvatar 
-          tokenId={primaryTokenId} 
-          variant={primaryVariant}
-          size="md"
-        />
+        <div className="hidden xs:block sm:block">
+          <MemberAvatar 
+            tokenId={primaryTokenId} 
+            variant={primaryVariant}
+            size="md"
+          />
+        </div>
         
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="text-[#ffd700] text-sm font-bold truncate">
+          <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
+            <p className="text-[#ffd700] text-xs sm:text-sm font-bold truncate">
               {member.displayName || truncateAddress(member.address)}
             </p>
             <LevelBadge level={member.level} />
           </div>
           
-          <p className="text-gray-500 text-[10px] font-mono mb-1">
+          <p className="text-gray-500 text-[9px] sm:text-[10px] font-mono mb-1 truncate">
             {truncateAddress(member.address)}
           </p>
           
           <p 
-            className="text-[10px] uppercase tracking-wider"
+            className="text-[9px] sm:text-[10px] uppercase tracking-wider truncate"
             style={{ color: getLevelColor(member.level) }}
           >
             {levelTitle}
@@ -262,11 +264,11 @@ function MemberCard({
         
         {/* Holdings */}
         <div className="text-right flex-shrink-0">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-[#ffd700] text-lg font-bold">{member.count}</span>
-            <span className="text-xl">⭐</span>
+          <div className="flex items-center gap-0.5 sm:gap-1 mb-1">
+            <span className="text-[#ffd700] text-base sm:text-lg font-bold">{member.count}</span>
+            <span className="text-base sm:text-xl">⭐</span>
           </div>
-          <p className="text-gray-500 text-[10px]">
+          <p className="text-gray-500 text-[8px] sm:text-[10px] hidden sm:block">
             STAR {member.count === 1 ? 'SKRUMPEY' : 'SKRUMPEYS'}
           </p>
         </div>
@@ -274,7 +276,7 @@ function MemberCard({
       
       {/* Variants row */}
       {member.starVariants.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-[#2a2a4e]">
+        <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-[#2a2a4e]">
           <StarVariantsDisplay variants={member.starVariants} />
         </div>
       )}
@@ -463,28 +465,28 @@ function StatsOverview({
   isLoading: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-      <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-1">
-        <p className="text-[#ffd700] text-2xl font-bold animate-glow-pulse">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
+      <div className="pixel-card p-3 md:p-4 text-center animate-slide-in-up animate-delay-1">
+        <p className="text-[#ffd700] text-xl sm:text-2xl font-bold animate-glow-pulse">
           {isLoading ? '...' : totalMembers}
         </p>
-        <p className="text-gray-500 text-[10px] tracking-wider">TOTAL HOLDERS</p>
+        <p className="text-gray-500 text-[8px] sm:text-[10px] tracking-wider">TOTAL HOLDERS</p>
       </div>
-      <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-2">
-        <p className="text-[#9966ff] text-2xl font-bold animate-glow-pulse">
+      <div className="pixel-card p-3 md:p-4 text-center animate-slide-in-up animate-delay-2">
+        <p className="text-[#9966ff] text-xl sm:text-2xl font-bold animate-glow-pulse">
           {isLoading ? '...' : totalStarSkrumpeys}
         </p>
-        <p className="text-gray-500 text-[10px] tracking-wider">STAR SKRUMPEYS</p>
+        <p className="text-gray-500 text-[8px] sm:text-[10px] tracking-wider leading-tight">STAR SKRUMPEYS</p>
       </div>
-      <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-3">
-        <p className="text-[#44ff88] text-2xl font-bold">{MAX_STAR_SKRUMPEY_SUPPLY}</p>
-        <p className="text-gray-500 text-[10px] tracking-wider">MAX SUPPLY</p>
+      <div className="pixel-card p-3 md:p-4 text-center animate-slide-in-up animate-delay-3">
+        <p className="text-[#44ff88] text-xl sm:text-2xl font-bold">{MAX_STAR_SKRUMPEY_SUPPLY}</p>
+        <p className="text-gray-500 text-[8px] sm:text-[10px] tracking-wider">MAX SUPPLY</p>
       </div>
-      <div className="pixel-card p-4 text-center animate-slide-in-up animate-delay-4">
-        <p className="text-[#00ffff] text-2xl font-bold">
+      <div className="pixel-card p-3 md:p-4 text-center animate-slide-in-up animate-delay-4">
+        <p className="text-[#00ffff] text-xl sm:text-2xl font-bold">
           {isLoading ? '...' : totalMembers > 0 ? (totalStarSkrumpeys / totalMembers).toFixed(1) : '0'}
         </p>
-        <p className="text-gray-500 text-[10px] tracking-wider">AVG PER HOLDER</p>
+        <p className="text-gray-500 text-[8px] sm:text-[10px] tracking-wider leading-tight">AVG PER HOLDER</p>
       </div>
     </div>
   );
@@ -505,29 +507,29 @@ function SearchFilter({
   onSortChange: (value: 'holdings' | 'level' | 'address') => void;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 mb-6 animate-slide-in-up animate-delay-5">
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 animate-slide-in-up animate-delay-5">
       {/* Search Input */}
       <div className="flex-1">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by address or name..."
-          className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-2 text-white text-sm focus:border-[#ffd700] focus:outline-none smooth-transition"
+          placeholder="Search address or name..."
+          className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 sm:px-4 py-2 text-white text-xs sm:text-sm focus:border-[#ffd700] focus:outline-none smooth-transition"
         />
       </div>
       
       {/* Sort Dropdown */}
-      <div className="flex items-center gap-2">
-        <span className="text-gray-500 text-xs">SORT BY:</span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-gray-500 text-[10px] sm:text-xs whitespace-nowrap">SORT BY:</span>
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as 'holdings' | 'level' | 'address')}
-          className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-xs focus:border-[#ffd700] focus:outline-none cursor-pointer smooth-transition"
+          className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-2 sm:px-3 py-2 text-white text-[10px] sm:text-xs focus:border-[#ffd700] focus:outline-none cursor-pointer smooth-transition flex-1 sm:flex-initial min-w-0"
         >
-          <option value="holdings">Holdings (High to Low)</option>
-          <option value="level">Level (High to Low)</option>
-          <option value="address">Address (A-Z)</option>
+          <option value="holdings">Holdings</option>
+          <option value="level">Level</option>
+          <option value="address">Address</option>
         </select>
       </div>
     </div>
@@ -603,11 +605,11 @@ export default function MembersContent() {
   return (
     <>
       {/* Page Header */}
-      <div className="text-center mb-8 animate-slide-in-up">
-        <h1 className="text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+      <div className="text-center mb-8 animate-slide-in-up px-4">
+        <h1 className="text-base sm:text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2 whitespace-nowrap">
           STAR BEARERS
         </h1>
-        <p className="text-[#9966ff] text-sm tracking-wide animate-glow-pulse">
+        <p className="text-xs sm:text-sm text-[#9966ff] tracking-wide animate-glow-pulse">
           The Order{"'"}s Cosmic Assembly
         </p>
       </div>
