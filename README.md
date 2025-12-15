@@ -129,7 +129,9 @@ DAO governance with proposal creation and voting.
 
 ## 📄 License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025 Star World Order Contributors
 
 ---
 
