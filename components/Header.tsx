@@ -43,7 +43,7 @@ export default function Header() {
         </button>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-2 md:gap-4">
+        <nav className="hidden md:flex items-center gap-2 md:gap-3">
           {isProduction ? (
             <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
               <span className="text-[10px] leading-none">🔒</span>
@@ -73,6 +73,23 @@ export default function Header() {
               />
             </Link>
           )}
+          <Link 
+            href="/members" 
+            className="text-[10px] text-gray-300 hover:text-[#00ffff] uppercase tracking-wider relative group flex-shrink-0"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
+          >
+            MEMBERS
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#00ffff] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
+          </Link>
           <Link 
             href="/hangout" 
             className="text-[10px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group flex-shrink-0"
@@ -166,6 +183,13 @@ export default function Header() {
                 DAO
               </Link>
             )}
+            <Link 
+              href="/members" 
+              className="text-sm text-gray-300 hover:text-[#00ffff] uppercase tracking-wider"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              MEMBERS
+            </Link>
             <Link 
               href="/hangout" 
               className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
