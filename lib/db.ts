@@ -136,6 +136,26 @@ function initializeDatabase(database: Database.Database): void {
     // Column already exists, ignore error
   }
 
+  // Star Skrumpey metadata table - stores all NFT metadata from IPFS
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS star_skrumpey_metadata (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_id INTEGER NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT NOT NULL,
+      constellation TEXT,
+      aura TEXT,
+      background TEXT,
+      eyes TEXT,
+      form TEXT,
+      mood TEXT,
+      attributes_json TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Create indexes
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at DESC);
@@ -145,6 +165,8 @@ function initializeDatabase(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_voice_participants_session ON voice_participants(session_id);
     CREATE INDEX IF NOT EXISTS idx_social_connections_wallet ON social_connections(wallet_address);
     CREATE INDEX IF NOT EXISTS idx_social_connections_platform ON social_connections(platform);
+    CREATE INDEX IF NOT EXISTS idx_star_skrumpey_metadata_token ON star_skrumpey_metadata(token_id);
+    CREATE INDEX IF NOT EXISTS idx_star_skrumpey_metadata_constellation ON star_skrumpey_metadata(constellation);
   `);
 }
 
@@ -533,6 +555,142 @@ export function updateUserProfile(
   
   const getStmt = db.prepare('SELECT * FROM user_profiles WHERE wallet_address = ?');
   return getStmt.get(walletAddress.toLowerCase()) as UserProfile;
+}
+
+// ============================================================
+// STAR SKRUMPEY METADATA
+// ============================================================
+
+export interface StarSkrumpeyMetadata {
+  id: number;
+  token_id: number;
+  name: string;
+  description: string | null;
+  image_url: string;
+  constellation: string | null;
+  aura: string | null;
+  background: string | null;
+  eyes: string | null;
+  form: string | null;
+  mood: string | null;
+  attributes_json: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get Star Skrumpey metadata by token ID
+ */
+export function getStarSkrumpeyMetadata(tokenId: number): StarSkrumpeyMetadata | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM star_skrumpey_metadata WHERE token_id = ?');
+  return stmt.get(tokenId) as StarSkrumpeyMetadata | null;
+}
+
+/**
+ * Get metadata for multiple Star Skrumpeys by token IDs
+ */
+export function getStarSkrumpeyMetadataBatch(tokenIds: number[]): Map<number, StarSkrumpeyMetadata> {
+  if (tokenIds.length === 0) return new Map();
+  
+  const db = getDatabase();
+  const placeholders = tokenIds.map(() => '?').join(',');
+  const stmt = db.prepare(`SELECT * FROM star_skrumpey_metadata WHERE token_id IN (${placeholders})`);
+  const results = stmt.all(...tokenIds) as StarSkrumpeyMetadata[];
+  
+  const metadataMap = new Map<number, StarSkrumpeyMetadata>();
+  for (const meta of results) {
+    metadataMap.set(meta.token_id, meta);
+  }
+  
+  return metadataMap;
+}
+
+/**
+ * Get all Star Skrumpey metadata
+ */
+export function getAllStarSkrumpeyMetadata(): StarSkrumpeyMetadata[] {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM star_skrumpey_metadata ORDER BY token_id ASC');
+  return stmt.all() as StarSkrumpeyMetadata[];
+}
+
+/**
+ * Upsert Star Skrumpey metadata
+ */
+export function upsertStarSkrumpeyMetadata(data: {
+  tokenId: number;
+  name: string;
+  description?: string;
+  imageUrl: string;
+  constellation?: string;
+  aura?: string;
+  background?: string;
+  eyes?: string;
+  form?: string;
+  mood?: string;
+  attributesJson?: string;
+}): StarSkrumpeyMetadata {
+  const db = getDatabase();
+  
+  // Use excluded.column_name syntax to avoid parameter duplication
+  const stmt = db.prepare(`
+    INSERT INTO star_skrumpey_metadata (
+      token_id, name, description, image_url, constellation,
+      aura, background, eyes, form, mood, attributes_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(token_id) DO UPDATE SET
+      name = excluded.name,
+      description = excluded.description,
+      image_url = excluded.image_url,
+      constellation = excluded.constellation,
+      aura = excluded.aura,
+      background = excluded.background,
+      eyes = excluded.eyes,
+      form = excluded.form,
+      mood = excluded.mood,
+      attributes_json = excluded.attributes_json,
+      updated_at = CURRENT_TIMESTAMP
+  `);
+  
+  stmt.run(
+    data.tokenId,
+    data.name,
+    data.description || null,
+    data.imageUrl,
+    data.constellation || null,
+    data.aura || null,
+    data.background || null,
+    data.eyes || null,
+    data.form || null,
+    data.mood || null,
+    data.attributesJson || null
+  );
+  
+  const getStmt = db.prepare('SELECT * FROM star_skrumpey_metadata WHERE token_id = ?');
+  return getStmt.get(data.tokenId) as StarSkrumpeyMetadata;
+}
+
+/**
+ * Get count of Star Skrumpeys by constellation type
+ */
+export function getConstellationDistribution(): Record<string, number> {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT constellation, COUNT(*) as count 
+    FROM star_skrumpey_metadata 
+    WHERE constellation IS NOT NULL 
+    GROUP BY constellation
+  `);
+  const results = stmt.all() as Array<{ constellation: string; count: number }>;
+  
+  const distribution: Record<string, number> = {};
+  for (const row of results) {
+    distribution[row.constellation] = row.count;
+  }
+  
+  return distribution;
 }
 
 // ============================================================

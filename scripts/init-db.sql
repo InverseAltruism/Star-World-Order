@@ -128,6 +128,37 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 );
 
 -- ============================================================
+-- STAR SKRUMPEY METADATA TABLE
+-- ============================================================
+-- Stores cached NFT metadata from IPFS for all 333 Star Skrumpeys
+-- Run: npm run db:fetch-metadata to populate this table
+
+CREATE TABLE IF NOT EXISTS star_skrumpey_metadata (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_id INTEGER NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT NOT NULL,
+  constellation TEXT,
+  aura TEXT,
+  background TEXT,
+  eyes TEXT,
+  form TEXT,
+  mood TEXT,
+  attributes_json TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Index for fast metadata lookups by token ID
+CREATE INDEX IF NOT EXISTS idx_star_skrumpey_metadata_token 
+  ON star_skrumpey_metadata(token_id);
+
+-- Index for querying by constellation type
+CREATE INDEX IF NOT EXISTS idx_star_skrumpey_metadata_constellation 
+  ON star_skrumpey_metadata(constellation);
+
+-- ============================================================
 -- TRIGGER: Auto-update updated_at timestamp
 -- ============================================================
 
@@ -150,6 +181,13 @@ CREATE TRIGGER IF NOT EXISTS update_online_presence_last_seen
   FOR EACH ROW
 BEGIN
   UPDATE online_presence SET last_seen = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS update_star_skrumpey_metadata_timestamp 
+  AFTER UPDATE ON star_skrumpey_metadata
+  FOR EACH ROW
+BEGIN
+  UPDATE star_skrumpey_metadata SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
 
 -- ============================================================
