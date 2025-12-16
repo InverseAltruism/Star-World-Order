@@ -169,7 +169,19 @@ function SkrumpeyInspectModal({
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(skrumpey.id);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(skrumpey.id, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Reset load state and try GIF (for galaxy background NFTs)
+      setImageLoaded(false);
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   // Close modal on escape key
   useEffect(() => {
@@ -242,7 +254,7 @@ function SkrumpeyInspectModal({
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
+              onError={handleImageError}
             />
           )}
         </div>
@@ -310,7 +322,18 @@ function SkrumpeyInspectModal({
  */
 function ProfileAvatar({ tokenId }: { tokenId: number }) {
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Try GIF on first error (for galaxy background NFTs)
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   if (imageError) {
     return (
@@ -326,7 +349,7 @@ function ProfileAvatar({ tokenId }: { tokenId: number }) {
         src={imageUrl}
         alt={`Skrumpey #${tokenId}`}
         className="w-full h-full object-cover"
-        onError={() => setImageError(true)}
+        onError={handleImageError}
       />
     </div>
   );
@@ -338,7 +361,19 @@ function ProfileAvatar({ tokenId }: { tokenId: number }) {
 function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Reset load state and try GIF (for galaxy background NFTs)
+      setImageLoaded(false);
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   return (
     <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
@@ -364,7 +399,7 @@ function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolea
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
+          onError={handleImageError}
           loading="lazy"
         />
       )}
