@@ -430,11 +430,11 @@ export function getTokensForConstellation(constellation: StarTraitVariant): numb
  * This should match CONSTELLATION_RARITY in starSkrumpey.ts
  */
 export function getConstellationCounts(): Record<StarTraitVariant, number> {
-  const counts: Record<string, number> = {};
+  const counts = {} as Record<StarTraitVariant, number>;
   
   for (const constellation of Object.values(STAR_CONSTELLATION_MAP)) {
     counts[constellation] = (counts[constellation] || 0) + 1;
   }
   
-  return counts as Record<StarTraitVariant, number>;
+  return counts;
 }
