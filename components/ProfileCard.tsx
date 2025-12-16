@@ -564,15 +564,15 @@ export default function ProfileCard() {
   // Get color for star variant
   const getVariantColor = (variant?: string): string => {
     const colors: Record<string, string> = {
-      aether: '#00ffff',
-      spectra: '#ff00ff',
-      solveil: '#ffd700',
-      nebulu: '#9966ff',
-      chroma: '#ff6ec7',
-      rose: '#ff69b4',
-      monflare: '#ff4500',
-      auracore: '#44ff88',
-      parallel: '#00bfff',
+      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)', // Gradient: Turquoise -> light blue -> purple -> yellow
+      aether: '#87CEEB',      // Light blue
+      solveil: '#ffd700',     // Yellow
+      nebulu: '#9966ff',      // Purple
+      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)', // Light purple to darker purple gradient
+      rose: '#FFB6C1',        // Pink
+      monflare: '#9966ff',    // Glowing Purple (add glow effect)
+      auracore: '#ffd700',    // Glowing Golden (add glow effect)
+      parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)', // Light green-blue to darker blue gradient with white stars
       prime: '#ffd700',
     };
     return colors[variant || ''] || '#ffd700';
@@ -622,7 +622,7 @@ export default function ProfileCard() {
             </p>
             <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
           </div>
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
+          <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-[10px] sm:text-xs font-bold leading-tight">
               {getLevelTitle(starSkrumpeys.length)}
             </p>

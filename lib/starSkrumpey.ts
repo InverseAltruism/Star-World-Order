@@ -167,10 +167,12 @@ export const SKRUMPEY_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybei
 /**
  * Get the IPFS image URL for a Skrumpey token
  * @param tokenId - The token ID of the Skrumpey NFT
+ * @param isGif - Whether to use .gif extension (for galaxy background NFTs)
  * @returns The full IPFS URL for the NFT image
  */
-export function getSkrumpeyImageUrl(tokenId: number): string {
-  return `${SKRUMPEY_IPFS_BASE}/${tokenId}.png`;
+export function getSkrumpeyImageUrl(tokenId: number, isGif: boolean = false): string {
+  const extension = isGif ? 'gif' : 'png';
+  return `${SKRUMPEY_IPFS_BASE}/${tokenId}.${extension}`;
 }
 
 // Development access override - only works in development mode
