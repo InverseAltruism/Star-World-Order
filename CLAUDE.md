@@ -541,11 +541,87 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 CREATE INDEX idx_profiles_wallet ON user_profiles(wallet_address);
 ```
 
+### star_skrumpey_metadata
+
+**⚠️ IMPORTANT: PRIMARY SOURCE OF TRUTH FOR NFT METADATA**
+
+Stores cached IPFS metadata for all 333 Star Skrumpey NFTs. This table contains the **correct constellation data** and should be used instead of making IPFS requests.
+
+```sql
+CREATE TABLE IF NOT EXISTS star_skrumpey_metadata (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_id INTEGER NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  image_url TEXT NOT NULL,
+  constellation TEXT,        -- CRITICAL: This is the CORRECT constellation type
+  aura TEXT,
+  background TEXT,
+  eyes TEXT,
+  form TEXT,
+  mood TEXT,
+  attributes_json TEXT,      -- Full attributes array from IPFS
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_star_skrumpey_metadata_token ON star_skrumpey_metadata(token_id);
+CREATE INDEX idx_star_skrumpey_metadata_constellation ON star_skrumpey_metadata(constellation);
+```
+
+**Why Use Database Instead of IPFS?**
+- ✅ **Performance**: O(1) local lookup vs network request
+- ✅ **Reliability**: No IPFS gateway timeouts or rate limits
+- ✅ **Accuracy**: Pre-validated data from IPFS, cached locally
+- ✅ **Efficiency**: Batch lookups using `getStarSkrumpeyMetadataBatch()`
+
+**Available Database Functions** (from `lib/db.ts`):
+
+```typescript
+// Single token lookup
+getStarSkrumpeyMetadata(tokenId: number): StarSkrumpeyMetadata | null
+
+// Batch lookup (use this for multiple tokens!)
+getStarSkrumpeyMetadataBatch(tokenIds: number[]): Map<number, StarSkrumpeyMetadata>
+
+// Get all 333 Star Skrumpeys
+getAllStarSkrumpeyMetadata(): StarSkrumpeyMetadata[]
+
+// Insert/update metadata
+upsertStarSkrumpeyMetadata(data: {...}): StarSkrumpeyMetadata
+
+// Get constellation distribution stats
+getConstellationDistribution(): Record<string, number>
+```
+
+**Example Usage**:
+
+```typescript
+// ❌ WRONG: Don't fetch from IPFS for every token
+for (const tokenId of tokenIds) {
+  const metadata = await fetch(`https://ipfs.../\${tokenId}`);
+}
+
+// ✅ CORRECT: Use database batch lookup
+import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
+const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
+const constellation = metadataMap.get(tokenId)?.constellation;
+```
+
+**Repopulating Metadata**:
+```bash
+npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores in DB
+```
+
 **Implementation**: See `lib/db.ts`
 
 ---
 
 ## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/metadata` | GET | Get NFT metadata by tokenId(s) - **uses database first, IPFS fallback** |
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
