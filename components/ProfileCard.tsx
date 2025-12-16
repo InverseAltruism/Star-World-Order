@@ -526,12 +526,11 @@ export default function ProfileCard() {
   };
 
   // Convert owned tokens to display format
-  // Priority: 1) Static constellation map (most reliable), 2) Token data from context, 3) Fetched metadata
+  // Priority: 1) Fetched IPFS metadata (most accurate), 2) Token data from context, 3) Static constellation map (fallback)
   const displaySkrumpeys = ownedSkrumpeys.map(token => {
-    // Use static constellation map as the primary source of truth
-    const staticConstellation = STAR_CONSTELLATION_MAP[token.tokenId];
-    // Fallback to token data from context (also from static map), then fetched metadata
-    const starVariant = staticConstellation || token.starVariant || tokenMetadata[token.tokenId]?.constellation;
+    // Prefer fetched IPFS metadata as the primary source of truth
+    // Fall back to token data from context, then static map
+    const starVariant = tokenMetadata[token.tokenId]?.constellation || token.starVariant || STAR_CONSTELLATION_MAP[token.tokenId];
     
     return {
       id: token.tokenId,

@@ -80,16 +80,21 @@ export function isStarSkrumpeyId(tokenId: number): boolean {
 }
 
 /**
- * Get the star constellation variant for a token ID
- * Uses the static constellation mapping from IPFS metadata
+ * Get the star constellation variant for a token ID from static map
+ * 
+ * ⚠️ NOTE: This returns data from the static STAR_CONSTELLATION_MAP which may be
+ * placeholder data. For accurate constellation information, prefer fetching
+ * metadata from /api/metadata which reads directly from IPFS.
+ * 
+ * The ProfileCard component has been updated to use IPFS metadata as the
+ * source of truth with this function as a fallback.
  */
 export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | undefined {
   if (!isStarSkrumpeyId(tokenId)) {
     return undefined;
   }
   
-  // Use the static constellation map from IPFS metadata
-  // This is the authoritative source for constellation data
+  // Return from static map (may be placeholder data - prefer /api/metadata for accuracy)
   return STAR_CONSTELLATION_MAP[tokenId] as StarTraitVariant | undefined;
 }
 
