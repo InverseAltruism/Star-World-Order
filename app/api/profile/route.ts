@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, displayName, bio, avatarUrl } = body;
+    const { walletAddress, displayName, bio, avatarUrl, displayedBadges } = body;
     
     if (!walletAddress) {
       return NextResponse.json(
@@ -73,10 +73,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate displayed badges (max 3)
+    if (displayedBadges && Array.isArray(displayedBadges)) {
+      if (displayedBadges.length > 3) {
+        return NextResponse.json(
+          { success: false, error: 'Maximum 3 badges can be displayed' },
+          { status: 400 }
+        );
+      }
+    }
+    
     const profile = updateUserProfile(walletAddress, {
       displayName: displayName?.trim(),
       bio: bio?.trim(),
       avatarUrl,
+      displayedBadges: displayedBadges || undefined,
     });
     
     return NextResponse.json({

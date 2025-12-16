@@ -434,6 +434,17 @@ export default function ProfileCard() {
           if (data.success && data.profile) {
             setDisplayName(data.profile.display_name || '');
             setBio(data.profile.bio || '');
+            // Load displayed badges from database
+            if (data.profile.displayed_badges) {
+              try {
+                const badges = JSON.parse(data.profile.displayed_badges);
+                if (Array.isArray(badges)) {
+                  setSelectedBadges(badges);
+                }
+              } catch (e) {
+                console.error('Failed to parse displayed badges:', e);
+              }
+            }
           }
         })
         .catch(console.error);
@@ -557,6 +568,28 @@ export default function ProfileCard() {
     });
   };
 
+  // Save displayed badges to profile
+  const handleSaveBadges = async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          displayedBadges: selectedBadges,
+        }),
+      });
+      
+      if (response.ok) {
+        setIsEditingBadges(false);
+      }
+    } catch (error) {
+      console.error('Failed to save badges:', error);
+    }
+  };
+
   if (!isConnected) {
     return null;
   }
@@ -581,7 +614,31 @@ export default function ProfileCard() {
   return (
     <div className="space-y-6">
       {/* Player Stats Box with Profile Picture */}
-      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
+      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up relative">
+        {/* Displayed Badges - Top Right */}
+        {selectedBadges.length > 0 && (
+          <div className="absolute top-3 right-3 flex gap-2">
+            {selectedBadges.slice(0, 3).map(badgeId => {
+              const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
+              if (!badge) return null;
+              return (
+                <div 
+                  key={badgeId}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 animate-pixel-pulse"
+                  style={{ 
+                    backgroundColor: `${badge.color}20`,
+                    borderColor: badge.color,
+                    boxShadow: `0 0 10px ${badge.color}40`,
+                  }}
+                  title={badge.name}
+                >
+                  {badge.icon}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
         <div className="flex items-center gap-3 sm:gap-4 mb-4">
           {/* Avatar - Use first Star Skrumpey as profile picture */}
           <div className="relative">
@@ -827,7 +884,13 @@ export default function ProfileCard() {
           </h3>
           {unlockedAchievements.length > 0 && (
             <button
-              onClick={() => setIsEditingBadges(!isEditingBadges)}
+              onClick={() => {
+                if (isEditingBadges) {
+                  handleSaveBadges();
+                } else {
+                  setIsEditingBadges(true);
+                }
+              }}
               className="pixel-btn text-[10px] !px-3 !py-1"
             >
               {isEditingBadges ? 'DONE' : 'DISPLAY'}
