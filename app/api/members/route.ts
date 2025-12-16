@@ -12,6 +12,7 @@ import {
   STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
   StarTraitVariant,
+  STAR_TRAIT_VARIANTS,
 } from '@/lib/starSkrumpey';
 import { getUserProfilesBatch, getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
@@ -59,6 +60,17 @@ function calculateLevel(starCount: number, starPoints: number = 0): number {
   const pointsContribution = Math.sqrt(starPoints);
   // Combined level calculation
   return 1 + Math.floor(Math.sqrt(nftContribution + pointsContribution));
+}
+
+/**
+ * Validate and return constellation variant if it's a valid StarTraitVariant
+ */
+function validateConstellation(value: string | null | undefined): StarTraitVariant | undefined {
+  if (!value) return undefined;
+  // Use the readonly array to validate
+  return (STAR_TRAIT_VARIANTS as readonly string[]).includes(value) 
+    ? value as StarTraitVariant 
+    : undefined;
 }
 
 /**
@@ -159,12 +171,13 @@ export async function GET() {
       const profile = profilesMap.get(address.toLowerCase());
       
       // Get star variants for each token using database metadata (accurate data)
+      // Use validateConstellation to ensure proper type safety
       const starVariants = tokenIds
         .map(id => {
           const meta = metadataMap.get(id);
-          return meta?.constellation as StarTraitVariant | undefined;
+          return validateConstellation(meta?.constellation);
         })
-        .filter((v): v is StarTraitVariant => v !== undefined && v !== null);
+        .filter((v): v is StarTraitVariant => v !== undefined);
       
       // Calculate level based on holdings
       const level = calculateLevel(tokenIds.length);
