@@ -47,7 +47,7 @@ const ACHIEVEMENTS: Achievement[] = [
 
 /**
  * Get variant color - returns solid color for CSS color property
- * Rare traits (monflare, auracore, parallel, prime) have special distinct colors
+ * Each constellation type has a distinct color; rare traits have additional glow effects
  */
 function getVariantColor(variant?: string): string {
   const colors: Record<string, string> = {

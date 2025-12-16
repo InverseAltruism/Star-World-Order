@@ -2333,7 +2333,12 @@ a,
   animation: primeShimmer 3s ease-in-out infinite;
 }
 
-/* Legendary Prime shimmer animation */
+/* Legendary Prime shimmer animation
+ * Creates a pulsing glow effect for the 1-of-1 Prime constellation
+ * - 30px/40px blur radius: creates visible but subtle glow expansion
+ * - 0.4/0.6 opacity: provides gentle pulsing without harsh flashing
+ * - 3s duration: slow enough to be elegant, fast enough to be noticeable
+ */
 @keyframes primeShimmer {
   0%, 100% { 
     box-shadow: inset 0 0 30px rgba(255, 215, 0, 0.4); 

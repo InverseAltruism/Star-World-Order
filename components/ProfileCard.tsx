@@ -625,7 +625,6 @@ export default function ProfileCard() {
   }
 
   // Get color for star variant (solid color for CSS color property)
-  // Get color for star variant (solid color for CSS color property)
   // Rare traits (monflare, auracore, parallel, prime) have special distinct colors
   const getVariantColor = (variant?: string): string => {
     const colors: Record<string, string> = {
