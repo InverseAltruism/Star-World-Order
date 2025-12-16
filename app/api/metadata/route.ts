@@ -34,8 +34,9 @@ interface TokenMetadata {
   cachedAt: number;
 }
 
-// IPFS metadata base URL (without file extension, assumes JSON files)
-const METADATA_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeibywpyjnibdtejafnwmvqhfkjmupzwqrbhwxcxpjv4izc6uyuqavm';
+// IPFS metadata base URL - CID for Skrumpey metadata JSON files
+// Source: https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm/{tokenId}
+const METADATA_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm';
 
 /**
  * Extract constellation from metadata attributes
