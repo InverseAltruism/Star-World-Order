@@ -229,7 +229,7 @@ export default function WalletConnect() {
   const shouldShowDropdown = connectors.length > 1;
 
   return (
-    <div className="relative z-50" ref={dropdownRef}>
+    <div className="relative z-[10000]" ref={dropdownRef}>
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
         disabled={isPending}
@@ -242,7 +242,7 @@ export default function WalletConnect() {
 
       {/* No Wallet Detected Message */}
       {showNoWalletMessage && (
-        <div className="fixed md:absolute right-4 md:right-0 top-auto md:top-full bottom-20 md:bottom-auto mt-0 md:mt-2 w-[calc(100vw-2rem)] md:w-64 max-h-[60vh] md:max-h-[80vh] bg-[#1a1a2e] border-2 border-[#ff4466] rounded-lg shadow-xl z-50 overflow-y-auto animate-slide-in-up">
+        <div className="fixed md:absolute right-4 md:right-0 top-auto md:top-full bottom-20 md:bottom-auto mt-0 md:mt-2 w-[calc(100vw-2rem)] md:w-64 max-h-[60vh] md:max-h-[80vh] bg-[#1a1a2e] border-2 border-[#ff4466] rounded-lg shadow-xl z-[10001] overflow-y-auto animate-slide-in-up">
           <div className="p-3 border-b border-[#2a2a4e]">
             <p className="text-[#ff4466] text-xs tracking-wider text-center">
               ⚠️ NO WALLET DETECTED
@@ -298,7 +298,7 @@ export default function WalletConnect() {
 
       {/* Wallet Selection Dropdown */}
       {showDropdown && shouldShowDropdown && !showNoWalletMessage && (
-        <div className="fixed md:absolute right-4 md:right-0 top-auto md:top-full bottom-20 md:bottom-auto mt-0 md:mt-2 w-[calc(100vw-2rem)] md:w-56 max-h-[60vh] md:max-h-[80vh] bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up flex flex-col">
+        <div className="fixed md:absolute right-4 md:right-0 top-auto md:top-full bottom-20 md:bottom-auto mt-0 md:mt-2 w-[calc(100vw-2rem)] md:w-56 max-h-[60vh] md:max-h-[80vh] bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-[10001] overflow-hidden animate-slide-in-up flex flex-col">
           <div className="p-3 border-b border-[#2a2a4e] flex-shrink-0">
             <p className="text-[#ffd700] text-xs tracking-wider text-center animate-glow-pulse">
               ✦ SELECT WALLET ✦

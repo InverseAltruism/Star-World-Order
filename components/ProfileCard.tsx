@@ -208,35 +208,35 @@ function SkrumpeyInspectModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-slide-in-up"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-slide-in-up"
       onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* Modal Content */}
+      {/* Modal Content - scrollable on mobile with max height constraint */}
       <div 
-        className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up"
+        className="relative z-10 w-full max-w-md pixel-card p-4 sm:p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto scrollbar-pixel"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
+        {/* Close Button - sticky to top right, always visible */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition bg-[#1a1a2e] border border-[#2a2a4e] z-30"
           title="Close (ESC)"
         >
           ✕
         </button>
 
-        {/* Star Badge */}
+        {/* Star Badge - hidden on small screens to avoid overlap with close button */}
         {skrumpey.hasStar && (
-          <div className="absolute -top-3 -right-3 text-3xl animate-pixel-pulse animate-star-rotate z-20">
+          <div className="absolute -top-3 -right-3 text-3xl animate-pixel-pulse animate-star-rotate z-20 hidden sm:block">
             ⭐
           </div>
         )}
 
-        {/* Large NFT Image */}
-        <div className={`w-full aspect-square rounded-lg mb-4 overflow-hidden relative ${
+        {/* Large NFT Image - smaller on mobile */}
+        <div className={`w-full aspect-square rounded-lg mb-3 sm:mb-4 overflow-hidden relative max-w-[280px] sm:max-w-none mx-auto ${
           skrumpey.hasStar 
             ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30 border-2 border-[#ffd700] shadow-[0_0_30px_rgba(255,215,0,0.4)]' 
             : 'bg-[#0a0a15] border-2 border-[#2a2a4e]'
@@ -673,14 +673,20 @@ export default function ProfileCard() {
 
   // Get text style for variant - handles both solid colors and gradients
   // Rare variants get gradient text with glow effects
+  // Note: For gradient text to work properly with truncate/overflow, we need
+  // to use the shorthand "background: gradient text" format in some browsers
   const getVariantTextStyle = (variant?: string): React.CSSProperties => {
     if (isGradientVariant(variant)) {
+      const gradient = getVariantGradient(variant);
       const baseStyle: React.CSSProperties = {
-        background: getVariantGradient(variant),
+        // Use both shorthand and longhand for maximum browser compatibility
+        background: `${gradient}`,
+        backgroundClip: 'text',
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
         color: 'transparent', // Fallback for non-webkit browsers
+        // Ensure the element properly contains the text for background-clip
+        display: 'inline-block',
       };
       // Add text shadow glow for rare variants
       if (isRareVariant(variant)) {

@@ -107,11 +107,15 @@ function isRareVariant(variant?: string): boolean {
  */
 function getVariantTextStyle(variant?: string): React.CSSProperties {
   if (isGradientVariant(variant)) {
+    const gradient = getVariantGradient(variant);
     const baseStyle: React.CSSProperties = {
-      background: getVariantGradient(variant),
+      background: `${gradient}`,
+      backgroundClip: 'text',
       WebkitBackgroundClip: 'text',
       WebkitTextFillColor: 'transparent',
-      backgroundClip: 'text',
+      color: 'transparent',
+      // Ensure the element properly contains the text for background-clip
+      display: 'inline-block',
     };
     // Add text shadow glow for rare variants
     if (isRareVariant(variant)) {

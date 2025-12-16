@@ -11,9 +11,9 @@ import { NextResponse } from 'next/server';
 import { 
   STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
-  getStarVariantForTokenId,
+  StarTraitVariant,
 } from '@/lib/starSkrumpey';
-import { getUserProfilesBatch } from '@/lib/db';
+import { getUserProfilesBatch, getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 
@@ -138,9 +138,18 @@ export async function GET() {
     // Fetch fresh data
     const holderMap = await fetchAllHolders();
     
+    // Collect all unique token IDs from all holders
+    const allTokenIds = new Set<number>();
+    for (const tokenIds of holderMap.values()) {
+      tokenIds.forEach(id => allTokenIds.add(id));
+    }
+    
     // Batch fetch all user profiles at once (performance optimization)
     const allAddresses = Array.from(holderMap.keys());
     const profilesMap = getUserProfilesBatch(allAddresses);
+    
+    // Batch fetch all Star Skrumpey metadata from database (accurate constellation data)
+    const metadataMap = getStarSkrumpeyMetadataBatch(Array.from(allTokenIds));
     
     // Transform to member data with enriched profile info
     const members: MemberData[] = [];
@@ -149,10 +158,13 @@ export async function GET() {
       // Get user profile from the batch lookup
       const profile = profilesMap.get(address.toLowerCase());
       
-      // Get star variants for each token
+      // Get star variants for each token using database metadata (accurate data)
       const starVariants = tokenIds
-        .map(id => getStarVariantForTokenId(id))
-        .filter((v): v is NonNullable<typeof v> => v !== undefined);
+        .map(id => {
+          const meta = metadataMap.get(id);
+          return meta?.constellation as StarTraitVariant | undefined;
+        })
+        .filter((v): v is StarTraitVariant => v !== undefined && v !== null);
       
       // Calculate level based on holdings
       const level = calculateLevel(tokenIds.length);
