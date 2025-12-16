@@ -488,7 +488,7 @@ function MemberDetailModal({
                       {badge.icon}
                     </div>
                     <p className="text-[8px] mt-1" style={{ color: badge.color }}>
-                      {badge.name.split(' ')[0]}
+                      {badge.name.split(' ')[0] || badge.name}
                     </p>
                   </div>
                 );

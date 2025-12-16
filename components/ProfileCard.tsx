@@ -529,7 +529,7 @@ export default function ProfileCard() {
   // Priority: 1) Static constellation map (most reliable), 2) Token data from context, 3) Fetched metadata
   const displaySkrumpeys = ownedSkrumpeys.map(token => {
     // Use static constellation map as the primary source of truth
-    const staticConstellation = STAR_CONSTELLATION_MAP[token.tokenId] as StarTraitVariant | undefined;
+    const staticConstellation = STAR_CONSTELLATION_MAP[token.tokenId];
     // Fallback to token data from context (also from static map), then fetched metadata
     const starVariant = staticConstellation || token.starVariant || tokenMetadata[token.tokenId]?.constellation;
     
@@ -1115,56 +1115,51 @@ export default function ProfileCard() {
               ✕
             </button>
             
-            {/* Achievement Icon */}
-            <div 
-              className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl border-3 mb-4 animate-pixel-pulse"
-              style={{ 
-                backgroundColor: `${selectedAchievement.color}20`,
-                borderColor: selectedAchievement.color,
-                boxShadow: `0 0 30px ${selectedAchievement.color}60`,
-              }}
-            >
-              {unlockedAchievements.some(a => a.id === selectedAchievement.id) 
-                ? selectedAchievement.icon 
-                : '🔒'}
-            </div>
-            
-            {/* Achievement Name */}
-            <h3 
-              className="text-lg font-bold mb-2"
-              style={{ color: selectedAchievement.color }}
-            >
-              {selectedAchievement.name}
-            </h3>
-            
-            {/* Achievement Description */}
-            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-              {selectedAchievement.description}
-            </p>
-            
-            {/* Status */}
-            <div 
-              className={`inline-block px-4 py-2 rounded-lg text-xs font-bold border-2 ${
-                unlockedAchievements.some(a => a.id === selectedAchievement.id)
-                  ? ''
-                  : 'opacity-60'
-              }`}
-              style={{
-                backgroundColor: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
-                  ? `${selectedAchievement.color}20` 
-                  : '#1a1a2e',
-                borderColor: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
-                  ? selectedAchievement.color 
-                  : '#444',
-                color: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
-                  ? selectedAchievement.color 
-                  : '#666',
-              }}
-            >
-              {unlockedAchievements.some(a => a.id === selectedAchievement.id) 
-                ? '✓ UNLOCKED' 
-                : '🔒 LOCKED'}
-            </div>
+            {(() => {
+              const isUnlocked = unlockedAchievements.some(a => a.id === selectedAchievement.id);
+              return (
+                <>
+                  {/* Achievement Icon */}
+                  <div 
+                    className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl border-3 mb-4 animate-pixel-pulse"
+                    style={{ 
+                      backgroundColor: `${selectedAchievement.color}20`,
+                      borderColor: selectedAchievement.color,
+                      boxShadow: `0 0 30px ${selectedAchievement.color}60`,
+                    }}
+                  >
+                    {isUnlocked ? selectedAchievement.icon : '🔒'}
+                  </div>
+                  
+                  {/* Achievement Name */}
+                  <h3 
+                    className="text-lg font-bold mb-2"
+                    style={{ color: selectedAchievement.color }}
+                  >
+                    {selectedAchievement.name}
+                  </h3>
+                  
+                  {/* Achievement Description */}
+                  <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                    {selectedAchievement.description}
+                  </p>
+                  
+                  {/* Status */}
+                  <div 
+                    className={`inline-block px-4 py-2 rounded-lg text-xs font-bold border-2 ${
+                      isUnlocked ? '' : 'opacity-60'
+                    }`}
+                    style={{
+                      backgroundColor: isUnlocked ? `${selectedAchievement.color}20` : '#1a1a2e',
+                      borderColor: isUnlocked ? selectedAchievement.color : '#444',
+                      color: isUnlocked ? selectedAchievement.color : '#666',
+                    }}
+                  >
+                    {isUnlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
