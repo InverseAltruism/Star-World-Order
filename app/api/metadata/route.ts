@@ -4,25 +4,18 @@
  * GET /api/metadata?tokenId=3 - Get metadata for a specific token
  * GET /api/metadata?tokenIds=3,17,20 - Get metadata for multiple tokens
  * 
- * This endpoint fetches and caches NFT metadata from IPFS
+ * This endpoint serves NFT metadata from the database (primary) or IPFS (fallback).
+ * Database is the preferred source as it doesn't require network requests.
  */
 
 import { NextResponse } from 'next/server';
 import { isStarSkrumpeyId, STAR_TRAIT_VARIANTS, StarTraitVariant, SKRUMPEY_IPFS_BASE } from '@/lib/starSkrumpey';
+import { getStarSkrumpeyMetadata, getStarSkrumpeyMetadataBatch, StarSkrumpeyMetadata } from '@/lib/db';
 
 /**
- * In-memory cache for metadata (persists across requests but not server restarts)
- * 
- * NOTE: This is suitable for development and low-traffic production environments.
- * For high-scale production with serverless deployments, consider using:
- * - Redis or another distributed cache
- * - Database caching (SQLite already available in this project)
- * - Edge caching via CDN
- * 
- * The 24-hour TTL ensures metadata is refreshed periodically while reducing
- * IPFS gateway load.
+ * In-memory cache for IPFS fetched metadata (fallback when DB doesn't have the data)
  */
-const metadataCache: Map<number, TokenMetadata> = new Map();
+const ipfsCache: Map<number, TokenMetadata> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 interface TokenMetadata {
@@ -37,6 +30,38 @@ interface TokenMetadata {
 // IPFS metadata base URL - CID for Skrumpey metadata JSON files
 // Source: https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm/{tokenId}
 const METADATA_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm';
+
+/**
+ * Convert database metadata to API response format
+ */
+function dbMetadataToResponse(dbMeta: StarSkrumpeyMetadata): TokenMetadata {
+  // Parse attributes from JSON if available
+  let attributes: Array<{ trait_type: string; value: string }> = [];
+  if (dbMeta.attributes_json) {
+    try {
+      attributes = JSON.parse(dbMeta.attributes_json);
+    } catch (e) {
+      // Reconstruct attributes from individual fields
+      attributes = [
+        dbMeta.aura && { trait_type: 'aura', value: dbMeta.aura },
+        dbMeta.background && { trait_type: 'background', value: dbMeta.background },
+        dbMeta.constellation && { trait_type: 'constellation', value: dbMeta.constellation },
+        dbMeta.eyes && { trait_type: 'eyes', value: dbMeta.eyes },
+        dbMeta.form && { trait_type: 'form', value: dbMeta.form },
+        dbMeta.mood && { trait_type: 'mood', value: dbMeta.mood },
+      ].filter(Boolean) as Array<{ trait_type: string; value: string }>;
+    }
+  }
+  
+  return {
+    tokenId: dbMeta.token_id,
+    name: dbMeta.name,
+    image: dbMeta.image_url,
+    constellation: dbMeta.constellation as StarTraitVariant | undefined,
+    attributes,
+    cachedAt: Date.now(), // DB data is always fresh
+  };
+}
 
 /**
  * Extract constellation from metadata attributes
@@ -65,22 +90,33 @@ function extractConstellation(attributes: Array<{ trait_type: string; value: str
 }
 
 /**
- * Fetch metadata from IPFS for a single token
+ * Get metadata from database first, fall back to IPFS if not found
  */
-async function fetchTokenMetadata(tokenId: number): Promise<TokenMetadata | null> {
-  // Check cache first
-  const cached = metadataCache.get(tokenId);
-  if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
-    return cached;
-  }
-  
-  // Only fetch for Star Skrumpeys
+async function getTokenMetadata(tokenId: number): Promise<TokenMetadata | null> {
+  // Only process Star Skrumpeys
   if (!isStarSkrumpeyId(tokenId)) {
     return null;
   }
   
+  // Try database first (most efficient)
   try {
-    // Try fetching metadata JSON
+    const dbMeta = getStarSkrumpeyMetadata(tokenId);
+    if (dbMeta && dbMeta.constellation) {
+      return dbMetadataToResponse(dbMeta);
+    }
+  } catch (error) {
+    console.warn(`Database lookup failed for token ${tokenId}:`, error);
+    // Continue to IPFS fallback
+  }
+  
+  // Check in-memory cache for IPFS data
+  const cached = ipfsCache.get(tokenId);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+    return cached;
+  }
+  
+  // Fallback to IPFS fetch
+  try {
     const metadataUrl = `${METADATA_IPFS_BASE}/${tokenId}`;
     const response = await fetch(metadataUrl, {
       signal: AbortSignal.timeout(10000), // 10 second timeout
@@ -91,7 +127,6 @@ async function fetchTokenMetadata(tokenId: number): Promise<TokenMetadata | null
     
     if (!response.ok) {
       console.warn(`Failed to fetch metadata for token ${tokenId}: ${response.status}`);
-      // Return basic info without constellation
       const fallback: TokenMetadata = {
         tokenId,
         name: `Skrumpey #${tokenId}`,
@@ -100,7 +135,7 @@ async function fetchTokenMetadata(tokenId: number): Promise<TokenMetadata | null
         attributes: [],
         cachedAt: Date.now(),
       };
-      metadataCache.set(tokenId, fallback);
+      ipfsCache.set(tokenId, fallback);
       return fallback;
     }
     
@@ -115,12 +150,10 @@ async function fetchTokenMetadata(tokenId: number): Promise<TokenMetadata | null
       cachedAt: Date.now(),
     };
     
-    // Cache the result
-    metadataCache.set(tokenId, metadata);
+    ipfsCache.set(tokenId, metadata);
     return metadata;
   } catch (error) {
     console.warn(`Error fetching metadata for token ${tokenId}:`, error);
-    // Return basic info on error
     const fallback: TokenMetadata = {
       tokenId,
       name: `Skrumpey #${tokenId}`,
@@ -129,9 +162,52 @@ async function fetchTokenMetadata(tokenId: number): Promise<TokenMetadata | null
       attributes: [],
       cachedAt: Date.now(),
     };
-    metadataCache.set(tokenId, fallback);
+    ipfsCache.set(tokenId, fallback);
     return fallback;
   }
+}
+
+/**
+ * Get metadata for multiple tokens - optimized batch lookup
+ */
+async function getTokenMetadataBatch(tokenIds: number[]): Promise<Record<number, TokenMetadata>> {
+  const metadataMap: Record<number, TokenMetadata> = {};
+  const missingFromDb: number[] = [];
+  
+  // Filter to only Star Skrumpeys
+  const validIds = tokenIds.filter(id => isStarSkrumpeyId(id));
+  
+  // Try database batch lookup first
+  try {
+    const dbResults = getStarSkrumpeyMetadataBatch(validIds);
+    
+    for (const tokenId of validIds) {
+      const dbMeta = dbResults.get(tokenId);
+      if (dbMeta && dbMeta.constellation) {
+        metadataMap[tokenId] = dbMetadataToResponse(dbMeta);
+      } else {
+        missingFromDb.push(tokenId);
+      }
+    }
+  } catch (error) {
+    console.warn('Database batch lookup failed:', error);
+    missingFromDb.push(...validIds);
+  }
+  
+  // Fetch missing from IPFS in parallel
+  if (missingFromDb.length > 0) {
+    const ipfsResults = await Promise.all(
+      missingFromDb.map(id => getTokenMetadata(id))
+    );
+    
+    for (const meta of ipfsResults) {
+      if (meta) {
+        metadataMap[meta.tokenId] = meta;
+      }
+    }
+  }
+  
+  return metadataMap;
 }
 
 export async function GET(request: Request) {
@@ -146,7 +222,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: 'Invalid tokenId' }, { status: 400 });
     }
     
-    const metadata = await fetchTokenMetadata(tokenId);
+    const metadata = await getTokenMetadata(tokenId);
     if (!metadata) {
       return NextResponse.json({ success: false, error: 'Token not found or not a Star Skrumpey' }, { status: 404 });
     }
@@ -165,15 +241,8 @@ export async function GET(request: Request) {
     // Limit to 50 tokens at a time to prevent abuse
     const limitedIds = tokenIds.slice(0, 50);
     
-    // Fetch all in parallel
-    const results = await Promise.all(limitedIds.map(id => fetchTokenMetadata(id)));
-    const metadataMap: Record<number, TokenMetadata> = {};
-    
-    for (const meta of results) {
-      if (meta) {
-        metadataMap[meta.tokenId] = meta;
-      }
-    }
+    // Use optimized batch lookup
+    const metadataMap = await getTokenMetadataBatch(limitedIds);
     
     return NextResponse.json({
       success: true,

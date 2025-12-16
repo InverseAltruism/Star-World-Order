@@ -680,6 +680,7 @@ export default function ProfileCard() {
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text',
+        color: 'transparent', // Fallback for non-webkit browsers
       };
       // Add text shadow glow for rare variants
       if (isRareVariant(variant)) {
@@ -874,7 +875,8 @@ export default function ProfileCard() {
           </h3>
           <div className="flex flex-wrap justify-center gap-2">
             {STAR_TRAIT_VARIANTS.map((variant, index) => {
-              const hasVariant = starSkrumpeys.some(s => s.starVariant === variant);
+              // Use displaySkrumpeys which has the correct fetched IPFS metadata
+              const hasVariant = displaySkrumpeys.some(s => s.hasStar && s.starVariant === variant);
               return (
                 <div 
                   key={variant}
