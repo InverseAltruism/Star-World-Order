@@ -161,15 +161,13 @@ export default function Header() {
           </div>
         </nav>
 
-        {/* Mobile Navigation Menu */}
+        {/* Mobile Navigation Menu - z-index must be above body::after (9997) and body::before (9998) overlays */}
         <div 
-          className={`md:hidden fixed inset-0 top-[61px] backdrop-blur-md z-[60] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
-          style={{
-            background: 'linear-gradient(180deg, rgba(26, 26, 46, 0.98) 0%, rgba(19, 19, 42, 0.98) 50%, rgba(13, 13, 26, 0.98) 100%)'
-          }}
+          className={`md:hidden fixed left-0 right-0 top-[61px] h-[calc(100vh-61px)] z-[9999] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          style={{ backgroundColor: '#0d0d1a' }}
         >
           {/* Neon border effect for visibility */}
-          <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" style={{ boxShadow: '0 0 30px rgba(153, 102, 255, 0.5), inset 0 0 20px rgba(153, 102, 255, 0.1)' }} />
+          <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" />
           
           <nav className="flex flex-col items-center gap-6 p-8 pb-safe relative">
             {isProduction ? (
