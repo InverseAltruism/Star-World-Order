@@ -123,10 +123,18 @@ function initializeDatabase(database: Database.Database): void {
       display_name TEXT,
       bio TEXT,
       avatar_url TEXT,
+      displayed_badges TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Add displayed_badges column if it doesn't exist (migration)
+  try {
+    database.exec(`ALTER TABLE user_profiles ADD COLUMN displayed_badges TEXT`);
+  } catch (e) {
+    // Column already exists, ignore error
+  }
 
   // Create indexes
   database.exec(`
@@ -446,6 +454,7 @@ export interface UserProfile {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  displayed_badges: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -491,17 +500,22 @@ export function updateUserProfile(
     displayName?: string;
     bio?: string;
     avatarUrl?: string;
+    displayedBadges?: string[];
   }
 ): UserProfile {
   const db = getDatabase();
   
+  // Convert displayedBadges array to JSON string for storage
+  const badgesJson = data.displayedBadges ? JSON.stringify(data.displayedBadges) : null;
+  
   const updateStmt = db.prepare(`
-    INSERT INTO user_profiles (wallet_address, display_name, bio, avatar_url)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO user_profiles (wallet_address, display_name, bio, avatar_url, displayed_badges)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(wallet_address) DO UPDATE SET
       display_name = COALESCE(?, display_name),
       bio = COALESCE(?, bio),
       avatar_url = COALESCE(?, avatar_url),
+      displayed_badges = COALESCE(?, displayed_badges),
       updated_at = CURRENT_TIMESTAMP
   `);
   
@@ -510,9 +524,11 @@ export function updateUserProfile(
     data.displayName || null,
     data.bio || null,
     data.avatarUrl || null,
+    badgesJson,
     data.displayName || null,
     data.bio || null,
-    data.avatarUrl || null
+    data.avatarUrl || null,
+    badgesJson
   );
   
   const getStmt = db.prepare('SELECT * FROM user_profiles WHERE wallet_address = ?');

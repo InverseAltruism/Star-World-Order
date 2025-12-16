@@ -86,6 +86,23 @@ Star Skrumpey metadata and images are stored on IPFS:
 | parallel | 10 | Legendary |
 | prime | 1 | Mythic (1 of 1) |
 
+### 🎨 Star Constellation Colors
+
+Each constellation has a unique visual appearance in the UI:
+
+| Constellation | Color Description |
+|--------------|-------------------|
+| Spectra | Gradient: Turquoise → Light Blue → Purple → Yellow |
+| Aether | Light Blue (#87CEEB) |
+| Solveil | Yellow (#ffd700) |
+| Nebulu | Purple (#9966ff) |
+| Chroma | Light to Darker Purple Gradient |
+| Rose | Pink (#FFB6C1) |
+| Monflare | Glowing Purple (#9966ff with glow effect) |
+| Auracore | Glowing Golden (#ffd700 with glow effect) |
+| Parallel | Light Green-Blue to Darker Blue Gradient with White Stars |
+| Prime | Golden (#ffd700) |
+
 ## ✨ Features
 
 ### 🏛️ DAO Governance

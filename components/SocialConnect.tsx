@@ -235,7 +235,7 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
   }
 
   return (
-    <div className="pixel-card p-6 animate-slide-in-up">
+    <div className="space-y-3">
       <h3 className="text-[#00ffff] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
         ✦ SOCIAL CONNECTIONS ✦
       </h3>

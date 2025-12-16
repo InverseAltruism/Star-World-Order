@@ -169,7 +169,19 @@ function SkrumpeyInspectModal({
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(skrumpey.id);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(skrumpey.id, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Reset load state and try GIF (for galaxy background NFTs)
+      setImageLoaded(false);
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   // Close modal on escape key
   useEffect(() => {
@@ -242,7 +254,7 @@ function SkrumpeyInspectModal({
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
               onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
+              onError={handleImageError}
             />
           )}
         </div>
@@ -310,7 +322,18 @@ function SkrumpeyInspectModal({
  */
 function ProfileAvatar({ tokenId }: { tokenId: number }) {
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Try GIF on first error (for galaxy background NFTs)
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   if (imageError) {
     return (
@@ -326,7 +349,7 @@ function ProfileAvatar({ tokenId }: { tokenId: number }) {
         src={imageUrl}
         alt={`Skrumpey #${tokenId}`}
         className="w-full h-full object-cover"
-        onError={() => setImageError(true)}
+        onError={handleImageError}
       />
     </div>
   );
@@ -338,7 +361,19 @@ function ProfileAvatar({ tokenId }: { tokenId: number }) {
 function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Reset load state and try GIF (for galaxy background NFTs)
+      setImageLoaded(false);
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
 
   return (
     <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
@@ -364,7 +399,7 @@ function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolea
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
+          onError={handleImageError}
           loading="lazy"
         />
       )}
@@ -434,6 +469,17 @@ export default function ProfileCard() {
           if (data.success && data.profile) {
             setDisplayName(data.profile.display_name || '');
             setBio(data.profile.bio || '');
+            // Load displayed badges from database
+            if (data.profile.displayed_badges) {
+              try {
+                const badges = JSON.parse(data.profile.displayed_badges);
+                if (Array.isArray(badges)) {
+                  setSelectedBadges(badges);
+                }
+              } catch (e) {
+                console.error('Failed to parse displayed badges:', e);
+              }
+            }
           }
         })
         .catch(console.error);
@@ -557,6 +603,28 @@ export default function ProfileCard() {
     });
   };
 
+  // Save displayed badges to profile
+  const handleSaveBadges = async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          displayedBadges: selectedBadges,
+        }),
+      });
+      
+      if (response.ok) {
+        setIsEditingBadges(false);
+      }
+    } catch (error) {
+      console.error('Failed to save badges:', error);
+    }
+  };
+
   if (!isConnected) {
     return null;
   }
@@ -564,15 +632,15 @@ export default function ProfileCard() {
   // Get color for star variant
   const getVariantColor = (variant?: string): string => {
     const colors: Record<string, string> = {
-      aether: '#00ffff',
-      spectra: '#ff00ff',
-      solveil: '#ffd700',
-      nebulu: '#9966ff',
-      chroma: '#ff6ec7',
-      rose: '#ff69b4',
-      monflare: '#ff4500',
-      auracore: '#44ff88',
-      parallel: '#00bfff',
+      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)', // Gradient: Turquoise -> light blue -> purple -> yellow
+      aether: '#87CEEB',      // Light blue
+      solveil: '#ffd700',     // Yellow
+      nebulu: '#9966ff',      // Purple
+      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)', // Light purple to darker purple gradient
+      rose: '#FFB6C1',        // Pink
+      monflare: '#9966ff',    // Glowing Purple (add glow effect)
+      auracore: '#ffd700',    // Glowing Golden (add glow effect)
+      parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)', // Light green-blue to darker blue gradient with white stars
       prime: '#ffd700',
     };
     return colors[variant || ''] || '#ffd700';
@@ -581,7 +649,31 @@ export default function ProfileCard() {
   return (
     <div className="space-y-6">
       {/* Player Stats Box with Profile Picture */}
-      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
+      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up relative">
+        {/* Displayed Badges - Top Right */}
+        {selectedBadges.length > 0 && (
+          <div className="absolute top-3 right-3 flex gap-2">
+            {selectedBadges.slice(0, 3).map(badgeId => {
+              const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
+              if (!badge) return null;
+              return (
+                <div 
+                  key={badgeId}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 animate-pixel-pulse"
+                  style={{ 
+                    backgroundColor: `${badge.color}20`,
+                    borderColor: badge.color,
+                    boxShadow: `0 0 10px ${badge.color}40`,
+                  }}
+                  title={badge.name}
+                >
+                  {badge.icon}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
         <div className="flex items-center gap-3 sm:gap-4 mb-4">
           {/* Avatar - Use first Star Skrumpey as profile picture */}
           <div className="relative">
@@ -622,7 +714,7 @@ export default function ProfileCard() {
             </p>
             <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
           </div>
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
+          <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-[10px] sm:text-xs font-bold leading-tight">
               {getLevelTitle(starSkrumpeys.length)}
             </p>
@@ -827,7 +919,13 @@ export default function ProfileCard() {
           </h3>
           {unlockedAchievements.length > 0 && (
             <button
-              onClick={() => setIsEditingBadges(!isEditingBadges)}
+              onClick={() => {
+                if (isEditingBadges) {
+                  handleSaveBadges();
+                } else {
+                  setIsEditingBadges(true);
+                }
+              }}
               className="pixel-btn text-[10px] !px-3 !py-1"
             >
               {isEditingBadges ? 'DONE' : 'DISPLAY'}

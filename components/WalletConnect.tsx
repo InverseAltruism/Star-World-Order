@@ -229,7 +229,7 @@ export default function WalletConnect() {
   const shouldShowDropdown = connectors.length > 1;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative z-50" ref={dropdownRef}>
       <button
         onClick={() => shouldShowDropdown ? setShowDropdown(!showDropdown) : handleConnect()}
         disabled={isPending}
