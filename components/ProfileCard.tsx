@@ -6,6 +6,35 @@ import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/li
 import SocialConnect from './SocialConnect';
 
 /**
+ * Get level title based on Star Skrumpey holdings count
+ */
+function getLevelTitle(holdingsCount: number): string {
+  if (holdingsCount >= 10) return 'COSMIC EMPEROR';
+  if (holdingsCount >= 5) return 'STAR LORD';
+  if (holdingsCount >= 3) return 'CONSTELLATION KEEPER';
+  return 'STAR SEEKER';
+}
+
+/**
+ * Get level color based on holdings count
+ */
+function getLevelColor(holdingsCount: number): string {
+  if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
+  if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
+  if (holdingsCount >= 3) return '#00ffff'; // Cyan - Constellation Keeper
+  return '#9966ff'; // Purple - Star Seeker
+}
+
+/**
+ * Calculate level number based on holdings and STAR points
+ */
+function calculateLevel(starCount: number, starPoints: number = 0): number {
+  const nftContribution = starCount * 10;
+  const pointsContribution = Math.sqrt(starPoints);
+  return 1 + Math.floor(Math.sqrt(nftContribution + pointsContribution));
+}
+
+/**
  * Interface defining the structure for Skrumpey NFT display data
  * Used in collection grid components and the inspect modal
  */
@@ -16,6 +45,106 @@ interface SkrumpeyDisplayData {
   rarity: string;
   starVariant?: StarTraitVariant;
 }
+
+/**
+ * Achievement/Badge definitions
+ * All constellations for "Gotta Catch 'Em All" badge (excluding Prime which is 1 of 1)
+ */
+const COLLECTIBLE_CONSTELLATIONS = [
+  'aether', 'spectra', 'solveil', 'nebulu', 'chroma', 
+  'rose', 'monflare', 'auracore', 'parallel'
+] as const;
+
+interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  check: (data: AchievementCheckData) => boolean;
+}
+
+interface AchievementCheckData {
+  starCount: number;
+  uniqueConstellations: string[];
+  hasPrime: boolean;
+  level: number;
+}
+
+/**
+ * Available achievements
+ */
+const ACHIEVEMENTS: Achievement[] = [
+  {
+    id: 'star_seeker',
+    name: 'Star Seeker',
+    description: 'Hold at least 1 Star Skrumpey',
+    icon: '⭐',
+    color: '#ffd700',
+    check: (data) => data.starCount >= 1,
+  },
+  {
+    id: 'constellation_keeper',
+    name: 'Constellation Keeper',
+    description: 'Hold 3 or more Star Skrumpeys',
+    icon: '🌟',
+    color: '#00ffff',
+    check: (data) => data.starCount >= 3,
+  },
+  {
+    id: 'star_lord',
+    name: 'Star Lord',
+    description: 'Hold 5 or more Star Skrumpeys',
+    icon: '👑',
+    color: '#ff00ff',
+    check: (data) => data.starCount >= 5,
+  },
+  {
+    id: 'cosmic_emperor',
+    name: 'Cosmic Emperor',
+    description: 'Hold 10 or more Star Skrumpeys',
+    icon: '🏆',
+    color: '#ffd700',
+    check: (data) => data.starCount >= 10,
+  },
+  {
+    id: 'gotta_catch_em_all',
+    name: 'Gotta Catch Em All!',
+    description: 'Collect all 9 constellation types (excluding Prime)',
+    icon: '🔮',
+    color: '#ff6ec7',
+    check: (data) => {
+      const collected = COLLECTIBLE_CONSTELLATIONS.filter(c => 
+        data.uniqueConstellations.includes(c)
+      );
+      return collected.length >= COLLECTIBLE_CONSTELLATIONS.length;
+    },
+  },
+  {
+    id: 'prime_holder',
+    name: 'The Prime',
+    description: 'Hold the legendary 1/1 Prime Star Skrumpey',
+    icon: '💎',
+    color: '#ffd700',
+    check: (data) => data.hasPrime,
+  },
+  {
+    id: 'constellation_explorer',
+    name: 'Constellation Explorer',
+    description: 'Collect at least 3 different constellation types',
+    icon: '🔭',
+    color: '#9966ff',
+    check: (data) => data.uniqueConstellations.length >= 3,
+  },
+  {
+    id: 'cosmic_collector',
+    name: 'Cosmic Collector',
+    description: 'Collect at least 5 different constellation types',
+    icon: '🌌',
+    color: '#44ff88',
+    check: (data) => data.uniqueConstellations.length >= 5,
+  },
+];
 
 /**
  * Skrumpey Inspect Modal - Shows detailed view of an NFT
@@ -248,11 +377,34 @@ export default function ProfileCard() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [selectedSkrumpey, setSelectedSkrumpey] = useState<SkrumpeyDisplayData | null>(null);
+  const [tokenMetadata, setTokenMetadata] = useState<Record<number, { constellation?: StarTraitVariant }>>({});
+  const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
+  const [isEditingBadges, setIsEditingBadges] = useState(false);
 
   // Close modal handler
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
   }, []);
+
+  // Fetch metadata for owned tokens to get real constellation data
+  useEffect(() => {
+    if (starSkrumpeys.length > 0) {
+      const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
+      fetch(`/api/metadata?tokenIds=${tokenIds}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.metadata) {
+            const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
+            for (const [id, meta] of Object.entries(data.metadata)) {
+              const metadata = meta as { constellation?: StarTraitVariant };
+              metaMap[parseInt(id, 10)] = { constellation: metadata.constellation };
+            }
+            setTokenMetadata(metaMap);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [starSkrumpeys]);
 
   // Load profile on mount
   useEffect(() => {
@@ -304,14 +456,20 @@ export default function ProfileCard() {
     }
   };
 
-  // Convert owned tokens to display format
-  const displaySkrumpeys = ownedSkrumpeys.map(token => ({
-    id: token.tokenId,
-    name: `Skrumpey #${token.tokenId}`,
-    hasStar: token.hasStar,
-    rarity: token.hasStar ? (token.starVariant || 'Star').charAt(0).toUpperCase() + (token.starVariant || 'star').slice(1) : 'Common',
-    starVariant: token.starVariant,
-  }));
+  // Convert owned tokens to display format, using fetched metadata for constellation
+  const displaySkrumpeys = ownedSkrumpeys.map(token => {
+    // Use fetched metadata constellation if available, otherwise fallback to token data
+    const fetchedConstellation = tokenMetadata[token.tokenId]?.constellation;
+    const starVariant = fetchedConstellation || token.starVariant;
+    
+    return {
+      id: token.tokenId,
+      name: `Skrumpey #${token.tokenId}`,
+      hasStar: token.hasStar,
+      rarity: token.hasStar ? (starVariant || 'Star').charAt(0).toUpperCase() + (starVariant || 'star').slice(1) : 'Common',
+      starVariant,
+    };
+  });
 
   // Show demo data if no real NFTs found - uses variants from STAR_TRAIT_VARIANTS
   const showDemoData = displaySkrumpeys.length === 0;
@@ -335,6 +493,40 @@ export default function ProfileCard() {
   ] : [];
 
   const finalDisplaySkrumpeys = showDemoData ? demoSkrumpeys : displaySkrumpeys;
+
+  // Calculate achievement check data
+  const uniqueConstellations = [...new Set(
+    displaySkrumpeys
+      .filter(s => s.hasStar && s.starVariant)
+      .map(s => s.starVariant as string)
+  )];
+  
+  const hasPrime = uniqueConstellations.includes('prime');
+  const level = calculateLevel(starSkrumpeys.length);
+  
+  const achievementCheckData: AchievementCheckData = {
+    starCount: starSkrumpeys.length,
+    uniqueConstellations,
+    hasPrime,
+    level,
+  };
+  
+  // Get unlocked achievements
+  const unlockedAchievements = ACHIEVEMENTS.filter(a => a.check(achievementCheckData));
+  
+  // Toggle badge selection
+  const toggleBadge = (badgeId: string) => {
+    setSelectedBadges(prev => {
+      if (prev.includes(badgeId)) {
+        return prev.filter(id => id !== badgeId);
+      }
+      // Limit to 3 displayed badges
+      if (prev.length >= 3) {
+        return [...prev.slice(1), badgeId];
+      }
+      return [...prev, badgeId];
+    });
+  };
 
   if (!isConnected) {
     return null;
@@ -392,16 +584,20 @@ export default function ProfileCard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-3 sm:pt-4">
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#ffd700] text-base sm:text-lg">{finalDisplaySkrumpeys.length}</p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">SKRUMPEYS</p>
+            <p className="text-[#ffd700] text-base sm:text-lg">{starSkrumpeys.length}</p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">STAR SKRUMPEYS</p>
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p className="text-[#ff00ff] text-base sm:text-lg">{finalDisplaySkrumpeys.filter(s => s.hasStar).length}</p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">STAR TRAIT</p>
+            <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-base sm:text-lg">
+              LVL {calculateLevel(starSkrumpeys.length)}
+            </p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
           </div>
           <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#44ff88] text-base sm:text-lg">LVL 1</p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">RANK</p>
+            <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-[10px] sm:text-xs font-bold leading-tight">
+              {getLevelTitle(starSkrumpeys.length)}
+            </p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">TITLE</p>
           </div>
         </div>
       </div>
@@ -591,32 +787,128 @@ export default function ProfileCard() {
         )}
       </div>
 
-      {/* Achievement Badges Placeholder */}
-      <div className="pixel-card p-6">
-        <h3 className="text-[#9966ff] text-sm tracking-wider mb-4 text-center">
-          ACHIEVEMENTS
-        </h3>
-        <div className="flex justify-center gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${
-            starSkrumpeys.length > 0 
-              ? 'bg-[#ffd700]/20 border-2 border-[#ffd700]' 
-              : 'bg-[#333]/20 border-2 border-[#333]/50 opacity-50'
-          }`}
-               title={starSkrumpeys.length > 0 ? "Star Bearer" : "Locked - Hold a Star Skrumpey"}>
-            {starSkrumpeys.length > 0 ? '⭐' : '🔒'}
-          </div>
-          <div className="w-12 h-12 rounded-full bg-[#9966ff]/20 border-2 border-[#9966ff]/50 flex items-center justify-center text-xl opacity-50"
-               title="Locked">
-            🔒
-          </div>
-          <div className="w-12 h-12 rounded-full bg-[#44ff88]/20 border-2 border-[#44ff88]/50 flex items-center justify-center text-xl opacity-50"
-               title="Locked">
-            🔒
-          </div>
+      {/* Achievement Badges */}
+      <div className="pixel-card p-6 animate-slide-in-up">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[#9966ff] text-sm tracking-wider">
+            ACHIEVEMENTS ({unlockedAchievements.length}/{ACHIEVEMENTS.length})
+          </h3>
+          {unlockedAchievements.length > 0 && (
+            <button
+              onClick={() => setIsEditingBadges(!isEditingBadges)}
+              className="pixel-btn text-[10px] !px-3 !py-1"
+            >
+              {isEditingBadges ? 'DONE' : 'DISPLAY'}
+            </button>
+          )}
         </div>
-        <p className="text-gray-600 text-xs text-center mt-3">
-          MORE BADGES COMING SOON
-        </p>
+        
+        {/* Selected Badges Display */}
+        {selectedBadges.length > 0 && !isEditingBadges && (
+          <div className="mb-4 p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
+            <p className="text-[#ffd700] text-[9px] mb-2 text-center">DISPLAYED BADGES</p>
+            <div className="flex justify-center gap-3">
+              {selectedBadges.map(badgeId => {
+                const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
+                if (!badge) return null;
+                return (
+                  <div 
+                    key={badgeId}
+                    className="flex flex-col items-center"
+                    title={badge.description}
+                  >
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2"
+                      style={{ 
+                        backgroundColor: `${badge.color}20`,
+                        borderColor: badge.color,
+                        boxShadow: `0 0 10px ${badge.color}40`,
+                      }}
+                    >
+                      {badge.icon}
+                    </div>
+                    <p className="text-[8px] mt-1" style={{ color: badge.color }}>
+                      {badge.name.split(' ')[0]}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* All Achievements Grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {ACHIEVEMENTS.map((achievement) => {
+            const isUnlocked = unlockedAchievements.some(a => a.id === achievement.id);
+            const isSelected = selectedBadges.includes(achievement.id);
+            
+            return (
+              <div 
+                key={achievement.id}
+                onClick={() => isEditingBadges && isUnlocked && toggleBadge(achievement.id)}
+                className={`flex flex-col items-center p-2 rounded-lg smooth-transition ${
+                  isEditingBadges && isUnlocked ? 'cursor-pointer hover:bg-[#2a2a4e]' : ''
+                } ${isSelected && isEditingBadges ? 'bg-[#2a2a4e] ring-2 ring-[#ffd700]' : ''}`}
+                title={isUnlocked ? achievement.description : `Locked - ${achievement.description}`}
+              >
+                <div 
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 smooth-transition ${
+                    isUnlocked 
+                      ? '' 
+                      : 'opacity-30 grayscale'
+                  }`}
+                  style={{ 
+                    backgroundColor: isUnlocked ? `${achievement.color}20` : '#333',
+                    borderColor: isUnlocked ? achievement.color : '#444',
+                    boxShadow: isUnlocked ? `0 0 10px ${achievement.color}40` : 'none',
+                  }}
+                >
+                  {isUnlocked ? achievement.icon : '🔒'}
+                </div>
+                <p 
+                  className="text-[8px] mt-1 text-center leading-tight"
+                  style={{ color: isUnlocked ? achievement.color : '#666' }}
+                >
+                  {achievement.name}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Helper text */}
+        {isEditingBadges && (
+          <p className="text-gray-500 text-[9px] text-center mt-3">
+            Click on unlocked badges to select up to 3 for display
+          </p>
+        )}
+        
+        {/* Gotta Catch Em All Progress */}
+        {unlockedAchievements.some(a => a.id !== 'gotta_catch_em_all') && (
+          <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
+            <p className="text-[#ff6ec7] text-[9px] mb-2 text-center">
+              CONSTELLATION PROGRESS ({uniqueConstellations.filter(c => c !== 'prime').length}/{COLLECTIBLE_CONSTELLATIONS.length})
+            </p>
+            <div className="flex flex-wrap justify-center gap-1">
+              {COLLECTIBLE_CONSTELLATIONS.map(constellation => {
+                const hasIt = uniqueConstellations.includes(constellation);
+                return (
+                  <span 
+                    key={constellation}
+                    className={`text-[8px] px-2 py-1 rounded border ${
+                      hasIt 
+                        ? 'border-[#44ff88] bg-[#44ff88]/20 text-[#44ff88]' 
+                        : 'border-[#333] bg-[#1a1a2e] text-[#666]'
+                    }`}
+                  >
+                    {constellation.toUpperCase()}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Skrumpey Inspect Modal */}
