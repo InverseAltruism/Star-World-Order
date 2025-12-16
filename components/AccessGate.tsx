@@ -68,9 +68,9 @@ export default function AccessGate({
   if ((!isConnected || !hasAccess) && !devModeActive) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="pixel-card p-8 text-center max-w-lg relative overflow-hidden animate-slide-in-up">
+        <div className="pixel-card p-8 text-center max-w-lg relative animate-slide-in-up">
           {/* Scanline effect */}
-          <div className="absolute inset-0 bg-repeating-linear-gradient pointer-events-none opacity-10"
+          <div className="absolute inset-0 bg-repeating-linear-gradient pointer-events-none opacity-10 overflow-hidden rounded-lg"
                style={{
                  background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 1px, transparent 1px, transparent 2px)'
                }} />

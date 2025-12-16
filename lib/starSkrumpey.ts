@@ -30,12 +30,16 @@ import { createPublicClient, http } from 'viem';
 import { monad } from './wagmi';
 import { getResilientClient, retryWithBackoff } from './rpcClient';
 import { logger } from './logger';
+import { STAR_CONSTELLATION_MAP } from '../data/starConstellationData';
 
 /**
  * Star Skrumpey Token IDs - Allow-list of token IDs with the Star trait
  * 
  * These token IDs have been identified as having the Star constellation trait.
- * Total: 343 Star Skrumpeys
+ * Total: 333 Star Skrumpeys
+ * 
+ * IPFS Metadata: bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm
+ * IPFS Images: bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu
  * 
  * Location: This list was generated from constellation_token_ids.txt
  * Last updated: December 2024
@@ -77,17 +81,16 @@ export function isStarSkrumpeyId(tokenId: number): boolean {
 
 /**
  * Get the star constellation variant for a token ID
- * Uses a deterministic mapping based on token ID
+ * Uses the static constellation mapping from IPFS metadata
  */
 export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | undefined {
   if (!isStarSkrumpeyId(tokenId)) {
     return undefined;
   }
   
-  // Use token ID to deterministically assign a variant
-  // This ensures the same token always gets the same variant
-  const index = tokenId % STAR_TRAIT_VARIANTS.length;
-  return STAR_TRAIT_VARIANTS[index];
+  // Use the static constellation map from IPFS metadata
+  // This is the authoritative source for constellation data
+  return STAR_CONSTELLATION_MAP[tokenId] as StarTraitVariant | undefined;
 }
 
 /**
@@ -316,7 +319,7 @@ async function processBatch<T, R>(
 /**
  * Check Star Skrumpey ownership using batched multicall
  * 
- * This is the primary strategy (Tier 1) that checks ownership of all 343 known
+ * This is the primary strategy (Tier 1) that checks ownership of all 333 known
  * Star Skrumpey token IDs in a single batched multicall. This approach makes
  * O(1) RPC calls regardless of how many NFTs the user owns, avoiding rate limiting.
  * 
@@ -338,7 +341,7 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
     // Get a resilient client with fallback support
     const client = await getResilientClient();
 
-    // Batch check ownership of all 343 Star Skrumpey IDs using multicall
+    // Batch check ownership of all 333 Star Skrumpey IDs using multicall
     const ownershipChecks = await retryWithBackoff(async () => {
       logger.debug('Executing multicall for Star ownership', {
         contractCount: STAR_SKRUMPEY_IDS.length,

@@ -20,13 +20,13 @@
 
 Star World Order combines retro N64 aesthetics with modern Web3 governance. Think of it as plugging in a cosmic cartridge: only those holding a Skrumpey with the rare **Star constellation trait** can access the DAO.
 
-These 343 pixel art creatures are your key to the cosmic realm. No Star? The order awaits your return.
+These 333 pixel art creatures are your key to the cosmic realm. No Star? The order awaits your return.
 
 ## 🔒 Access
 
 To enter the Star World Order, you need:
 
-- **A Skrumpey NFT with the Star constellation trait** (343 exist)
+- **A Skrumpey NFT with the Star constellation trait** (333 exist)
 
 Regular Skrumpey holders cannot access DAO features. The Star trait is your cosmic key.
 
@@ -41,6 +41,50 @@ Regular Skrumpey holders cannot access DAO features. The Star trait is your cosm
 ```
 
 Star trait variants: `aether`, `spectra`, `solveil`, `nebulu`, `chroma`, `rose`, `monflare`, `auracore`, `parallel`, `prime`
+
+### 🌐 IPFS Data Sources
+
+Star Skrumpey metadata and images are stored on IPFS:
+
+**Metadata JSON:**
+- CID: `bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm`
+- URL Pattern: `https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foulw6giemwwxwye2qtc3bd2lx34va6c3lpkjvsweevxudsjm/{tokenId}`
+
+**NFT Images:**
+- CID: `bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu`
+- URL Pattern: `https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/{tokenId}.png`
+
+**Example Metadata (Token #3189):**
+```json
+{
+  "attributes": [
+    { "value": "aroma", "trait_type": "aura" },
+    { "value": "flora", "trait_type": "background" },
+    { "value": "parallel", "trait_type": "constellation" },
+    { "value": "dork", "trait_type": "eyes" },
+    { "value": "super sayain", "trait_type": "form" },
+    { "value": "drool", "trait_type": "mood" }
+  ],
+  "description": "A collection of 3,333 pixel art pfpNFTs capturing Monad's spirit. Created by melo.",
+  "image": "ipfs://bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu/3189.png",
+  "name": "SKRUMP #3189"
+}
+```
+
+### 🌟 Constellation Rarity Distribution
+
+| Constellation | Count | Rarity |
+|---------------|-------|--------|
+| aether | 52 | Common |
+| spectra | 52 | Common |
+| solveil | 46 | Uncommon |
+| nebulu | 44 | Uncommon |
+| chroma | 42 | Uncommon |
+| rose | 36 | Rare |
+| monflare | 27 | Rare |
+| auracore | 23 | Epic |
+| parallel | 10 | Legendary |
+| prime | 1 | Mythic (1 of 1) |
 
 ## ✨ Features
 

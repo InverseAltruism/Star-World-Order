@@ -189,7 +189,7 @@ https://monad-mainnet-rpc.spidernode.net
 - **Address**: `0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0`
 - **Explorer**: https://monadscan.com/address/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0
 - **Total Supply**: ~3333 NFTs
-- **Star Skrumpeys**: 343 NFTs with Star constellation trait
+- **Star Skrumpeys**: 333 NFTs with Star constellation trait
 - **Standard**: ERC-721 Enumerable
 
 ---
@@ -366,9 +366,9 @@ This ensures:
 
 ---
 
-## Star Skrumpey Token IDs (343 total)
+## Star Skrumpey Token IDs (333 total)
 
-Star Skrumpeys are Skrumpey NFTs with the Star constellation trait. The following 343 token IDs have been identified:
+Star Skrumpeys are Skrumpey NFTs with the Star constellation trait. The following 333 token IDs have been identified:
 
 ```
 3, 17, 20, 23, 38, 40, 60, 84, 96, 106, 108, 118, 120, 141, 149, 164, 180, 191, 204, 206,
@@ -574,10 +574,10 @@ Star World Order uses a multi-tier resilience strategy for RPC calls to avoid ra
 
 ### Tier 1: Batched Multicall
 
-Uses Viem's `multicall` to batch ownership checks of all 343 Star Skrumpey token IDs in a single RPC call. This provides O(1) RPC complexity regardless of user's NFT count.
+Uses Viem's `multicall` to batch ownership checks of all 333 Star Skrumpey token IDs in a single RPC call. This provides O(1) RPC complexity regardless of user's NFT count.
 
 ```typescript
-// Check ownership of all 343 Star Skrumpeys in one call
+// Check ownership of all 333 Star Skrumpeys in one call
 const ownershipChecks = await client.multicall({
   contracts: STAR_SKRUMPEY_IDS.map(tokenId => ({
     address: SKRUMPEY_CONTRACT_ADDRESS,
@@ -814,7 +814,7 @@ Access to DAO features requires holding a Star Skrumpey (Skrumpey NFT with Star 
 
 1. User connects wallet
 2. App calls `checkStarOwnershipBatched(address)` to verify ownership
-3. Function checks ownership of all 343 Star Skrumpey token IDs via multicall
+3. Function checks ownership of all 333 Star Skrumpey token IDs via multicall
 4. If user owns at least one Star Skrumpey, grant DAO access
 5. If not, show access denied message with link to marketplace
 
