@@ -90,23 +90,13 @@ function extractConstellation(attributes: Array<{ trait_type: string; value: str
 }
 
 /**
- * Get metadata from database first, fall back to IPFS if not found
+ * Fetch metadata directly from IPFS (skips database check)
+ * Used for batch fallback when we already know DB doesn't have the data
  */
-async function getTokenMetadata(tokenId: number): Promise<TokenMetadata | null> {
+async function fetchFromIPFSOnly(tokenId: number): Promise<TokenMetadata | null> {
   // Only process Star Skrumpeys
   if (!isStarSkrumpeyId(tokenId)) {
     return null;
-  }
-  
-  // Try database first (most efficient)
-  try {
-    const dbMeta = getStarSkrumpeyMetadata(tokenId);
-    if (dbMeta && dbMeta.constellation) {
-      return dbMetadataToResponse(dbMeta);
-    }
-  } catch (error) {
-    console.warn(`Database lookup failed for token ${tokenId}:`, error);
-    // Continue to IPFS fallback
   }
   
   // Check in-memory cache for IPFS data
@@ -115,7 +105,7 @@ async function getTokenMetadata(tokenId: number): Promise<TokenMetadata | null> 
     return cached;
   }
   
-  // Fallback to IPFS fetch
+  // Fetch from IPFS
   try {
     const metadataUrl = `${METADATA_IPFS_BASE}/${tokenId}`;
     const response = await fetch(metadataUrl, {
@@ -168,6 +158,30 @@ async function getTokenMetadata(tokenId: number): Promise<TokenMetadata | null> 
 }
 
 /**
+ * Get metadata from database first, fall back to IPFS if not found
+ */
+async function getTokenMetadata(tokenId: number): Promise<TokenMetadata | null> {
+  // Only process Star Skrumpeys
+  if (!isStarSkrumpeyId(tokenId)) {
+    return null;
+  }
+  
+  // Try database first (most efficient)
+  try {
+    const dbMeta = getStarSkrumpeyMetadata(tokenId);
+    if (dbMeta && dbMeta.constellation) {
+      return dbMetadataToResponse(dbMeta);
+    }
+  } catch (error) {
+    console.warn(`Database lookup failed for token ${tokenId}:`, error);
+    // Continue to IPFS fallback
+  }
+  
+  // Use IPFS-only function for fallback
+  return fetchFromIPFSOnly(tokenId);
+}
+
+/**
  * Get metadata for multiple tokens - optimized batch lookup
  */
 async function getTokenMetadataBatch(tokenIds: number[]): Promise<Record<number, TokenMetadata>> {
@@ -194,10 +208,11 @@ async function getTokenMetadataBatch(tokenIds: number[]): Promise<Record<number,
     missingFromDb.push(...validIds);
   }
   
-  // Fetch missing from IPFS in parallel
+  // Fetch missing from IPFS in parallel using IPFS-only function
+  // (avoids redundant database checks since we already know these aren't in DB)
   if (missingFromDb.length > 0) {
     const ipfsResults = await Promise.all(
-      missingFromDb.map(id => getTokenMetadata(id))
+      missingFromDb.map(id => fetchFromIPFSOnly(id))
     );
     
     for (const meta of ipfsResults) {

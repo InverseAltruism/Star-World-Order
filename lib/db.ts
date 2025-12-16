@@ -633,6 +633,7 @@ export function upsertStarSkrumpeyMetadata(data: {
 }): StarSkrumpeyMetadata {
   const db = getDatabase();
   
+  // Use excluded.column_name syntax to avoid parameter duplication
   const stmt = db.prepare(`
     INSERT INTO star_skrumpey_metadata (
       token_id, name, description, image_url, constellation,
@@ -640,32 +641,21 @@ export function upsertStarSkrumpeyMetadata(data: {
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(token_id) DO UPDATE SET
-      name = ?,
-      description = ?,
-      image_url = ?,
-      constellation = ?,
-      aura = ?,
-      background = ?,
-      eyes = ?,
-      form = ?,
-      mood = ?,
-      attributes_json = ?,
+      name = excluded.name,
+      description = excluded.description,
+      image_url = excluded.image_url,
+      constellation = excluded.constellation,
+      aura = excluded.aura,
+      background = excluded.background,
+      eyes = excluded.eyes,
+      form = excluded.form,
+      mood = excluded.mood,
+      attributes_json = excluded.attributes_json,
       updated_at = CURRENT_TIMESTAMP
   `);
   
   stmt.run(
     data.tokenId,
-    data.name,
-    data.description || null,
-    data.imageUrl,
-    data.constellation || null,
-    data.aura || null,
-    data.background || null,
-    data.eyes || null,
-    data.form || null,
-    data.mood || null,
-    data.attributesJson || null,
-    // ON CONFLICT values
     data.name,
     data.description || null,
     data.imageUrl,
