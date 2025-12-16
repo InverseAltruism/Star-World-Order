@@ -542,26 +542,15 @@ export default function ProfileCard() {
     };
   });
 
-  // Show demo data if no real NFTs found - uses variants from STAR_TRAIT_VARIANTS
+  // Show demo data if no real NFTs found - shows all constellation variants for testing
   const showDemoData = displaySkrumpeys.length === 0;
-  const demoSkrumpeys = showDemoData ? [
-    { 
-      id: 42, 
-      name: 'Skrumpey #42', 
-      hasStar: true, 
-      rarity: STAR_TRAIT_VARIANTS[0].charAt(0).toUpperCase() + STAR_TRAIT_VARIANTS[0].slice(1), 
-      starVariant: STAR_TRAIT_VARIANTS[0] as StarTraitVariant 
-    },
-    { 
-      id: 137, 
-      name: 'Skrumpey #137', 
-      hasStar: true, 
-      rarity: STAR_TRAIT_VARIANTS[1].charAt(0).toUpperCase() + STAR_TRAIT_VARIANTS[1].slice(1), 
-      starVariant: STAR_TRAIT_VARIANTS[1] as StarTraitVariant 
-    },
-    { id: 256, name: 'Skrumpey #256', hasStar: false, rarity: 'Common', starVariant: undefined },
-    { id: 888, name: 'Skrumpey #888', hasStar: false, rarity: 'Common', starVariant: undefined },
-  ] : [];
+  const demoSkrumpeys = showDemoData ? STAR_TRAIT_VARIANTS.map((variant, index) => ({
+    id: 3000 + index,
+    name: `Skrumpey #${3000 + index}`,
+    hasStar: true,
+    rarity: variant.charAt(0).toUpperCase() + variant.slice(1),
+    starVariant: variant as StarTraitVariant,
+  })) : [];
 
   const finalDisplaySkrumpeys = showDemoData ? demoSkrumpeys : displaySkrumpeys;
 
@@ -636,46 +625,73 @@ export default function ProfileCard() {
   }
 
   // Get color for star variant (solid color for CSS color property)
+  // Rare traits (monflare, auracore, parallel, prime) have special distinct colors
   const getVariantColor = (variant?: string): string => {
     const colors: Record<string, string> = {
-      spectra: '#40E0D0',     // Turquoise (primary from gradient)
+      // Common traits
       aether: '#87CEEB',      // Light blue
-      solveil: '#ffd700',     // Yellow
+      spectra: '#40E0D0',     // Turquoise (primary from gradient)
+      solveil: '#FFD93D',     // Bright warm yellow (solar/sun-like)
       nebulu: '#9966ff',      // Purple
       chroma: '#DDA0DD',      // Light purple (primary from gradient)
       rose: '#FFB6C1',        // Pink
-      monflare: '#9966ff',    // Glowing Purple
-      auracore: '#ffd700',    // Glowing Golden
-      parallel: '#20B2AA',    // Light green-blue (primary from gradient)
-      prime: '#ffd700',
+      // Rare traits - more distinctive colors
+      monflare: '#BF5FFF',    // Bright purple/magenta glow
+      auracore: '#FFB347',    // Warm golden-orange (distinct from solveil)
+      parallel: '#00CED1',    // Dark cyan (blue-green primary)
+      prime: '#FFD700',       // Pure gold for legendary
     };
     return colors[variant || ''] || '#ffd700';
   };
 
   // Get variant gradient for background
+  // Rare traits have special gradients to make them stand out
   const getVariantGradient = (variant?: string): string => {
     const gradients: Record<string, string> = {
       spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)',
       chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)',
-      parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)',
+      // Rare trait gradients
+      monflare: 'linear-gradient(135deg, #9933FF, #BF5FFF, #E066FF)', // Purple glow gradient
+      auracore: 'linear-gradient(135deg, #FF8C00, #FFB347, #FFD700)', // Golden glow gradient
+      parallel: 'linear-gradient(90deg, #20B2AA, #00CED1, #4169E1)', // Blue-green to blue gradient
+      prime: 'linear-gradient(135deg, #FFD700, #FFF8DC, #FFD700, #DAA520)', // Legendary gold shimmer
     };
     return gradients[variant || ''] || getVariantColor(variant);
   };
 
-  // Check if variant has a gradient
+  // Check if variant has a gradient (including rare traits)
   const isGradientVariant = (variant?: string): boolean => {
-    return variant === 'spectra' || variant === 'chroma' || variant === 'parallel';
+    return variant === 'spectra' || variant === 'chroma' || 
+           variant === 'parallel' || variant === 'monflare' || 
+           variant === 'auracore' || variant === 'prime';
+  };
+
+  // Check if variant is a rare trait (for special styling)
+  const isRareVariant = (variant?: string): boolean => {
+    return variant === 'monflare' || variant === 'auracore' || 
+           variant === 'parallel' || variant === 'prime';
   };
 
   // Get text style for variant - handles both solid colors and gradients
+  // Rare variants get gradient text with glow effects
   const getVariantTextStyle = (variant?: string): React.CSSProperties => {
     if (isGradientVariant(variant)) {
-      return {
+      const baseStyle: React.CSSProperties = {
         background: getVariantGradient(variant),
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text',
       };
+      // Add text shadow glow for rare variants
+      if (isRareVariant(variant)) {
+        const glowColor = getVariantColor(variant);
+        return {
+          ...baseStyle,
+          textShadow: `0 0 10px ${glowColor}80, 0 0 20px ${glowColor}40`,
+          filter: 'brightness(1.1)',
+        };
+      }
+      return baseStyle;
     }
     return { color: getVariantColor(variant) };
   };
