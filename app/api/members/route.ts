@@ -44,6 +44,7 @@ export interface MemberData {
   bio?: string;
   level: number;
   lastSeen?: string;
+  displayedBadges?: string[];
 }
 
 /**
@@ -156,6 +157,23 @@ export async function GET() {
       // Calculate level based on holdings
       const level = calculateLevel(tokenIds.length);
       
+      // Parse displayed badges from profile
+      let displayedBadges: string[] | undefined;
+      if (profile?.displayed_badges) {
+        try {
+          const parsed = JSON.parse(profile.displayed_badges);
+          if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+            displayedBadges = parsed;
+          }
+        } catch (e) {
+          // Log parsing errors for debugging
+          logger.warn('Failed to parse displayed_badges', { 
+            address, 
+            error: String(e),
+          });
+        }
+      }
+      
       members.push({
         address,
         tokenIds: tokenIds.sort((a, b) => a - b),
@@ -165,6 +183,7 @@ export async function GET() {
         bio: profile?.bio || undefined,
         level,
         lastSeen: profile?.updated_at,
+        displayedBadges,
       });
     }
     

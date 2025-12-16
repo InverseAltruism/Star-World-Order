@@ -236,14 +236,6 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
 
   return (
     <div className="space-y-3">
-      <h3 className="text-[#00ffff] text-xs tracking-wider mb-4 text-center animate-glow-pulse">
-        ✦ SOCIAL CONNECTIONS ✦
-      </h3>
-      
-      <p className="text-gray-500 text-[8px] text-center mb-4">
-        Connect your social accounts to enhance your Star Profile
-      </p>
-
       {/* Status Message */}
       {message && (
         <div className={`mb-4 px-3 py-2 rounded border text-[8px] text-center animate-slide-in-up ${
