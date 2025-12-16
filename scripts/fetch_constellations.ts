@@ -6,16 +6,17 @@
  * from IPFS metadata and generates the correct STAR_CONSTELLATION_MAP.
  * 
  * Usage:
- *   npx ts-node scripts/fetch_constellations.ts
- *   
- * Or with Node directly (requires tsx):
  *   npx tsx scripts/fetch_constellations.ts
  * 
  * The script will:
- * 1. Read the list of Star Skrumpey token IDs from lib/starSkrumpey.ts
+ * 1. Use the hardcoded list of Star Skrumpey token IDs (333 total)
  * 2. Fetch metadata for each token from IPFS
  * 3. Extract the constellation trait from the attributes
  * 4. Output a TypeScript map that can be pasted into data/starConstellationData.ts
+ * 
+ * NOTE: The STAR_SKRUMPEY_IDS array is duplicated here to allow running this
+ * script standalone without TypeScript compilation. Keep this in sync with
+ * the array in lib/starSkrumpey.ts
  */
 
 const STAR_SKRUMPEY_IDS: readonly number[] = [
