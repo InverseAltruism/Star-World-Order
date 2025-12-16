@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl, STAR_TRAIT_VARIANTS, StarTraitVariant, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
 import { getUserStarBalance, formatStarAmount } from '@/lib/starPoints';
 
@@ -19,25 +19,84 @@ interface MemberData {
   bio?: string;
   level: number;
   lastSeen?: string;
+  displayedBadges?: string[];
 }
 
 /**
- * Get variant color for styling
+ * Achievement definitions for badge display
+ */
+interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+}
+
+const ACHIEVEMENTS: Achievement[] = [
+  { id: 'star_seeker', name: 'Star Seeker', description: 'Hold at least 1 Star Skrumpey', icon: '⭐', color: '#ffd700' },
+  { id: 'constellation_keeper', name: 'Constellation Keeper', description: 'Hold 3 or more Star Skrumpeys', icon: '🌟', color: '#00ffff' },
+  { id: 'star_lord', name: 'Star Lord', description: 'Hold 5 or more Star Skrumpeys', icon: '👑', color: '#ff00ff' },
+  { id: 'cosmic_emperor', name: 'Cosmic Emperor', description: 'Hold 10 or more Star Skrumpeys', icon: '🏆', color: '#ffd700' },
+  { id: 'gotta_catch_em_all', name: 'Gotta Catch Em All!', description: 'Collect all 9 constellation types', icon: '🔮', color: '#ff6ec7' },
+  { id: 'prime_holder', name: 'The Prime', description: 'Hold the legendary Prime Star Skrumpey', icon: '💎', color: '#ffd700' },
+  { id: 'constellation_explorer', name: 'Constellation Explorer', description: 'Collect 3+ constellation types', icon: '🔭', color: '#9966ff' },
+  { id: 'cosmic_collector', name: 'Cosmic Collector', description: 'Collect 5+ constellation types', icon: '🌌', color: '#44ff88' },
+  { id: 'constellation_master', name: 'Constellation Master', description: 'Hold 3+ of same constellation', icon: '✨', color: '#ff6ec7' },
+];
+
+/**
+ * Get variant color - returns solid color for CSS color property
+ * For gradient variants, returns the primary (first) color
  */
 function getVariantColor(variant?: string): string {
   const colors: Record<string, string> = {
-    spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)', // Gradient: Turquoise -> light blue -> purple -> yellow
+    spectra: '#40E0D0',     // Turquoise (primary from gradient)
     aether: '#87CEEB',      // Light blue
     solveil: '#ffd700',     // Yellow
     nebulu: '#9966ff',      // Purple
-    chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)', // Light purple to darker purple gradient
+    chroma: '#DDA0DD',      // Light purple (primary from gradient)
     rose: '#FFB6C1',        // Pink
-    monflare: '#9966ff',    // Glowing Purple (add glow effect)
-    auracore: '#ffd700',    // Glowing Golden (add glow effect)
-    parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)', // Light green-blue to darker blue gradient with white stars
+    monflare: '#9966ff',    // Glowing Purple
+    auracore: '#ffd700',    // Glowing Golden
+    parallel: '#20B2AA',    // Light green-blue (primary from gradient)
     prime: '#ffd700',
   };
   return colors[variant || ''] || '#ffd700';
+}
+
+/**
+ * Get variant gradient - returns gradient or solid color for background
+ */
+function getVariantGradient(variant?: string): string {
+  const gradients: Record<string, string> = {
+    spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)', // Gradient: Turquoise -> light blue -> purple -> yellow
+    chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)', // Light purple to darker purple gradient
+    parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)', // Light green-blue to darker blue gradient
+  };
+  return gradients[variant || ''] || getVariantColor(variant);
+}
+
+/**
+ * Check if variant has a gradient
+ */
+function isGradientVariant(variant?: string): boolean {
+  return variant === 'spectra' || variant === 'chroma' || variant === 'parallel';
+}
+
+/**
+ * Get text style for variant - handles both solid colors and gradients
+ */
+function getVariantTextStyle(variant?: string): React.CSSProperties {
+  if (isGradientVariant(variant)) {
+    return {
+      background: getVariantGradient(variant),
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+    };
+  }
+  return { color: getVariantColor(variant) };
 }
 
 /**
@@ -167,7 +226,7 @@ function StarVariantsDisplay({ variants }: { variants: string[] }) {
           key={variant}
           className="text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded uppercase tracking-wider border"
           style={{ 
-            color: getVariantColor(variant),
+            ...getVariantTextStyle(variant),
             borderColor: `${getVariantColor(variant)}60`,
             backgroundColor: `${getVariantColor(variant)}15`,
           }}
@@ -252,6 +311,28 @@ function MemberCard({
               {member.displayName || truncateAddress(member.address)}
             </p>
             <LevelBadge level={member.level} holdingsCount={member.count} />
+            {/* Displayed Badges */}
+            {member.displayedBadges && member.displayedBadges.length > 0 && (
+              <div className="flex gap-1">
+                {member.displayedBadges.slice(0, 3).map(badgeId => {
+                  const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
+                  if (!badge) return null;
+                  return (
+                    <div 
+                      key={badgeId}
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs border"
+                      style={{ 
+                        backgroundColor: `${badge.color}20`,
+                        borderColor: `${badge.color}60`,
+                      }}
+                      title={badge.name}
+                    >
+                      {badge.icon}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           
           <p className="text-gray-500 text-[9px] sm:text-[10px] font-mono mb-1 truncate">
@@ -374,7 +455,7 @@ function MemberDetailModal({
             {member.address}
           </p>
           
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             <LevelBadge level={member.level} holdingsCount={member.count} />
             <span 
               className="text-xs uppercase tracking-wider"
@@ -383,6 +464,37 @@ function MemberDetailModal({
               {levelTitle}
             </span>
           </div>
+          
+          {/* Displayed Badges */}
+          {member.displayedBadges && member.displayedBadges.length > 0 && (
+            <div className="flex justify-center gap-2 mt-3">
+              {member.displayedBadges.map(badgeId => {
+                const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
+                if (!badge) return null;
+                return (
+                  <div 
+                    key={badgeId}
+                    className="flex flex-col items-center"
+                    title={badge.description}
+                  >
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2"
+                      style={{ 
+                        backgroundColor: `${badge.color}20`,
+                        borderColor: badge.color,
+                        boxShadow: `0 0 10px ${badge.color}40`,
+                      }}
+                    >
+                      {badge.icon}
+                    </div>
+                    <p className="text-[8px] mt-1" style={{ color: badge.color }}>
+                      {badge.name.split(' ')[0]}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
         
         {/* Bio */}
@@ -418,7 +530,7 @@ function MemberDetailModal({
                   key={variant}
                   className="px-3 py-1 rounded-lg text-xs uppercase tracking-wider border"
                   style={{ 
-                    color: getVariantColor(variant),
+                    ...getVariantTextStyle(variant),
                     borderColor: getVariantColor(variant),
                     backgroundColor: `${getVariantColor(variant)}20`,
                   }}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import SocialConnect from './SocialConnect';
@@ -162,10 +162,12 @@ function SkrumpeyInspectModal({
   skrumpey,
   onClose,
   getVariantColor,
+  getVariantTextStyle,
 }: {
   skrumpey: SkrumpeyDisplayData;
   onClose: () => void;
   getVariantColor: (variant?: string) => string;
+  getVariantTextStyle: (variant?: string) => React.CSSProperties;
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -279,7 +281,7 @@ function SkrumpeyInspectModal({
                   ? 'border-[#ffd700] bg-[#ffd700]/20' 
                   : 'border-[#2a2a4e] bg-[#1a1a2e]'
               }`}
-              style={{ color: skrumpey.hasStar ? getVariantColor(skrumpey.starVariant) : '#888' }}
+              style={skrumpey.hasStar ? getVariantTextStyle(skrumpey.starVariant) : { color: '#888' }}
             >
               {skrumpey.rarity}
             </div>
@@ -424,6 +426,7 @@ export default function ProfileCard() {
   const [tokenMetadata, setTokenMetadata] = useState<Record<number, { constellation?: StarTraitVariant }>>({});
   const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
   const [isEditingBadges, setIsEditingBadges] = useState(false);
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
 
   // Close modal handler
   const closeModal = useCallback(() => {
@@ -629,21 +632,49 @@ export default function ProfileCard() {
     return null;
   }
 
-  // Get color for star variant
+  // Get color for star variant (solid color for CSS color property)
   const getVariantColor = (variant?: string): string => {
     const colors: Record<string, string> = {
-      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)', // Gradient: Turquoise -> light blue -> purple -> yellow
+      spectra: '#40E0D0',     // Turquoise (primary from gradient)
       aether: '#87CEEB',      // Light blue
       solveil: '#ffd700',     // Yellow
       nebulu: '#9966ff',      // Purple
-      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)', // Light purple to darker purple gradient
+      chroma: '#DDA0DD',      // Light purple (primary from gradient)
       rose: '#FFB6C1',        // Pink
-      monflare: '#9966ff',    // Glowing Purple (add glow effect)
-      auracore: '#ffd700',    // Glowing Golden (add glow effect)
-      parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)', // Light green-blue to darker blue gradient with white stars
+      monflare: '#9966ff',    // Glowing Purple
+      auracore: '#ffd700',    // Glowing Golden
+      parallel: '#20B2AA',    // Light green-blue (primary from gradient)
       prime: '#ffd700',
     };
     return colors[variant || ''] || '#ffd700';
+  };
+
+  // Get variant gradient for background
+  const getVariantGradient = (variant?: string): string => {
+    const gradients: Record<string, string> = {
+      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)',
+      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)',
+      parallel: 'linear-gradient(90deg, #20B2AA, #4169E1)',
+    };
+    return gradients[variant || ''] || getVariantColor(variant);
+  };
+
+  // Check if variant has a gradient
+  const isGradientVariant = (variant?: string): boolean => {
+    return variant === 'spectra' || variant === 'chroma' || variant === 'parallel';
+  };
+
+  // Get text style for variant - handles both solid colors and gradients
+  const getVariantTextStyle = (variant?: string): React.CSSProperties => {
+    if (isGradientVariant(variant)) {
+      return {
+        background: getVariantGradient(variant),
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+      };
+    }
+    return { color: getVariantColor(variant) };
   };
 
   return (
@@ -835,7 +866,7 @@ export default function ProfileCard() {
                       : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
                   }`}
                   style={{ 
-                    color: hasVariant ? getVariantColor(variant) : '#666',
+                    ...(hasVariant ? getVariantTextStyle(variant) : { color: '#666' }),
                     animationDelay: `${index * 0.05}s`
                   }}
                 >
@@ -896,7 +927,7 @@ export default function ProfileCard() {
               }`}>
                 {nft.name}
               </p>
-              <p className="text-[10px] sm:text-xs truncate" style={{ color: nft.hasStar ? getVariantColor(nft.starVariant) : '#666' }}>
+              <p className="text-[10px] sm:text-xs truncate" style={nft.hasStar ? getVariantTextStyle(nft.starVariant) : { color: '#666' }}>
                 {nft.rarity}
               </p>
             </div>
@@ -973,32 +1004,46 @@ export default function ProfileCard() {
             const isUnlocked = unlockedAchievements.some(a => a.id === achievement.id);
             const isSelected = selectedBadges.includes(achievement.id);
             
+            const handleClick = () => {
+              if (isEditingBadges && isUnlocked) {
+                toggleBadge(achievement.id);
+              } else {
+                setSelectedAchievement(achievement);
+              }
+            };
+            
             return (
               <div 
                 key={achievement.id}
-                onClick={() => isEditingBadges && isUnlocked && toggleBadge(achievement.id)}
-                className={`flex flex-col items-center p-2 rounded-lg smooth-transition ${
-                  isEditingBadges && isUnlocked ? 'cursor-pointer hover:bg-[#2a2a4e]' : ''
-                } ${isSelected && isEditingBadges ? 'bg-[#2a2a4e] ring-2 ring-[#ffd700]' : ''}`}
-                title={isUnlocked ? achievement.description : `Locked - ${achievement.description}`}
+                onClick={handleClick}
+                className={`flex flex-col items-center p-2 rounded-lg cursor-pointer group ${
+                  isSelected && isEditingBadges ? 'bg-[#2a2a4e] ring-2 ring-[#ffd700]' : ''
+                }`}
+                style={{
+                  transition: 'all 0.3s ease',
+                }}
               >
                 <div 
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 smooth-transition ${
+                  className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 ${
                     isUnlocked 
-                      ? '' 
+                      ? 'group-hover:scale-110 group-hover:border-[3px]' 
                       : 'opacity-30 grayscale'
                   }`}
                   style={{ 
                     backgroundColor: isUnlocked ? `${achievement.color}20` : '#333',
                     borderColor: isUnlocked ? achievement.color : '#444',
                     boxShadow: isUnlocked ? `0 0 10px ${achievement.color}40` : 'none',
+                    transition: 'all 0.3s ease',
                   }}
                 >
                   {isUnlocked ? achievement.icon : '🔒'}
                 </div>
                 <p 
-                  className="text-[8px] mt-1 text-center leading-tight"
-                  style={{ color: isUnlocked ? achievement.color : '#666' }}
+                  className={`text-[8px] mt-1 text-center leading-tight ${isUnlocked ? 'group-hover:font-bold' : ''}`}
+                  style={{ 
+                    color: isUnlocked ? achievement.color : '#666',
+                    transition: 'all 0.3s ease',
+                  }}
                 >
                   {achievement.name}
                 </p>
@@ -1008,9 +1053,13 @@ export default function ProfileCard() {
         </div>
         
         {/* Helper text */}
-        {isEditingBadges && (
+        {isEditingBadges ? (
           <p className="text-gray-500 text-[9px] text-center mt-3">
             Click on unlocked badges to select up to 3 for display
+          </p>
+        ) : (
+          <p className="text-gray-500 text-[9px] text-center mt-3">
+            Click on any badge to view details
           </p>
         )}
         
@@ -1041,12 +1090,89 @@ export default function ProfileCard() {
         )}
       </div>
 
+      {/* Achievement Detail Modal */}
+      {selectedAchievement && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setSelectedAchievement(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          
+          {/* Modal Content */}
+          <div 
+            className="relative z-10 w-full max-w-xs pixel-card p-6 animate-slide-in-up text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedAchievement(null)}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
+            >
+              ✕
+            </button>
+            
+            {/* Achievement Icon */}
+            <div 
+              className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl border-3 mb-4 animate-pixel-pulse"
+              style={{ 
+                backgroundColor: `${selectedAchievement.color}20`,
+                borderColor: selectedAchievement.color,
+                boxShadow: `0 0 30px ${selectedAchievement.color}60`,
+              }}
+            >
+              {unlockedAchievements.some(a => a.id === selectedAchievement.id) 
+                ? selectedAchievement.icon 
+                : '🔒'}
+            </div>
+            
+            {/* Achievement Name */}
+            <h3 
+              className="text-lg font-bold mb-2"
+              style={{ color: selectedAchievement.color }}
+            >
+              {selectedAchievement.name}
+            </h3>
+            
+            {/* Achievement Description */}
+            <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+              {selectedAchievement.description}
+            </p>
+            
+            {/* Status */}
+            <div 
+              className={`inline-block px-4 py-2 rounded-lg text-xs font-bold border-2 ${
+                unlockedAchievements.some(a => a.id === selectedAchievement.id)
+                  ? ''
+                  : 'opacity-60'
+              }`}
+              style={{
+                backgroundColor: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
+                  ? `${selectedAchievement.color}20` 
+                  : '#1a1a2e',
+                borderColor: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
+                  ? selectedAchievement.color 
+                  : '#444',
+                color: unlockedAchievements.some(a => a.id === selectedAchievement.id) 
+                  ? selectedAchievement.color 
+                  : '#666',
+              }}
+            >
+              {unlockedAchievements.some(a => a.id === selectedAchievement.id) 
+                ? '✓ UNLOCKED' 
+                : '🔒 LOCKED'}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Skrumpey Inspect Modal */}
       {selectedSkrumpey && (
         <SkrumpeyInspectModal
           skrumpey={selectedSkrumpey}
           onClose={closeModal}
           getVariantColor={getVariantColor}
+          getVariantTextStyle={getVariantTextStyle}
         />
       )}
     </div>
