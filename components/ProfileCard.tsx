@@ -676,6 +676,7 @@ export default function ProfileCard() {
   const getVariantTextStyle = (variant?: string): React.CSSProperties => {
     if (isGradientVariant(variant)) {
       const baseStyle: React.CSSProperties = {
+        display: 'inline-block', // Required for gradient text to render properly
         background: getVariantGradient(variant),
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',

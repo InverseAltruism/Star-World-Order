@@ -238,9 +238,6 @@ export default function Header() {
               <div className="w-full flex justify-center">
                 <DemoMode />
               </div>
-              <div className="w-full flex justify-center">
-                <WalletConnect />
-              </div>
             </div>
           </nav>
         </div>
