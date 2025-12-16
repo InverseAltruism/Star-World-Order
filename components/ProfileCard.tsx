@@ -67,6 +67,7 @@ interface Achievement {
 interface AchievementCheckData {
   starCount: number;
   uniqueConstellations: string[];
+  constellationCounts: Record<string, number>;
   hasPrime: boolean;
   level: number;
 }
@@ -143,6 +144,14 @@ const ACHIEVEMENTS: Achievement[] = [
     icon: '🌌',
     color: '#44ff88',
     check: (data) => data.uniqueConstellations.length >= 5,
+  },
+  {
+    id: 'constellation_master',
+    name: 'Constellation Master',
+    description: 'Hold 3 or more Star Skrumpeys of the same constellation',
+    icon: '✨',
+    color: '#ff6ec7',
+    check: (data) => Object.values(data.constellationCounts).some(count => count >= 3),
   },
 ];
 
@@ -511,12 +520,22 @@ export default function ProfileCard() {
       .map(s => s.starVariant as string)
   )];
   
+  // Count how many of each constellation the user has
+  const constellationCounts: Record<string, number> = {};
+  displaySkrumpeys
+    .filter(s => s.hasStar && s.starVariant)
+    .forEach(s => {
+      const variant = s.starVariant as string;
+      constellationCounts[variant] = (constellationCounts[variant] || 0) + 1;
+    });
+  
   const hasPrime = uniqueConstellations.includes('prime');
   const level = calculateLevel(starSkrumpeys.length);
   
   const achievementCheckData: AchievementCheckData = {
     starCount: starSkrumpeys.length,
     uniqueConstellations,
+    constellationCounts,
     hasPrime,
     level,
   };
@@ -696,12 +715,15 @@ export default function ProfileCard() {
                 ✓ Profile saved successfully!
               </p>
             )}
+            
+            {/* Social Connections - Inside Profile Settings */}
+            <div className="pt-4 mt-4 border-t border-[#2a2a4e]">
+              <p className="text-gray-500 text-[9px] mb-3">Social Connections</p>
+              <SocialConnect />
+            </div>
           </div>
         )}
       </div>
-
-      {/* Social Connections - Below Username Settings */}
-      <SocialConnect />
 
       {/* Star Trait Legend */}
       {starSkrumpeys.length > 0 && (
