@@ -162,13 +162,21 @@ export default function Header() {
         </nav>
 
         {/* Mobile Navigation Menu */}
-        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <nav className="flex flex-col items-center gap-4 p-6 pb-safe">
+        <div 
+          className={`md:hidden fixed inset-0 top-[61px] backdrop-blur-md z-[60] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          style={{
+            background: 'linear-gradient(180deg, rgba(26, 26, 46, 0.98) 0%, rgba(19, 19, 42, 0.98) 50%, rgba(13, 13, 26, 0.98) 100%)'
+          }}
+        >
+          {/* Neon border effect for visibility */}
+          <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" style={{ boxShadow: '0 0 30px rgba(153, 102, 255, 0.5), inset 0 0 20px rgba(153, 102, 255, 0.1)' }} />
+          
+          <nav className="flex flex-col items-center gap-6 p-8 pb-safe relative">
             {isProduction ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
+              <div className="flex flex-col items-center gap-1 py-2">
+                <span className="text-lg leading-none">🔒</span>
                 <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  className="text-sm text-gray-500 uppercase tracking-wider cursor-not-allowed font-semibold"
                   title="Locked in production"
                 >
                   DAO
@@ -177,7 +185,8 @@ export default function Header() {
             ) : (
               <Link 
                 href="/dao" 
-                className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+                className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+                style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 DAO
@@ -185,30 +194,33 @@ export default function Header() {
             )}
             <Link 
               href="/members" 
-              className="text-sm text-gray-300 hover:text-[#00ffff] uppercase tracking-wider"
+              className="text-base text-white hover:text-[#00ffff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(0, 255, 255, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
               MEMBERS
             </Link>
             <Link 
               href="/hangout" 
-              className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
+              className="text-base text-white hover:text-[#44ff88] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(68, 255, 136, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
               HANGOUT
             </Link>
             <Link 
               href="/profile" 
-              className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+              className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
               PROFILE
             </Link>
             {isProduction ? (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
+              <div className="flex flex-col items-center gap-1 py-2">
+                <span className="text-lg leading-none">🔒</span>
                 <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  className="text-sm text-gray-500 uppercase tracking-wider cursor-not-allowed font-semibold"
                   title="Locked in production"
                 >
                   EXCHANGE
@@ -217,13 +229,14 @@ export default function Header() {
             ) : (
               <Link 
                 href="/marketplace" 
-                className="text-sm text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider"
+                className="text-base text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+                style={{ textShadow: '0 0 10px rgba(255, 0, 255, 0.5)' }}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 EXCHANGE
               </Link>
             )}
-            <div className="flex flex-col items-center gap-3 pt-4 border-t-2 border-[#2a2a4e] w-full max-w-xs">
+            <div className="flex flex-col items-center gap-4 pt-6 border-t-2 border-[#9966ff] w-full max-w-xs" style={{ boxShadow: '0 -2px 15px rgba(153, 102, 255, 0.2)' }}>
               <div className="w-full flex justify-center">
                 <DemoMode />
               </div>
