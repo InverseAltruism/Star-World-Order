@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import SocialConnect from './SocialConnect';
 
 /**
@@ -524,11 +525,13 @@ export default function ProfileCard() {
     }
   };
 
-  // Convert owned tokens to display format, using fetched metadata for constellation
+  // Convert owned tokens to display format
+  // Priority: 1) Static constellation map (most reliable), 2) Token data from context, 3) Fetched metadata
   const displaySkrumpeys = ownedSkrumpeys.map(token => {
-    // Use fetched metadata constellation if available, otherwise fallback to token data
-    const fetchedConstellation = tokenMetadata[token.tokenId]?.constellation;
-    const starVariant = fetchedConstellation || token.starVariant;
+    // Use static constellation map as the primary source of truth
+    const staticConstellation = STAR_CONSTELLATION_MAP[token.tokenId] as StarTraitVariant | undefined;
+    // Fallback to token data from context (also from static map), then fetched metadata
+    const starVariant = staticConstellation || token.starVariant || tokenMetadata[token.tokenId]?.constellation;
     
     return {
       id: token.tokenId,

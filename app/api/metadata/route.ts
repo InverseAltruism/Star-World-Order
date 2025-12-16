@@ -44,24 +44,19 @@ const METADATA_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeibs4foul
 function extractConstellation(attributes: Array<{ trait_type: string; value: string }>): StarTraitVariant | undefined {
   if (!attributes || !Array.isArray(attributes)) return undefined;
   
+  // Only look for the explicit constellation trait_type
+  // This prevents false positives from other traits that might contain constellation-like words
   for (const attr of attributes) {
     const traitType = (attr.trait_type || '').toLowerCase();
     const value = (attr.value || '').toLowerCase();
     
-    // Look for constellation trait
-    if (traitType === 'constellation' || traitType === 'star' || traitType === 'type') {
+    // Only match the explicit 'constellation' trait type
+    if (traitType === 'constellation') {
       // Check if value matches any known constellation
       for (const variant of STAR_TRAIT_VARIANTS) {
-        if (value.includes(variant)) {
+        if (value === variant || value.includes(variant)) {
           return variant;
         }
-      }
-    }
-    
-    // Also check if any attribute value contains a constellation name
-    for (const variant of STAR_TRAIT_VARIANTS) {
-      if (value === variant || value.includes(variant)) {
-        return variant;
       }
     }
   }
