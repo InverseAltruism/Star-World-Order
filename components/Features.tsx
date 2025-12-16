@@ -136,7 +136,7 @@ export default function Features() {
 
         {/* Call to action */}
         <div className="text-center mt-12">
-          <div className="pixel-card inline-block px-8 py-6 animate-slide-in-up animate-delay-6 relative">
+          <div className="pixel-card inline-block px-8 py-6 animate-slide-in-up animate-delay-6 relative !overflow-visible">
             {/* Decorative border */}
             <div className="absolute inset-2 border border-[#ffd700]/20 rounded pointer-events-none" />
             

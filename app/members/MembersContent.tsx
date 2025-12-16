@@ -41,26 +41,29 @@ function getVariantColor(variant?: string): string {
 }
 
 /**
- * Get level color based on level number
+ * Get level color based on Star Skrumpey holdings count
  */
-function getLevelColor(level: number): string {
-  if (level >= 10) return '#ffd700'; // Gold
-  if (level >= 7) return '#ff00ff'; // Magenta
-  if (level >= 5) return '#00ffff'; // Cyan
-  if (level >= 3) return '#44ff88'; // Green
-  return '#9966ff'; // Purple
+function getLevelColor(holdingsCount: number): string {
+  if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
+  if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
+  if (holdingsCount >= 3) return '#00ffff'; // Cyan - Constellation Keeper
+  return '#9966ff'; // Purple - Star Seeker
 }
 
 /**
- * Get level title based on level number
+ * Get level title based on Star Skrumpey holdings count
+ * 
+ * Title thresholds (based on holdings):
+ * - 10+ holdings: COSMIC EMPEROR (highest honor)
+ * - 5+ holdings: STAR LORD (veteran collector)
+ * - 3+ holdings: CONSTELLATION KEEPER (dedicated member)
+ * - 1+ holdings: STAR SEEKER (entry level)
  */
-function getLevelTitle(level: number): string {
-  if (level >= 10) return 'COSMIC EMPEROR';
-  if (level >= 8) return 'STAR LORD';
-  if (level >= 6) return 'CONSTELLATION MASTER';
-  if (level >= 4) return 'NEBULA GUARDIAN';
-  if (level >= 2) return 'STELLAR INITIATE';
-  return 'STAR BEARER';
+function getLevelTitle(holdingsCount: number): string {
+  if (holdingsCount >= 10) return 'COSMIC EMPEROR';
+  if (holdingsCount >= 5) return 'STAR LORD';
+  if (holdingsCount >= 3) return 'CONSTELLATION KEEPER';
+  return 'STAR SEEKER';
 }
 
 /**
@@ -130,9 +133,10 @@ function MemberAvatar({
 
 /**
  * Level Badge Component
+ * Shows level number but colors based on holdings count
  */
-function LevelBadge({ level }: { level: number }) {
-  const color = getLevelColor(level);
+function LevelBadge({ level, holdingsCount }: { level: number; holdingsCount: number }) {
+  const color = getLevelColor(holdingsCount);
   
   return (
     <div 
@@ -194,7 +198,7 @@ function MemberCard({
 }) {
   const primaryTokenId = member.tokenIds[0];
   const primaryVariant = member.starVariants[0];
-  const levelTitle = getLevelTitle(member.level);
+  const levelTitle = getLevelTitle(member.count);
   
   // Determine card style based on rank
   const isTop3 = rank <= 3;
@@ -247,7 +251,7 @@ function MemberCard({
             <p className="text-[#ffd700] text-xs sm:text-sm font-bold truncate">
               {member.displayName || truncateAddress(member.address)}
             </p>
-            <LevelBadge level={member.level} />
+            <LevelBadge level={member.level} holdingsCount={member.count} />
           </div>
           
           <p className="text-gray-500 text-[9px] sm:text-[10px] font-mono mb-1 truncate">
@@ -256,7 +260,7 @@ function MemberCard({
           
           <p 
             className="text-[9px] sm:text-[10px] uppercase tracking-wider truncate"
-            style={{ color: getLevelColor(member.level) }}
+            style={{ color: getLevelColor(member.count) }}
           >
             {levelTitle}
           </p>
@@ -298,7 +302,7 @@ function MemberDetailModal({
   const [imageError, setImageError] = useState(false);
   const primaryTokenId = member.tokenIds[0];
   const imageUrl = primaryTokenId ? getSkrumpeyImageUrl(primaryTokenId) : null;
-  const levelTitle = getLevelTitle(member.level);
+  const levelTitle = getLevelTitle(member.count);
   
   // Close on escape
   useEffect(() => {
@@ -371,10 +375,10 @@ function MemberDetailModal({
           </p>
           
           <div className="flex items-center justify-center gap-3">
-            <LevelBadge level={member.level} />
+            <LevelBadge level={member.level} holdingsCount={member.count} />
             <span 
               className="text-xs uppercase tracking-wider"
-              style={{ color: getLevelColor(member.level) }}
+              style={{ color: getLevelColor(member.count) }}
             >
               {levelTitle}
             </span>
@@ -694,12 +698,12 @@ export default function MembersContent() {
 
       {/* Info Section */}
       <div className="pixel-card p-4 mt-8 bg-[#0a0a15] animate-slide-in-up">
-        <p className="text-[#9966ff] text-xs tracking-wide mb-2">LEVEL SYSTEM</p>
+        <p className="text-[#9966ff] text-xs tracking-wide mb-2">RANKING SYSTEM</p>
         <ul className="text-gray-400 text-[10px] space-y-1">
-          <li>• Level scales with Star Skrumpey holdings and STAR points</li>
-          <li>• Higher levels unlock exclusive titles and bragging rights</li>
-          <li>• Stake your NFTs to earn STAR and increase your level</li>
-          <li>• Formula: Level = 1 + √(Holdings × 10 + √STAR)</li>
+          <li>• <span className="text-[#ffd700]">COSMIC EMPEROR</span> - 10+ Star Skrumpeys</li>
+          <li>• <span className="text-[#ff00ff]">STAR LORD</span> - 5+ Star Skrumpeys</li>
+          <li>• <span className="text-[#00ffff]">CONSTELLATION KEEPER</span> - 3+ Star Skrumpeys</li>
+          <li>• <span className="text-[#9966ff]">STAR SEEKER</span> - 1+ Star Skrumpeys</li>
         </ul>
       </div>
     </>

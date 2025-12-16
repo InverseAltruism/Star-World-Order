@@ -91,7 +91,19 @@ export function getStarVariantForTokenId(tokenId: number): StarTraitVariant | un
 }
 
 /**
- * Star trait constellation variants
+ * Star trait constellation variants with rarity information
+ * 
+ * Rarity distribution:
+ * - aether: 52 NFTs
+ * - spectra: 52 NFTs
+ * - solveil: 46 NFTs
+ * - nebulu: 44 NFTs
+ * - chroma: 42 NFTs
+ * - rose: 36 NFTs
+ * - monflare: 27 NFTs
+ * - auracore: 23 NFTs
+ * - parallel: 10 NFTs
+ * - prime: 1 NFT (1 of 1)
  */
 export const STAR_TRAIT_VARIANTS = [
   'aether',
@@ -105,6 +117,22 @@ export const STAR_TRAIT_VARIANTS = [
   'parallel',
   'prime',
 ] as const;
+
+/**
+ * Rarity counts for each constellation type
+ */
+export const CONSTELLATION_RARITY: Record<StarTraitVariant, number> = {
+  aether: 52,
+  spectra: 52,
+  solveil: 46,
+  nebulu: 44,
+  chroma: 42,
+  rose: 36,
+  monflare: 27,
+  auracore: 23,
+  parallel: 10,
+  prime: 1,
+};
 
 export type StarTraitVariant = typeof STAR_TRAIT_VARIANTS[number];
 
