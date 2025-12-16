@@ -10,7 +10,18 @@
 import { NextResponse } from 'next/server';
 import { isStarSkrumpeyId, STAR_TRAIT_VARIANTS, StarTraitVariant, SKRUMPEY_IPFS_BASE } from '@/lib/starSkrumpey';
 
-// In-memory cache for metadata (persists across requests but not server restarts)
+/**
+ * In-memory cache for metadata (persists across requests but not server restarts)
+ * 
+ * NOTE: This is suitable for development and low-traffic production environments.
+ * For high-scale production with serverless deployments, consider using:
+ * - Redis or another distributed cache
+ * - Database caching (SQLite already available in this project)
+ * - Edge caching via CDN
+ * 
+ * The 24-hour TTL ensures metadata is refreshed periodically while reducing
+ * IPFS gateway load.
+ */
 const metadataCache: Map<number, TokenMetadata> = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 

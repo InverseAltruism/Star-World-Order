@@ -391,13 +391,23 @@ export default function ProfileCard() {
     if (starSkrumpeys.length > 0) {
       const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
       fetch(`/api/metadata?tokenIds=${tokenIds}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
+          return res.json();
+        })
         .then(data => {
-          if (data.success && data.metadata) {
+          if (data.success && data.metadata && typeof data.metadata === 'object') {
             const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
             for (const [id, meta] of Object.entries(data.metadata)) {
-              const metadata = meta as { constellation?: StarTraitVariant };
-              metaMap[parseInt(id, 10)] = { constellation: metadata.constellation };
+              // Validate the metadata structure before using
+              if (meta && typeof meta === 'object' && 'constellation' in meta) {
+                const constellation = (meta as Record<string, unknown>).constellation;
+                if (typeof constellation === 'string' || constellation === undefined) {
+                  metaMap[parseInt(id, 10)] = { constellation: constellation as StarTraitVariant | undefined };
+                }
+              }
             }
             setTokenMetadata(metaMap);
           }
@@ -884,8 +894,8 @@ export default function ProfileCard() {
           </p>
         )}
         
-        {/* Gotta Catch Em All Progress */}
-        {unlockedAchievements.some(a => a.id !== 'gotta_catch_em_all') && (
+        {/* Gotta Catch Em All Progress - Show when user has at least one Star Skrumpey */}
+        {starSkrumpeys.length > 0 && (
           <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
             <p className="text-[#ff6ec7] text-[9px] mb-2 text-center">
               CONSTELLATION PROGRESS ({uniqueConstellations.filter(c => c !== 'prime').length}/{COLLECTIBLE_CONSTELLATIONS.length})
