@@ -2313,19 +2313,34 @@ a,
 }
 
 .nft-image-bg[data-variant="monflare"] {
-  background: linear-gradient(135deg, #3a1a0a 0%, #2a0a0a 50%, #3a1a0a 100%);
+  background: linear-gradient(135deg, #2a0a3a 0%, #3a0a2a 50%, #4a0a4a 100%);
+  box-shadow: inset 0 0 20px rgba(191, 95, 255, 0.3);
 }
 
 .nft-image-bg[data-variant="auracore"] {
-  background: linear-gradient(135deg, #0a2a3a 0%, #0a1a2a 50%, #0a2a3a 100%);
+  background: linear-gradient(135deg, #3a2a0a 0%, #4a3a0a 50%, #3a2a0a 100%);
+  box-shadow: inset 0 0 20px rgba(255, 179, 71, 0.3);
 }
 
 .nft-image-bg[data-variant="parallel"] {
-  background: linear-gradient(135deg, #1a3a2a 0%, #0a2a1a 50%, #1a3a2a 100%);
+  background: linear-gradient(135deg, #0a2a3a 0%, #0a3a4a 50%, #0a2a5a 100%);
+  box-shadow: inset 0 0 15px rgba(0, 206, 209, 0.25);
 }
 
 .nft-image-bg[data-variant="prime"] {
-  background: linear-gradient(135deg, #2a2a1a 0%, #3a3a0a 50%, #2a2a1a 100%);
+  background: linear-gradient(135deg, #3a3a0a 0%, #4a4a10 25%, #3a3a0a 50%, #4a4a10 75%, #3a3a0a 100%);
+  box-shadow: inset 0 0 30px rgba(255, 215, 0, 0.4);
+  animation: primeShimmer 3s ease-in-out infinite;
+}
+
+/* Legendary Prime shimmer animation */
+@keyframes primeShimmer {
+  0%, 100% { 
+    box-shadow: inset 0 0 30px rgba(255, 215, 0, 0.4); 
+  }
+  50% { 
+    box-shadow: inset 0 0 40px rgba(255, 215, 0, 0.6); 
+  }
 }
 
 /* Frog emoji styling */
