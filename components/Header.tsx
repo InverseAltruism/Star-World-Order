@@ -160,15 +160,26 @@ export default function Header() {
             <WalletConnect />
           </div>
         </nav>
+      </div>
+      
+      {/* Bottom pixel border */}
+      <div className="h-[2px] bg-[#2a2a4e]" />
 
-        {/* Mobile Navigation Menu */}
-        <div className={`md:hidden fixed inset-0 top-[61px] bg-[#0d0d1a]/98 backdrop-blur-sm z-40 transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <nav className="flex flex-col items-center gap-4 p-6 pb-safe">
+      {/* Mobile Navigation Menu - placed outside main container for proper positioning */}
+      {mobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 top-[61px] z-[9999] overflow-y-auto"
+          style={{ backgroundColor: '#0d0d1a' }}
+        >
+          <nav 
+            className="flex flex-col items-center gap-6 p-8 pt-8 min-h-full"
+            style={{ backgroundColor: '#0d0d1a' }}
+          >
             {isProduction ? (
               <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
+                <span className="text-lg leading-none">🔒</span>
                 <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  className="text-sm text-gray-600 uppercase tracking-wider cursor-not-allowed"
                   title="Locked in production"
                 >
                   DAO
@@ -177,7 +188,7 @@ export default function Header() {
             ) : (
               <Link 
                 href="/dao" 
-                className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+                className="text-base text-gray-300 hover:text-[#ffd700] uppercase tracking-wider py-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 DAO
@@ -185,30 +196,30 @@ export default function Header() {
             )}
             <Link 
               href="/members" 
-              className="text-sm text-gray-300 hover:text-[#00ffff] uppercase tracking-wider"
+              className="text-base text-gray-300 hover:text-[#00ffff] uppercase tracking-wider py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               MEMBERS
             </Link>
             <Link 
               href="/hangout" 
-              className="text-sm text-gray-300 hover:text-[#44ff88] uppercase tracking-wider"
+              className="text-base text-gray-300 hover:text-[#44ff88] uppercase tracking-wider py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               HANGOUT
             </Link>
             <Link 
               href="/profile" 
-              className="text-sm text-gray-300 hover:text-[#ffd700] uppercase tracking-wider"
+              className="text-base text-gray-300 hover:text-[#ffd700] uppercase tracking-wider py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
               PROFILE
             </Link>
             {isProduction ? (
               <div className="flex flex-col items-center gap-1">
-                <span className="text-sm leading-none">🔒</span>
+                <span className="text-lg leading-none">🔒</span>
                 <span 
-                  className="text-xs text-gray-600 uppercase tracking-wider cursor-not-allowed"
+                  className="text-sm text-gray-600 uppercase tracking-wider cursor-not-allowed"
                   title="Locked in production"
                 >
                   EXCHANGE
@@ -217,13 +228,13 @@ export default function Header() {
             ) : (
               <Link 
                 href="/marketplace" 
-                className="text-sm text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider"
+                className="text-base text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider py-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 EXCHANGE
               </Link>
             )}
-            <div className="flex flex-col items-center gap-3 pt-4 border-t-2 border-[#2a2a4e] w-full max-w-xs">
+            <div className="flex flex-col items-center gap-4 pt-6 mt-4 border-t-2 border-[#2a2a4e] w-full max-w-xs">
               <div className="w-full flex justify-center">
                 <DemoMode />
               </div>
@@ -233,10 +244,7 @@ export default function Header() {
             </div>
           </nav>
         </div>
-      </div>
-      
-      {/* Bottom pixel border */}
-      <div className="h-[2px] bg-[#2a2a4e]" />
+      )}
     </header>
   );
 }
