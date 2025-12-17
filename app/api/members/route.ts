@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { 
   STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
+  getStarVariantForTokenId,
 } from '@/lib/starSkrumpey';
 import { getUserProfilesBatch, getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
@@ -152,9 +153,9 @@ export async function GET() {
       // Get user profile from the batch lookup
       const profile = profilesMap.get(address.toLowerCase());
       
-      // Get star variants from database metadata (most accurate source)
+      // Get star variants from database metadata (most accurate source), with fallback to static map
       const starVariants = tokenIds
-        .map(id => metadataMap.get(id)?.constellation)
+        .map(id => metadataMap.get(id)?.constellation || getStarVariantForTokenId(id))
         .filter((v): v is NonNullable<typeof v> => v !== undefined && v !== null);
       
       // Calculate level based on holdings
