@@ -948,8 +948,10 @@ export default function ProfileCard() {
               }`}>
                 {nft.name}
               </p>
-              <p className="text-[10px] sm:text-xs truncate" style={nft.hasStar ? getVariantTextStyle(nft.starVariant) : { color: '#666' }}>
-                {nft.rarity}
+              <p className="text-[10px] sm:text-xs truncate">
+                <span style={nft.hasStar ? getVariantTextStyle(nft.starVariant) : { color: '#666' }}>
+                  {nft.rarity}
+                </span>
               </p>
             </div>
           ))}
