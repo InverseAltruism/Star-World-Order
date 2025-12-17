@@ -226,7 +226,7 @@ export function getChatMessagesSince(since: string): ChatMessage[] {
   const db = getDatabase();
   const stmt = db.prepare(`
     SELECT * FROM chat_messages 
-    WHERE created_at > ?
+    WHERE datetime(created_at) > datetime(?)
     ORDER BY created_at ASC
   `);
   return stmt.all(since) as ChatMessage[];
@@ -319,14 +319,13 @@ export function updateOnlinePresence(
  */
 export function getOnlineUsers(): OnlinePresence[] {
   const db = getDatabase();
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   
   const stmt = db.prepare(`
     SELECT * FROM online_presence 
-    WHERE last_seen > ?
+    WHERE datetime(last_seen) > datetime('now', '-2 minutes')
     ORDER BY last_seen DESC
   `);
-  return stmt.all(twoMinutesAgo) as OnlinePresence[];
+  return stmt.all() as OnlinePresence[];
 }
 
 /**
@@ -704,20 +703,23 @@ export function cleanupOldData(): void {
   const db = getDatabase();
   
   // Remove chat messages older than 24 hours
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  db.prepare('DELETE FROM chat_messages WHERE created_at < ?').run(dayAgo);
+  db.prepare(`
+    DELETE FROM chat_messages 
+    WHERE datetime(created_at) < datetime('now', '-24 hours')
+  `).run();
   
   // Remove stale online presence (older than 10 minutes)
-  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  db.prepare('DELETE FROM online_presence WHERE last_seen < ?').run(tenMinutesAgo);
+  db.prepare(`
+    DELETE FROM online_presence 
+    WHERE datetime(last_seen) < datetime('now', '-10 minutes')
+  `).run();
   
   // End stale voice sessions
-  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   db.prepare(`
     UPDATE voice_sessions 
     SET is_active = 0, ended_at = CURRENT_TIMESTAMP 
-    WHERE is_active = 1 AND created_at < ?
-  `).run(hourAgo);
+    WHERE is_active = 1 AND datetime(created_at) < datetime('now', '-1 hour')
+  `).run();
 }
 
 /**
