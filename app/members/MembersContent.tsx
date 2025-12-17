@@ -1091,7 +1091,11 @@ function MarketplaceAnalytics() {
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch('/api/marketplace');
+      // Pass through test mode parameter if present in URL
+      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const testMode = urlParams?.get('test') === 'true' ? '?test=true' : '';
+      
+      const response = await fetch(`/api/marketplace${testMode}`);
       const data = await response.json();
       
       if (data.success) {

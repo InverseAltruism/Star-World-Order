@@ -322,10 +322,87 @@ function calculateConstellationFloors(
 }
 
 /**
+ * Generate test data for visual verification (dev mode only)
+ */
+function generateTestData(): MarketplaceData {
+  const now = Date.now();
+  const hourlyData: FloorPricePoint[] = [];
+  const dailyData: FloorPricePoint[] = [];
+  
+  // Generate hourly data (24 points)
+  for (let i = 24; i >= 0; i--) {
+    const basePrice = 12 + Math.sin(i / 4) * 2 + (Math.random() - 0.5) * 0.5;
+    hourlyData.push({
+      timestamp: now - i * 60 * 60 * 1000,
+      price: Math.max(10, basePrice),
+    });
+  }
+  
+  // Generate daily data (30 points)
+  for (let i = 30; i >= 0; i--) {
+    const basePrice = 8 + (30 - i) * 0.15 + (Math.random() - 0.5) * 1;
+    dailyData.push({
+      timestamp: now - i * 24 * 60 * 60 * 1000,
+      price: Math.max(6, basePrice),
+    });
+  }
+  
+  return {
+    overallFloor: 12.5,
+    constellationFloors: [
+      { constellation: 'prime', floorPrice: 150.0, count: 1, listedCount: 0 },
+      { constellation: 'parallel', floorPrice: 45.0, count: 10, listedCount: 2 },
+      { constellation: 'auracore', floorPrice: 35.5, count: 21, listedCount: 3 },
+      { constellation: 'monflare', floorPrice: 28.0, count: 27, listedCount: 4 },
+      { constellation: 'rose', floorPrice: 22.5, count: 38, listedCount: 5 },
+      { constellation: 'chroma', floorPrice: 18.0, count: 44, listedCount: 6 },
+      { constellation: 'nebulu', floorPrice: 15.5, count: 47, listedCount: 8 },
+      { constellation: 'solveil', floorPrice: 14.0, count: 46, listedCount: 7 },
+      { constellation: 'spectra', floorPrice: 13.0, count: 52, listedCount: 9 },
+      { constellation: 'aether', floorPrice: 12.5, count: 47, listedCount: 10 },
+    ],
+    floorChartHourly: hourlyData,
+    floorChartDaily: dailyData,
+    topSales: [
+      { tokenId: 3332, price: 250.0, seller: '0x1234567890abcdef1234567890abcdef12345678', buyer: '0xabcdef1234567890abcdef1234567890abcdef12', timestamp: now - 1 * 24 * 60 * 60 * 1000, txHash: '0xabc123', constellation: 'prime' },
+      { tokenId: 2789, price: 85.5, seller: '0x2345678901bcdef12345678901bcdef123456789', buyer: '0xbcdef1234567890abcdef1234567890abcdef123', timestamp: now - 2 * 24 * 60 * 60 * 1000, txHash: '0xdef456', constellation: 'parallel' },
+      { tokenId: 1417, price: 62.0, seller: '0x3456789012cdef123456789012cdef1234567890', buyer: '0xcdef1234567890abcdef1234567890abcdef1234', timestamp: now - 3 * 24 * 60 * 60 * 1000, txHash: '0xghi789', constellation: 'auracore' },
+      { tokenId: 710, price: 48.5, seller: '0x4567890123def1234567890123def12345678901', buyer: '0xdef1234567890abcdef1234567890abcdef12345', timestamp: now - 4 * 24 * 60 * 60 * 1000, txHash: '0xjkl012', constellation: 'monflare' },
+      { tokenId: 3, price: 42.0, seller: '0x5678901234ef12345678901234ef123456789012', buyer: '0xef1234567890abcdef1234567890abcdef123456', timestamp: now - 5 * 24 * 60 * 60 * 1000, txHash: '0xmno345', constellation: 'aether' },
+    ],
+    recentSales: [
+      { tokenId: 3332, price: 250.0, seller: '0x1234567890abcdef1234567890abcdef12345678', buyer: '0xabcdef1234567890abcdef1234567890abcdef12', timestamp: now - 1 * 24 * 60 * 60 * 1000, txHash: '0xabc123', constellation: 'prime' },
+      { tokenId: 2789, price: 85.5, seller: '0x2345678901bcdef12345678901bcdef123456789', buyer: '0xbcdef1234567890abcdef1234567890abcdef123', timestamp: now - 2 * 24 * 60 * 60 * 1000, txHash: '0xdef456', constellation: 'parallel' },
+      { tokenId: 1417, price: 62.0, seller: '0x3456789012cdef123456789012cdef1234567890', buyer: '0xcdef1234567890abcdef1234567890abcdef1234', timestamp: now - 3 * 24 * 60 * 60 * 1000, txHash: '0xghi789', constellation: 'auracore' },
+      { tokenId: 710, price: 48.5, seller: '0x4567890123def1234567890123def12345678901', buyer: '0xdef1234567890abcdef1234567890abcdef12345', timestamp: now - 4 * 24 * 60 * 60 * 1000, txHash: '0xjkl012', constellation: 'monflare' },
+      { tokenId: 3, price: 42.0, seller: '0x5678901234ef12345678901234ef123456789012', buyer: '0xef1234567890abcdef1234567890abcdef123456', timestamp: now - 5 * 24 * 60 * 60 * 1000, txHash: '0xmno345', constellation: 'aether' },
+    ],
+    activeListings: [],
+    totalListed: 54,
+    totalUnlisted: 279,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+/**
  * Main GET handler
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Check for test mode (dev only - useful for visual verification)
+    const { searchParams } = new URL(request.url);
+    const isTestMode = searchParams.get('test') === 'true';
+    
+    if (isTestMode && process.env.NODE_ENV === 'development') {
+      logger.debug('Returning test marketplace data');
+      return NextResponse.json({
+        success: true,
+        data: generateTestData(),
+        cached: false,
+        testMode: true,
+      });
+    }
+    
     // Check cache first
     const now = Date.now();
     if (marketplaceCache && (now - marketplaceCache.timestamp < CACHE_TTL)) {
