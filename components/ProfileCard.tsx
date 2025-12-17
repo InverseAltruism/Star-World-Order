@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import SocialConnect from './SocialConnect';
@@ -417,6 +418,7 @@ function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolea
  */
 export default function ProfileCard() {
   const { address, ownedSkrumpeys, starSkrumpeys, isConnected } = useDAOAccess();
+  const { isDemoMode } = useDemoMode();
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -493,6 +495,12 @@ export default function ProfileCard() {
   const handleSaveProfile = async () => {
     if (!address) return;
     
+    // Prevent profile updates in demo mode
+    if (isDemoMode) {
+      setProfileError('Profile updates are disabled in Demo Mode. Connect your wallet to save changes.');
+      return;
+    }
+    
     setIsSavingProfile(true);
     setProfileError(null);
     setProfileSuccess(false);
@@ -505,6 +513,7 @@ export default function ProfileCard() {
           walletAddress: address,
           displayName: displayName.trim(),
           bio: bio.trim(),
+          isDemoMode: false, // Explicitly indicate this is not a demo mode request
         }),
       });
       
@@ -597,9 +606,23 @@ export default function ProfileCard() {
     });
   };
 
+  // Get button text for badge display button
+  const getBadgeButtonText = (): string => {
+    if (isDemoMode && !isEditingBadges) {
+      return '🔒 DISPLAY';
+    }
+    return isEditingBadges ? 'DONE' : 'DISPLAY';
+  };
+
   // Save displayed badges to profile
   const handleSaveBadges = async () => {
     if (!address) return;
+    
+    // Prevent badge updates in demo mode
+    if (isDemoMode) {
+      // Silently revert to editing mode - user shouldn't be able to save in demo
+      return;
+    }
     
     try {
       const response = await fetch('/api/profile', {
@@ -608,6 +631,7 @@ export default function ProfileCard() {
         body: JSON.stringify({
           walletAddress: address,
           displayedBadges: selectedBadges,
+          isDemoMode: false, // Explicitly indicate this is not a demo mode request
         }),
       });
       
@@ -783,9 +807,11 @@ export default function ProfileCard() {
           {!isEditingProfile && (
             <button
               onClick={() => setIsEditingProfile(true)}
-              className="pixel-btn text-[10px] !px-3 !py-1"
+              disabled={isDemoMode}
+              className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isDemoMode ? 'Editing disabled in Demo Mode' : 'Edit profile'}
             >
-              EDIT
+              {isDemoMode ? '🔒 EDIT' : 'EDIT'}
             </button>
           )}
         </div>
@@ -980,9 +1006,11 @@ export default function ProfileCard() {
                   setIsEditingBadges(true);
                 }
               }}
-              className="pixel-btn text-[10px] !px-3 !py-1"
+              disabled={isDemoMode}
+              className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isDemoMode ? 'Badge editing disabled in Demo Mode' : undefined}
             >
-              {isEditingBadges ? 'DONE' : 'DISPLAY'}
+              {getBadgeButtonText()}
             </button>
           )}
         </div>
