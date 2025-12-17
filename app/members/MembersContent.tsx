@@ -30,6 +30,14 @@ interface SaleActivity {
   constellation?: string;
 }
 
+interface ActiveListing {
+  tokenId: number;
+  price: number;
+  seller: string;
+  timestamp: number;
+  constellation?: string;
+}
+
 interface MarketplaceData {
   overallFloor: number;
   constellationFloors: ConstellationFloor[];
@@ -37,6 +45,7 @@ interface MarketplaceData {
   floorChartDaily: FloorPricePoint[];
   topSales: SaleActivity[];
   recentSales: SaleActivity[];
+  activeListings: ActiveListing[];
   totalListed: number;
   totalUnlisted: number;
   lastUpdated: string;
