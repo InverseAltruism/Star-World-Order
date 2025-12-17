@@ -1,8 +1,46 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSkrumpeyImageUrl, STAR_TRAIT_VARIANTS, StarTraitVariant, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
 import { getUserStarBalance, formatStarAmount } from '@/lib/starPoints';
+
+// ============================================================
+// MARKETPLACE DATA TYPES
+// ============================================================
+
+interface FloorPricePoint {
+  timestamp: number;
+  price: number;
+}
+
+interface ConstellationFloor {
+  constellation: string;
+  floorPrice: number;
+  count: number;
+  listedCount: number;
+}
+
+interface SaleActivity {
+  tokenId: number;
+  price: number;
+  seller: string;
+  buyer: string;
+  timestamp: number;
+  txHash: string;
+  constellation?: string;
+}
+
+interface MarketplaceData {
+  overallFloor: number;
+  constellationFloors: ConstellationFloor[];
+  floorChartHourly: FloorPricePoint[];
+  floorChartDaily: FloorPricePoint[];
+  topSales: SaleActivity[];
+  recentSales: SaleActivity[];
+  totalListed: number;
+  totalUnlisted: number;
+  lastUpdated: string;
+}
 
 // Max supply constant
 const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
@@ -598,6 +636,543 @@ function MemberDetailModal({
   );
 }
 
+// ============================================================
+// MARKETPLACE ANALYTICS COMPONENTS
+// ============================================================
+
+/**
+ * Floor Price Chart - Pure CSS/SVG implementation
+ * Displays smoothed floor price over time with 1H/1D toggle
+ */
+function FloorPriceChart({
+  hourlyData,
+  dailyData,
+  isLoading,
+}: {
+  hourlyData: FloorPricePoint[];
+  dailyData: FloorPricePoint[];
+  isLoading: boolean;
+}) {
+  const [timeframe, setTimeframe] = useState<'1H' | '1D'>('1H');
+  
+  const data = timeframe === '1H' ? hourlyData : dailyData;
+  
+  // Calculate chart dimensions and data
+  const chartWidth = 100; // percentage
+  const chartHeight = 120;
+  const padding = { top: 10, right: 10, bottom: 20, left: 40 };
+  
+  // Get min/max for scaling
+  const prices = data.map(d => d.price).filter(p => p > 0);
+  const minPrice = prices.length > 0 ? Math.min(...prices) * 0.95 : 0;
+  const maxPrice = prices.length > 0 ? Math.max(...prices) * 1.05 : 1;
+  const priceRange = maxPrice - minPrice || 1;
+  
+  // Generate SVG path
+  const generatePath = () => {
+    if (data.length < 2) return '';
+    
+    const effectiveWidth = 300 - padding.left - padding.right;
+    const effectiveHeight = chartHeight - padding.top - padding.bottom;
+    
+    const points = data.map((point, index) => {
+      const x = padding.left + (index / (data.length - 1)) * effectiveWidth;
+      const y = padding.top + effectiveHeight - ((point.price - minPrice) / priceRange) * effectiveHeight;
+      return { x, y };
+    });
+    
+    // Create smooth curve using quadratic bezier
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const midX = (prev.x + curr.x) / 2;
+      path += ` Q ${prev.x} ${curr.y} ${midX} ${(prev.y + curr.y) / 2}`;
+    }
+    if (points.length > 1) {
+      const last = points[points.length - 1];
+      path += ` L ${last.x} ${last.y}`;
+    }
+    
+    return path;
+  };
+  
+  // Generate area fill path
+  const generateAreaPath = () => {
+    if (data.length < 2) return '';
+    
+    const effectiveWidth = 300 - padding.left - padding.right;
+    const effectiveHeight = chartHeight - padding.top - padding.bottom;
+    const bottomY = padding.top + effectiveHeight;
+    
+    const points = data.map((point, index) => {
+      const x = padding.left + (index / (data.length - 1)) * effectiveWidth;
+      const y = padding.top + effectiveHeight - ((point.price - minPrice) / priceRange) * effectiveHeight;
+      return { x, y };
+    });
+    
+    let path = `M ${points[0].x} ${bottomY}`;
+    path += ` L ${points[0].x} ${points[0].y}`;
+    
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const midX = (prev.x + curr.x) / 2;
+      path += ` Q ${prev.x} ${curr.y} ${midX} ${(prev.y + curr.y) / 2}`;
+    }
+    
+    if (points.length > 1) {
+      const last = points[points.length - 1];
+      path += ` L ${last.x} ${last.y}`;
+      path += ` L ${last.x} ${bottomY}`;
+    }
+    path += ' Z';
+    
+    return path;
+  };
+  
+  const currentFloor = prices.length > 0 ? prices[prices.length - 1] : 0;
+  const priceChange = prices.length >= 2 
+    ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) 
+    : 0;
+
+  return (
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-1">
+            ⭐ STAR SKRUMPEY FLOOR
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-white text-lg sm:text-xl font-bold">
+              {isLoading ? '...' : currentFloor > 0 ? `${currentFloor.toFixed(2)} MON` : 'N/A'}
+            </span>
+            {!isLoading && priceChange !== 0 && (
+              <span className={`text-xs px-2 py-0.5 rounded ${
+                priceChange >= 0 ? 'text-[#44ff88] bg-[#44ff88]/20' : 'text-[#ff4466] bg-[#ff4466]/20'
+              }`}>
+                {priceChange >= 0 ? '↑' : '↓'} {Math.abs(priceChange).toFixed(1)}%
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Timeframe Toggle */}
+        <div className="flex gap-1">
+          {(['1H', '1D'] as const).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-3 py-1 text-[10px] sm:text-xs rounded border-2 smooth-transition ${
+                timeframe === tf
+                  ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+                  : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:border-[#ffd700]/50'
+              }`}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Chart */}
+      <div className="relative w-full" style={{ height: chartHeight }}>
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-2xl animate-spin">⭐</div>
+          </div>
+        ) : data.length < 2 ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p className="text-gray-500 text-xs">No chart data available yet</p>
+          </div>
+        ) : (
+          <svg 
+            viewBox="0 0 300 120" 
+            className="w-full h-full"
+            preserveAspectRatio="none"
+          >
+            {/* Grid lines */}
+            <g stroke="#2a2a4e" strokeWidth="0.5">
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+                <line
+                  key={ratio}
+                  x1={padding.left}
+                  y1={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
+                  x2={300 - padding.right}
+                  y2={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
+                />
+              ))}
+            </g>
+            
+            {/* Y-axis labels */}
+            <g fill="#666" fontSize="8" fontFamily="'Press Start 2P', monospace">
+              <text x={padding.left - 5} y={padding.top + 4} textAnchor="end">
+                {maxPrice.toFixed(1)}
+              </text>
+              <text x={padding.left - 5} y={chartHeight - padding.bottom + 4} textAnchor="end">
+                {minPrice.toFixed(1)}
+              </text>
+            </g>
+            
+            {/* Gradient definition */}
+            <defs>
+              <linearGradient id="floorGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#ffd700" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#ffd700" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+            
+            {/* Area fill */}
+            <path
+              d={generateAreaPath()}
+              fill="url(#floorGradient)"
+            />
+            
+            {/* Line */}
+            <path
+              d={generatePath()}
+              fill="none"
+              stroke="#ffd700"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ filter: 'drop-shadow(0 0 4px #ffd700)' }}
+            />
+            
+            {/* Current price dot */}
+            {data.length > 0 && (
+              <circle
+                cx={300 - padding.right}
+                cy={padding.top + (chartHeight - padding.top - padding.bottom) - 
+                   ((data[data.length - 1].price - minPrice) / priceRange) * 
+                   (chartHeight - padding.top - padding.bottom)}
+                r="4"
+                fill="#ffd700"
+                style={{ filter: 'drop-shadow(0 0 6px #ffd700)' }}
+              />
+            )}
+          </svg>
+        )}
+      </div>
+      
+      {/* Time labels */}
+      {data.length >= 2 && !isLoading && (
+        <div className="flex justify-between mt-1 px-10 text-gray-500 text-[8px]">
+          <span>{timeframe === '1H' ? '24h ago' : '30d ago'}</span>
+          <span>NOW</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Constellation Floor Prices Grid
+ */
+function ConstellationFloorGrid({
+  floors,
+  isLoading,
+}: {
+  floors: ConstellationFloor[];
+  isLoading: boolean;
+}) {
+  // Sort by floor price descending (most expensive first), 0 prices at end
+  const sortedFloors = useMemo(() => {
+    return [...floors].sort((a, b) => {
+      if (a.floorPrice === 0 && b.floorPrice === 0) return 0;
+      if (a.floorPrice === 0) return 1;
+      if (b.floorPrice === 0) return -1;
+      return b.floorPrice - a.floorPrice;
+    });
+  }, [floors]);
+
+  return (
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-1">
+      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
+        🌟 FLOOR BY CONSTELLATION
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          {sortedFloors.map((floor) => (
+            <div
+              key={floor.constellation}
+              className="bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e] hover:border-[#ffd700]/50 smooth-transition"
+            >
+              <div className="flex items-center gap-1 mb-1">
+                <span 
+                  className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate"
+                  style={{ color: getVariantColor(floor.constellation) }}
+                >
+                  {floor.constellation}
+                </span>
+              </div>
+              <div className="text-white text-xs sm:text-sm font-bold">
+                {floor.floorPrice > 0 ? `${floor.floorPrice.toFixed(2)}` : '-'}
+                {floor.floorPrice > 0 && <span className="text-[8px] text-gray-500 ml-1">MON</span>}
+              </div>
+              <div className="text-gray-500 text-[8px] mt-1">
+                {floor.listedCount}/{floor.count} listed
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Highest Sales Ever - Top Sales Display
+ */
+function HighestSalesSection({
+  sales,
+  isLoading,
+}: {
+  sales: SaleActivity[];
+  isLoading: boolean;
+}) {
+  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-2">
+      <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
+        👑 HIGHEST SALES EVER
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : sales.length === 0 ? (
+        <div className="text-center py-6">
+          <div className="text-3xl mb-2">📊</div>
+          <p className="text-gray-500 text-xs">No sales data available yet</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sales.slice(0, 5).map((sale, index) => (
+            <div
+              key={`${sale.txHash}-${index}`}
+              className="flex items-center gap-3 bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e] hover:border-[#44ff88]/50 smooth-transition"
+            >
+              {/* Rank Badge */}
+              <div 
+                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0 ${
+                  index === 0 ? 'bg-[#ffd700]/20 text-[#ffd700] border-2 border-[#ffd700]' :
+                  index === 1 ? 'bg-[#c0c0c0]/20 text-[#c0c0c0] border-2 border-[#c0c0c0]' :
+                  index === 2 ? 'bg-[#cd7f32]/20 text-[#cd7f32] border-2 border-[#cd7f32]' :
+                  'bg-[#2a2a4e] text-gray-400 border-2 border-[#3a3a5e]'
+                }`}
+              >
+                {index === 0 ? '👑' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+              </div>
+              
+              {/* Token Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-xs sm:text-sm font-bold">
+                    #{sale.tokenId}
+                  </span>
+                  {sale.constellation && (
+                    <span 
+                      className="text-[8px] px-1.5 py-0.5 rounded uppercase"
+                      style={{ 
+                        color: getVariantColor(sale.constellation),
+                        backgroundColor: `${getVariantColor(sale.constellation)}20`,
+                      }}
+                    >
+                      {sale.constellation}
+                    </span>
+                  )}
+                </div>
+                <div className="text-gray-500 text-[8px] sm:text-[10px] truncate">
+                  {formatAddress(sale.seller)} → {formatAddress(sale.buyer)}
+                </div>
+              </div>
+              
+              {/* Price & Date */}
+              <div className="text-right flex-shrink-0">
+                <div className="text-[#44ff88] text-xs sm:text-sm font-bold">
+                  {sale.price.toFixed(2)} MON
+                </div>
+                <div className="text-gray-500 text-[8px]">
+                  {formatDate(sale.timestamp)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Listed vs Unlisted Stats
+ */
+function ListedStatsSection({
+  totalListed,
+  totalUnlisted,
+  isLoading,
+}: {
+  totalListed: number;
+  totalUnlisted: number;
+  isLoading: boolean;
+}) {
+  const total = totalListed + totalUnlisted;
+  const listedPercent = total > 0 ? (totalListed / total) * 100 : 0;
+
+  return (
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-3">
+      <h3 className="text-[#00ffff] text-xs sm:text-sm tracking-wider mb-4">
+        📋 MARKET ACTIVITY
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#44ff88]/30">
+              <div className="text-[#44ff88] text-lg sm:text-xl font-bold">{totalListed}</div>
+              <div className="text-gray-500 text-[8px] sm:text-[10px]">LISTED</div>
+            </div>
+            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#9966ff]/30">
+              <div className="text-[#9966ff] text-lg sm:text-xl font-bold">{totalUnlisted}</div>
+              <div className="text-gray-500 text-[8px] sm:text-[10px]">UNLISTED</div>
+            </div>
+            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#ffd700]/30">
+              <div className="text-[#ffd700] text-lg sm:text-xl font-bold">{listedPercent.toFixed(1)}%</div>
+              <div className="text-gray-500 text-[8px] sm:text-[10px]">ON MARKET</div>
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="relative h-4 bg-[#0a0a15] rounded-full overflow-hidden border border-[#2a2a4e]">
+            <div 
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] transition-all duration-500"
+              style={{ width: `${listedPercent}%` }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-white text-[8px] font-bold mix-blend-difference">
+                {totalListed} / {total} ON MARKET
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Marketplace Analytics Dashboard
+ */
+function MarketplaceAnalytics() {
+  const [marketData, setMarketData] = useState<MarketplaceData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMarketData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/marketplace');
+      const data = await response.json();
+      
+      if (data.success) {
+        setMarketData(data.data);
+      } else {
+        setError(data.error || 'Failed to load market data');
+      }
+    } catch (err) {
+      setError('Failed to connect to marketplace');
+      console.error('Failed to fetch market data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMarketData();
+    // Refresh every 2 minutes
+    const interval = setInterval(fetchMarketData, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchMarketData]);
+
+  return (
+    <div className="mb-8">
+      {/* Section Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
+          📈 MARKET ANALYTICS
+        </h2>
+        {marketData?.lastUpdated && !isLoading && (
+          <span className="text-gray-500 text-[8px] sm:text-[10px]">
+            Updated {new Date(marketData.lastUpdated).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+      
+      {/* Error State */}
+      {error && (
+        <div className="pixel-card p-4 mb-6 text-center">
+          <p className="text-[#ff4466] text-xs mb-2">{error}</p>
+          <button 
+            onClick={fetchMarketData}
+            className="text-[#ffd700] text-xs underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      
+      {/* Floor Price Chart */}
+      <FloorPriceChart
+        hourlyData={marketData?.floorChartHourly || []}
+        dailyData={marketData?.floorChartDaily || []}
+        isLoading={isLoading}
+      />
+      
+      {/* Constellation Floors */}
+      <ConstellationFloorGrid
+        floors={marketData?.constellationFloors || []}
+        isLoading={isLoading}
+      />
+      
+      {/* Two Column Layout for Sales and Listed Stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Highest Sales */}
+        <HighestSalesSection
+          sales={marketData?.topSales || []}
+          isLoading={isLoading}
+        />
+        
+        {/* Listed Stats */}
+        <ListedStatsSection
+          totalListed={marketData?.totalListed || 0}
+          totalUnlisted={marketData?.totalUnlisted || 0}
+          isLoading={isLoading}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Stats Overview Component
  */
@@ -766,6 +1341,19 @@ export default function MembersContent() {
         totalStarSkrumpeys={totalStarSkrumpeys}
         isLoading={isLoading}
       />
+
+      {/* Marketplace Analytics Section */}
+      <MarketplaceAnalytics />
+
+      {/* Divider */}
+      <div className="pixel-divider mb-6" />
+
+      {/* Members Section Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
+          👤 STAR BEARERS LEADERBOARD
+        </h2>
+      </div>
 
       {/* Search and Filter */}
       <SearchFilter

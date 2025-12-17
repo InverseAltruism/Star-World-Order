@@ -1,0 +1,416 @@
+/**
+ * Marketplace API Route
+ * 
+ * GET /api/marketplace - Get marketplace data for Star Skrumpeys including:
+ * - Floor prices by constellation
+ * - Sales history
+ * - Active listings
+ * - Floor price chart data
+ * 
+ * This endpoint fetches data from Magic Eden's API for Monad chain
+ */
+
+import { NextResponse } from 'next/server';
+import { SKRUMPEY_CONTRACT_ADDRESS, STAR_SKRUMPEY_IDS, isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
+import { logger } from '@/lib/logger';
+
+// Magic Eden API base URL for Monad
+const MAGIC_EDEN_API_BASE = 'https://api-mainnet.magiceden.dev/v3';
+
+// Cache for marketplace data (2 minute TTL for faster updates)
+let marketplaceCache: {
+  data: MarketplaceData;
+  timestamp: number;
+} | null = null;
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
+/**
+ * Sale activity from Magic Eden
+ */
+export interface SaleActivity {
+  tokenId: number;
+  price: number; // Price in MON
+  priceUsd?: number;
+  seller: string;
+  buyer: string;
+  timestamp: number;
+  txHash: string;
+  constellation?: string;
+}
+
+/**
+ * Listing from Magic Eden
+ */
+export interface ActiveListing {
+  tokenId: number;
+  price: number; // Price in MON
+  seller: string;
+  timestamp: number;
+  constellation?: string;
+}
+
+/**
+ * Floor price data point for chart
+ */
+export interface FloorPricePoint {
+  timestamp: number;
+  price: number;
+}
+
+/**
+ * Constellation floor price
+ */
+export interface ConstellationFloor {
+  constellation: string;
+  floorPrice: number;
+  count: number;
+  listedCount: number;
+}
+
+/**
+ * Complete marketplace data response
+ */
+export interface MarketplaceData {
+  // Floor prices
+  overallFloor: number;
+  constellationFloors: ConstellationFloor[];
+  
+  // Chart data (hourly data points)
+  floorChartHourly: FloorPricePoint[];
+  floorChartDaily: FloorPricePoint[];
+  
+  // Sales history (highest ever)
+  topSales: SaleActivity[];
+  recentSales: SaleActivity[];
+  
+  // Listings
+  activeListings: ActiveListing[];
+  totalListed: number;
+  totalUnlisted: number;
+  
+  // Last updated timestamp
+  lastUpdated: string;
+}
+
+/**
+ * Fetch active listings from Magic Eden API
+ */
+async function fetchActiveListings(): Promise<ActiveListing[]> {
+  if (!SKRUMPEY_CONTRACT_ADDRESS) {
+    return [];
+  }
+
+  try {
+    // Magic Eden Monad listings endpoint
+    const response = await fetch(
+      `${MAGIC_EDEN_API_BASE}/monad/collections/${SKRUMPEY_CONTRACT_ADDRESS}/listings?limit=500`,
+      {
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      logger.warn('Magic Eden listings API returned error', { 
+        status: response.status,
+        statusText: response.statusText 
+      });
+      return [];
+    }
+
+    const data = await response.json();
+    
+    // Get metadata for constellation info
+    const tokenIds = (data.listings || data || [])
+      .filter((l: { tokenId?: string | number }) => l.tokenId && isStarSkrumpeyId(Number(l.tokenId)))
+      .map((l: { tokenId: string | number }) => Number(l.tokenId));
+    const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
+    
+    return (data.listings || data || [])
+      .filter((l: { tokenId?: string | number }) => l.tokenId && isStarSkrumpeyId(Number(l.tokenId)))
+      .map((listing: { 
+        tokenId: string | number;
+        price?: number | string;
+        maker?: string;
+        seller?: string;
+        createdAt?: string | number;
+        timestamp?: number;
+      }) => ({
+        tokenId: Number(listing.tokenId),
+        price: Number(listing.price || 0) / 1e18, // Convert from wei to MON
+        seller: listing.maker || listing.seller || '',
+        timestamp: typeof listing.createdAt === 'string' 
+          ? new Date(listing.createdAt).getTime() 
+          : (listing.timestamp || Date.now()),
+        constellation: metadataMap.get(Number(listing.tokenId))?.constellation || undefined,
+      }));
+  } catch (error) {
+    logger.error('Failed to fetch listings from Magic Eden', { error: String(error) });
+    return [];
+  }
+}
+
+/**
+ * Fetch sales history from Magic Eden API
+ */
+async function fetchSalesHistory(): Promise<SaleActivity[]> {
+  if (!SKRUMPEY_CONTRACT_ADDRESS) {
+    return [];
+  }
+
+  try {
+    // Magic Eden Monad activities endpoint
+    const response = await fetch(
+      `${MAGIC_EDEN_API_BASE}/monad/collections/${SKRUMPEY_CONTRACT_ADDRESS}/activities?type=sale&limit=200`,
+      {
+        headers: {
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      logger.warn('Magic Eden activities API returned error', { 
+        status: response.status,
+        statusText: response.statusText 
+      });
+      return [];
+    }
+
+    const data = await response.json();
+    
+    // Get metadata for constellation info
+    const tokenIds = (data.activities || data || [])
+      .filter((a: { tokenId?: string | number }) => a.tokenId && isStarSkrumpeyId(Number(a.tokenId)))
+      .map((a: { tokenId: string | number }) => Number(a.tokenId));
+    const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
+    
+    return (data.activities || data || [])
+      .filter((a: { tokenId?: string | number; type?: string }) => 
+        a.tokenId && 
+        isStarSkrumpeyId(Number(a.tokenId)) &&
+        (a.type === 'sale' || a.type === 'SALE')
+      )
+      .map((activity: {
+        tokenId: string | number;
+        price?: number | string;
+        fromAddress?: string;
+        seller?: string;
+        toAddress?: string;
+        buyer?: string;
+        timestamp?: string | number;
+        createdAt?: string | number;
+        transactionHash?: string;
+        txHash?: string;
+      }) => ({
+        tokenId: Number(activity.tokenId),
+        price: Number(activity.price || 0) / 1e18, // Convert from wei to MON
+        seller: activity.fromAddress || activity.seller || '',
+        buyer: activity.toAddress || activity.buyer || '',
+        timestamp: typeof activity.timestamp === 'string' 
+          ? new Date(activity.timestamp).getTime()
+          : (typeof activity.createdAt === 'string'
+            ? new Date(activity.createdAt).getTime()
+            : (activity.timestamp || Date.now())),
+        txHash: activity.transactionHash || activity.txHash || '',
+        constellation: metadataMap.get(Number(activity.tokenId))?.constellation || undefined,
+      }));
+  } catch (error) {
+    logger.error('Failed to fetch sales from Magic Eden', { error: String(error) });
+    return [];
+  }
+}
+
+/**
+ * Generate floor price chart data from sales
+ * Smooths data using moving average
+ */
+function generateFloorChartData(
+  sales: SaleActivity[],
+  listings: ActiveListing[],
+  hourly: boolean
+): FloorPricePoint[] {
+  if (sales.length === 0 && listings.length === 0) {
+    return [];
+  }
+
+  const now = Date.now();
+  const period = hourly ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 1 hour or 1 day
+  const lookback = hourly ? 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000; // 24 hours or 30 days
+  
+  // Combine and sort all price events by timestamp
+  const priceEvents = [
+    ...sales.map(s => ({ timestamp: s.timestamp, price: s.price })),
+  ].sort((a, b) => a.timestamp - b.timestamp);
+  
+  // If no sales, use current floor from listings
+  const currentFloor = listings.length > 0 
+    ? Math.min(...listings.map(l => l.price))
+    : 0;
+  
+  // Generate data points
+  const points: FloorPricePoint[] = [];
+  const startTime = now - lookback;
+  
+  for (let t = startTime; t <= now; t += period) {
+    // Get lowest price in this period (or up to this time)
+    const relevantPrices = priceEvents
+      .filter(e => e.timestamp <= t && e.timestamp > t - lookback)
+      .map(e => e.price)
+      .filter(p => p > 0);
+    
+    // Use the minimum price as floor, or current floor if no data
+    const floorPrice = relevantPrices.length > 0 
+      ? Math.min(...relevantPrices)
+      : currentFloor;
+    
+    if (floorPrice > 0) {
+      points.push({ timestamp: t, price: floorPrice });
+    }
+  }
+  
+  // Apply simple moving average smoothing (3-point)
+  if (points.length >= 3) {
+    const smoothed: FloorPricePoint[] = [];
+    for (let i = 0; i < points.length; i++) {
+      if (i === 0) {
+        smoothed.push(points[i]);
+      } else if (i === points.length - 1) {
+        smoothed.push(points[i]);
+      } else {
+        // 3-point average
+        const avg = (points[i - 1].price + points[i].price + points[i + 1].price) / 3;
+        smoothed.push({ timestamp: points[i].timestamp, price: avg });
+      }
+    }
+    return smoothed;
+  }
+  
+  return points;
+}
+
+/**
+ * Calculate constellation floor prices
+ */
+function calculateConstellationFloors(
+  listings: ActiveListing[],
+  totalByConstellation: Map<string, number>
+): ConstellationFloor[] {
+  const constellations = [
+    'aether', 'spectra', 'solveil', 'nebulu', 'chroma',
+    'rose', 'monflare', 'auracore', 'parallel', 'prime'
+  ];
+  
+  return constellations.map(constellation => {
+    const constellationListings = listings.filter(l => l.constellation === constellation);
+    const floorPrice = constellationListings.length > 0
+      ? Math.min(...constellationListings.map(l => l.price))
+      : 0;
+    const total = totalByConstellation.get(constellation) || 0;
+    
+    return {
+      constellation,
+      floorPrice,
+      count: total,
+      listedCount: constellationListings.length,
+    };
+  });
+}
+
+/**
+ * Main GET handler
+ */
+export async function GET() {
+  try {
+    // Check cache first
+    const now = Date.now();
+    if (marketplaceCache && (now - marketplaceCache.timestamp < CACHE_TTL)) {
+      logger.debug('Returning cached marketplace data');
+      return NextResponse.json({
+        success: true,
+        data: marketplaceCache.data,
+        cached: true,
+      });
+    }
+
+    // Fetch fresh data in parallel
+    const [listings, sales] = await Promise.all([
+      fetchActiveListings(),
+      fetchSalesHistory(),
+    ]);
+    
+    // Get all Star Skrumpey metadata for constellation counts
+    const allMetadata = getStarSkrumpeyMetadataBatch(STAR_SKRUMPEY_IDS as unknown as number[]);
+    const totalByConstellation = new Map<string, number>();
+    for (const meta of allMetadata.values()) {
+      if (meta.constellation) {
+        totalByConstellation.set(
+          meta.constellation,
+          (totalByConstellation.get(meta.constellation) || 0) + 1
+        );
+      }
+    }
+    
+    // Calculate overall floor price
+    const overallFloor = listings.length > 0
+      ? Math.min(...listings.map(l => l.price))
+      : 0;
+    
+    // Calculate constellation floors
+    const constellationFloors = calculateConstellationFloors(listings, totalByConstellation);
+    
+    // Generate chart data
+    const floorChartHourly = generateFloorChartData(sales, listings, true);
+    const floorChartDaily = generateFloorChartData(sales, listings, false);
+    
+    // Get top sales (sorted by price descending)
+    const topSales = [...sales]
+      .sort((a, b) => b.price - a.price)
+      .slice(0, 10);
+    
+    // Get recent sales (sorted by timestamp descending)
+    const recentSales = [...sales]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10);
+    
+    // Calculate listed vs unlisted
+    const listedTokenIds = new Set(listings.map(l => l.tokenId));
+    const totalListed = listedTokenIds.size;
+    const totalUnlisted = STAR_SKRUMPEY_IDS.length - totalListed;
+    
+    const marketplaceData: MarketplaceData = {
+      overallFloor,
+      constellationFloors,
+      floorChartHourly,
+      floorChartDaily,
+      topSales,
+      recentSales,
+      activeListings: listings.slice(0, 50), // Limit response size
+      totalListed,
+      totalUnlisted,
+      lastUpdated: new Date().toISOString(),
+    };
+    
+    // Update cache
+    marketplaceCache = {
+      data: marketplaceData,
+      timestamp: now,
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: marketplaceData,
+      cached: false,
+    });
+  } catch (error) {
+    logger.error('Failed to get marketplace data:', { error: String(error) });
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch marketplace data' },
+      { status: 500 }
+    );
+  }
+}
