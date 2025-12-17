@@ -606,6 +606,14 @@ export default function ProfileCard() {
     });
   };
 
+  // Get button text for badge display button
+  const getBadgeButtonText = (): string => {
+    if (isDemoMode && !isEditingBadges) {
+      return '🔒 DISPLAY';
+    }
+    return isEditingBadges ? 'DONE' : 'DISPLAY';
+  };
+
   // Save displayed badges to profile
   const handleSaveBadges = async () => {
     if (!address) return;
@@ -1002,7 +1010,7 @@ export default function ProfileCard() {
               className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
               title={isDemoMode ? 'Badge editing disabled in Demo Mode' : undefined}
             >
-              {isDemoMode && !isEditingBadges ? '🔒 DISPLAY' : isEditingBadges ? 'DONE' : 'DISPLAY'}
+              {getBadgeButtonText()}
             </button>
           )}
         </div>
