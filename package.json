@@ -12,8 +12,7 @@
     "compile": "node scripts/compile-contracts.js",
     "test:network": "node scripts/test-connection.js",
     "db:init": "mkdir -p data && sqlite3 data/swo.db < scripts/init-db.sql",
-    "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts",
-    "db:populate-static": "npx tsx scripts/populate-db-from-static.ts"
+    "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts"
   },
   "keywords": [],
   "author": "",
