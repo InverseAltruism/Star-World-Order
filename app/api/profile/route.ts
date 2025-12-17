@@ -38,12 +38,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, displayName, bio, avatarUrl, displayedBadges } = body;
+    const { walletAddress, displayName, bio, avatarUrl, displayedBadges, isDemoMode } = body;
     
     if (!walletAddress) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
         { status: 400 }
+      );
+    }
+    
+    // Prevent profile updates in Demo Mode
+    // Demo Mode is when a user enters a wallet address without actually connecting their wallet
+    if (isDemoMode === true) {
+      return NextResponse.json(
+        { success: false, error: 'Profile updates are not allowed in Demo Mode. Please connect your wallet.' },
+        { status: 403 }
       );
     }
     
