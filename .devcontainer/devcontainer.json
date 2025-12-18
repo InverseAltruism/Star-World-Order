@@ -1,0 +1,93 @@
+{
+  "name": "Star World Order Dev Environment",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "typescript.preferences.importModuleSpecifier": "relative",
+        "typescript.updateImportsOnFileMove.enabled": "always",
+        "files.associations": {
+          "*.css": "tailwindcss"
+        },
+        "tailwindCSS.experimental.classRegex": [
+          ["cn\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+        ],
+        "editor.quickSuggestions": {
+          "strings": true
+        }
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag",
+        "christian-kohler.path-intellisense",
+        "ms-vscode.vscode-typescript-next",
+        "JuanBlanco.solidity",
+        "tintinweb.solidity-visual-auditor",
+        "alexcvzz.vscode-sqlite",
+        "ritwickdey.LiveServer",
+        "eamodio.gitlens",
+        "wix.vscode-import-cost"
+      ]
+    },
+    "codespaces": {
+      "openFiles": [
+        "README.md",
+        "CLAUDE.md"
+      ]
+    }
+  },
+
+  "forwardPorts": [3000, 3080, 3081],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev Server",
+      "onAutoForward": "notify"
+    },
+    "3080": {
+      "label": "PROD (if running)",
+      "onAutoForward": "silent"
+    },
+    "3081": {
+      "label": "DEV (if running)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  "postCreateCommand": "npm install && (npm run db:init || echo 'Note: Database init skipped - may need manual setup')",
+  
+  "postStartCommand": "git fetch --all",
+
+  "containerEnv": {
+    "NEXT_PUBLIC_ENV_MODE": "dev",
+    "NEXT_PUBLIC_MONAD_CHAIN_ID": "143",
+    "NEXT_PUBLIC_MONAD_RPC_URL": "https://rpc.monad.xyz",
+    "NEXT_PUBLIC_SKRUMPEY_CONTRACT": "0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0",
+    "NEXT_PUBLIC_DAO_FEE_BPS": "250",
+    "NEXT_PUBLIC_DEV_ACCESS_ENABLED": "true"
+  },
+
+  "remoteUser": "node",
+
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  }
+}

@@ -808,6 +808,41 @@ npm run test:network     # Test network connection to Monad
 
 ---
 
+## GitHub Codespaces
+
+Star World Order includes pre-configured GitHub Codespaces support for instant cloud development.
+
+### Quick Start
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/InverseAltruism/Star-World-Order?quickstart=1)
+
+### What's Included
+
+The `.devcontainer/devcontainer.json` configures:
+
+| Component | Configuration |
+|-----------|---------------|
+| **Runtime** | Node.js 22 (LTS) |
+| **Package Manager** | npm |
+| **Ports** | 3000 (dev), 3080 (prod), 3081 (dev-alt) |
+| **Environment** | All dev env vars pre-set |
+| **Extensions** | ESLint, Prettier, Tailwind, Solidity, SQLite |
+
+### Environment Variables (Auto-configured in Codespaces)
+
+```bash
+NEXT_PUBLIC_ENV_MODE=dev
+NEXT_PUBLIC_MONAD_CHAIN_ID=143
+NEXT_PUBLIC_MONAD_RPC_URL=https://rpc.monad.xyz
+NEXT_PUBLIC_SKRUMPEY_CONTRACT=0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0
+NEXT_PUBLIC_DAO_FEE_BPS=250
+NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
+```
+
+**Full Documentation**: See [`docs/CODESPACES_SETUP.md`](docs/CODESPACES_SETUP.md)
+
+---
+
 ## Deployment Commands
 
 ### DEV Environment (port 3081)

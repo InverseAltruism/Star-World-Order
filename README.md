@@ -188,6 +188,20 @@ DAO governance with proposal creation and voting.
 - **Database**: SQLite (better-sqlite3)
 - **Font**: Press Start 2P (Retro Pixel)
 
+## 🖥️ Development with GitHub Codespaces
+
+Start developing instantly in the cloud:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/InverseAltruism/Star-World-Order?quickstart=1)
+
+The Codespace comes pre-configured with:
+- Node.js 22, npm, and all dependencies
+- VS Code extensions for TypeScript, Tailwind, Solidity
+- Environment variables for development mode
+- SQLite database ready to use
+
+See [`docs/CODESPACES_SETUP.md`](docs/CODESPACES_SETUP.md) for detailed setup instructions.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
