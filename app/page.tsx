@@ -32,9 +32,14 @@ export default function Home() {
             <p className="text-[#c4a0ff] text-xs tracking-wide mb-2" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.5)' }}>
               A DAO for Skrumpeys with the Constellation trait
             </p>
-            <p className="text-gray-500 text-xs hover:text-gray-400 smooth-transition cursor-pointer">
-              The Order is forming • @skrumpeys
-            </p>
+            <a 
+              href="https://x.com/StrWorldOrder" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-500 text-xs hover:text-gray-400 smooth-transition cursor-pointer"
+            >
+              The Order is forming • @StrWorldOrder
+            </a>
             
             {/* Pixel decoration */}
             <div className="flex items-center justify-center gap-2 mt-4 text-[8px] text-[#9966ff] opacity-50">

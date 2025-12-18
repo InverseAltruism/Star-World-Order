@@ -6,14 +6,14 @@ import WalletConnect from './WalletConnect';
 export default function Features() {
   const features = [
     {
-      icon: 'purple_skrumpey',
+      icon: 'skr_str_mon2',
       title: 'THE ORDER',
       description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
       color: '#ffd700',
       pixelIcon: '◆',
     },
     {
-      icon: 'str_mon2',
+      icon: 'monad_logo',
       title: 'MONAD REALM',
       description: 'BLAZING FAST COSMIC INFRASTRUCTURE',
       color: '#00ffff',
@@ -50,11 +50,11 @@ export default function Features() {
   ];
 
   const renderIcon = (icon: string, color: string, index: number) => {
-    if (icon === 'purple_skrumpey') {
+    if (icon === 'skr_str_mon2') {
       return (
         <Image 
-          src="/purple_skrumpey.png" 
-          alt="Purple Skrumpey frog mascot" 
+          src="/skr_str_mon2.png" 
+          alt="Star Skrumpey Monad mascot" 
           width={48} 
           height={48} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
@@ -65,11 +65,11 @@ export default function Features() {
         />
       );
     }
-    if (icon === 'str_mon2') {
+    if (icon === 'monad_logo') {
       return (
         <Image 
-          src="/str_mon2.png" 
-          alt="Star and Monad themed icon" 
+          src="/monad_logo.png" 
+          alt="Monad blockchain logo" 
           width={48} 
           height={48} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
