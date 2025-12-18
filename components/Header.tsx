@@ -22,7 +22,7 @@ export default function Header() {
           <div className="relative">
             <Image 
               src="/SWO_Star.png" 
-              alt="SWO Star" 
+              alt="Star World Order logo" 
               width={32} 
               height={32} 
               className="animate-pixel-float hover-lift smooth-transition"

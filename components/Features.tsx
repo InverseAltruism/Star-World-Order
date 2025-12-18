@@ -54,7 +54,7 @@ export default function Features() {
       return (
         <Image 
           src="/purple_skrumpey.png" 
-          alt="Purple Skrumpey" 
+          alt="Purple Skrumpey frog mascot" 
           width={48} 
           height={48} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
@@ -69,7 +69,7 @@ export default function Features() {
       return (
         <Image 
           src="/str_mon2.png" 
-          alt="Star Monad" 
+          alt="Star and Monad themed icon" 
           width={48} 
           height={48} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"

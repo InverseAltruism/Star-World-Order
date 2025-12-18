@@ -219,7 +219,7 @@ export default function LoadingScreen() {
                   <div className="swo-pixel-star-container">
                     <Image 
                       src="/SWO_Star.png" 
-                      alt="SWO Star" 
+                      alt="Star World Order spinning logo" 
                       width={24} 
                       height={24} 
                       className="swo-pixel-star-img"
