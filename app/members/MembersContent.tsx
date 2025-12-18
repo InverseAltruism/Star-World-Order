@@ -1195,6 +1195,8 @@ function ConstellationRarityChart({
 
 /**
  * Trait Analytics Grid - Shows top aura, background, and form types
+ * NOTE: Currently hidden as trait data (aura/background/form) not populated in database
+ * TODO: Populate trait data from IPFS metadata to enable this section
  */
 function TraitAnalyticsGrid({
   traitDistribution,
@@ -1207,12 +1209,22 @@ function TraitAnalyticsGrid({
   };
   isLoading: boolean;
 }) {
+  // Check if we have any trait data
   if (!traitDistribution) return null;
+  
+  const hasAuraData = Object.keys(traitDistribution.aura).length > 0;
+  const hasBackgroundData = Object.keys(traitDistribution.background).length > 0;
+  const hasFormData = Object.keys(traitDistribution.form).length > 0;
+  
+  // Don't render if no trait data is available
+  if (!hasAuraData && !hasBackgroundData && !hasFormData) return null;
 
   const TraitCard = ({ title, icon, distribution }: { title: string; icon: string; distribution: Record<string, number> }) => {
     const topTraits = Object.entries(distribution)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
+    
+    if (topTraits.length === 0) return null;
 
     return (
       <div className="pixel-card p-4">
@@ -1250,9 +1262,9 @@ function TraitAnalyticsGrid({
         </div>
       ) : (
         <>
-          <TraitCard title="Auras" icon="✨" distribution={traitDistribution.aura} />
-          <TraitCard title="Backgrounds" icon="🎨" distribution={traitDistribution.background} />
-          <TraitCard title="Forms" icon="🐸" distribution={traitDistribution.form} />
+          {hasAuraData && <TraitCard title="Auras" icon="✨" distribution={traitDistribution.aura} />}
+          {hasBackgroundData && <TraitCard title="Backgrounds" icon="🎨" distribution={traitDistribution.background} />}
+          {hasFormData && <TraitCard title="Forms" icon="🐸" distribution={traitDistribution.form} />}
         </>
       )}
     </div>
