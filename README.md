@@ -129,6 +129,13 @@ Each constellation has a unique visual appearance in the UI:
 - **Voice Chat** - Real-time voice communication
 - **Online Presence** - See who's in the cosmic realm
 
+### 👥 Star Bearers (Members Page)
+- **Holder Leaderboard** - Ranked list of Star Skrumpey holders
+- **Holder Count Chart** - Live chart of unique holder count over time
+- **Time Range Toggle** - Switch between 1H (hourly) and 1D (daily) views
+- **Constellation Filter** - View holder counts for specific constellations (All, Aether, Spectra, etc.)
+- **Member Profiles** - View holdings, badges, and constellation variants
+
 ## 📜 Smart Contracts
 
 Star World Order uses custom Solidity contracts optimized for Monad's high-performance EVM. All contracts are open source and available in this repository.
