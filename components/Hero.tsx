@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { isProdMode } from '@/lib/config';
 
 export default function Hero() {
@@ -147,9 +148,27 @@ export default function Hero() {
           </div>
           
           <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}>🐸</span>
+            <div className="animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(153, 102, 255, 0.5))' }}>
+              <Image
+                src="/images/Purple_skrumpey.svg"
+                alt="Purple Skrumpey"
+                width={64}
+                height={64}
+                className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
+                unoptimized
+              />
+            </div>
             <span className="text-2xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
-            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}>⭐</span>
+            <div className="animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}>
+              <Image
+                src="/images/str_mon2.svg"
+                alt="Star Monflare"
+                width={64}
+                height={64}
+                className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20"
+                unoptimized
+              />
+            </div>
           </div>
           
           <div className="border-t-2 border-[#3a3a5e] pt-3 sm:pt-4">

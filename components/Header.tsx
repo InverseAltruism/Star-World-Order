@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
@@ -18,8 +19,16 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3 smooth-transition hover:opacity-90 hover:scale-105 flex-shrink-0">
-          <div className="relative">
-            <span className="text-2xl animate-pixel-float inline-block hover-lift smooth-transition">⭐</span>
+          <div className="relative animate-pixel-float hover-lift smooth-transition">
+            <Image
+              src="/images/SWO_Star.svg"
+              alt="SWO Star"
+              width={32}
+              height={32}
+              className="drop-shadow-[0_0_8px_rgba(255,215,0,0.6)]"
+              priority
+              unoptimized
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-[#ffd700] text-sm tracking-wider pixel-glow-gold">

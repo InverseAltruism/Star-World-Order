@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, CSSProperties } from 'react';
+import Image from 'next/image';
 
 // ============================================
 // Configuration Constants
@@ -214,14 +215,31 @@ export default function LoadingScreen() {
                 
                 {/* Game content inside screen */}
                 <div className={`swo-game-content ${showGameContent ? 'visible' : ''}`}>
-                  {/* Pixel star logo */}
+                  {/* SWO Star logo */}
                   <div className="swo-pixel-star-container">
-                    <div className="swo-pixel-star" />
+                    <div className="swo-pixel-star">
+                      <Image
+                        src="/images/SWO_Star.svg"
+                        alt="SWO Star"
+                        width={48}
+                        height={48}
+                        className="drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]"
+                        unoptimized
+                      />
+                    </div>
                   </div>
                   
                   {/* Title - mysterious style */}
                   <h1 className="swo-loading-title">
-                    <span className="swo-title-star">⭐</span> STAR WORLD ORDER
+                    <Image
+                      src="/images/SWO_Star.svg"
+                      alt="Star"
+                      width={20}
+                      height={20}
+                      className="inline-block mr-2 align-middle"
+                      unoptimized
+                    />
+                    STAR WORLD ORDER
                   </h1>
                   <p className="swo-loading-subtitle">✦ chosen by the stars ✦</p>
                   
