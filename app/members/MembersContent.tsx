@@ -676,9 +676,10 @@ function HolderChart() {
     return () => clearInterval(interval);
   }, [fetchHolderStats]);
 
-  // Chart dimensions
-  const chartHeight = 140;
-  const padding = { top: 15, right: 15, bottom: 25, left: 45 };
+  // Chart dimensions - use aspect ratio 2:1 for better proportions
+  const chartWidth = 400;
+  const chartHeight = 200;
+  const padding = { top: 20, right: 20, bottom: 35, left: 35 };
   
   // Calculate chart data
   const history = statsData?.history || [];
@@ -687,11 +688,47 @@ function HolderChart() {
   const maxCount = holderCounts.length > 0 ? Math.max(...holderCounts) + 2 : 10;
   const countRange = maxCount - minCount || 1;
   
+  // Generate time labels for horizontal axis
+  const generateTimeLabels = () => {
+    if (history.length < 2) return [];
+    
+    const labels: Array<{ x: number; label: string }> = [];
+    const effectiveWidth = chartWidth - padding.left - padding.right;
+    
+    // Get number of labels based on time range (show 4-5 evenly spaced labels)
+    const labelCount = 5;
+    
+    for (let i = 0; i < labelCount; i++) {
+      const dataIndex = Math.floor((i / (labelCount - 1)) * (history.length - 1));
+      const timestamp = history[dataIndex]?.timestamp;
+      
+      if (timestamp) {
+        const date = new Date(timestamp);
+        let label: string;
+        
+        if (timeRange === '1H') {
+          // For hourly view, show hours and minutes
+          label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+          // For daily view, show month/day
+          label = date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+        }
+        
+        labels.push({
+          x: padding.left + (i / (labelCount - 1)) * effectiveWidth,
+          label
+        });
+      }
+    }
+    
+    return labels;
+  };
+  
   // Generate SVG path for the line
   const generatePath = () => {
     if (history.length < 2) return '';
     
-    const effectiveWidth = 300 - padding.left - padding.right;
+    const effectiveWidth = chartWidth - padding.left - padding.right;
     const effectiveHeight = chartHeight - padding.top - padding.bottom;
     
     const points = history.map((point, index) => {
@@ -720,7 +757,7 @@ function HolderChart() {
   const generateAreaPath = () => {
     if (history.length < 2) return '';
     
-    const effectiveWidth = 300 - padding.left - padding.right;
+    const effectiveWidth = chartWidth - padding.left - padding.right;
     const effectiveHeight = chartHeight - padding.top - padding.bottom;
     const bottomY = padding.top + effectiveHeight;
     
@@ -753,6 +790,7 @@ function HolderChart() {
   // Get color for selected constellation
   const chartColor = constellation === 'all' ? '#ffd700' : getVariantColor(constellation);
   const currentHolders = statsData?.currentHolders || 0;
+  const timeLabels = generateTimeLabels();
 
   return (
     <div className="pixel-card p-4 mb-6 animate-slide-in-up">
@@ -806,7 +844,7 @@ function HolderChart() {
       </div>
       
       {/* Chart */}
-      <div className="relative w-full" style={{ height: chartHeight }}>
+      <div className="relative w-full" style={{ maxWidth: '100%', aspectRatio: '2 / 1' }}>
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-2xl animate-spin">⭐</div>
@@ -832,9 +870,9 @@ function HolderChart() {
           </div>
         ) : (
           <svg 
-            viewBox="0 0 300 140" 
+            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
             className="w-full h-full"
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMid meet"
           >
             {/* Grid lines */}
             <g stroke="#2a2a4e" strokeWidth="0.5">
@@ -843,20 +881,34 @@ function HolderChart() {
                   key={ratio}
                   x1={padding.left}
                   y1={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
-                  x2={300 - padding.right}
+                  x2={chartWidth - padding.right}
                   y2={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
                 />
               ))}
             </g>
             
             {/* Y-axis labels */}
-            <g fill="#666" fontSize="8" fontFamily="monospace">
+            <g fill="#666" fontSize="10" fontFamily="monospace">
               <text x={padding.left - 5} y={padding.top + 4} textAnchor="end">
                 {maxCount}
               </text>
               <text x={padding.left - 5} y={chartHeight - padding.bottom + 4} textAnchor="end">
                 {minCount}
               </text>
+            </g>
+            
+            {/* X-axis time labels */}
+            <g fill="#666" fontSize="9" fontFamily="monospace">
+              {timeLabels.map((item, index) => (
+                <text 
+                  key={index} 
+                  x={item.x} 
+                  y={chartHeight - padding.bottom + 18} 
+                  textAnchor="middle"
+                >
+                  {item.label}
+                </text>
+              ))}
             </g>
             
             {/* Gradient definition */}
@@ -887,7 +939,7 @@ function HolderChart() {
             {/* Current value dot */}
             {history.length > 0 && (
               <circle
-                cx={300 - padding.right}
+                cx={chartWidth - padding.right}
                 cy={padding.top + (chartHeight - padding.top - padding.bottom) - 
                    ((history[history.length - 1].holderCount - minCount) / countRange) * 
                    (chartHeight - padding.top - padding.bottom)}
@@ -899,14 +951,6 @@ function HolderChart() {
           </svg>
         )}
       </div>
-      
-      {/* Time labels */}
-      {history.length >= 2 && !isLoading && !error && (
-        <div className="flex justify-between mt-1 px-10 text-gray-500 text-[8px]">
-          <span>{timeRange === '1H' ? '24h ago' : '30d ago'}</span>
-          <span>NOW</span>
-        </div>
-      )}
       
       {/* Last updated */}
       {statsData?.lastUpdated && !isLoading && (
