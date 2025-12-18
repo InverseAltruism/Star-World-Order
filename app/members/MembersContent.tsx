@@ -49,6 +49,13 @@ interface MarketplaceData {
   totalListed: number;
   totalUnlisted: number;
   lastUpdated: string;
+  // NEW: Database-powered analytics
+  constellationDistribution?: Record<string, number>;
+  traitDistribution?: {
+    aura: Record<string, number>;
+    background: Record<string, number>;
+    form: Record<string, number>;
+  };
 }
 
 // Max supply constant
@@ -1088,7 +1095,172 @@ function ListedStatsSection({
 }
 
 /**
- * Marketplace Analytics Dashboard
+ * Constellation Rarity Chart - Shows distribution of all 10 constellations
+ */
+function ConstellationRarityChart({
+  distribution,
+  isLoading,
+}: {
+  distribution: Record<string, number>;
+  isLoading: boolean;
+}) {
+  // Define rarity tiers
+  const getRarityTier = (count: number): string => {
+    if (count === 1) return 'Legendary';
+    if (count <= 10) return 'Rare';
+    if (count <= 36) return 'Uncommon';
+    return 'Common';
+  };
+
+  const getRarityColor = (tier: string): string => {
+    switch (tier) {
+      case 'Legendary': return '#ffd700'; // Gold
+      case 'Rare': return '#ff00ff'; // Magenta
+      case 'Uncommon': return '#00ffff'; // Cyan
+      case 'Common': return '#9966ff'; // Purple
+      default: return '#9966ff';
+    }
+  };
+
+  // Sort constellations by count (ascending for rarity)
+  const sortedConstellations = Object.entries(distribution)
+    .sort(([, a], [, b]) => a - b);
+  
+  const maxCount = Math.max(...Object.values(distribution));
+
+  return (
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up">
+      <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-4">
+        🌟 CONSTELLATION RARITY DISTRIBUTION
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedConstellations.map(([constellation, count]) => {
+            const tier = getRarityTier(count);
+            const tierColor = getRarityColor(tier);
+            const percentage = (count / 333) * 100;
+            const barWidth = (count / maxCount) * 100;
+
+            return (
+              <div key={constellation} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span 
+                      className="font-bold capitalize"
+                      style={{ 
+                        ...getVariantTextStyle(constellation),
+                      }}
+                    >
+                      {constellation}
+                    </span>
+                    <span 
+                      className="text-[8px] px-1.5 py-0.5 rounded uppercase"
+                      style={{
+                        backgroundColor: `${tierColor}20`,
+                        color: tierColor,
+                        border: `1px solid ${tierColor}40`,
+                      }}
+                    >
+                      {tier}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">{count} / 333</span>
+                    <span className="text-gray-500 text-[10px]">({percentage.toFixed(1)}%)</span>
+                  </div>
+                </div>
+                <div className="relative h-6 bg-[#0a0a15] rounded-lg overflow-hidden border border-[#2a2a4e]">
+                  <div 
+                    className="absolute left-0 top-0 h-full transition-all duration-500 rounded-lg"
+                    style={{ 
+                      width: `${barWidth}%`,
+                      background: getVariantGradient(constellation),
+                      boxShadow: `0 0 10px ${getVariantColor(constellation)}40`,
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Trait Analytics Grid - Shows top aura, background, and form types
+ */
+function TraitAnalyticsGrid({
+  traitDistribution,
+  isLoading,
+}: {
+  traitDistribution?: {
+    aura: Record<string, number>;
+    background: Record<string, number>;
+    form: Record<string, number>;
+  };
+  isLoading: boolean;
+}) {
+  if (!traitDistribution) return null;
+
+  const TraitCard = ({ title, icon, distribution }: { title: string; icon: string; distribution: Record<string, number> }) => {
+    const topTraits = Object.entries(distribution)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
+    return (
+      <div className="pixel-card p-4">
+        <h4 className="text-[#00ffff] text-xs tracking-wider mb-3 flex items-center gap-2">
+          <span>{icon}</span>
+          <span>TOP {title.toUpperCase()}</span>
+        </h4>
+        <div className="space-y-2">
+          {topTraits.map(([trait, count], index) => (
+            <div key={trait} className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] ${
+                  index === 0 ? 'bg-[#ffd700]/20 text-[#ffd700]' :
+                  index === 1 ? 'bg-[#c0c0c0]/20 text-[#c0c0c0]' :
+                  index === 2 ? 'bg-[#cd7f32]/20 text-[#cd7f32]' :
+                  'bg-[#2a2a4e] text-gray-400'
+                }`}>
+                  {index + 1}
+                </span>
+                <span className="text-white capitalize">{trait}</span>
+              </div>
+              <span className="text-[#44ff88]">{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-slide-in-up animate-delay-1">
+      {isLoading ? (
+        <div className="col-span-full flex items-center justify-center py-8">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : (
+        <>
+          <TraitCard title="Auras" icon="✨" distribution={traitDistribution.aura} />
+          <TraitCard title="Backgrounds" icon="🎨" distribution={traitDistribution.background} />
+          <TraitCard title="Forms" icon="🐸" distribution={traitDistribution.form} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Marketplace Analytics Dashboard - Database-powered analytics
  */
 function MarketplaceAnalytics() {
   const [marketData, setMarketData] = useState<MarketplaceData | null>(null);
@@ -1100,21 +1272,17 @@ function MarketplaceAnalytics() {
       setIsLoading(true);
       setError(null);
       
-      // Pass through test mode parameter if present in URL
-      const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const testMode = urlParams?.get('test') === 'true' ? '?test=true' : '';
-      
-      const response = await fetch(`/api/marketplace${testMode}`);
+      const response = await fetch(`/api/marketplace`);
       const data = await response.json();
       
       if (data.success) {
         setMarketData(data.data);
       } else {
-        setError(data.error || 'Failed to load market data');
+        setError(data.error || 'Failed to load analytics data');
       }
     } catch (err) {
-      setError('Failed to connect to marketplace');
-      console.error('Failed to fetch market data:', err);
+      setError('Failed to load analytics');
+      console.error('Failed to fetch analytics data:', err);
     } finally {
       setIsLoading(false);
     }
@@ -1122,8 +1290,8 @@ function MarketplaceAnalytics() {
 
   useEffect(() => {
     fetchMarketData();
-    // Refresh every 2 minutes
-    const interval = setInterval(fetchMarketData, 2 * 60 * 1000);
+    // Refresh every 5 minutes (less frequent since it's database data)
+    const interval = setInterval(fetchMarketData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchMarketData]);
 
@@ -1132,7 +1300,7 @@ function MarketplaceAnalytics() {
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
-          📈 MARKET ANALYTICS
+          📊 COLLECTION ANALYTICS
         </h2>
         {marketData?.lastUpdated && !isLoading && (
           <span className="text-gray-500 text-[8px] sm:text-[10px]">
@@ -1154,34 +1322,21 @@ function MarketplaceAnalytics() {
         </div>
       )}
       
-      {/* Floor Price Chart */}
-      <FloorPriceChart
-        hourlyData={marketData?.floorChartHourly || []}
-        dailyData={marketData?.floorChartDaily || []}
-        isLoading={isLoading}
-      />
-      
-      {/* Constellation Floors */}
-      <ConstellationFloorGrid
-        floors={marketData?.constellationFloors || []}
-        isLoading={isLoading}
-      />
-      
-      {/* Two Column Layout for Sales and Listed Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Highest Sales */}
-        <HighestSalesSection
-          sales={marketData?.topSales || []}
+      {/* Constellation Rarity Chart */}
+      {marketData?.constellationDistribution && (
+        <ConstellationRarityChart
+          distribution={marketData.constellationDistribution}
           isLoading={isLoading}
         />
-        
-        {/* Listed Stats */}
-        <ListedStatsSection
-          totalListed={marketData?.totalListed || 0}
-          totalUnlisted={marketData?.totalUnlisted || 0}
+      )}
+      
+      {/* Trait Analytics Grid */}
+      {marketData?.traitDistribution && (
+        <TraitAnalyticsGrid
+          traitDistribution={marketData.traitDistribution}
           isLoading={isLoading}
         />
-      </div>
+      )}
     </div>
   );
 }

@@ -22,7 +22,7 @@
  * When Magic Eden adds Monad API support, uncomment the fetchActiveListings() 
  * and fetchSalesHistory() functions and update the endpoint URLs.
  * 
- * Commented out sections are marked with: /* MAGIC EDEN API - DISABLED */
+ * Commented out sections are marked with: MAGIC EDEN API - DISABLED
  * ============================================================================
  */
 
