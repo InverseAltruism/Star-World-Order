@@ -1918,24 +1918,6 @@ a,
   position: relative;
 }
 
-.pixel-divider::before,
-.pixel-divider::after {
-  content: '◆';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--pixel-gold);
-  font-size: 8px;
-}
-
-.pixel-divider::before {
-  left: 10%;
-}
-
-.pixel-divider::after {
-  right: 10%;
-}
-
 /* Enhanced text visibility classes */
 .text-pixel-bright {
   color: #ffffff;

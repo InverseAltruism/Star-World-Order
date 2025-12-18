@@ -639,8 +639,93 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 | `/api/social-connections` | GET | Get social connections for wallet |
 | `/api/auth/x` | GET | X (Twitter) OAuth initiation |
 | `/api/auth/callback/x` | GET | X OAuth callback handler |
+| `/api/members` | GET | Get all Star Skrumpey holders with profiles (5-min cache) |
+| `/api/holder-stats` | GET | Get holder count history for charts |
+| `/api/cron/refresh-holders` | GET | Cron endpoint to refresh holder data (requires `CRON_SECRET`) |
 
 **Base URL**: `https://starworldorder.com` (production)
+
+---
+
+## Holder Data Refresh Mechanism
+
+The holder data is cached and refreshed periodically to keep it fresh while avoiding excessive blockchain calls.
+
+### How It Works
+
+1. **On-Demand Cache**: `/api/members` and `/api/holder-stats` cache data for 5 minutes
+2. **Periodic Refresh**: `/api/cron/refresh-holders` endpoint can be called every 4 hours to proactively refresh data
+3. **Historical Snapshots**: Holder counts are recorded in the `holder_snapshots` table for chart visualization
+
+### Cron Setup (Server)
+
+Add a systemd timer or cron job to call the refresh endpoint every 4 hours:
+
+**Systemd Timer (`/etc/systemd/system/swo-refresh-holders.timer`):**
+
+```ini
+[Unit]
+Description=Refresh Star World Order holder data every 4 hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=4h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+**Systemd Service (`/etc/systemd/system/swo-refresh-holders.service`):**
+
+```ini
+[Unit]
+Description=Star World Order holder data refresh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/curl -s -H "Authorization: Bearer ${CRON_SECRET}" http://localhost:3080/api/cron/refresh-holders
+```
+
+**Enable the timer:**
+
+```bash
+sudo systemctl enable --now swo-refresh-holders.timer
+```
+
+**Or use a simple cron job:**
+
+```bash
+# Add to /etc/crontab or user's crontab
+0 */4 * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3080/api/cron/refresh-holders
+```
+
+### Environment Variables
+
+```bash
+# Add to .env.local
+CRON_SECRET=your-secure-random-secret-here
+```
+
+### API Response
+
+```json
+{
+  "success": true,
+  "message": "Holder data refreshed successfully",
+  "data": {
+    "totalHolders": 189,
+    "uniqueWallets": 189,
+    "constellationCounts": {
+      "aether": 45,
+      "spectra": 42,
+      ...
+    },
+    "snapshotsRecorded": 11,
+    "timestamp": "2024-12-18T12:00:00.000Z"
+  }
+}
+```
 
 ---
 
