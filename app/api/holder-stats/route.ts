@@ -95,20 +95,29 @@ async function fetchCurrentHolderData(): Promise<{
     const holderAddresses = new Set<string>();
     const holdersByConstellation: Record<string, Set<string>> = {};
 
+    // Valid constellation types (skip tokens with invalid/unknown constellations)
+    const validConstellations = new Set([
+      'aether', 'spectra', 'solveil', 'nebulu', 'chroma',
+      'rose', 'monflare', 'auracore', 'parallel', 'prime'
+    ]);
+
     for (let i = 0; i < ownershipResults.length; i++) {
       const result = ownershipResults[i];
       
       if (result.status === 'success') {
         const owner = String(result.result).toLowerCase();
         const tokenId = STAR_SKRUMPEY_IDS[i];
-        const constellation = metadataMap.get(tokenId)?.constellation?.toLowerCase() || 'unknown';
+        const constellation = metadataMap.get(tokenId)?.constellation?.toLowerCase();
         
         holderAddresses.add(owner);
         
-        if (!holdersByConstellation[constellation]) {
-          holdersByConstellation[constellation] = new Set();
+        // Only track valid constellation types
+        if (constellation && validConstellations.has(constellation)) {
+          if (!holdersByConstellation[constellation]) {
+            holdersByConstellation[constellation] = new Set();
+          }
+          holdersByConstellation[constellation].add(owner);
         }
-        holdersByConstellation[constellation].add(owner);
       }
     }
 
@@ -140,6 +149,13 @@ function shouldRecordSnapshot(lastSnapshot: HolderSnapshot | null): boolean {
   return (now - lastTime) >= MIN_SNAPSHOT_INTERVAL_MS;
 }
 
+/**
+ * Check if a value is a valid constellation
+ */
+function isValidConstellation(value: string): boolean {
+  return (CONSTELLATIONS as readonly string[]).includes(value);
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -147,7 +163,7 @@ export async function GET(request: Request) {
     const timeRange = searchParams.get('timeRange') || '1H';
     
     // Validate constellation
-    if (!CONSTELLATIONS.includes(constellation as typeof CONSTELLATIONS[number])) {
+    if (!isValidConstellation(constellation)) {
       return NextResponse.json(
         { success: false, error: `Invalid constellation: ${constellation}` },
         { status: 400 }

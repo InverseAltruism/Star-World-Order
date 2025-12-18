@@ -800,12 +800,12 @@ export function getHolderSnapshots(
   const stmt = db.prepare(`
     SELECT * FROM holder_snapshots 
     WHERE constellation = ?
-    AND datetime(created_at) > datetime('now', ? || ' hours')
+    AND datetime(created_at) > datetime('now', ?)
     ORDER BY created_at ASC
     LIMIT ?
   `);
   
-  return stmt.all(constellation.toLowerCase(), `-${hoursBack}`, limit) as HolderSnapshot[];
+  return stmt.all(constellation.toLowerCase(), `-${hoursBack} hours`, limit) as HolderSnapshot[];
 }
 
 /**
