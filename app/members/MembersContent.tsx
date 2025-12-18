@@ -1,62 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getSkrumpeyImageUrl, STAR_TRAIT_VARIANTS, StarTraitVariant, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
-import { getUserStarBalance, formatStarAmount } from '@/lib/starPoints';
-
-// ============================================================
-// MARKETPLACE DATA TYPES
-// ============================================================
-
-interface FloorPricePoint {
-  timestamp: number;
-  price: number;
-}
-
-interface ConstellationFloor {
-  constellation: string;
-  floorPrice: number;
-  count: number;
-  listedCount: number;
-}
-
-interface SaleActivity {
-  tokenId: number;
-  price: number;
-  seller: string;
-  buyer: string;
-  timestamp: number;
-  txHash: string;
-  constellation?: string;
-}
-
-interface ActiveListing {
-  tokenId: number;
-  price: number;
-  seller: string;
-  timestamp: number;
-  constellation?: string;
-}
-
-interface MarketplaceData {
-  overallFloor: number;
-  constellationFloors: ConstellationFloor[];
-  floorChartHourly: FloorPricePoint[];
-  floorChartDaily: FloorPricePoint[];
-  topSales: SaleActivity[];
-  recentSales: SaleActivity[];
-  activeListings: ActiveListing[];
-  totalListed: number;
-  totalUnlisted: number;
-  lastUpdated: string;
-  // NEW: Database-powered analytics
-  constellationDistribution?: Record<string, number>;
-  traitDistribution?: {
-    aura: Record<string, number>;
-    background: Record<string, number>;
-    form: Record<string, number>;
-  };
-}
+import React, { useState, useEffect, useCallback } from 'react';
+import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
 
 // Max supply constant
 const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
@@ -653,51 +598,109 @@ function MemberDetailModal({
 }
 
 // ============================================================
-// MARKETPLACE ANALYTICS COMPONENTS
+// HOLDER CHART TYPES AND COMPONENTS
 // ============================================================
 
+interface HolderStatsData {
+  constellation: string;
+  currentHolders: number;
+  history: Array<{
+    timestamp: number;
+    holderCount: number;
+  }>;
+  lastUpdated: string;
+}
+
+// All constellation options for dropdown
+const CONSTELLATION_OPTIONS = [
+  { value: 'all', label: 'All Constellations' },
+  { value: 'aether', label: 'Aether' },
+  { value: 'spectra', label: 'Spectra' },
+  { value: 'solveil', label: 'Solveil' },
+  { value: 'nebulu', label: 'Nebulu' },
+  { value: 'chroma', label: 'Chroma' },
+  { value: 'rose', label: 'Rose' },
+  { value: 'monflare', label: 'Monflare' },
+  { value: 'auracore', label: 'Auracore' },
+  { value: 'parallel', label: 'Parallel' },
+  { value: 'prime', label: 'Prime' },
+] as const;
+
 /**
- * Floor Price Chart - Pure CSS/SVG implementation
- * Displays smoothed floor price over time with 1H/1D toggle
+ * Holder Chart - Displays Star Skrumpey holder count over time
+ * Features:
+ * - 1H / 1D time range toggle
+ * - Constellation filter (All or specific)
+ * - SVG line chart with gradient fill
+ * - Real-time data from database
  */
-function FloorPriceChart({
-  hourlyData,
-  dailyData,
-  isLoading,
-}: {
-  hourlyData: FloorPricePoint[];
-  dailyData: FloorPricePoint[];
-  isLoading: boolean;
-}) {
-  const [timeframe, setTimeframe] = useState<'1H' | '1D'>('1H');
+function HolderChart() {
+  const [timeRange, setTimeRange] = useState<'1H' | '1D'>('1H');
+  const [constellation, setConstellation] = useState<string>('all');
+  const [statsData, setStatsData] = useState<HolderStatsData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch holder stats data
+  const fetchHolderStats = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await fetch(
+        `/api/holder-stats?constellation=${constellation}&timeRange=${timeRange}`
+      );
+      const data = await response.json();
+      
+      if (data.success) {
+        setStatsData(data.data);
+      } else {
+        setError(data.error || 'Failed to load holder stats');
+      }
+    } catch (err) {
+      setError('Failed to load holder data');
+      console.error('Failed to fetch holder stats:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [constellation, timeRange]);
+
+  // Fetch on mount and when filters change
+  useEffect(() => {
+    fetchHolderStats();
+  }, [fetchHolderStats]);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(fetchHolderStats, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchHolderStats]);
+
+  // Chart dimensions
+  const chartHeight = 140;
+  const padding = { top: 15, right: 15, bottom: 25, left: 45 };
   
-  const data = timeframe === '1H' ? hourlyData : dailyData;
+  // Calculate chart data
+  const history = statsData?.history || [];
+  const holderCounts = history.map(d => d.holderCount);
+  const minCount = holderCounts.length > 0 ? Math.max(0, Math.min(...holderCounts) - 2) : 0;
+  const maxCount = holderCounts.length > 0 ? Math.max(...holderCounts) + 2 : 10;
+  const countRange = maxCount - minCount || 1;
   
-  // Calculate chart dimensions and data
-  const chartWidth = 100; // percentage
-  const chartHeight = 120;
-  const padding = { top: 10, right: 10, bottom: 20, left: 40 };
-  
-  // Get min/max for scaling
-  const prices = data.map(d => d.price).filter(p => p > 0);
-  const minPrice = prices.length > 0 ? Math.min(...prices) * 0.95 : 0;
-  const maxPrice = prices.length > 0 ? Math.max(...prices) * 1.05 : 1;
-  const priceRange = maxPrice - minPrice || 1;
-  
-  // Generate SVG path
+  // Generate SVG path for the line
   const generatePath = () => {
-    if (data.length < 2) return '';
+    if (history.length < 2) return '';
     
     const effectiveWidth = 300 - padding.left - padding.right;
     const effectiveHeight = chartHeight - padding.top - padding.bottom;
     
-    const points = data.map((point, index) => {
-      const x = padding.left + (index / (data.length - 1)) * effectiveWidth;
-      const y = padding.top + effectiveHeight - ((point.price - minPrice) / priceRange) * effectiveHeight;
+    const points = history.map((point, index) => {
+      const x = padding.left + (index / (history.length - 1)) * effectiveWidth;
+      const y = padding.top + effectiveHeight - ((point.holderCount - minCount) / countRange) * effectiveHeight;
       return { x, y };
     });
     
-    // Create smooth curve using quadratic bezier
+    // Create smooth curve
     let path = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
@@ -715,15 +718,15 @@ function FloorPriceChart({
   
   // Generate area fill path
   const generateAreaPath = () => {
-    if (data.length < 2) return '';
+    if (history.length < 2) return '';
     
     const effectiveWidth = 300 - padding.left - padding.right;
     const effectiveHeight = chartHeight - padding.top - padding.bottom;
     const bottomY = padding.top + effectiveHeight;
     
-    const points = data.map((point, index) => {
-      const x = padding.left + (index / (data.length - 1)) * effectiveWidth;
-      const y = padding.top + effectiveHeight - ((point.price - minPrice) / priceRange) * effectiveHeight;
+    const points = history.map((point, index) => {
+      const x = padding.left + (index / (history.length - 1)) * effectiveWidth;
+      const y = padding.top + effectiveHeight - ((point.holderCount - minCount) / countRange) * effectiveHeight;
       return { x, y };
     });
     
@@ -746,49 +749,59 @@ function FloorPriceChart({
     
     return path;
   };
-  
-  const currentFloor = prices.length > 0 ? prices[prices.length - 1] : 0;
-  const priceChange = prices.length >= 2 
-    ? ((prices[prices.length - 1] - prices[0]) / prices[0] * 100) 
-    : 0;
+
+  // Get color for selected constellation
+  const chartColor = constellation === 'all' ? '#ffd700' : getVariantColor(constellation);
+  const currentHolders = statsData?.currentHolders || 0;
 
   return (
     <div className="pixel-card p-4 mb-6 animate-slide-in-up">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      {/* Header with Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-1">
-            ⭐ STAR SKRUMPEY FLOOR
+            👥 STAR SKRUMPEY HOLDERS
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-white text-lg sm:text-xl font-bold">
-              {isLoading ? '...' : currentFloor > 0 ? `${currentFloor.toFixed(2)} MON` : 'N/A'}
+            <span className="text-white text-xl sm:text-2xl font-bold" style={{ color: chartColor }}>
+              {isLoading ? '...' : currentHolders}
             </span>
-            {!isLoading && priceChange !== 0 && (
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                priceChange >= 0 ? 'text-[#44ff88] bg-[#44ff88]/20' : 'text-[#ff4466] bg-[#ff4466]/20'
-              }`}>
-                {priceChange >= 0 ? '↑' : '↓'} {Math.abs(priceChange).toFixed(1)}%
-              </span>
-            )}
+            <span className="text-gray-500 text-xs">
+              {constellation === 'all' ? 'UNIQUE HOLDERS' : `${constellation.toUpperCase()} HOLDERS`}
+            </span>
           </div>
         </div>
         
-        {/* Timeframe Toggle */}
-        <div className="flex gap-1">
-          {(['1H', '1D'] as const).map((tf) => (
-            <button
-              key={tf}
-              onClick={() => setTimeframe(tf)}
-              className={`px-3 py-1 text-[10px] sm:text-xs rounded border-2 smooth-transition ${
-                timeframe === tf
-                  ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
-                  : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:border-[#ffd700]/50'
-              }`}
-            >
-              {tf}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Constellation Dropdown */}
+          <select
+            value={constellation}
+            onChange={(e) => setConstellation(e.target.value)}
+            className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-2 py-1 text-[10px] sm:text-xs text-white focus:border-[#ffd700] focus:outline-none cursor-pointer smooth-transition"
+          >
+            {CONSTELLATION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          
+          {/* Time Range Toggle */}
+          <div className="flex gap-1">
+            {(['1H', '1D'] as const).map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeRange(tf)}
+                className={`px-3 py-1 text-[10px] sm:text-xs rounded border-2 smooth-transition ${
+                  timeRange === tf
+                    ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+                    : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:border-[#ffd700]/50'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       
@@ -798,13 +811,28 @@ function FloorPriceChart({
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-2xl animate-spin">⭐</div>
           </div>
-        ) : data.length < 2 ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-gray-500 text-xs">No chart data available yet</p>
+        ) : error ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="text-[#ff4466] text-xs mb-2">{error}</p>
+            <button 
+              onClick={fetchHolderStats}
+              className="text-[#ffd700] text-xs underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        ) : history.length < 2 ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="text-3xl mb-2">📊</div>
+            <p className="text-gray-500 text-xs text-center">
+              Collecting data... First chart will appear
+              <br />
+              after multiple snapshots are recorded.
+            </p>
           </div>
         ) : (
           <svg 
-            viewBox="0 0 300 120" 
+            viewBox="0 0 300 140" 
             className="w-full h-full"
             preserveAspectRatio="none"
           >
@@ -822,50 +850,50 @@ function FloorPriceChart({
             </g>
             
             {/* Y-axis labels */}
-            <g fill="#666" fontSize="8" fontFamily="'Press Start 2P', monospace">
+            <g fill="#666" fontSize="8" fontFamily="monospace">
               <text x={padding.left - 5} y={padding.top + 4} textAnchor="end">
-                {maxPrice.toFixed(1)}
+                {maxCount}
               </text>
               <text x={padding.left - 5} y={chartHeight - padding.bottom + 4} textAnchor="end">
-                {minPrice.toFixed(1)}
+                {minCount}
               </text>
             </g>
             
             {/* Gradient definition */}
             <defs>
-              <linearGradient id="floorGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#ffd700" stopOpacity="0.4"/>
-                <stop offset="100%" stopColor="#ffd700" stopOpacity="0"/>
+              <linearGradient id={`holderGradient-${constellation}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor={chartColor} stopOpacity="0.4"/>
+                <stop offset="100%" stopColor={chartColor} stopOpacity="0"/>
               </linearGradient>
             </defs>
             
             {/* Area fill */}
             <path
               d={generateAreaPath()}
-              fill="url(#floorGradient)"
+              fill={`url(#holderGradient-${constellation})`}
             />
             
             {/* Line */}
             <path
               d={generatePath()}
               fill="none"
-              stroke="#ffd700"
+              stroke={chartColor}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ filter: 'drop-shadow(0 0 4px #ffd700)' }}
+              style={{ filter: `drop-shadow(0 0 4px ${chartColor})` }}
             />
             
-            {/* Current price dot */}
-            {data.length > 0 && (
+            {/* Current value dot */}
+            {history.length > 0 && (
               <circle
                 cx={300 - padding.right}
                 cy={padding.top + (chartHeight - padding.top - padding.bottom) - 
-                   ((data[data.length - 1].price - minPrice) / priceRange) * 
+                   ((history[history.length - 1].holderCount - minCount) / countRange) * 
                    (chartHeight - padding.top - padding.bottom)}
                 r="4"
-                fill="#ffd700"
-                style={{ filter: 'drop-shadow(0 0 6px #ffd700)' }}
+                fill={chartColor}
+                style={{ filter: `drop-shadow(0 0 6px ${chartColor})` }}
               />
             )}
           </svg>
@@ -873,481 +901,20 @@ function FloorPriceChart({
       </div>
       
       {/* Time labels */}
-      {data.length >= 2 && !isLoading && (
+      {history.length >= 2 && !isLoading && !error && (
         <div className="flex justify-between mt-1 px-10 text-gray-500 text-[8px]">
-          <span>{timeframe === '1H' ? '24h ago' : '30d ago'}</span>
+          <span>{timeRange === '1H' ? '24h ago' : '30d ago'}</span>
           <span>NOW</span>
         </div>
       )}
-    </div>
-  );
-}
-
-/**
- * Constellation Floor Prices Grid
- */
-function ConstellationFloorGrid({
-  floors,
-  isLoading,
-}: {
-  floors: ConstellationFloor[];
-  isLoading: boolean;
-}) {
-  // Sort by floor price descending (most expensive first), 0 prices at end
-  const sortedFloors = useMemo(() => {
-    return [...floors].sort((a, b) => {
-      if (a.floorPrice === 0 && b.floorPrice === 0) return 0;
-      if (a.floorPrice === 0) return 1;
-      if (b.floorPrice === 0) return -1;
-      return b.floorPrice - a.floorPrice;
-    });
-  }, [floors]);
-
-  return (
-    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-1">
-      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
-        🌟 FLOOR BY CONSTELLATION
-      </h3>
       
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-2xl animate-spin">⭐</div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-          {sortedFloors.map((floor) => (
-            <div
-              key={floor.constellation}
-              className="bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e] hover:border-[#ffd700]/50 smooth-transition"
-            >
-              <div className="flex items-center gap-1 mb-1">
-                <span 
-                  className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate"
-                  style={{ color: getVariantColor(floor.constellation) }}
-                >
-                  {floor.constellation}
-                </span>
-              </div>
-              <div className="text-white text-xs sm:text-sm font-bold">
-                {floor.floorPrice > 0 ? `${floor.floorPrice.toFixed(2)}` : '-'}
-                {floor.floorPrice > 0 && <span className="text-[8px] text-gray-500 ml-1">MON</span>}
-              </div>
-              <div className="text-gray-500 text-[8px] mt-1">
-                {floor.listedCount}/{floor.count} listed
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Highest Sales Ever - Top Sales Display
- */
-function HighestSalesSection({
-  sales,
-  isLoading,
-}: {
-  sales: SaleActivity[];
-  isLoading: boolean;
-}) {
-  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
-  return (
-    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-2">
-      <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
-        👑 HIGHEST SALES EVER
-      </h3>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-2xl animate-spin">⭐</div>
-        </div>
-      ) : sales.length === 0 ? (
-        <div className="text-center py-6">
-          <div className="text-3xl mb-2">📊</div>
-          <p className="text-gray-500 text-xs">No sales data available yet</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {sales.slice(0, 5).map((sale, index) => (
-            <div
-              key={`${sale.txHash}-${index}`}
-              className="flex items-center gap-3 bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e] hover:border-[#44ff88]/50 smooth-transition"
-            >
-              {/* Rank Badge */}
-              <div 
-                className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold flex-shrink-0 ${
-                  index === 0 ? 'bg-[#ffd700]/20 text-[#ffd700] border-2 border-[#ffd700]' :
-                  index === 1 ? 'bg-[#c0c0c0]/20 text-[#c0c0c0] border-2 border-[#c0c0c0]' :
-                  index === 2 ? 'bg-[#cd7f32]/20 text-[#cd7f32] border-2 border-[#cd7f32]' :
-                  'bg-[#2a2a4e] text-gray-400 border-2 border-[#3a3a5e]'
-                }`}
-              >
-                {index === 0 ? '👑' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-              </div>
-              
-              {/* Token Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-white text-xs sm:text-sm font-bold">
-                    #{sale.tokenId}
-                  </span>
-                  {sale.constellation && (
-                    <span 
-                      className="text-[8px] px-1.5 py-0.5 rounded uppercase"
-                      style={{ 
-                        color: getVariantColor(sale.constellation),
-                        backgroundColor: `${getVariantColor(sale.constellation)}20`,
-                      }}
-                    >
-                      {sale.constellation}
-                    </span>
-                  )}
-                </div>
-                <div className="text-gray-500 text-[8px] sm:text-[10px] truncate">
-                  {formatAddress(sale.seller)} → {formatAddress(sale.buyer)}
-                </div>
-              </div>
-              
-              {/* Price & Date */}
-              <div className="text-right flex-shrink-0">
-                <div className="text-[#44ff88] text-xs sm:text-sm font-bold">
-                  {sale.price.toFixed(2)} MON
-                </div>
-                <div className="text-gray-500 text-[8px]">
-                  {formatDate(sale.timestamp)}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Listed vs Unlisted Stats
- */
-function ListedStatsSection({
-  totalListed,
-  totalUnlisted,
-  isLoading,
-}: {
-  totalListed: number;
-  totalUnlisted: number;
-  isLoading: boolean;
-}) {
-  const total = totalListed + totalUnlisted;
-  const listedPercent = total > 0 ? (totalListed / total) * 100 : 0;
-
-  return (
-    <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-3">
-      <h3 className="text-[#00ffff] text-xs sm:text-sm tracking-wider mb-4">
-        📋 MARKET ACTIVITY
-      </h3>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center py-4">
-          <div className="text-2xl animate-spin">⭐</div>
-        </div>
-      ) : (
-        <>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#44ff88]/30">
-              <div className="text-[#44ff88] text-lg sm:text-xl font-bold">{totalListed}</div>
-              <div className="text-gray-500 text-[8px] sm:text-[10px]">LISTED</div>
-            </div>
-            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#9966ff]/30">
-              <div className="text-[#9966ff] text-lg sm:text-xl font-bold">{totalUnlisted}</div>
-              <div className="text-gray-500 text-[8px] sm:text-[10px]">UNLISTED</div>
-            </div>
-            <div className="bg-[#0a0a15] rounded-lg p-3 text-center border border-[#ffd700]/30">
-              <div className="text-[#ffd700] text-lg sm:text-xl font-bold">{listedPercent.toFixed(1)}%</div>
-              <div className="text-gray-500 text-[8px] sm:text-[10px]">ON MARKET</div>
-            </div>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="relative h-4 bg-[#0a0a15] rounded-full overflow-hidden border border-[#2a2a4e]">
-            <div 
-              className="absolute left-0 top-0 h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] transition-all duration-500"
-              style={{ width: `${listedPercent}%` }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-white text-[8px] font-bold mix-blend-difference">
-                {totalListed} / {total} ON MARKET
-              </span>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * Constellation Rarity Chart - Shows distribution of all 10 constellations
- */
-function ConstellationRarityChart({
-  distribution,
-  isLoading,
-}: {
-  distribution: Record<string, number>;
-  isLoading: boolean;
-}) {
-  // Define rarity tiers
-  const getRarityTier = (count: number): string => {
-    if (count === 1) return 'Legendary';
-    if (count <= 10) return 'Rare';
-    if (count <= 36) return 'Uncommon';
-    return 'Common';
-  };
-
-  const getRarityColor = (tier: string): string => {
-    switch (tier) {
-      case 'Legendary': return '#ffd700'; // Gold
-      case 'Rare': return '#ff00ff'; // Magenta
-      case 'Uncommon': return '#00ffff'; // Cyan
-      case 'Common': return '#9966ff'; // Purple
-      default: return '#9966ff';
-    }
-  };
-
-  // Sort constellations by count (ascending for rarity)
-  const sortedConstellations = Object.entries(distribution)
-    .sort(([, a], [, b]) => a - b);
-  
-  const maxCount = Math.max(...Object.values(distribution));
-
-  return (
-    <div className="pixel-card p-4 mb-6 animate-slide-in-up">
-      <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-4">
-        🌟 CONSTELLATION RARITY DISTRIBUTION
-      </h3>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="text-2xl animate-spin">⭐</div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {sortedConstellations.map(([constellation, count]) => {
-            const tier = getRarityTier(count);
-            const tierColor = getRarityColor(tier);
-            const percentage = (count / 333) * 100;
-            const barWidth = (count / maxCount) * 100;
-
-            return (
-              <div key={constellation} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span 
-                      className="font-bold capitalize"
-                      style={{ 
-                        ...getVariantTextStyle(constellation),
-                      }}
-                    >
-                      {constellation}
-                    </span>
-                    <span 
-                      className="text-[8px] px-1.5 py-0.5 rounded uppercase"
-                      style={{
-                        backgroundColor: `${tierColor}20`,
-                        color: tierColor,
-                        border: `1px solid ${tierColor}40`,
-                      }}
-                    >
-                      {tier}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">{count} / 333</span>
-                    <span className="text-gray-500 text-[10px]">({percentage.toFixed(1)}%)</span>
-                  </div>
-                </div>
-                <div className="relative h-6 bg-[#0a0a15] rounded-lg overflow-hidden border border-[#2a2a4e]">
-                  <div 
-                    className="absolute left-0 top-0 h-full transition-all duration-500 rounded-lg"
-                    style={{ 
-                      width: `${barWidth}%`,
-                      background: getVariantGradient(constellation),
-                      boxShadow: `0 0 10px ${getVariantColor(constellation)}40`,
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Trait Analytics Grid - Shows top aura, background, and form types
- * NOTE: Currently hidden as trait data (aura/background/form) not populated in database
- * TODO: Populate trait data from IPFS metadata to enable this section
- */
-function TraitAnalyticsGrid({
-  traitDistribution,
-  isLoading,
-}: {
-  traitDistribution?: {
-    aura: Record<string, number>;
-    background: Record<string, number>;
-    form: Record<string, number>;
-  };
-  isLoading: boolean;
-}) {
-  // Check if we have any trait data
-  if (!traitDistribution) return null;
-  
-  const hasAuraData = Object.keys(traitDistribution.aura).length > 0;
-  const hasBackgroundData = Object.keys(traitDistribution.background).length > 0;
-  const hasFormData = Object.keys(traitDistribution.form).length > 0;
-  
-  // Don't render if no trait data is available
-  if (!hasAuraData && !hasBackgroundData && !hasFormData) return null;
-
-  const TraitCard = ({ title, icon, distribution }: { title: string; icon: string; distribution: Record<string, number> }) => {
-    const topTraits = Object.entries(distribution)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
-    
-    if (topTraits.length === 0) return null;
-
-    return (
-      <div className="pixel-card p-4">
-        <h4 className="text-[#00ffff] text-xs tracking-wider mb-3 flex items-center gap-2">
-          <span>{icon}</span>
-          <span>TOP {title.toUpperCase()}</span>
-        </h4>
-        <div className="space-y-2">
-          {topTraits.map(([trait, count], index) => (
-            <div key={trait} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] ${
-                  index === 0 ? 'bg-[#ffd700]/20 text-[#ffd700]' :
-                  index === 1 ? 'bg-[#c0c0c0]/20 text-[#c0c0c0]' :
-                  index === 2 ? 'bg-[#cd7f32]/20 text-[#cd7f32]' :
-                  'bg-[#2a2a4e] text-gray-400'
-                }`}>
-                  {index + 1}
-                </span>
-                <span className="text-white capitalize">{trait}</span>
-              </div>
-              <span className="text-[#44ff88]">{count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 animate-slide-in-up animate-delay-1">
-      {isLoading ? (
-        <div className="col-span-full flex items-center justify-center py-8">
-          <div className="text-2xl animate-spin">⭐</div>
-        </div>
-      ) : (
-        <>
-          {hasAuraData && <TraitCard title="Auras" icon="✨" distribution={traitDistribution.aura} />}
-          {hasBackgroundData && <TraitCard title="Backgrounds" icon="🎨" distribution={traitDistribution.background} />}
-          {hasFormData && <TraitCard title="Forms" icon="🐸" distribution={traitDistribution.form} />}
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * Marketplace Analytics Dashboard - Database-powered analytics
- */
-function MarketplaceAnalytics() {
-  const [marketData, setMarketData] = useState<MarketplaceData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchMarketData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const response = await fetch(`/api/marketplace`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setMarketData(data.data);
-      } else {
-        setError(data.error || 'Failed to load analytics data');
-      }
-    } catch (err) {
-      setError('Failed to load analytics');
-      console.error('Failed to fetch analytics data:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMarketData();
-    // Refresh every 5 minutes (less frequent since it's database data)
-    const interval = setInterval(fetchMarketData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [fetchMarketData]);
-
-  return (
-    <div className="mb-8">
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
-          📊 COLLECTION ANALYTICS
-        </h2>
-        {marketData?.lastUpdated && !isLoading && (
-          <span className="text-gray-500 text-[8px] sm:text-[10px]">
-            Updated {new Date(marketData.lastUpdated).toLocaleTimeString()}
+      {/* Last updated */}
+      {statsData?.lastUpdated && !isLoading && (
+        <div className="text-center mt-2">
+          <span className="text-gray-500 text-[8px]">
+            Updated {new Date(statsData.lastUpdated).toLocaleTimeString()}
           </span>
-        )}
-      </div>
-      
-      {/* Error State */}
-      {error && (
-        <div className="pixel-card p-4 mb-6 text-center">
-          <p className="text-[#ff4466] text-xs mb-2">{error}</p>
-          <button 
-            onClick={fetchMarketData}
-            className="text-[#ffd700] text-xs underline hover:no-underline"
-          >
-            Retry
-          </button>
         </div>
-      )}
-      
-      {/* Constellation Rarity Chart */}
-      {marketData?.constellationDistribution && (
-        <ConstellationRarityChart
-          distribution={marketData.constellationDistribution}
-          isLoading={isLoading}
-        />
-      )}
-      
-      {/* Trait Analytics Grid */}
-      {marketData?.traitDistribution && (
-        <TraitAnalyticsGrid
-          traitDistribution={marketData.traitDistribution}
-          isLoading={isLoading}
-        />
       )}
     </div>
   );
@@ -1522,8 +1089,8 @@ export default function MembersContent() {
         isLoading={isLoading}
       />
 
-      {/* Marketplace Analytics Section */}
-      <MarketplaceAnalytics />
+      {/* Holder Chart Section */}
+      <HolderChart />
 
       {/* Divider */}
       <div className="pixel-divider mb-6" />
