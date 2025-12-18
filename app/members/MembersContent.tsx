@@ -707,10 +707,10 @@ function HolderChart() {
         let label: string;
         
         if (timeRange === '1H') {
-          // For hourly view, show hours and minutes
+          // For 1H time range (last 24 hours of data), show hours and minutes
           label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } else {
-          // For daily view, show month/day
+          // For 1D time range (last 30 days of data), show month/day
           label = date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
         }
         
