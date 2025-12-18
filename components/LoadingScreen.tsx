@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, CSSProperties } from 'react';
+import Image from 'next/image';
 
 // ============================================
 // Configuration Constants
@@ -216,12 +217,18 @@ export default function LoadingScreen() {
                 <div className={`swo-game-content ${showGameContent ? 'visible' : ''}`}>
                   {/* Pixel star logo */}
                   <div className="swo-pixel-star-container">
-                    <div className="swo-pixel-star" />
+                    <Image 
+                      src="/SWO_Star.png" 
+                      alt="SWO Star" 
+                      width={24} 
+                      height={24} 
+                      className="swo-pixel-star-img"
+                    />
                   </div>
                   
                   {/* Title - mysterious style */}
                   <h1 className="swo-loading-title">
-                    <span className="swo-title-star">⭐</span> STAR WORLD ORDER
+                    STAR WORLD ORDER
                   </h1>
                   <p className="swo-loading-subtitle">✦ chosen by the stars ✦</p>
                   
@@ -236,7 +243,14 @@ export default function LoadingScreen() {
                     <span className="swo-loading-percentage">{loadingProgress}%</span>
                   </div>
                   
-                  <p className="swo-game-text">the order is forming...</p>
+                  <a 
+                    href="https://x.com/StrWorldOrder" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="swo-game-text swo-twitter-link"
+                  >
+                    the order is forming...
+                  </a>
                 </div>
                 
                 {/* CRT screen effect */}
