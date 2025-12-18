@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { isProdMode } from '@/lib/config';
 
 export default function Hero() {
@@ -78,12 +79,14 @@ export default function Hero() {
         {/* Main pixel art star logo with neon glow */}
         <div className="mb-8 relative animate-slide-in-up">
           <div className="inline-block animate-pixel-float">
-            <div 
-              className="w-24 h-24 md:w-32 md:h-32 mx-auto relative hover-lift cursor-pointer"
+            <Image 
+              src="/SWO_Star.png"
+              alt="Star World Order Star"
+              width={128}
+              height={128}
+              className="w-24 h-24 md:w-32 md:h-32 mx-auto hover-lift cursor-pointer"
               style={{
-                background: 'linear-gradient(135deg, #ffd700 0%, #ff8800 100%)',
-                clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-                boxShadow: '0 0 40px #ffd700, 0 0 80px rgba(255, 215, 0, 0.5), 0 0 120px rgba(255, 136, 0, 0.3)',
+                filter: 'drop-shadow(0 0 40px #ffd700) drop-shadow(0 0 80px rgba(255, 215, 0, 0.5))',
                 transition: 'all 0.3s ease',
               }}
             />
@@ -147,9 +150,23 @@ export default function Hero() {
           </div>
           
           <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}>🐸</span>
+            <Image 
+              src="/purple_skrumpey.png"
+              alt="Purple Skrumpey frog mascot"
+              width={64}
+              height={64}
+              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}
+            />
             <span className="text-2xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
-            <span className="text-4xl sm:text-5xl md:text-7xl animate-pixel-float hover-lift cursor-pointer smooth-transition" style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}>⭐</span>
+            <Image 
+              src="/str_mon2.png"
+              alt="Star Monad icon"
+              width={64}
+              height={64}
+              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}
+            />
           </div>
           
           <div className="border-t-2 border-[#3a3a5e] pt-3 sm:pt-4">
