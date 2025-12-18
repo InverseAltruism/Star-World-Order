@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
@@ -19,7 +20,14 @@ export default function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3 smooth-transition hover:opacity-90 hover:scale-105 flex-shrink-0">
           <div className="relative">
-            <span className="text-2xl animate-pixel-float inline-block hover-lift smooth-transition">⭐</span>
+            <Image 
+              src="/SWO_Star.png" 
+              alt="Star World Order logo" 
+              width={32} 
+              height={32} 
+              className="animate-pixel-float hover-lift smooth-transition"
+              style={{ filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.6))' }}
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-[#ffd700] text-sm tracking-wider pixel-glow-gold">

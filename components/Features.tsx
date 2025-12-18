@@ -1,18 +1,19 @@
 'use client';
 
+import Image from 'next/image';
 import WalletConnect from './WalletConnect';
 
 export default function Features() {
   const features = [
     {
-      icon: '🏛️',
+      icon: 'purple_skrumpey',
       title: 'THE ORDER',
       description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
       color: '#ffd700',
       pixelIcon: '◆',
     },
     {
-      icon: '⚡',
+      icon: 'str_mon2',
       title: 'MONAD REALM',
       description: 'BLAZING FAST COSMIC INFRASTRUCTURE',
       color: '#00ffff',
@@ -47,6 +48,50 @@ export default function Features() {
       pixelIcon: '◇',
     },
   ];
+
+  const renderIcon = (icon: string, color: string, index: number) => {
+    if (icon === 'purple_skrumpey') {
+      return (
+        <Image 
+          src="/purple_skrumpey.png" 
+          alt="Purple Skrumpey frog mascot" 
+          width={48} 
+          height={48} 
+          className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
+          style={{ 
+            animationDelay: `${index * 0.2}s`,
+            filter: `drop-shadow(0 0 8px ${color}40)`,
+          }}
+        />
+      );
+    }
+    if (icon === 'str_mon2') {
+      return (
+        <Image 
+          src="/str_mon2.png" 
+          alt="Star and Monad themed icon" 
+          width={48} 
+          height={48} 
+          className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
+          style={{ 
+            animationDelay: `${index * 0.2}s`,
+            filter: `drop-shadow(0 0 8px ${color}40)`,
+          }}
+        />
+      );
+    }
+    return (
+      <span 
+        className="text-4xl animate-pixel-float hover-lift cursor-pointer smooth-transition inline-block"
+        style={{ 
+          animationDelay: `${index * 0.2}s`,
+          filter: `drop-shadow(0 0 8px ${color}40)`,
+        }}
+      >
+        {icon}
+      </span>
+    );
+  };
 
   return (
     <section id="about" className="relative py-16 md:py-24 starfield-bg">
@@ -90,14 +135,8 @@ export default function Features() {
               </div>
               
               {/* Icon with enhanced glow */}
-              <div 
-                className="text-4xl mb-4 animate-pixel-float hover-lift cursor-pointer smooth-transition"
-                style={{ 
-                  animationDelay: `${index * 0.2}s`,
-                  filter: `drop-shadow(0 0 8px ${feature.color}40)`,
-                }}
-              >
-                {feature.icon}
+              <div className="mb-4">
+                {renderIcon(feature.icon, feature.color, index)}
               </div>
               
               {/* Title with better visibility */}

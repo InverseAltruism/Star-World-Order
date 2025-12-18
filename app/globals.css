@@ -1447,6 +1447,11 @@ body::before {
   animation: swoSpin 2s linear infinite, swoGlow 1s ease-in-out infinite alternate;
 }
 
+.swo-pixel-star-img {
+  animation: swoSpin 2s linear infinite;
+  filter: drop-shadow(0 0 8px #ffd700) drop-shadow(0 0 16px #ffd700);
+}
+
 @keyframes swoSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -1517,6 +1522,17 @@ body::before {
   color: #666;
   margin: 0;
   animation: swoBlink 1.5s ease-in-out infinite;
+}
+
+.swo-twitter-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.swo-twitter-link:hover {
+  color: #00ffff;
+  text-shadow: 0 0 4px #00ffff;
 }
 
 @keyframes swoBlink {
