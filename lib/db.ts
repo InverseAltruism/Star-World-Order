@@ -692,6 +692,33 @@ export function getConstellationDistribution(): Record<string, number> {
   return distribution;
 }
 
+/**
+ * Get trait distribution (aura, background, form) for analytics
+ */
+export function getTraitDistribution(traitType: 'aura' | 'background' | 'form'): Record<string, number> {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT ${traitType}, COUNT(*) as count 
+    FROM star_skrumpey_metadata 
+    WHERE ${traitType} IS NOT NULL 
+    GROUP BY ${traitType}
+    ORDER BY count DESC
+    LIMIT 10
+  `);
+  const results = stmt.all() as Array<{ [key: string]: string | number }>;
+  
+  const distribution: Record<string, number> = {};
+  for (const row of results) {
+    const trait = row[traitType] as string;
+    const count = row.count as number;
+    if (trait) {
+      distribution[trait] = count;
+    }
+  }
+  
+  return distribution;
+}
+
 // ============================================================
 // CLEANUP
 // ============================================================

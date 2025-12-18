@@ -1,18 +1,34 @@
 /**
  * Marketplace API Route
  * 
- * GET /api/marketplace - Get marketplace data for Star Skrumpeys including:
- * - Floor prices by constellation
- * - Sales history
- * - Active listings
- * - Floor price chart data
+ * GET /api/marketplace - Get marketplace analytics for Star Skrumpeys including:
+ * - Constellation rarity distribution
+ * - Trait analytics (aura, background, form)
+ * - Holder distribution by tier
  * 
- * This endpoint fetches data from Magic Eden's API for Monad chain
+ * ============================================================================
+ * TODO: RE-ENABLE MAGIC EDEN API WHEN MONAD SUPPORT IS ADDED
+ * ============================================================================
+ * 
+ * As of December 2024, Magic Eden's public API does not support Monad chain.
+ * The web UI works but uses internal/undocumented endpoints.
+ * 
+ * Tested endpoints that DO NOT work for Monad:
+ * - /v3/monad/collections/{contract}/listings - 400 Bad Request
+ * - /v3/rtp/monad/collections/{contract}/tokens/v1 - Not Found
+ * - /v2/evm/monad/collections/{contract}/listings - Not Found
+ * - /v2/collections/{symbol}/listings?chain=monad - Returns Solana data
+ * 
+ * When Magic Eden adds Monad API support, uncomment the fetchActiveListings() 
+ * and fetchSalesHistory() functions and update the endpoint URLs.
+ * 
+ * Commented out sections are marked with: MAGIC EDEN API - DISABLED
+ * ============================================================================
  */
 
 import { NextResponse } from 'next/server';
 import { SKRUMPEY_CONTRACT_ADDRESS, STAR_SKRUMPEY_IDS, isStarSkrumpeyId } from '@/lib/starSkrumpey';
-import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
+import { getStarSkrumpeyMetadataBatch, getConstellationDistribution, getTraitDistribution } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 // Magic Eden API base URL for Monad
@@ -72,30 +88,40 @@ export interface ConstellationFloor {
  * Complete marketplace data response
  */
 export interface MarketplaceData {
-  // Floor prices
+  // Floor prices (DISABLED - Magic Eden API not available)
   overallFloor: number;
   constellationFloors: ConstellationFloor[];
   
-  // Chart data (hourly data points)
+  // Chart data (DISABLED - Magic Eden API not available)
   floorChartHourly: FloorPricePoint[];
   floorChartDaily: FloorPricePoint[];
   
-  // Sales history (highest ever)
+  // Sales history (DISABLED - Magic Eden API not available)
   topSales: SaleActivity[];
   recentSales: SaleActivity[];
   
-  // Listings
+  // Listings (DISABLED - Magic Eden API not available)
   activeListings: ActiveListing[];
   totalListed: number;
   totalUnlisted: number;
   
   // Last updated timestamp
   lastUpdated: string;
+  
+  // NEW: Database-powered analytics
+  constellationDistribution?: Record<string, number>;
+  traitDistribution?: {
+    aura: Record<string, number>;
+    background: Record<string, number>;
+    form: Record<string, number>;
+  };
 }
 
+/* MAGIC EDEN API - DISABLED - Comment out until Monad support is added
 /**
  * Fetch active listings from Magic Eden API
  */
+/*
 async function fetchActiveListings(): Promise<ActiveListing[]> {
   if (!SKRUMPEY_CONTRACT_ADDRESS) {
     return [];
@@ -152,10 +178,13 @@ async function fetchActiveListings(): Promise<ActiveListing[]> {
     return [];
   }
 }
+*/ /* END MAGIC EDEN API - DISABLED */
 
+/* MAGIC EDEN API - DISABLED - Comment out until Monad support is added
 /**
  * Fetch sales history from Magic Eden API
  */
+/*
 async function fetchSalesHistory(): Promise<SaleActivity[]> {
   if (!SKRUMPEY_CONTRACT_ADDRESS) {
     return [];
@@ -224,6 +253,7 @@ async function fetchSalesHistory(): Promise<SaleActivity[]> {
     return [];
   }
 }
+*/ /* END MAGIC EDEN API - DISABLED */
 
 /**
  * Generate floor price chart data from sales
@@ -385,7 +415,7 @@ function generateTestData(): MarketplaceData {
 }
 
 /**
- * Main GET handler
+ * Main GET handler - Returns database-powered analytics
  */
 export async function GET(request: Request) {
   try {
@@ -414,62 +444,46 @@ export async function GET(request: Request) {
       });
     }
 
+    /* MAGIC EDEN API - DISABLED
     // Fetch fresh data in parallel
     const [listings, sales] = await Promise.all([
       fetchActiveListings(),
       fetchSalesHistory(),
     ]);
+    */
     
-    // Get all Star Skrumpey metadata for constellation counts
-    const allMetadata = getStarSkrumpeyMetadataBatch(STAR_SKRUMPEY_IDS as unknown as number[]);
-    const totalByConstellation = new Map<string, number>();
-    for (const meta of allMetadata.values()) {
-      if (meta.constellation) {
-        totalByConstellation.set(
-          meta.constellation,
-          (totalByConstellation.get(meta.constellation) || 0) + 1
-        );
-      }
-    }
+    // Database-powered analytics (no API calls needed)
+    const constellationDist = getConstellationDistribution();
+    const auraDist = getTraitDistribution('aura');
+    const backgroundDist = getTraitDistribution('background');
+    const formDist = getTraitDistribution('form');
     
-    // Calculate overall floor price
-    const overallFloor = listings.length > 0
-      ? Math.min(...listings.map(l => l.price))
-      : 0;
-    
-    // Calculate constellation floors
-    const constellationFloors = calculateConstellationFloors(listings, totalByConstellation);
-    
-    // Generate chart data
-    const floorChartHourly = generateFloorChartData(sales, listings, true);
-    const floorChartDaily = generateFloorChartData(sales, listings, false);
-    
-    // Get top sales (sorted by price descending)
-    const topSales = [...sales]
-      .sort((a, b) => b.price - a.price)
-      .slice(0, 10);
-    
-    // Get recent sales (sorted by timestamp descending)
-    const recentSales = [...sales]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 10);
-    
-    // Calculate listed vs unlisted
-    const listedTokenIds = new Set(listings.map(l => l.tokenId));
-    const totalListed = listedTokenIds.size;
-    const totalUnlisted = STAR_SKRUMPEY_IDS.length - totalListed;
+    // Convert constellation distribution to ConstellationFloor format
+    const constellationFloors: ConstellationFloor[] = Object.entries(constellationDist).map(([constellation, count]) => ({
+      constellation,
+      floorPrice: 0, // No Magic Eden data available
+      count,
+      listedCount: 0, // No Magic Eden data available
+    }));
     
     const marketplaceData: MarketplaceData = {
-      overallFloor,
+      overallFloor: 0, // No Magic Eden data
       constellationFloors,
-      floorChartHourly,
-      floorChartDaily,
-      topSales,
-      recentSales,
-      activeListings: listings.slice(0, 50), // Limit response size
-      totalListed,
-      totalUnlisted,
+      floorChartHourly: [], // No Magic Eden data
+      floorChartDaily: [], // No Magic Eden data
+      topSales: [], // No Magic Eden data
+      recentSales: [], // No Magic Eden data
+      activeListings: [], // No Magic Eden data
+      totalListed: 0, // No Magic Eden data
+      totalUnlisted: STAR_SKRUMPEY_IDS.length,
       lastUpdated: new Date().toISOString(),
+      // New database-powered analytics
+      constellationDistribution: constellationDist,
+      traitDistribution: {
+        aura: auraDist,
+        background: backgroundDist,
+        form: formDist,
+      },
     };
     
     // Update cache
