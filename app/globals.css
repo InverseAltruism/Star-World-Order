@@ -1594,6 +1594,14 @@ body::before {
   /* Make entire gaming setup smaller on mobile to prevent overflow */
   .swo-gaming-setup {
     transform: scale(0.75);
+    /* Move setup down slightly to prevent top cutoff on mobile */
+    padding-top: 10vh;
+  }
+
+  /* Loading screen adjustments for mobile viewports */
+  .swo-loading-screen {
+    padding-top: env(safe-area-inset-top, 20px);
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   .swo-tv-body {

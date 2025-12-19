@@ -1,9 +1,35 @@
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import WalletConnect from './WalletConnect';
 
 export default function Features() {
+  const [isHeaderVisible, setIsHeaderVisible] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Intersection Observer to detect when header section enters viewport
+  useEffect(() => {
+    const currentRef = headerRef.current;
+    if (!currentRef) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Trigger when section is at least 20% visible
+        if (entry.isIntersecting) {
+          setIsHeaderVisible(true);
+          // Disconnect after first intersection for performance
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(currentRef);
+
+    return () => observer.disconnect();
+  }, []);
+
   const features = [
     {
       icon: 'skr_str_mon2',
@@ -95,13 +121,16 @@ export default function Features() {
 
   return (
     <section id="about" className="relative py-16 md:py-24 starfield-bg">
-      {/* Decorative pixel art corners */}
-      <div className="absolute top-8 left-8 text-[#9966ff] text-xl opacity-20 animate-pixel-pulse">◢◣</div>
-      <div className="absolute top-8 right-8 text-[#9966ff] text-xl opacity-20 animate-pixel-pulse">◥◤</div>
-      
       {/* Section header */}
       <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-12">
+        <div 
+          ref={headerRef}
+          className={`text-center mb-12 transition-all duration-700 ease-out ${
+            isHeaderVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-8'
+          }`}
+        >
           {/* Retro arcade-style header */}
           <div className="inline-block relative">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-[8px] text-[#9966ff] tracking-widest">

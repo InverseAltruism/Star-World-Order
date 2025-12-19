@@ -1,6 +1,7 @@
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
+import FeedbackButton from '@/components/FeedbackButton';
 
 export default function Home() {
   return (
@@ -52,6 +53,9 @@ export default function Home() {
         {/* Bottom pixel border with animated neon gradient */}
         <div className="h-1 bg-gradient-to-r from-[#ff00ff] via-[#ffd700] to-[#00ffff]" style={{ boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }} />
       </footer>
+      
+      {/* Floating Feedback Button (desktop only) */}
+      <FeedbackButton />
     </div>
   );
 }
