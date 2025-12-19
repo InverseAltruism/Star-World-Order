@@ -243,9 +243,16 @@ export default function Header() {
               </Link>
             )}
             <div className="flex flex-col items-center gap-4 pt-6 border-t-2 border-[#9966ff] w-full max-w-xs" style={{ boxShadow: '0 -2px 15px rgba(153, 102, 255, 0.2)' }}>
-              <div className="w-full flex justify-center">
-                <DemoMode />
-              </div>
+              <a 
+                href="https://docs.google.com/forms/d/e/1FAIpQLSc9n6RI4pVW4REBiw2FG2EFiJydNwshS6KgxcAXWEu00IAp3A/viewform?usp=dialog"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2 flex items-center gap-2"
+                style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                📝 FEEDBACK / BUGS
+              </a>
             </div>
           </nav>
         </div>

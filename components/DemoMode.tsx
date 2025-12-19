@@ -140,7 +140,6 @@ export default function DemoMode({ className }: DemoModeProps) {
               <ul className="text-gray-400 text-xs space-y-1 ml-4">
                 <li>• View profile and NFTs</li>
                 <li>• See feature unlocks</li>
-                <li>• Browse marketplace</li>
               </ul>
               <p className="text-[#ff4466] text-xs mt-3 mb-2 tracking-wide">
                 ✗ What doesn't work:
