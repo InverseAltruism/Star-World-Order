@@ -153,8 +153,8 @@ export default function Hero() {
             <Image 
               src="/purple_skrumpey.png"
               alt="Purple Skrumpey frog mascot"
-              width={64}
-              height={64}
+              width={96}
+              height={96}
               className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}
             />
@@ -162,8 +162,8 @@ export default function Hero() {
             <Image 
               src="/str_mon2.png"
               alt="Star Monad icon"
-              width={64}
-              height={64}
+              width={96}
+              height={96}
               className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}
             />
