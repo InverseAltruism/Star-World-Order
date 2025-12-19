@@ -153,18 +153,18 @@ export default function Hero() {
             <Image 
               src="/purple_skrumpey.png"
               alt="Purple Skrumpey frog mascot"
-              width={64}
-              height={64}
-              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              width={96}
+              height={96}
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}
             />
             <span className="text-2xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
             <Image 
               src="/str_mon2.png"
               alt="Star Monad icon"
-              width={64}
-              height={64}
-              className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              width={96}
+              height={96}
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}
             />
           </div>

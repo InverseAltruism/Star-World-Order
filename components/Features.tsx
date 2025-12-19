@@ -55,8 +55,8 @@ export default function Features() {
         <Image 
           src="/skr_str_mon2.png" 
           alt="Star Skrumpey Monad mascot" 
-          width={48} 
-          height={48} 
+          width={64} 
+          height={64} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
           style={{ 
             animationDelay: `${index * 0.2}s`,
@@ -70,8 +70,8 @@ export default function Features() {
         <Image 
           src="/monad_logo.png" 
           alt="Monad blockchain logo" 
-          width={48} 
-          height={48} 
+          width={40} 
+          height={40} 
           className="animate-pixel-float hover-lift cursor-pointer smooth-transition"
           style={{ 
             animationDelay: `${index * 0.2}s`,
