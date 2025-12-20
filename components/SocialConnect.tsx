@@ -154,18 +154,9 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
 
     setIsConnecting('discord');
     
-    try {
-      const state = generateOAuthState();
-      storeOAuthState('discord', state);
-      
-      const oauthUrl = getDiscordOAuthUrl(state);
-      if (oauthUrl) {
-        window.location.href = oauthUrl;
-      }
-    } catch (error) {
-      console.error('Failed to initiate Discord OAuth:', error);
-      setIsConnecting(null);
-    }
+    // Use server-side OAuth initiation for Discord
+    // This handles state and cookie setting properly
+    window.location.href = `/api/auth/discord?wallet=${address}`;
   }, [isConnected, address, discordConfigured]);
 
   const handleXConnect = useCallback(async () => {
