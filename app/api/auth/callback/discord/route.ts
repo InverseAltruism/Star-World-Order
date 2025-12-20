@@ -22,6 +22,21 @@ const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'http://localhost:3000/api/auth/callback/discord';
 
+/**
+ * Get the base URL for redirects
+ * Uses NEXT_PUBLIC_APP_URL if configured (for production behind reverse proxy)
+ * Falls back to request URL for development
+ */
+function getBaseUrl(request: NextRequest): string {
+  // Use explicit app URL if configured (for production behind reverse proxy)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  // Fallback to request URL for development
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
+}
+
 interface DiscordTokenResponse {
   access_token: string;
   refresh_token?: string;
@@ -50,7 +65,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Discord OAuth error:', error, errorDescription);
       return NextResponse.redirect(
-        new URL(`/profile?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+        new URL(`/profile?error=${encodeURIComponent(errorDescription || error)}`, getBaseUrl(request))
       );
     }
 
@@ -58,14 +73,14 @@ export async function GET(request: NextRequest) {
     if (!code) {
       console.error('Missing authorization code');
       return NextResponse.redirect(
-        new URL('/profile?error=Missing%20authorization%20code', request.url)
+        new URL('/profile?error=Missing%20authorization%20code', getBaseUrl(request))
       );
     }
 
     if (!state) {
       console.error('Missing state parameter');
       return NextResponse.redirect(
-        new URL('/profile?error=Missing%20state%20parameter', request.url)
+        new URL('/profile?error=Missing%20state%20parameter', getBaseUrl(request))
       );
     }
 
@@ -77,14 +92,14 @@ export async function GET(request: NextRequest) {
     if (!storedState) {
       console.error('Missing OAuth cookies - possible session expired or CSRF attack');
       return NextResponse.redirect(
-        new URL('/profile?error=Session%20expired%20-%20please%20try%20connecting%20again', request.url)
+        new URL('/profile?error=Session%20expired%20-%20please%20try%20connecting%20again', getBaseUrl(request))
       );
     }
 
     if (state !== storedState) {
       console.error('State mismatch - possible CSRF attack');
       return NextResponse.redirect(
-        new URL('/profile?error=Invalid%20state%20parameter', request.url)
+        new URL('/profile?error=Invalid%20state%20parameter', getBaseUrl(request))
       );
     }
 
@@ -93,7 +108,7 @@ export async function GET(request: NextRequest) {
     
     if (!tokenResponse) {
       return NextResponse.redirect(
-        new URL('/profile?error=Failed%20to%20exchange%20authorization%20code', request.url)
+        new URL('/profile?error=Failed%20to%20exchange%20authorization%20code', getBaseUrl(request))
       );
     }
 
@@ -102,7 +117,7 @@ export async function GET(request: NextRequest) {
     
     if (!userInfo) {
       return NextResponse.redirect(
-        new URL('/profile?error=Failed%20to%20fetch%20user%20information', request.url)
+        new URL('/profile?error=Failed%20to%20fetch%20user%20information', getBaseUrl(request))
       );
     }
 
@@ -123,7 +138,7 @@ export async function GET(request: NextRequest) {
 
     // Create response with redirect
     const response = NextResponse.redirect(
-      new URL(`/profile?success=Discord%20account%20connected%20as%20${userInfo.username}`, request.url)
+      new URL(`/profile?success=Discord%20account%20connected%20as%20${userInfo.username}`, getBaseUrl(request))
     );
 
     // Clear OAuth cookies
@@ -134,7 +149,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('Discord OAuth callback error:', err);
     return NextResponse.redirect(
-      new URL('/profile?error=An%20unexpected%20error%20occurred', request.url)
+      new URL('/profile?error=An%20unexpected%20error%20occurred', getBaseUrl(request))
     );
   }
 }
