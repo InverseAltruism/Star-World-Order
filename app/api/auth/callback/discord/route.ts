@@ -16,26 +16,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
+import { getBaseUrl } from '@/lib/utils';
 
 // Discord OAuth 2.0 Configuration
 const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
 const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || 'http://localhost:3000/api/auth/callback/discord';
-
-/**
- * Get the base URL for redirects
- * Uses NEXT_PUBLIC_APP_URL if configured (for production behind reverse proxy)
- * Falls back to request URL for development
- */
-function getBaseUrl(request: NextRequest): string {
-  // Use explicit app URL if configured (for production behind reverse proxy)
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
-  // Fallback to request URL for development
-  const url = new URL(request.url);
-  return `${url.protocol}//${url.host}`;
-}
 
 interface DiscordTokenResponse {
   access_token: string;
