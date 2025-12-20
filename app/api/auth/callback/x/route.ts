@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
+import { getBaseUrl } from '@/lib/utils';
 
 // X (Twitter) OAuth 2.0 Configuration
 const X_CLIENT_ID = process.env.NEXT_PUBLIC_X_CLIENT_ID || '';
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('X OAuth error:', error, errorDescription);
       return NextResponse.redirect(
-        new URL(`/profile?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+        new URL(`/profile?error=${encodeURIComponent(errorDescription || error)}`, getBaseUrl(request))
       );
     }
 
@@ -59,14 +60,14 @@ export async function GET(request: NextRequest) {
     if (!code) {
       console.error('Missing authorization code');
       return NextResponse.redirect(
-        new URL('/profile?error=Missing%20authorization%20code', request.url)
+        new URL('/profile?error=Missing%20authorization%20code', getBaseUrl(request))
       );
     }
 
     if (!state) {
       console.error('Missing state parameter');
       return NextResponse.redirect(
-        new URL('/profile?error=Missing%20state%20parameter', request.url)
+        new URL('/profile?error=Missing%20state%20parameter', getBaseUrl(request))
       );
     }
 
@@ -79,14 +80,14 @@ export async function GET(request: NextRequest) {
     if (!storedState || !codeVerifier) {
       console.error('Missing OAuth cookies - possible session expired or CSRF attack');
       return NextResponse.redirect(
-        new URL('/profile?error=Session%20expired%20-%20please%20try%20connecting%20again', request.url)
+        new URL('/profile?error=Session%20expired%20-%20please%20try%20connecting%20again', getBaseUrl(request))
       );
     }
 
     if (state !== storedState) {
       console.error('State mismatch - possible CSRF attack');
       return NextResponse.redirect(
-        new URL('/profile?error=Invalid%20state%20parameter', request.url)
+        new URL('/profile?error=Invalid%20state%20parameter', getBaseUrl(request))
       );
     }
 
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
     
     if (!tokenResponse) {
       return NextResponse.redirect(
-        new URL('/profile?error=Failed%20to%20exchange%20authorization%20code', request.url)
+        new URL('/profile?error=Failed%20to%20exchange%20authorization%20code', getBaseUrl(request))
       );
     }
 
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
     
     if (!userInfo) {
       return NextResponse.redirect(
-        new URL('/profile?error=Failed%20to%20fetch%20user%20information', request.url)
+        new URL('/profile?error=Failed%20to%20fetch%20user%20information', getBaseUrl(request))
       );
     }
 
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     // Create response with redirect
     const response = NextResponse.redirect(
-      new URL(`/profile?success=X%20account%20connected%20as%20%40${userInfo.data.username}`, request.url)
+      new URL(`/profile?success=X%20account%20connected%20as%20%40${userInfo.data.username}`, getBaseUrl(request))
     );
 
     // Clear OAuth cookies
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('X OAuth callback error:', err);
     return NextResponse.redirect(
-      new URL('/profile?error=An%20unexpected%20error%20occurred', request.url)
+      new URL('/profile?error=An%20unexpected%20error%20occurred', getBaseUrl(request))
     );
   }
 }
