@@ -6,8 +6,6 @@
  * This script validates that the Discord OAuth routes are properly set up and respond correctly.
  */
 
-const TEST_WALLET = '0x1234567890123456789012345678901234567890';
-
 console.log('🔍 Validating Discord OAuth Routes...\n');
 
 // Test 1: Check Discord OAuth initiation route exists
