@@ -31,7 +31,7 @@ export default function Home() {
               </span>
             </div>
             <p className="text-[#c4a0ff] text-xs tracking-wide mb-2" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.5)' }}>
-              elite star trait holders only • you&apos;re either in or you&apos;re out
+              A DAO for Skrumpeys with the Constellation trait
             </p>
             <a 
               href="https://x.com/StrWorldOrder" 
@@ -39,7 +39,7 @@ export default function Home() {
               rel="noopener noreferrer"
               className="text-gray-500 text-xs hover:text-gray-400 smooth-transition cursor-pointer"
             >
-              real ones know • @StrWorldOrder
+              The Order is forming • @StrWorldOrder
             </a>
             
             {/* Pixel decoration */}

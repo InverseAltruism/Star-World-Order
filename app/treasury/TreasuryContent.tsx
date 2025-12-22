@@ -1,13 +1,10 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
+import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af';
-
-// Total Star Skrumpey supply (max members)
-const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
 
 interface NFTHolding {
   tokenId: number;
@@ -52,9 +49,9 @@ function truncateAddress(address: string): string {
 }
 
 /**
- * Animated coin component for decoration
+ * Animated star component for decoration
  */
-function AnimatedCoin({ delay = 0 }: { delay?: number }) {
+function AnimatedStar({ delay = 0 }: { delay?: number }) {
   return (
     <div 
       className="absolute text-2xl animate-pixel-float opacity-60"
@@ -63,7 +60,7 @@ function AnimatedCoin({ delay = 0 }: { delay?: number }) {
         filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))'
       }}
     >
-      💰
+      ⭐
     </div>
   );
 }
@@ -425,12 +422,12 @@ export default function TreasuryContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up px-4 relative">
-        {/* Floating coins decoration */}
+        {/* Floating stars decoration */}
         <div className="absolute left-4 top-0 hidden md:block">
-          <AnimatedCoin delay={0} />
+          <AnimatedStar delay={0} />
         </div>
         <div className="absolute right-4 top-2 hidden md:block">
-          <AnimatedCoin delay={0.5} />
+          <AnimatedStar delay={0.5} />
         </div>
         
         <div className="text-4xl mb-4 animate-pixel-float">💎</div>
@@ -469,7 +466,7 @@ export default function TreasuryContent() {
         <div className="relative z-10">
           <p className="text-gray-500 text-xs mb-2 tracking-wider">TOTAL HOLDINGS</p>
           <div className="flex items-center justify-center gap-3 mb-4">
-            <span className="text-4xl animate-pixel-pulse">💰</span>
+            <span className="text-4xl animate-pixel-pulse">💎</span>
             <p className="text-[#ffd700] text-3xl sm:text-4xl md:text-5xl font-bold pixel-glow-gold animate-glow-pulse">
               {isLoading ? '...' : `${treasuryData?.monBalanceFormatted || '0'}`}
             </p>
@@ -492,7 +489,7 @@ export default function TreasuryContent() {
           </div>
           
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
             <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#ffd700]/30 smooth-transition hover-lift">
               <p className="text-[#ffd700] text-lg sm:text-xl font-bold">
                 {isLoading ? '...' : treasuryData?.monBalanceFormatted || '0'}
@@ -510,12 +507,6 @@ export default function TreasuryContent() {
                 {isLoading ? '...' : treasuryData?.estimatedValueMON || '0'}
               </p>
               <p className="text-gray-500 text-[10px]">MON VALUE</p>
-            </div>
-            <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#00ffff]/30 smooth-transition hover-lift">
-              <p className="text-[#00ffff] text-lg sm:text-xl font-bold">
-                {MAX_STAR_SKRUMPEY_SUPPLY}
-              </p>
-              <p className="text-gray-500 text-[10px]">MAX SUPPLY</p>
             </div>
           </div>
         </div>
@@ -577,7 +568,7 @@ export default function TreasuryContent() {
 
       {/* Treasury Info */}
       <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
-        <p className="text-[#ffd700] text-xs tracking-wide mb-2">💰 HOW WE STACK</p>
+        <p className="text-[#ffd700] text-xs tracking-wide mb-2">⭐ HOW WE STACK</p>
         <ul className="text-gray-400 text-[10px] space-y-1">
           <li>• <span className="text-[#44ff88]">2.5%</span> cut from Exchange trades</li>
           <li>• NFT royalties from flips</li>
