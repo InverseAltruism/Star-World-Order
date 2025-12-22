@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
 import { isProdMode } from '@/lib/config';
@@ -10,6 +11,10 @@ import { isProdMode } from '@/lib/config';
 export default function Header() {
   const isProduction = isProdMode();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  
+  // Hide demo mode button on landing page (shown elsewhere for locked profile views)
+  const isLandingPage = pathname === '/';
 
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">
@@ -116,6 +121,23 @@ export default function Header() {
             />
           </Link>
           <Link 
+            href="/treasury" 
+            className="text-[10px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group flex-shrink-0"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
+          >
+            TREASURY
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
+          </Link>
+          <Link 
             href="/profile" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group flex-shrink-0"
             style={{ 
@@ -161,9 +183,11 @@ export default function Header() {
               />
             </Link>
           )}
-          <div className="flex-shrink-0">
-            <DemoMode />
-          </div>
+          {!isLandingPage && (
+            <div className="flex-shrink-0">
+              <DemoMode />
+            </div>
+          )}
           <div className="flex-shrink-0">
             <WalletConnect />
           </div>
@@ -213,6 +237,14 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               HANGOUT
+            </Link>
+            <Link 
+              href="/treasury" 
+              className="text-base text-white hover:text-[#44ff88] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(68, 255, 136, 0.5)' }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              TREASURY
             </Link>
             <Link 
               href="/profile" 
