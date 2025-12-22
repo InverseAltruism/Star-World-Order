@@ -542,7 +542,7 @@ export interface BlockVisionFloorPriceResponse {
   };
 }
 
-// Floor price cache (1 hour TTL)
+// Floor price cache (uses CACHE_TTL - 1 hour)
 const floorPriceCache = new Map<string, CacheEntry<number>>();
 
 /**
