@@ -132,7 +132,10 @@ export async function fetchAccountNFTs(
     const url = new URL(`${BLOCKVISION_API_BASE}/account/nfts`);
     url.searchParams.set('address', address);
     url.searchParams.set('pageIndex', String(pageIndex));
-    // Include both verified and unverified collections
+    // BlockVision API params: when both verified=false and unknown=false,
+    // the API returns ALL NFTs (both verified and unverified collections)
+    // Setting verified=true would return ONLY verified collections
+    // Setting unknown=true would return ONLY unverified/unknown collections
     url.searchParams.set('verified', 'false');
     url.searchParams.set('unknown', 'false');
 
@@ -200,17 +203,20 @@ export async function fetchAccountNFTs(
  * Fetch ALL NFTs for an account (handles pagination)
  * 
  * @param address Wallet address to fetch NFTs for
+ * @param maxPages Maximum pages to fetch (default: 50, supports up to 250 collections)
  * @returns All NFT collections owned by the address
  */
 export async function fetchAllAccountNFTs(
-  address: string
+  address: string,
+  maxPages: number = 50
 ): Promise<BlockVisionNFTCollection[]> {
   const allCollections: BlockVisionNFTCollection[] = [];
   let currentPage = 1;
   let hasMore = true;
-  const maxPages = 20; // Safety limit to prevent infinite loops
+  // Safety limit: cap at 50 pages max (250 collections) to prevent runaway requests
+  const safeMaxPages = Math.min(maxPages, 50);
 
-  while (hasMore && currentPage <= maxPages) {
+  while (hasMore && currentPage <= safeMaxPages) {
     const response = await fetchAccountNFTs(address, currentPage);
     
     if (response.code !== 0 || !response.result.data.length) {

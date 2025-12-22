@@ -85,17 +85,23 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
     const { holdings } = await getTreasuryNFTHoldings(TREASURY_ADDRESS);
     
     // Get Star Skrumpey metadata for enrichment
-    const starSkrumpeyTokenIds = holdings
-      .filter(h => h.contractAddress.toLowerCase() === SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase())
-      .map(h => parseInt(h.tokenId, 10))
-      .filter(id => !isNaN(id) && STAR_SKRUMPEY_IDS_SET.has(id));
+    // Only process if SKRUMPEY_CONTRACT_ADDRESS is configured
+    const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase() ?? '';
+    const starSkrumpeyTokenIds = skrumpeyContractLower 
+      ? holdings
+          .filter(h => h.contractAddress.toLowerCase() === skrumpeyContractLower)
+          .map(h => parseInt(h.tokenId, 10))
+          .filter(id => !isNaN(id) && STAR_SKRUMPEY_IDS_SET.has(id))
+      : [];
     
     const metadataMap = getStarSkrumpeyMetadataBatch(starSkrumpeyTokenIds);
     
     // Convert to our NFTHolding format with Star Skrumpey enrichment
     const nfts: NFTHolding[] = holdings.map((holding: TreasuryNFTHolding) => {
       const tokenIdNum = parseInt(holding.tokenId, 10);
-      const isSkrumpeyContract = holding.contractAddress.toLowerCase() === SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase();
+      const isSkrumpeyContract = skrumpeyContractLower 
+        ? holding.contractAddress.toLowerCase() === skrumpeyContractLower 
+        : false;
       const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
       
       // Get constellation data for Star Skrumpeys

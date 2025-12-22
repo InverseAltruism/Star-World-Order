@@ -80,7 +80,10 @@ function AnimatedStar({ delay = 0 }: { delay?: number }) {
 function NFTCard({ nft }: { nft: NFTHolding }) {
   const [imageError, setImageError] = useState(false);
   // Use the image from BlockVision API, or fall back to Skrumpey URL for Star Skrumpeys
-  const imageUrl = nft.imageUrl || (nft.isStarSkrumpey ? getSkrumpeyImageUrl(parseInt(nft.tokenId, 10)) : null);
+  // Validate tokenId is a valid number before using getSkrumpeyImageUrl
+  const tokenIdNum = parseInt(nft.tokenId, 10);
+  const validTokenId = !isNaN(tokenIdNum) && tokenIdNum > 0;
+  const imageUrl = nft.imageUrl || (nft.isStarSkrumpey && validTokenId ? getSkrumpeyImageUrl(tokenIdNum) : null);
   const borderColor = nft.isStarSkrumpey ? getVariantColor(nft.constellation) : '#9966ff';
   
   return (
@@ -565,8 +568,8 @@ export default function TreasuryContent() {
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {treasuryData.nftHoldings.map((nft) => (
-              <NFTCard key={`${nft.contractAddress}-${nft.tokenId}`} nft={nft} />
+            {treasuryData.nftHoldings.map((nft, index) => (
+              <NFTCard key={`${nft.contractAddress}-${nft.tokenId}-${index}`} nft={nft} />
             ))}
           </div>
         </div>
