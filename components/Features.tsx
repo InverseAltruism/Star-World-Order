@@ -34,35 +34,35 @@ export default function Features() {
     {
       icon: 'skr_str_mon2',
       title: 'THE ORDER',
-      description: 'IF YOU HAVE TO ASK, YOU\'RE NOT IN',
+      description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
       color: '#ffd700',
       pixelIcon: '◆',
     },
     {
       icon: 'monad_logo',
       title: 'MONAD REALM',
-      description: 'SPEEDRUNNING THE FUTURE',
+      description: 'BLAZING FAST COSMIC INFRASTRUCTURE',
       color: '#00ffff',
       pixelIcon: '▸',
     },
     {
       icon: '🗳️',
       title: 'COSMIC VOTING',
-      description: 'YOUR STAR, YOUR VOICE',
+      description: 'SHAPE DESTINY WITH YOUR FELLOW STAR BEARERS',
       color: '#ff00ff',
       pixelIcon: '✦',
     },
     {
       icon: '💎',
       title: 'TREASURY',
-      description: 'THE WAR CHEST',
+      description: 'COLLECTIVE COSMIC RESOURCES',
       color: '#44ff88',
       pixelIcon: '◈',
     },
     {
       icon: '💬',
       title: 'STAR COUNCIL',
-      description: 'REAL ONES ONLY',
+      description: 'COMMUNE WITH FELLOW CHOSEN ONES',
       color: '#ff7b00',
       pixelIcon: '●',
     },
@@ -137,7 +137,7 @@ export default function Features() {
               ═══════════════
             </div>
             <h2 className="text-lg md:text-xl text-[#ffd700] mb-4 tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 2px 2px 0 rgba(0,0,0,0.8)' }}>
-              ✦ 𓆩 WHAT WE&apos;RE ABOUT 𓆪 ✦
+              ✦ 𓆩 THE ORDER AWAITS 𓆪 ✦
             </h2>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-[#9966ff] tracking-widest">
               ═══════════════
@@ -209,10 +209,10 @@ export default function Features() {
             <div className="absolute inset-2 border border-[#ffd700]/20 rounded pointer-events-none" />
             
             <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
-              ★ got DN? ★
+              ★ ARE YOU CHOSEN? ★
             </p>
             <p className="text-gray-400 text-xs mb-4">
-              plug in • let&apos;s see what you&apos;re working with
+              connect thy wallet • reveal thy star
             </p>
             <WalletConnect />
             
