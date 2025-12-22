@@ -494,11 +494,15 @@ export async function getTreasuryActivities(
     const isIncoming = activity.to.toLowerCase() === addressLower;
     const type: 'nft_in' | 'nft_out' = isIncoming ? 'nft_in' : 'nft_out';
     
+    // Build NFT name for display
+    const nftName = activity.nft.name || `#${activity.nft.tokenId}`;
+    const actionWord = activity.method || (isIncoming ? 'Received' : 'Sent');
+    
     return {
       type,
       transactionHash: activity.transactionHash,
       timestamp: activity.timestamp,
-      description: `${activity.method || (isIncoming ? 'Received' : 'Sent')} ${activity.nft.name || `#${activity.nft.tokenId}`}`,
+      description: `${actionWord} ${nftName}`,
       amount: `${activity.nft.qty || '1'} NFT`,
       collectionName: activity.collectionName,
       tokenId: activity.nft.tokenId,

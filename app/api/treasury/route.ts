@@ -30,17 +30,19 @@ let treasuryCache: {
 } | null = null;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+// Known Skrumpeys contract address (fallback if env var not set)
+const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
+
 // Configurable floor prices for known collections (in MON)
 // TODO: Integrate with a price oracle or marketplace API for real-time floor prices
 const COLLECTION_FLOOR_PRICES: Record<string, number> = {
-  // Skrumpeys NFT collection (Star Skrumpeys have higher value)
-  // Using lowercase address as key for consistent lookup
-  '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0': 2.0,
+  // Skrumpeys NFT collection floor price
+  [KNOWN_SKRUMPEY_ADDRESS]: 2.0,
   // Add more collections and their floor prices here as needed
 };
 
-// Also add the env variable address if different
-if (SKRUMPEY_CONTRACT_ADDRESS) {
+// Also add the env variable address if different from the known address
+if (SKRUMPEY_CONTRACT_ADDRESS && SKRUMPEY_CONTRACT_ADDRESS.toLowerCase() !== KNOWN_SKRUMPEY_ADDRESS) {
   COLLECTION_FLOOR_PRICES[SKRUMPEY_CONTRACT_ADDRESS.toLowerCase()] = 2.0;
 }
 
