@@ -280,7 +280,7 @@ function TreasuryChart({
       <div className="relative w-full" style={{ maxWidth: '100%', aspectRatio: '2.5 / 1' }}>
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-2xl animate-spin">💎</div>
+            <div className="text-2xl animate-spin">💰</div>
           </div>
         ) : (
           <svg 
@@ -474,7 +474,7 @@ export default function TreasuryContent() {
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up px-4 relative">
-        <div className="text-4xl mb-4 animate-pixel-float">💎</div>
+        <div className="text-4xl mb-4 animate-pixel-float">💰</div>
         <h1 className="text-base sm:text-lg md:text-xl text-[#e8b923] tracking-wider mb-2">
           TREASURY
         </h1>
@@ -510,7 +510,7 @@ export default function TreasuryContent() {
         <div className="relative z-10">
           <p className="text-gray-500 text-xs mb-2 tracking-wider">TOTAL HOLDINGS</p>
           <div className="flex items-center justify-center gap-3 mb-4">
-            <span className="text-4xl animate-pixel-pulse">💎</span>
+            <span className="text-4xl animate-pixel-pulse">💰</span>
             <p className="text-[#e8b923] text-3xl sm:text-4xl md:text-5xl font-bold animate-glow-pulse">
               {isLoading ? '...' : `${treasuryData?.estimatedValueMON || '0'}`}
             </p>

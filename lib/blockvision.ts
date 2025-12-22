@@ -526,3 +526,144 @@ export function clearActivityCache(): void {
   activityCache.clear();
   logger.info('BlockVision: Activity cache cleared');
 }
+
+/**
+ * BlockVision Collection Floor Price response types
+ */
+export interface BlockVisionFloorPriceResponse {
+  code: number;
+  reason?: string;
+  message: string;
+  result: {
+    floorPrice: string;
+    floorPriceUSD?: string;
+    collectionAddress: string;
+    currency?: string;
+  };
+}
+
+// Floor price cache (1 hour TTL)
+const floorPriceCache = new Map<string, CacheEntry<number>>();
+
+/**
+ * Fetch floor price for an NFT collection from BlockVision API
+ * 
+ * @param collectionAddress Contract address of the NFT collection
+ * @returns Floor price in MON (native currency), or null if not available
+ */
+export async function fetchCollectionFloorPrice(
+  collectionAddress: string
+): Promise<number | null> {
+  const cacheKey = `floor-${collectionAddress.toLowerCase()}`;
+  
+  // Check cache first
+  const cached = floorPriceCache.get(cacheKey);
+  if (cached && isCacheValid(cached)) {
+    logger.debug('BlockVision: Returning cached floor price', { collectionAddress });
+    return cached.data;
+  }
+
+  if (!BLOCKVISION_API_KEY) {
+    logger.warn('BlockVision API key not configured for floor price');
+    return null;
+  }
+
+  try {
+    const url = new URL(`${BLOCKVISION_API_BASE}/collection/floor-price`);
+    url.searchParams.set('collectionAddress', collectionAddress);
+
+    logger.debug('BlockVision: Fetching floor price', { url: url.toString() });
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-API-KEY': BLOCKVISION_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data: BlockVisionFloorPriceResponse = await response.json();
+
+    if (data.code !== 0) {
+      logger.warn('BlockVision API returned non-zero code for floor price', { 
+        code: data.code, 
+        reason: data.reason,
+        message: data.message,
+        collectionAddress,
+      });
+      return null;
+    }
+
+    // Parse floor price (it comes as a string)
+    const floorPrice = parseFloat(data.result.floorPrice);
+    
+    if (isNaN(floorPrice)) {
+      logger.warn('BlockVision: Invalid floor price value', { 
+        collectionAddress, 
+        floorPrice: data.result.floorPrice 
+      });
+      return null;
+    }
+
+    // Cache the successful result
+    floorPriceCache.set(cacheKey, {
+      data: floorPrice,
+      timestamp: Date.now(),
+    });
+
+    logger.info('BlockVision: Successfully fetched floor price', {
+      collectionAddress,
+      floorPrice,
+      currency: data.result.currency,
+    });
+
+    return floorPrice;
+  } catch (error) {
+    logger.error('BlockVision: Failed to fetch floor price', {
+      collectionAddress,
+      error: String(error),
+    });
+    
+    return null;
+  }
+}
+
+/**
+ * Fetch floor prices for multiple collections
+ * 
+ * @param collectionAddresses Array of collection contract addresses
+ * @returns Map of collection address to floor price
+ */
+export async function fetchMultipleFloorPrices(
+  collectionAddresses: string[]
+): Promise<Map<string, number>> {
+  const floorPrices = new Map<string, number>();
+  
+  // Fetch floor prices in parallel (but respect rate limits)
+  const results = await Promise.all(
+    collectionAddresses.map(async (address) => {
+      const floorPrice = await fetchCollectionFloorPrice(address);
+      return { address: address.toLowerCase(), floorPrice };
+    })
+  );
+  
+  for (const { address, floorPrice } of results) {
+    if (floorPrice !== null) {
+      floorPrices.set(address, floorPrice);
+    }
+  }
+  
+  return floorPrices;
+}
+
+/**
+ * Clear floor price cache
+ */
+export function clearFloorPriceCache(): void {
+  floorPriceCache.clear();
+  logger.info('BlockVision: Floor price cache cleared');
+}
