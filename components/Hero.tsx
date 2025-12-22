@@ -107,10 +107,10 @@ export default function Hero() {
         {/* Description with better contrast */}
         <div className="animate-slide-in-up animate-delay-2 mb-6 sm:mb-8 px-4">
           <p className="text-[#ffd700] text-xs sm:text-sm md:text-base mb-2" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.8)' }}>
-            ✦ The Order is forming ✦
+            ✦ we&apos;re so back ✦
           </p>
           <p className="text-[#c4a0ff] text-[10px] sm:text-xs md:text-sm max-w-xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8)' }}>
-            A DAO for Skrumpeys with the Constellation trait
+            exclusive club for star trait holders • if you know you know
           </p>
         </div>
         
