@@ -18,17 +18,36 @@ import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { getTreasuryNFTHoldings, TreasuryNFTHolding } from '@/lib/blockvision';
+import { getTreasuryNFTHoldings, TreasuryNFTHolding, getTreasuryActivities, TreasuryActivity } from '@/lib/blockvision';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
 
-// Cache for treasury data (2 minute TTL for more frequent updates)
+// Cache for treasury data (1 hour TTL to minimize API calls)
 let treasuryCache: {
   data: TreasuryData;
   timestamp: number;
 } | null = null;
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+// Known Skrumpeys contract address (fallback if env var not set)
+const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
+
+// Configurable floor prices for known collections (in MON)
+// TODO: Integrate with a price oracle or marketplace API for real-time floor prices
+const COLLECTION_FLOOR_PRICES: Record<string, number> = {
+  // Skrumpeys NFT collection floor price
+  [KNOWN_SKRUMPEY_ADDRESS]: 2.0,
+  // Add more collections and their floor prices here as needed
+};
+
+// Also add the env variable address if different from the known address
+if (SKRUMPEY_CONTRACT_ADDRESS && SKRUMPEY_CONTRACT_ADDRESS.toLowerCase() !== KNOWN_SKRUMPEY_ADDRESS) {
+  COLLECTION_FLOOR_PRICES[SKRUMPEY_CONTRACT_ADDRESS.toLowerCase()] = 2.0;
+}
+
+// Star Skrumpey premium multiplier (Star trait NFTs are worth more)
+const STAR_SKRUMPEY_PREMIUM = 1.5;
 
 export interface NFTHolding {
   tokenId: string;
@@ -40,6 +59,8 @@ export interface NFTHolding {
   isStarSkrumpey: boolean;
   constellation?: string;
   isVerified: boolean;
+  // Estimated floor price for this NFT in MON
+  estimatedFloorPrice?: number;
 }
 
 export interface TreasuryData {
@@ -52,6 +73,10 @@ export interface TreasuryData {
   starSkrumpeyCount: number;
   // Estimated total value in MON (NFT floor price * count + MON balance)
   estimatedValueMON: string;
+  // Separate NFT value for transparency
+  estimatedNFTValueMON: string;
+  // Recent activities (NFT transfers, etc.)
+  recentActivities: TreasuryActivity[];
   lastUpdated: string;
 }
 
@@ -111,6 +136,15 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
         constellation = metadata?.constellation || getStarVariantForTokenId(tokenIdNum);
       }
       
+      // Calculate estimated floor price
+      const contractLower = holding.contractAddress.toLowerCase();
+      let estimatedFloorPrice = COLLECTION_FLOOR_PRICES[contractLower] || 0;
+      
+      // Apply premium for Star Skrumpeys
+      if (isStarSkrumpey && estimatedFloorPrice > 0) {
+        estimatedFloorPrice *= STAR_SKRUMPEY_PREMIUM;
+      }
+      
       return {
         tokenId: holding.tokenId,
         name: holding.name,
@@ -121,6 +155,7 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
         isStarSkrumpey,
         constellation,
         isVerified: holding.isVerified,
+        estimatedFloorPrice,
       };
     });
     
@@ -153,13 +188,15 @@ export async function GET() {
     }
 
     // Fetch fresh data in parallel
-    const [balance, nfts] = await Promise.all([
+    const [balance, nfts, activities] = await Promise.all([
       fetchTreasuryBalance(),
       fetchTreasuryNFTs(),
+      getTreasuryActivities(TREASURY_ADDRESS, 10),
     ]);
 
     // Format balance
     const monBalanceFormatted = formatEther(balance);
+    const monBalanceNum = parseFloat(monBalanceFormatted);
     
     // Count NFTs and collections
     const nftCount = nfts.reduce((sum, nft) => sum + nft.quantity, 0);
@@ -167,19 +204,25 @@ export async function GET() {
     const collectionCount = uniqueCollections.size;
     const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
     
-    // TODO: Implement proper NFT valuation with price oracle or marketplace floor price
-    // Currently showing MON balance only - NFT value not included
-    const estimatedValueMON = monBalanceFormatted;
+    // Calculate total NFT value based on floor prices
+    const nftValue = nfts.reduce((sum, nft) => {
+      return sum + ((nft.estimatedFloorPrice || 0) * nft.quantity);
+    }, 0);
+    
+    // Total value = MON balance + NFT value
+    const totalValue = monBalanceNum + nftValue;
 
     const treasuryData: TreasuryData = {
       address: TREASURY_ADDRESS,
       monBalance: balance.toString(),
-      monBalanceFormatted: parseFloat(monBalanceFormatted).toFixed(4),
+      monBalanceFormatted: monBalanceNum.toFixed(4),
       nftHoldings: nfts,
       nftCount,
       collectionCount,
       starSkrumpeyCount,
-      estimatedValueMON: parseFloat(estimatedValueMON).toFixed(4),
+      estimatedValueMON: totalValue.toFixed(4),
+      estimatedNFTValueMON: nftValue.toFixed(4),
+      recentActivities: activities,
       lastUpdated: new Date().toISOString(),
     };
 
@@ -191,9 +234,12 @@ export async function GET() {
 
     logger.info('Treasury data fetched', {
       balance: treasuryData.monBalanceFormatted,
+      nftValue: treasuryData.estimatedNFTValueMON,
+      totalValue: treasuryData.estimatedValueMON,
       nftCount: treasuryData.nftCount,
       collectionCount: treasuryData.collectionCount,
       starSkrumpeyCount: treasuryData.starSkrumpeyCount,
+      activitiesCount: activities.length,
     });
 
     return NextResponse.json({

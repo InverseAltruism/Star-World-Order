@@ -16,6 +16,18 @@ interface NFTHolding {
   isStarSkrumpey: boolean;
   constellation?: string;
   isVerified: boolean;
+  estimatedFloorPrice?: number;
+}
+
+interface TreasuryActivity {
+  type: 'nft_in' | 'nft_out' | 'mon_in' | 'mon_out';
+  transactionHash: string;
+  timestamp: number;
+  description: string;
+  amount: string;
+  collectionName?: string;
+  tokenId?: string;
+  imageUrl?: string;
 }
 
 interface TreasuryData {
@@ -27,6 +39,8 @@ interface TreasuryData {
   collectionCount: number;
   starSkrumpeyCount: number;
   estimatedValueMON: string;
+  estimatedNFTValueMON: string;
+  recentActivities: TreasuryActivity[];
   lastUpdated: string;
 }
 
@@ -54,23 +68,6 @@ function getVariantColor(variant?: string): string {
  */
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-/**
- * Animated star component for decoration
- */
-function AnimatedStar({ delay = 0 }: { delay?: number }) {
-  return (
-    <div 
-      className="absolute text-2xl animate-pixel-float opacity-60"
-      style={{ 
-        animationDelay: `${delay}s`,
-        filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))'
-      }}
-    >
-      ⭐
-    </div>
-  );
 }
 
 /**
@@ -366,38 +363,50 @@ function TreasuryChart({
 }
 
 /**
- * Transaction Item Component
+ * Activity Item Component - displays a single activity from blockchain
  */
-function TransactionItem({ 
-  type, 
-  amount, 
-  description, 
-  date 
+function ActivityItem({ 
+  activity,
+  formatTime
 }: { 
-  type: 'in' | 'out';
-  amount: string;
-  description: string;
-  date: string;
+  activity: TreasuryActivity;
+  formatTime: (timestamp: number) => string;
 }) {
+  const isIncoming = activity.type === 'nft_in' || activity.type === 'mon_in';
+  const shortHash = activity.transactionHash ? 
+    `${activity.transactionHash.slice(0, 6)}...${activity.transactionHash.slice(-4)}` : '';
+  
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2 group">
       <div className="flex items-center gap-3">
         <div 
           className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${
-            type === 'in' 
+            isIncoming 
               ? 'bg-[#44ff88]/20 text-[#44ff88]' 
               : 'bg-[#ff4466]/20 text-[#ff4466]'
           } group-hover:scale-110 smooth-transition`}
         >
-          {type === 'in' ? '↓' : '↑'}
+          {isIncoming ? '↓' : '↑'}
         </div>
         <div>
-          <p className="text-gray-300 text-xs">{description}</p>
-          <p className="text-gray-600 text-[10px]">{date}</p>
+          <p className="text-gray-300 text-xs">{activity.description}</p>
+          <div className="flex items-center gap-2 text-gray-600 text-[10px]">
+            <span>{formatTime(activity.timestamp)}</span>
+            {activity.transactionHash && (
+              <a 
+                href={`https://monadscan.com/tx/${activity.transactionHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#9966ff] hover:text-[#e8b923] smooth-transition"
+              >
+                {shortHash} ↗
+              </a>
+            )}
+          </div>
         </div>
       </div>
-      <p className={`text-sm font-bold ${type === 'in' ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
-        {type === 'in' ? '+' : '-'}{amount}
+      <p className={`text-sm font-bold ${isIncoming ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
+        {isIncoming ? '+' : '-'}{activity.amount}
       </p>
     </div>
   );
@@ -438,39 +447,39 @@ export default function TreasuryContent() {
     fetchTreasuryData();
   }, [fetchTreasuryData]);
 
-  // Auto-refresh every 2 minutes
+  // Auto-refresh every 1 hour (matches server cache)
   useEffect(() => {
-    const interval = setInterval(fetchTreasuryData, 2 * 60 * 1000);
+    const interval = setInterval(fetchTreasuryData, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [fetchTreasuryData]);
 
-  // TODO: Replace with real transaction data from blockchain indexer or Monad explorer API
-  // These are placeholder transactions for UI demonstration
-  const recentTransactions = [
-    { type: 'in' as const, amount: '500 MON', description: 'Marketplace Fees', date: '2 days ago' },
-    { type: 'out' as const, amount: '200 MON', description: 'Dev Payment', date: '5 days ago' },
-    { type: 'in' as const, amount: '337 MON', description: 'Royalties', date: '1 week ago' },
-    { type: 'in' as const, amount: '150 MON', description: 'Community Donation', date: '2 weeks ago' },
-  ];
+  /**
+   * Format timestamp to relative time string
+   */
+  const formatRelativeTime = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp * 1000; // timestamp is in seconds
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+    if (days < 7) return `${days} day${days !== 1 ? 's' : ''} ago`;
+    if (days < 30) return `${Math.floor(days / 7)} week${Math.floor(days / 7) !== 1 ? 's' : ''} ago`;
+    return `${Math.floor(days / 30)} month${Math.floor(days / 30) !== 1 ? 's' : ''} ago`;
+  };
 
   return (
     <>
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up px-4 relative">
-        {/* Floating stars decoration */}
-        <div className="absolute left-4 top-0 hidden md:block">
-          <AnimatedStar delay={0} />
-        </div>
-        <div className="absolute right-4 top-2 hidden md:block">
-          <AnimatedStar delay={0.5} />
-        </div>
-        
         <div className="text-4xl mb-4 animate-pixel-float">💎</div>
         <h1 className="text-base sm:text-lg md:text-xl text-[#e8b923] tracking-wider mb-2">
-          THE WAR CHEST
+          TREASURY
         </h1>
         <p className="text-xs sm:text-sm text-[#9966ff] tracking-wide animate-glow-pulse">
-          stack or get stacked on
+          swo war chest
         </p>
       </div>
 
@@ -503,7 +512,7 @@ export default function TreasuryContent() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-4xl animate-pixel-pulse">💎</span>
             <p className="text-[#e8b923] text-3xl sm:text-4xl md:text-5xl font-bold animate-glow-pulse">
-              {isLoading ? '...' : `${treasuryData?.monBalanceFormatted || '0'}`}
+              {isLoading ? '...' : `${treasuryData?.estimatedValueMON || '0'}`}
             </p>
             <span className="text-[#e8b923] text-xl sm:text-2xl">MON</span>
           </div>
@@ -539,9 +548,9 @@ export default function TreasuryContent() {
             </div>
             <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#44ff88]/30 smooth-transition hover-lift">
               <p className="text-[#44ff88] text-lg sm:text-xl font-bold">
-                {isLoading ? '...' : treasuryData?.collectionCount || 0}
+                {isLoading ? '...' : treasuryData?.estimatedNFTValueMON || '0'}
               </p>
-              <p className="text-gray-500 text-[10px]">COLLECTIONS</p>
+              <p className="text-gray-500 text-[10px]">NFT VALUE</p>
             </div>
           </div>
         </div>
@@ -549,7 +558,7 @@ export default function TreasuryContent() {
 
       {/* Treasury Value Chart */}
       <TreasuryChart 
-        currentValue={treasuryData?.monBalanceFormatted || '0'} 
+        currentValue={treasuryData?.estimatedValueMON || '0'} 
         isLoading={isLoading}
       />
 
@@ -584,16 +593,28 @@ export default function TreasuryContent() {
         </div>
       )}
 
-      {/* Recent Transactions */}
+      {/* Recent Moves - Shows real blockchain activity */}
       <div className="pixel-card p-6 mb-6 animate-slide-in-up animate-delay-4">
         <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
           📜 RECENT MOVES
         </h3>
         
         <div className="space-y-1">
-          {recentTransactions.map((tx, i) => (
-            <TransactionItem key={i} {...tx} />
-          ))}
+          {treasuryData && treasuryData.recentActivities.length > 0 ? (
+            treasuryData.recentActivities.map((activity, i) => (
+              <ActivityItem 
+                key={activity.transactionHash || i} 
+                activity={activity} 
+                formatTime={formatRelativeTime}
+              />
+            ))
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-gray-500 text-xs">
+                {isLoading ? 'Loading activities...' : 'No recent activity'}
+              </p>
+            </div>
+          )}
         </div>
         
         <a 

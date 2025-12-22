@@ -24,8 +24,8 @@ const BLOCKVISION_API_BASE = 'https://api.blockvision.org/v2/monad';
 // Get API key from environment
 const BLOCKVISION_API_KEY = process.env.BLOCKVISION_API || '';
 
-// Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
+// Cache TTL in milliseconds (1 hour to minimize API calls)
+const CACHE_TTL = 60 * 60 * 1000;
 
 // In-memory cache for NFT data
 interface CacheEntry<T> {
@@ -317,4 +317,212 @@ export function getCacheStats(): {
     entries: nftCache.size,
     oldestEntry: oldestTimestamp,
   };
+}
+
+/**
+ * BlockVision NFT Activity types
+ */
+export interface BlockVisionNFTActivityItem {
+  name: string;
+  contractAddress: string;
+  tokenId: string;
+  image: string;
+  qty: string;
+}
+
+export interface BlockVisionAddress {
+  address: string;
+  type: string;
+  isContract: boolean;
+  verified: boolean;
+  ens: string;
+  name: string;
+  isContractCreated: boolean;
+}
+
+export interface BlockVisionActivity {
+  transactionHash: string;
+  method: string;
+  blockNumber: number;
+  timestamp: number;
+  from: string;
+  to: string;
+  type: string;
+  nft: BlockVisionNFTActivityItem;
+  collectionName: string;
+  verified: boolean;
+  fromAddress: BlockVisionAddress;
+  toAddress: BlockVisionAddress;
+}
+
+export interface BlockVisionActivityResponse {
+  code: number;
+  reason?: string;
+  message: string;
+  result: {
+    data: BlockVisionActivity[];
+    nextPageCursor: string;
+    total: number;
+  };
+}
+
+/**
+ * Simplified treasury activity for UI display
+ */
+export interface TreasuryActivity {
+  type: 'nft_in' | 'nft_out' | 'mon_in' | 'mon_out';
+  transactionHash: string;
+  timestamp: number;
+  description: string;
+  amount: string;
+  collectionName?: string;
+  tokenId?: string;
+  imageUrl?: string;
+}
+
+// Activity cache
+const activityCache = new Map<string, CacheEntry<TreasuryActivity[]>>();
+
+/**
+ * Fetch NFT activities for an account from BlockVision API
+ * 
+ * @param address Wallet address to fetch activities for
+ * @param limit Max results (default 20, max 50)
+ * @returns BlockVision activity response
+ */
+export async function fetchAccountNFTActivities(
+  address: string,
+  limit: number = 20
+): Promise<BlockVisionActivityResponse> {
+  if (!BLOCKVISION_API_KEY) {
+    logger.warn('BlockVision API key not configured');
+    return {
+      code: -1,
+      message: 'BlockVision API key not configured',
+      result: {
+        data: [],
+        nextPageCursor: '',
+        total: 0,
+      },
+    };
+  }
+
+  try {
+    const url = new URL(`${BLOCKVISION_API_BASE}/collection/activities`);
+    url.searchParams.set('address', address);
+    url.searchParams.set('limit', String(Math.min(limit, 50)));
+    // Get newest first (descending order)
+    url.searchParams.set('ascendingOrder', 'false');
+
+    logger.debug('BlockVision: Fetching NFT activities', { url: url.toString() });
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-API-KEY': BLOCKVISION_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data: BlockVisionActivityResponse = await response.json();
+
+    if (data.code !== 0) {
+      logger.warn('BlockVision API returned non-zero code for activities', { 
+        code: data.code, 
+        reason: data.reason,
+        message: data.message 
+      });
+    }
+
+    logger.info('BlockVision: Successfully fetched NFT activities', {
+      address,
+      total: data.result.total,
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('BlockVision: Failed to fetch NFT activities', {
+      address,
+      error: String(error),
+    });
+    
+    return {
+      code: -1,
+      message: String(error),
+      result: {
+        data: [],
+        nextPageCursor: '',
+        total: 0,
+      },
+    };
+  }
+}
+
+/**
+ * Get treasury activities (NFT transfers in/out)
+ * Results are cached for 1 hour
+ * 
+ * @param address Treasury wallet address
+ * @param limit Max number of activities to fetch
+ * @returns Array of treasury activities
+ */
+export async function getTreasuryActivities(
+  address: string,
+  limit: number = 10
+): Promise<TreasuryActivity[]> {
+  const cacheKey = `activities-${address.toLowerCase()}`;
+  
+  // Check cache
+  const cached = activityCache.get(cacheKey);
+  if (cached && isCacheValid(cached)) {
+    logger.debug('BlockVision: Returning cached activities', { address });
+    return cached.data;
+  }
+
+  const response = await fetchAccountNFTActivities(address, limit);
+  
+  if (response.code !== 0 || !response.result.data.length) {
+    return [];
+  }
+
+  const addressLower = address.toLowerCase();
+  const activities: TreasuryActivity[] = response.result.data.map((activity) => {
+    const isIncoming = activity.to.toLowerCase() === addressLower;
+    const type: 'nft_in' | 'nft_out' = isIncoming ? 'nft_in' : 'nft_out';
+    
+    // Build NFT name for display
+    const nftName = activity.nft.name || `#${activity.nft.tokenId}`;
+    const actionWord = activity.method || (isIncoming ? 'Received' : 'Sent');
+    
+    return {
+      type,
+      transactionHash: activity.transactionHash,
+      timestamp: activity.timestamp,
+      description: `${actionWord} ${nftName}`,
+      amount: `${activity.nft.qty || '1'} NFT`,
+      collectionName: activity.collectionName,
+      tokenId: activity.nft.tokenId,
+      imageUrl: activity.nft.image,
+    };
+  });
+
+  // Cache the results
+  activityCache.set(cacheKey, {
+    data: activities,
+    timestamp: Date.now(),
+  });
+
+  return activities;
+}
+
+/**
+ * Clear activities cache
+ */
+export function clearActivityCache(): void {
+  activityCache.clear();
+  logger.info('BlockVision: Activity cache cleared');
 }
