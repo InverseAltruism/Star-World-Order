@@ -622,6 +622,7 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/metadata` | GET | Get NFT metadata by tokenId(s) - **uses database first, IPFS fallback** |
+| `/api/treasury` | GET | Get treasury wallet data including MON balance and all NFT holdings (uses BlockVision API) |
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -644,6 +645,98 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 | `/api/cron/refresh-holders` | GET | Cron endpoint to refresh holder data (requires `CRON_SECRET`) |
 
 **Base URL**: `https://starworldorder.com` (production)
+
+---
+
+## BlockVision API Integration
+
+Star World Order uses BlockVision's Monad Indexing API for fetching comprehensive NFT holdings data.
+
+### Overview
+
+BlockVision provides indexed blockchain data through a REST API, enabling efficient retrieval of:
+- All NFT holdings across all collections
+- Token balances
+- Account activity and transactions
+
+### Configuration
+
+Add to `.env.local`:
+
+```bash
+BLOCKVISION_API=your-api-key-here
+BLOCKVISION_RPC=https://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
+BLOCKVISION_WEBSOCKET=wss://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
+```
+
+### Rate Limits (Free Tier)
+
+| Metric | Free Tier | Lite | Basic | Pro |
+|--------|-----------|------|-------|-----|
+| Compute Units/month | 10,000,000 | 100,000,000 | 600,000,000 | 1,500,000,000 |
+| CU/second | 300 | 500 | 1,000 | 2,000 |
+| Monad Indexing API | ✅ | ✅ | ✅ | ✅ |
+
+### Compute Unit Costs
+
+| API Method | Compute Units |
+|-----------|---------------|
+| Retrieve Account's NFTs | 300 |
+| Retrieve Account's Token | 300 |
+| Retrieve Account's Transactions | 200 |
+| Retrieve Token Detail | 100 |
+
+### Caching Strategy
+
+To minimize API usage:
+
+1. **In-Memory Cache**: NFT data is cached for 5 minutes per address
+2. **Treasury Cache**: Treasury data is cached for 2 minutes
+3. **Database Storage**: Historical data is stored in SQLite for charts
+
+### API Response Format
+
+```json
+{
+  "code": 0,
+  "message": "OK",
+  "result": {
+    "data": [
+      {
+        "contractAddress": "0x...",
+        "verified": true,
+        "name": "Collection Name",
+        "image": "https://...",
+        "ercStandard": "ERC721",
+        "items": [
+          {
+            "name": "NFT #123",
+            "contractAddress": "0x...",
+            "tokenId": "123",
+            "image": "https://...",
+            "qty": "1"
+          }
+        ]
+      }
+    ],
+    "total": 5,
+    "collectionTotal": 2
+  }
+}
+```
+
+### Implementation
+
+See `lib/blockvision.ts` for the full implementation including:
+- `fetchAccountNFTs()` - Fetch NFTs for a single page
+- `fetchAllAccountNFTs()` - Fetch all NFTs with pagination
+- `getTreasuryNFTHoldings()` - High-level function for treasury page
+- Cache management functions
+
+### Documentation
+
+- BlockVision Docs: https://docs.blockvision.org
+- Monad NFT API: https://docs.blockvision.org/reference/retrieve-monad-account-nfts
 
 ---
 
@@ -810,6 +903,7 @@ try {
 | `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks |
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
+| `lib/blockvision.ts` | BlockVision API integration for NFT fetching |
 | `lib/db.ts` | SQLite database operations and queries |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
@@ -822,6 +916,7 @@ try {
 | `app/exchange/page.tsx` | OTC marketplace page |
 | `app/staking/page.tsx` | NFT staking page |
 | `app/hangout/page.tsx` | Hangout Hub lobby |
+| `app/treasury/page.tsx` | Treasury page with NFT holdings |
 
 ---
 
@@ -859,6 +954,11 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true|false
 
 # Database
 DATABASE_URL=file:./data/swo.db
+
+# BlockVision API (for Treasury NFT fetching)
+BLOCKVISION_API=your-api-key-here
+BLOCKVISION_RPC=https://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
+BLOCKVISION_WEBSOCKET=wss://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
 ```
 
 **Example**: See `.env.example` in repository root
@@ -1117,7 +1217,7 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 15, 2024
+**Last Updated**: December 22, 2024
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 

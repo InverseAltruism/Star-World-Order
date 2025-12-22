@@ -4,32 +4,24 @@
  * GET /api/treasury - Get treasury wallet data including MON balance, NFT holdings, and transactions
  * 
  * Treasury wallet: 0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af
+ * 
+ * Uses BlockVision Monad Indexing API to fetch all NFT holdings across all collections.
  */
 
 import { NextResponse } from 'next/server';
 import { 
-  STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
   getStarVariantForTokenId,
+  STAR_SKRUMPEY_IDS_SET,
 } from '@/lib/starSkrumpey';
 import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
+import { getTreasuryNFTHoldings, TreasuryNFTHolding } from '@/lib/blockvision';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
-
-// ERC721 ABI for ownership check
-const ERC721_ABI = [
-  {
-    inputs: [{ name: 'tokenId', type: 'uint256' }],
-    name: 'ownerOf',
-    outputs: [{ name: '', type: 'address' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
 
 // Cache for treasury data (2 minute TTL for more frequent updates)
 let treasuryCache: {
@@ -39,9 +31,15 @@ let treasuryCache: {
 const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
 export interface NFTHolding {
-  tokenId: number;
-  constellation?: string;
+  tokenId: string;
+  name: string;
+  collectionName: string;
+  contractAddress: string;
   imageUrl?: string;
+  quantity: number;
+  isStarSkrumpey: boolean;
+  constellation?: string;
+  isVerified: boolean;
 }
 
 export interface TreasuryData {
@@ -50,6 +48,8 @@ export interface TreasuryData {
   monBalanceFormatted: string;
   nftHoldings: NFTHolding[];
   nftCount: number;
+  collectionCount: number;
+  starSkrumpeyCount: number;
   // Estimated total value in MON (NFT floor price * count + MON balance)
   estimatedValueMON: string;
   lastUpdated: string;
@@ -76,55 +76,57 @@ async function fetchTreasuryBalance(): Promise<bigint> {
 }
 
 /**
- * Fetch Star Skrumpey NFTs owned by treasury
+ * Fetch ALL NFTs owned by treasury using BlockVision API
+ * Includes Star Skrumpeys and all other collections
  */
 async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
-  if (!SKRUMPEY_CONTRACT_ADDRESS) {
-    logger.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
-    return [];
-  }
-
-  const nfts: NFTHolding[] = [];
-
   try {
-    const client = await getResilientClient();
-
-    // Batch check ownership of all Star Skrumpey IDs
-    const ownershipResults = await retryWithBackoff(async () => {
-      return await client.multicall({
-        contracts: STAR_SKRUMPEY_IDS.map(tokenId => ({
-          address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
-          abi: ERC721_ABI,
-          functionName: 'ownerOf',
-          args: [BigInt(tokenId)],
-        })),
-        allowFailure: true,
-      });
-    });
-
-    // Get metadata for all tokens (for constellation info)
-    const metadataMap = getStarSkrumpeyMetadataBatch([...STAR_SKRUMPEY_IDS]);
-
-    // Process results
-    for (let i = 0; i < ownershipResults.length; i++) {
-      const result = ownershipResults[i];
+    // Use BlockVision API to get all NFTs
+    const { holdings } = await getTreasuryNFTHoldings(TREASURY_ADDRESS);
+    
+    // Get Star Skrumpey metadata for enrichment
+    const starSkrumpeyTokenIds = holdings
+      .filter(h => h.contractAddress.toLowerCase() === SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase())
+      .map(h => parseInt(h.tokenId, 10))
+      .filter(id => !isNaN(id) && STAR_SKRUMPEY_IDS_SET.has(id));
+    
+    const metadataMap = getStarSkrumpeyMetadataBatch(starSkrumpeyTokenIds);
+    
+    // Convert to our NFTHolding format with Star Skrumpey enrichment
+    const nfts: NFTHolding[] = holdings.map((holding: TreasuryNFTHolding) => {
+      const tokenIdNum = parseInt(holding.tokenId, 10);
+      const isSkrumpeyContract = holding.contractAddress.toLowerCase() === SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase();
+      const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
       
-      if (result.status === 'success') {
-        const owner = String(result.result).toLowerCase();
-        const tokenId = STAR_SKRUMPEY_IDS[i];
-        
-        if (owner === TREASURY_ADDRESS.toLowerCase()) {
-          const metadata = metadataMap.get(tokenId);
-          nfts.push({
-            tokenId,
-            constellation: metadata?.constellation || getStarVariantForTokenId(tokenId),
-            imageUrl: metadata?.image_url,
-          });
-        }
+      // Get constellation data for Star Skrumpeys
+      let constellation: string | undefined;
+      if (isStarSkrumpey) {
+        const metadata = metadataMap.get(tokenIdNum);
+        constellation = metadata?.constellation || getStarVariantForTokenId(tokenIdNum);
       }
-    }
-
-    return nfts.sort((a, b) => a.tokenId - b.tokenId);
+      
+      return {
+        tokenId: holding.tokenId,
+        name: holding.name,
+        collectionName: holding.collectionName,
+        contractAddress: holding.contractAddress,
+        imageUrl: holding.imageUrl || undefined,
+        quantity: holding.quantity,
+        isStarSkrumpey,
+        constellation,
+        isVerified: holding.isVerified,
+      };
+    });
+    
+    // Sort: Star Skrumpeys first (by token ID), then other NFTs by collection name
+    return nfts.sort((a, b) => {
+      if (a.isStarSkrumpey && !b.isStarSkrumpey) return -1;
+      if (!a.isStarSkrumpey && b.isStarSkrumpey) return 1;
+      if (a.isStarSkrumpey && b.isStarSkrumpey) {
+        return parseInt(a.tokenId, 10) - parseInt(b.tokenId, 10);
+      }
+      return a.collectionName.localeCompare(b.collectionName);
+    });
   } catch (error) {
     logger.error('Failed to fetch treasury NFTs', { error: String(error) });
     return [];
@@ -153,6 +155,12 @@ export async function GET() {
     // Format balance
     const monBalanceFormatted = formatEther(balance);
     
+    // Count NFTs and collections
+    const nftCount = nfts.reduce((sum, nft) => sum + nft.quantity, 0);
+    const uniqueCollections = new Set(nfts.map(n => n.contractAddress.toLowerCase()));
+    const collectionCount = uniqueCollections.size;
+    const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
+    
     // TODO: Implement proper NFT valuation with price oracle or marketplace floor price
     // Currently showing MON balance only - NFT value not included
     const estimatedValueMON = monBalanceFormatted;
@@ -162,7 +170,9 @@ export async function GET() {
       monBalance: balance.toString(),
       monBalanceFormatted: parseFloat(monBalanceFormatted).toFixed(4),
       nftHoldings: nfts,
-      nftCount: nfts.length,
+      nftCount,
+      collectionCount,
+      starSkrumpeyCount,
       estimatedValueMON: parseFloat(estimatedValueMON).toFixed(4),
       lastUpdated: new Date().toISOString(),
     };
@@ -176,6 +186,8 @@ export async function GET() {
     logger.info('Treasury data fetched', {
       balance: treasuryData.monBalanceFormatted,
       nftCount: treasuryData.nftCount,
+      collectionCount: treasuryData.collectionCount,
+      starSkrumpeyCount: treasuryData.starSkrumpeyCount,
     });
 
     return NextResponse.json({
