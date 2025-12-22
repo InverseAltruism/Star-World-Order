@@ -7,9 +7,15 @@ import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af';
 
 interface NFTHolding {
-  tokenId: number;
-  constellation?: string;
+  tokenId: string;
+  name: string;
+  collectionName: string;
+  contractAddress: string;
   imageUrl?: string;
+  quantity: number;
+  isStarSkrumpey: boolean;
+  constellation?: string;
+  isVerified: boolean;
 }
 
 interface TreasuryData {
@@ -18,6 +24,8 @@ interface TreasuryData {
   monBalanceFormatted: string;
   nftHoldings: NFTHolding[];
   nftCount: number;
+  collectionCount: number;
+  starSkrumpeyCount: number;
   estimatedValueMON: string;
   lastUpdated: string;
 }
@@ -66,48 +74,68 @@ function AnimatedStar({ delay = 0 }: { delay?: number }) {
 }
 
 /**
- * NFT Card Component
+ * NFT Card Component - displays a single NFT
+ * Handles both Star Skrumpeys (with constellation) and other NFT collections
  */
 function NFTCard({ nft }: { nft: NFTHolding }) {
   const [imageError, setImageError] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(nft.tokenId);
+  // Use the image from BlockVision API, or fall back to Skrumpey URL for Star Skrumpeys
+  // Validate tokenId is a valid number before using getSkrumpeyImageUrl
+  const tokenIdNum = parseInt(nft.tokenId, 10);
+  const validTokenId = !isNaN(tokenIdNum) && tokenIdNum > 0;
+  const imageUrl = nft.imageUrl || (nft.isStarSkrumpey && validTokenId ? getSkrumpeyImageUrl(tokenIdNum) : null);
+  const borderColor = nft.isStarSkrumpey ? getVariantColor(nft.constellation) : '#9966ff';
   
   return (
     <div 
       className="pixel-card p-3 text-center smooth-transition hover-lift cursor-pointer group"
       style={{
-        boxShadow: `0 0 15px ${getVariantColor(nft.constellation)}20`,
+        boxShadow: `0 0 15px ${borderColor}20`,
       }}
     >
       {/* NFT Image */}
       <div 
         className="w-20 h-20 mx-auto mb-2 rounded-lg overflow-hidden border-2 relative"
         style={{ 
-          borderColor: getVariantColor(nft.constellation),
-          boxShadow: `0 0 10px ${getVariantColor(nft.constellation)}40`
+          borderColor: borderColor,
+          boxShadow: `0 0 10px ${borderColor}40`
         }}
       >
         {!imageError && imageUrl ? (
           <img
             src={imageUrl}
-            alt={`Star Skrumpey #${nft.tokenId}`}
+            alt={nft.name || `NFT #${nft.tokenId}`}
             className="w-full h-full object-cover group-hover:scale-110 smooth-transition"
             onError={() => setImageError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30 text-3xl">
-            🐸
+            {nft.isStarSkrumpey ? '🐸' : '🎨'}
           </div>
         )}
-        {/* Star badge */}
-        <div className="absolute -top-1 -right-1 text-xs animate-pixel-pulse">⭐</div>
+        {/* Star badge for Star Skrumpeys */}
+        {nft.isStarSkrumpey && (
+          <div className="absolute -top-1 -right-1 text-xs animate-pixel-pulse">⭐</div>
+        )}
+        {/* Verified badge for verified collections */}
+        {!nft.isStarSkrumpey && nft.isVerified && (
+          <div className="absolute -top-1 -right-1 text-xs">✓</div>
+        )}
+        {/* Quantity badge if > 1 */}
+        {nft.quantity > 1 && (
+          <div className="absolute -bottom-1 -right-1 text-[8px] bg-[#9966ff] px-1 rounded">
+            x{nft.quantity}
+          </div>
+        )}
       </div>
       
-      {/* Token ID */}
-      <p className="text-[#ffd700] text-xs font-bold mb-1">#{nft.tokenId}</p>
+      {/* Token ID or Name */}
+      <p className="text-[#e8b923] text-xs font-bold mb-1 truncate">
+        {nft.name || `#${nft.tokenId}`}
+      </p>
       
-      {/* Constellation */}
-      {nft.constellation && (
+      {/* Constellation for Star Skrumpeys */}
+      {nft.isStarSkrumpey && nft.constellation && (
         <p 
           className="text-[9px] uppercase tracking-wider px-2 py-0.5 rounded inline-block"
           style={{ 
@@ -117,6 +145,13 @@ function NFTCard({ nft }: { nft: NFTHolding }) {
           }}
         >
           {nft.constellation}
+        </p>
+      )}
+      
+      {/* Collection name for other NFTs */}
+      {!nft.isStarSkrumpey && (
+        <p className="text-[9px] text-gray-500 truncate px-1">
+          {nft.collectionName}
         </p>
       )}
     </div>
@@ -216,7 +251,7 @@ function TreasuryChart({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-1">
+          <h3 className="text-[#d4a500] text-xs sm:text-sm tracking-wider mb-1">
             📈 TREASURY VALUE
           </h3>
           <div className="flex items-center gap-2">
@@ -431,7 +466,7 @@ export default function TreasuryContent() {
         </div>
         
         <div className="text-4xl mb-4 animate-pixel-float">💎</div>
-        <h1 className="text-base sm:text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2">
+        <h1 className="text-base sm:text-lg md:text-xl text-[#e8b923] tracking-wider mb-2">
           THE WAR CHEST
         </h1>
         <p className="text-xs sm:text-sm text-[#9966ff] tracking-wide animate-glow-pulse">
@@ -467,10 +502,10 @@ export default function TreasuryContent() {
           <p className="text-gray-500 text-xs mb-2 tracking-wider">TOTAL HOLDINGS</p>
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="text-4xl animate-pixel-pulse">💎</span>
-            <p className="text-[#ffd700] text-3xl sm:text-4xl md:text-5xl font-bold pixel-glow-gold animate-glow-pulse">
+            <p className="text-[#e8b923] text-3xl sm:text-4xl md:text-5xl font-bold animate-glow-pulse">
               {isLoading ? '...' : `${treasuryData?.monBalanceFormatted || '0'}`}
             </p>
-            <span className="text-[#ffd700] text-xl sm:text-2xl">MON</span>
+            <span className="text-[#e8b923] text-xl sm:text-2xl">MON</span>
           </div>
           
           {/* Treasury address */}
@@ -482,7 +517,7 @@ export default function TreasuryContent() {
               href={`https://monadscan.com/address/${TREASURY_ADDRESS}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#9966ff] text-[10px] hover:text-[#ffd700] smooth-transition"
+              className="text-[#9966ff] text-[10px] hover:text-[#e8b923] smooth-transition"
             >
               ↗
             </a>
@@ -490,8 +525,8 @@ export default function TreasuryContent() {
           
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
-            <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#ffd700]/30 smooth-transition hover-lift">
-              <p className="text-[#ffd700] text-lg sm:text-xl font-bold">
+            <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#e8b923]/30 smooth-transition hover-lift">
+              <p className="text-[#e8b923] text-lg sm:text-xl font-bold">
                 {isLoading ? '...' : treasuryData?.monBalanceFormatted || '0'}
               </p>
               <p className="text-gray-500 text-[10px]">MON BALANCE</p>
@@ -504,9 +539,9 @@ export default function TreasuryContent() {
             </div>
             <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#44ff88]/30 smooth-transition hover-lift">
               <p className="text-[#44ff88] text-lg sm:text-xl font-bold">
-                {isLoading ? '...' : treasuryData?.estimatedValueMON || '0'}
+                {isLoading ? '...' : treasuryData?.collectionCount || 0}
               </p>
-              <p className="text-gray-500 text-[10px]">MON VALUE</p>
+              <p className="text-gray-500 text-[10px]">COLLECTIONS</p>
             </div>
           </div>
         </div>
@@ -521,15 +556,20 @@ export default function TreasuryContent() {
       {/* NFT Holdings Section */}
       {treasuryData && treasuryData.nftHoldings.length > 0 && (
         <div className="pixel-card p-6 mb-6 animate-slide-in-up animate-delay-3">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider">
-              🐸 NFT HOLDINGS ({treasuryData.nftCount})
+              🎨 NFT HOLDINGS ({treasuryData.nftCount})
             </h3>
+            {treasuryData.starSkrumpeyCount > 0 && (
+              <span className="text-[10px] text-[#e8b923]">
+                ⭐ {treasuryData.starSkrumpeyCount} Star Skrumpey{treasuryData.starSkrumpeyCount !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {treasuryData.nftHoldings.map((nft) => (
-              <NFTCard key={nft.tokenId} nft={nft} />
+            {treasuryData.nftHoldings.map((nft, index) => (
+              <NFTCard key={`${nft.contractAddress}-${nft.tokenId}-${index}`} nft={nft} />
             ))}
           </div>
         </div>
@@ -538,8 +578,8 @@ export default function TreasuryContent() {
       {/* No NFTs message */}
       {treasuryData && treasuryData.nftHoldings.length === 0 && !isLoading && (
         <div className="pixel-card p-6 text-center mb-6 animate-slide-in-up animate-delay-3">
-          <div className="text-4xl mb-3 animate-pixel-float">🐸</div>
-          <p className="text-gray-400 text-sm">No Star Skrumpey NFTs in treasury</p>
+          <div className="text-4xl mb-3 animate-pixel-float">🎨</div>
+          <p className="text-gray-400 text-sm">No NFTs in treasury yet</p>
           <p className="text-gray-600 text-xs mt-1">Treasury is accumulating MON</p>
         </div>
       )}
@@ -568,11 +608,9 @@ export default function TreasuryContent() {
 
       {/* Treasury Info */}
       <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
-        <p className="text-[#ffd700] text-xs tracking-wide mb-2">⭐ HOW WE STACK</p>
+        <p className="text-[#d4a500] text-xs tracking-wide mb-2">⭐ HOW WE STACK</p>
         <ul className="text-gray-400 text-[10px] space-y-1">
           <li>• <span className="text-[#44ff88]">2.5%</span> cut from Exchange trades</li>
-          <li>• NFT royalties from flips</li>
-          <li>• Staking fees</li>
           <li>• Donations from the real ones</li>
         </ul>
         

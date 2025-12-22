@@ -71,6 +71,9 @@ export const STAR_SKRUMPEY_IDS: readonly number[] = [
 // Create a Set for O(1) lookup performance
 const STAR_SKRUMPEY_ID_SET = new Set(STAR_SKRUMPEY_IDS);
 
+// Export the Set for use in other modules
+export const STAR_SKRUMPEY_IDS_SET = STAR_SKRUMPEY_ID_SET;
+
 /**
  * Check if a token ID is a Star Skrumpey (has the Star trait)
  * Uses allow-list for fast O(1) lookup
