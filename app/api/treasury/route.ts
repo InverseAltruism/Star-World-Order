@@ -153,8 +153,8 @@ export async function GET() {
     // Format balance
     const monBalanceFormatted = formatEther(balance);
     
-    // Estimate total value (simple calculation: MON balance + NFT count * estimated floor)
-    // For now, we'll just use MON balance since we don't have a price oracle
+    // TODO: Implement proper NFT valuation with price oracle or marketplace floor price
+    // Currently showing MON balance only - NFT value not included
     const estimatedValueMON = monBalanceFormatted;
 
     const treasuryData: TreasuryData = {

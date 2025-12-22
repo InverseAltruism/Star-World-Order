@@ -14,7 +14,8 @@ export default function Header() {
   const pathname = usePathname();
   
   // Hide demo mode button on landing page (shown elsewhere for locked profile views)
-  const isLandingPage = pathname === '/';
+  // Handle edge cases like trailing slashes or empty paths
+  const isLandingPage = pathname === '/' || pathname === '';
 
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">

@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af';
+
+// Total Star Skrumpey supply (max members)
+const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
 
 interface NFTHolding {
   tokenId: number;
@@ -137,21 +140,23 @@ function TreasuryChart({
   const [timeRange, setTimeRange] = useState<'1D' | '1W'>('1D');
   
   // Generate mock data for chart (will be replaced with real historical data)
-  // For now, we simulate some variation around the current value
-  const generateChartData = () => {
+  // TODO: Replace with real historical treasury data from blockchain or database
+  // Using seeded random for consistent rendering across rerenders
+  const generateChartData = React.useMemo(() => {
     const baseValue = parseFloat(currentValue) || 0;
     const points = timeRange === '1D' ? 24 : 7;
-    const variance = baseValue * 0.05; // 5% variance for visual effect
+    const variance = baseValue * 0.05 || 0.1; // 5% variance or minimum 0.1
     
+    // Use deterministic values based on index for consistency
     return Array.from({ length: points }, (_, i) => {
-      // Create a slight upward trend with some noise
+      // Create a slight upward trend with deterministic variation
       const trend = (i / points) * variance * 0.5;
-      const noise = (Math.random() - 0.5) * variance * 0.3;
-      return Math.max(0, baseValue - variance + trend + noise);
+      const variation = Math.sin(i * 0.5) * variance * 0.3;
+      return Math.max(0, baseValue - variance + trend + variation);
     });
-  };
+  }, [currentValue, timeRange]);
   
-  const data = generateChartData();
+  const data = generateChartData;
   const minValue = Math.min(...data) * 0.95;
   const maxValue = Math.max(...data) * 1.05;
   const range = maxValue - minValue || 1;
@@ -407,7 +412,8 @@ export default function TreasuryContent() {
     return () => clearInterval(interval);
   }, [fetchTreasuryData]);
 
-  // Mock recent transactions (will be replaced with real data in future)
+  // TODO: Replace with real transaction data from blockchain indexer or Monad explorer API
+  // These are placeholder transactions for UI demonstration
   const recentTransactions = [
     { type: 'in' as const, amount: '500 MON', description: 'Marketplace Fees', date: '2 days ago' },
     { type: 'out' as const, amount: '200 MON', description: 'Dev Payment', date: '5 days ago' },
@@ -503,13 +509,13 @@ export default function TreasuryContent() {
               <p className="text-[#44ff88] text-lg sm:text-xl font-bold">
                 {isLoading ? '...' : treasuryData?.estimatedValueMON || '0'}
               </p>
-              <p className="text-gray-500 text-[10px]">TOTAL VALUE</p>
+              <p className="text-gray-500 text-[10px]">MON VALUE</p>
             </div>
             <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#00ffff]/30 smooth-transition hover-lift">
               <p className="text-[#00ffff] text-lg sm:text-xl font-bold">
-                333
+                {MAX_STAR_SKRUMPEY_SUPPLY}
               </p>
-              <p className="text-gray-500 text-[10px]">MEMBERS</p>
+              <p className="text-gray-500 text-[10px]">MAX SUPPLY</p>
             </div>
           </div>
         </div>
