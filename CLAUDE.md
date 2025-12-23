@@ -650,7 +650,7 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 
 ## BlockVision API Integration
 
-Star World Order uses BlockVision's Monad Indexing API for fetching comprehensive NFT holdings data.
+Star World Order uses BlockVision's Monad Indexing API for fetching comprehensive NFT holdings data and collection floor prices.
 
 ### Overview
 
@@ -658,6 +658,7 @@ BlockVision provides indexed blockchain data through a REST API, enabling effici
 - All NFT holdings across all collections
 - Token balances
 - Account activity and transactions
+- **Collection floor prices** (for treasury value calculation)
 
 ### Configuration
 
@@ -685,14 +686,73 @@ BLOCKVISION_WEBSOCKET=wss://monad-mainnet.blockvision.org/v1/your-api-key  # Opt
 | Retrieve Account's Token | 300 |
 | Retrieve Account's Transactions | 200 |
 | Retrieve Token Detail | 100 |
+| Retrieve Collection Floor Price | ~100 |
+
+### Available API Endpoints
+
+BlockVision Monad Indexing API provides the following categories:
+
+#### Account APIs
+- **Account Tokens API** - Get token balances for a wallet
+- **Account DeFi API** - Get DeFi positions
+- **Account NFTs API** - Get all NFTs held by a wallet
+- **Account Activity API** - Get recent account activities
+- **Account Transactions API** - Get transaction history
+- **Account Internal Transactions API** - Get internal transactions
+- **Account Token Activities API** - Get ERC-20 transfer history
+- **Account NFT Activities API** - Get NFT transfer history
+
+#### Token APIs
+- **Token Holders API** - Get holders of a specific token
+- **Monad Holders API** - Get MON token holders
+- **Token Detail API** - Get token metadata
+- **Multiple Token Price API** - Get prices for multiple tokens
+- **Token Trades API** - Get recent trades
+- **Token Pools API** - Get liquidity pool info
+- **Token OHLCV API** - Get price candlesticks
+- **Token Market Data API** - Get market cap, volume, etc.
+
+#### NFT APIs
+- **NFT Collection Holders API** - Get holders of an NFT collection
+- **Collection Floor Price API** - Get floor price for a collection
+
+#### Contract APIs
+- **Contract Detail API** - Get contract metadata
+- **Contract Source Code API** - Get verified source code
+- **Verified Contracts API** - List verified contracts
+- **Token Gating API** - Check token gating requirements
+
+### Collection Floor Price API
+
+The floor price API is used to get real-time NFT floor prices for treasury value calculation.
+
+**Endpoint**: `GET https://api.blockvision.org/v2/monad/collection/floor-price`
+
+**Parameters**:
+- `collectionAddress` (required): The NFT collection contract address
+
+**Response**:
+```json
+{
+  "code": 0,
+  "message": "OK",
+  "result": {
+    "floorPrice": "5000.00",
+    "floorPriceUSD": "25000.00",
+    "collectionAddress": "0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0",
+    "currency": "MON"
+  }
+}
+```
 
 ### Caching Strategy
 
 To minimize API usage:
 
-1. **In-Memory Cache**: NFT data is cached for 5 minutes per address
-2. **Treasury Cache**: Treasury data is cached for 2 minutes
-3. **Database Storage**: Historical data is stored in SQLite for charts
+1. **In-Memory Cache**: NFT data is cached for 1 hour per address
+2. **Treasury Cache**: Treasury data is cached for 1 hour
+3. **Floor Price Cache**: Floor prices are cached for 1 hour
+4. **Database Storage**: Historical data is stored in SQLite for charts
 
 ### API Response Format
 
@@ -731,12 +791,16 @@ See `lib/blockvision.ts` for the full implementation including:
 - `fetchAccountNFTs()` - Fetch NFTs for a single page
 - `fetchAllAccountNFTs()` - Fetch all NFTs with pagination
 - `getTreasuryNFTHoldings()` - High-level function for treasury page
+- `fetchCollectionFloorPrice()` - Fetch floor price for a single collection
+- `fetchMultipleFloorPrices()` - Fetch floor prices for multiple collections
 - Cache management functions
 
 ### Documentation
 
 - BlockVision Docs: https://docs.blockvision.org
+- Monad Indexing API: https://docs.blockvision.org/reference/monad-indexing-api
 - Monad NFT API: https://docs.blockvision.org/reference/retrieve-monad-account-nfts
+- NFT Floor Price API: https://docs.blockvision.org/blockvision/indexing-apis/nft-api/nft_floorprice
 
 ---
 

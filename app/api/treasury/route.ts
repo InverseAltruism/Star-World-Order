@@ -18,7 +18,7 @@ import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { getTreasuryNFTHoldings, TreasuryNFTHolding, getTreasuryActivities, TreasuryActivity } from '@/lib/blockvision';
+import { getTreasuryNFTHoldings, TreasuryNFTHolding, getTreasuryActivities, TreasuryActivity, fetchMultipleFloorPrices } from '@/lib/blockvision';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
@@ -32,19 +32,6 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 // Known Skrumpeys contract address (fallback if env var not set)
 const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
-
-// Configurable floor prices for known collections (in MON)
-// TODO: Integrate with a price oracle or marketplace API for real-time floor prices
-const COLLECTION_FLOOR_PRICES: Record<string, number> = {
-  // Skrumpeys NFT collection floor price
-  [KNOWN_SKRUMPEY_ADDRESS]: 2.0,
-  // Add more collections and their floor prices here as needed
-};
-
-// Also add the env variable address if different from the known address
-if (SKRUMPEY_CONTRACT_ADDRESS && SKRUMPEY_CONTRACT_ADDRESS.toLowerCase() !== KNOWN_SKRUMPEY_ADDRESS) {
-  COLLECTION_FLOOR_PRICES[SKRUMPEY_CONTRACT_ADDRESS.toLowerCase()] = 2.0;
-}
 
 // Star Skrumpey premium multiplier (Star trait NFTs are worth more)
 const STAR_SKRUMPEY_PREMIUM = 1.5;
@@ -109,6 +96,17 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
     // Use BlockVision API to get all NFTs
     const { holdings } = await getTreasuryNFTHoldings(TREASURY_ADDRESS);
     
+    // Get unique collection addresses for floor price lookup
+    const uniqueCollections = [...new Set(holdings.map(h => h.contractAddress.toLowerCase()))];
+    
+    // Fetch floor prices for all collections from BlockVision API
+    const floorPricesMap = await fetchMultipleFloorPrices(uniqueCollections);
+    logger.info('Fetched floor prices for collections', {
+      requestedCollections: uniqueCollections.length,
+      receivedPrices: floorPricesMap.size,
+      prices: Object.fromEntries(floorPricesMap),
+    });
+    
     // Get Star Skrumpey metadata for enrichment
     // Only process if SKRUMPEY_CONTRACT_ADDRESS is configured
     const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase() ?? '';
@@ -136,11 +134,11 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
         constellation = metadata?.constellation || getStarVariantForTokenId(tokenIdNum);
       }
       
-      // Calculate estimated floor price
+      // Get floor price from BlockVision API
       const contractLower = holding.contractAddress.toLowerCase();
-      let estimatedFloorPrice = COLLECTION_FLOOR_PRICES[contractLower] || 0;
+      let estimatedFloorPrice = floorPricesMap.get(contractLower) || 0;
       
-      // Apply premium for Star Skrumpeys
+      // Apply premium for Star Skrumpeys (they are rarer and worth more)
       if (isStarSkrumpey && estimatedFloorPrice > 0) {
         estimatedFloorPrice *= STAR_SKRUMPEY_PREMIUM;
       }
