@@ -965,6 +965,299 @@ function HolderChart() {
 }
 
 /**
+ * Constellation Distribution Donut Chart
+ * Shows the distribution of Star Skrumpeys by constellation type
+ */
+function ConstellationDistribution({ 
+  members, 
+  isLoading 
+}: { 
+  members: MemberData[]; 
+  isLoading: boolean; 
+}) {
+  // Calculate constellation counts from member data
+  const constellationCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    members.forEach(member => {
+      member.starVariants.forEach(variant => {
+        counts[variant] = (counts[variant] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [members]);
+  
+  // Sort by count and prepare data
+  const sortedData = React.useMemo(() => {
+    return Object.entries(constellationCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }, [constellationCounts]);
+  
+  const total = sortedData.reduce((sum, d) => sum + d.count, 0);
+  
+  // Chart dimensions
+  const size = 160;
+  const center = size / 2;
+  const radius = 55;
+  const innerRadius = 35;
+  
+  // Generate donut segments
+  const segments = React.useMemo(() => {
+    if (total === 0) return [];
+    
+    let currentAngle = -90; // Start from top
+    return sortedData.map(({ name, count }) => {
+      const angle = (count / total) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      currentAngle = endAngle;
+      
+      // Calculate arc path
+      const startRad = (startAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+      
+      const x1 = center + radius * Math.cos(startRad);
+      const y1 = center + radius * Math.sin(startRad);
+      const x2 = center + radius * Math.cos(endRad);
+      const y2 = center + radius * Math.sin(endRad);
+      
+      const ix1 = center + innerRadius * Math.cos(startRad);
+      const iy1 = center + innerRadius * Math.sin(startRad);
+      const ix2 = center + innerRadius * Math.cos(endRad);
+      const iy2 = center + innerRadius * Math.sin(endRad);
+      
+      const largeArc = angle > 180 ? 1 : 0;
+      
+      const path = `
+        M ${ix1} ${iy1}
+        L ${x1} ${y1}
+        A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}
+        L ${ix2} ${iy2}
+        A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${ix1} ${iy1}
+        Z
+      `;
+      
+      return {
+        name,
+        count,
+        percentage: ((count / total) * 100).toFixed(1),
+        path,
+        color: getVariantColor(name),
+      };
+    });
+  }, [sortedData, total]);
+
+  return (
+    <div className="pixel-card p-4 animate-slide-in-up">
+      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
+        🌌 CONSTELLATION DISTRIBUTION
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="text-2xl animate-spin">⭐</div>
+        </div>
+      ) : total === 0 ? (
+        <div className="flex items-center justify-center h-40">
+          <p className="text-gray-500 text-xs">No data available</p>
+        </div>
+      ) : (
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          {/* Donut Chart */}
+          <div className="relative flex-shrink-0">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+              {segments.map((seg, i) => (
+                <path
+                  key={seg.name}
+                  d={seg.path}
+                  fill={seg.color}
+                  stroke="#0a0a15"
+                  strokeWidth="1"
+                  style={{ 
+                    filter: `drop-shadow(0 0 3px ${seg.color}50)`,
+                    cursor: 'pointer',
+                  }}
+                  className="transition-all duration-200 hover:opacity-80"
+                >
+                  <title>{seg.name}: {seg.count} ({seg.percentage}%)</title>
+                </path>
+              ))}
+              {/* Center text */}
+              <text
+                x={center}
+                y={center - 5}
+                textAnchor="middle"
+                fill="#ffd700"
+                fontSize="16"
+                fontWeight="bold"
+              >
+                {total}
+              </text>
+              <text
+                x={center}
+                y={center + 10}
+                textAnchor="middle"
+                fill="#666"
+                fontSize="8"
+              >
+                TOTAL
+              </text>
+            </svg>
+          </div>
+          
+          {/* Legend */}
+          <div className="flex-1 grid grid-cols-2 gap-1">
+            {sortedData.slice(0, 10).map(({ name, count }) => (
+              <div key={name} className="flex items-center gap-2 text-[10px]">
+                <div 
+                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  style={{ backgroundColor: getVariantColor(name) }}
+                />
+                <span className="text-gray-400 capitalize truncate">{name}</span>
+                <span className="text-gray-500 ml-auto">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Holdings distribution bucket configuration
+const HOLDINGS_BUCKETS = [
+  { label: '1 NFT', min: 1, max: 1, color: '#9966ff' },
+  { label: '2 NFTs', min: 2, max: 2, color: '#44ff88' },
+  { label: '3-5', min: 3, max: 5, color: '#00ffff' },
+  { label: '6-10', min: 6, max: 10, color: '#ffd700' },
+  { label: '10+', min: 11, max: Infinity, color: '#ff00ff' },
+] as const;
+
+/**
+ * Holdings Distribution Bar Chart
+ * Shows how many members hold 1, 2, 3-5, 6-10, 10+ NFTs
+ */
+function HoldingsDistribution({ 
+  members, 
+  isLoading 
+}: { 
+  members: MemberData[]; 
+  isLoading: boolean; 
+}) {
+  // Calculate distribution buckets using configuration constant
+  const distribution = React.useMemo(() => {
+    const buckets = HOLDINGS_BUCKETS.map(b => ({ ...b, count: 0 }));
+    
+    members.forEach(member => {
+      const bucket = buckets.find(b => member.count >= b.min && member.count <= b.max);
+      if (bucket) bucket.count++;
+    });
+    
+    return buckets;
+  }, [members]);
+  
+  const maxCount = Math.max(...distribution.map(d => d.count), 1);
+  
+  return (
+    <div className="pixel-card p-4 animate-slide-in-up">
+      <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
+        📊 HOLDINGS DISTRIBUTION
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="text-2xl animate-spin">📊</div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {distribution.map((bucket) => (
+            <div key={bucket.label} className="flex items-center gap-3">
+              <span className="text-gray-400 text-[10px] w-12 text-right">
+                {bucket.label}
+              </span>
+              <div className="flex-1 h-6 bg-[#1a1a2e] rounded overflow-hidden relative">
+                <div
+                  className="h-full rounded transition-all duration-500"
+                  style={{ 
+                    width: `${(bucket.count / maxCount) * 100}%`,
+                    backgroundColor: bucket.color,
+                    boxShadow: `0 0 10px ${bucket.color}50`,
+                    minWidth: bucket.count > 0 ? '20px' : '0',
+                  }}
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white font-bold">
+                  {bucket.count}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Distribution Summary */}
+      {!isLoading && (
+        <div className="mt-4 pt-3 border-t border-[#2a2a4e] flex justify-between text-[9px] text-gray-500">
+          <span>
+            🐋 Whales (6+): {distribution.filter(d => d.min >= 6).reduce((sum, d) => sum + d.count, 0)}
+          </span>
+          <span>
+            🦐 Shrimps (1-2): {distribution.filter(d => d.max <= 2).reduce((sum, d) => sum + d.count, 0)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Top Holders Mini Leaderboard
+ * Shows top 5 holders with their NFT counts
+ */
+function TopHoldersMini({ 
+  members, 
+  isLoading 
+}: { 
+  members: MemberData[]; 
+  isLoading: boolean; 
+}) {
+  const topHolders = members.slice(0, 5);
+  
+  return (
+    <div className="pixel-card p-4 animate-slide-in-up">
+      <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-4">
+        👑 TOP HOLDERS
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="text-2xl animate-spin">👑</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {topHolders.map((member, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            return (
+              <div 
+                key={member.address}
+                className="flex items-center gap-2 py-1 px-2 rounded bg-[#0a0a15]/50 hover:bg-[#1a1a2e] transition-colors"
+              >
+                <span className="text-sm">{medal}</span>
+                <span className="text-gray-300 text-[10px] truncate flex-1">
+                  {member.displayName || truncateAddress(member.address)}
+                </span>
+                <span className="text-[#ffd700] text-xs font-bold">
+                  {member.count}⭐
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Stats Overview Component
  */
 function StatsOverview({
@@ -1135,6 +1428,13 @@ export default function MembersContent() {
 
       {/* Holder Chart Section */}
       <HolderChart />
+
+      {/* Analytics Grid - Constellation Distribution, Holdings Distribution, Top Holders */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <ConstellationDistribution members={members} isLoading={isLoading} />
+        <HoldingsDistribution members={members} isLoading={isLoading} />
+        <TopHoldersMini members={members} isLoading={isLoading} />
+      </div>
 
       {/* Divider */}
       <div className="pixel-divider mb-6" />

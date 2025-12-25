@@ -18,7 +18,7 @@ import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { getTreasuryNFTHoldings, TreasuryNFTHolding, getTreasuryActivities, TreasuryActivity, fetchMultipleFloorPrices } from '@/lib/blockvision';
+import { getTreasuryNFTHoldings, TreasuryNFTHolding, getTreasuryTransactionActivities, TreasuryActivity, fetchMultipleFloorPrices } from '@/lib/blockvision';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
@@ -189,7 +189,7 @@ export async function GET() {
     const [balance, nfts, activities] = await Promise.all([
       fetchTreasuryBalance(),
       fetchTreasuryNFTs(),
-      getTreasuryActivities(TREASURY_ADDRESS, 10),
+      getTreasuryTransactionActivities(TREASURY_ADDRESS, 20),
     ]);
 
     // Format balance

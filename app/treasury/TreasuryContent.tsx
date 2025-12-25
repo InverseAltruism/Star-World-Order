@@ -363,6 +363,198 @@ function TreasuryChart({
 }
 
 /**
+ * Portfolio Breakdown Component
+ * Shows the breakdown of MON vs NFT value
+ */
+function PortfolioBreakdown({ 
+  monBalance, 
+  nftValue, 
+  isLoading 
+}: { 
+  monBalance: string;
+  nftValue: string;
+  isLoading: boolean;
+}) {
+  const monVal = parseFloat(monBalance) || 0;
+  const nftVal = parseFloat(nftValue) || 0;
+  const total = monVal + nftVal;
+  const monPercent = total > 0 ? (monVal / total) * 100 : 0;
+  const nftPercent = total > 0 ? (nftVal / total) * 100 : 0;
+  
+  return (
+    <div className="pixel-card p-4 animate-slide-in-up">
+      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
+        💼 PORTFOLIO BREAKDOWN
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-24">
+          <div className="text-2xl animate-spin">💼</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Progress bar visualization */}
+          <div className="h-6 bg-[#1a1a2e] rounded-lg overflow-hidden flex">
+            {monPercent > 0 && (
+              <div 
+                className="h-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
+                style={{ 
+                  width: `${monPercent}%`,
+                  backgroundColor: '#e8b923',
+                  minWidth: monPercent > 5 ? '40px' : '0',
+                }}
+              >
+                {monPercent > 10 && `${monPercent.toFixed(0)}%`}
+              </div>
+            )}
+            {nftPercent > 0 && (
+              <div 
+                className="h-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
+                style={{ 
+                  width: `${nftPercent}%`,
+                  backgroundColor: '#9966ff',
+                  minWidth: nftPercent > 5 ? '40px' : '0',
+                }}
+              >
+                {nftPercent > 10 && `${nftPercent.toFixed(0)}%`}
+              </div>
+            )}
+          </div>
+          
+          {/* Legend */}
+          <div className="flex justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-[#e8b923]" />
+              <span className="text-gray-400">MON: {monVal.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-[#9966ff]" />
+              <span className="text-gray-400">NFTs: {nftVal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Collection Distribution Component
+ * Shows NFT holdings grouped by collection
+ */
+function CollectionDistribution({ 
+  nftHoldings, 
+  isLoading 
+}: { 
+  nftHoldings: NFTHolding[];
+  isLoading: boolean;
+}) {
+  // Group NFTs by collection
+  const collections = React.useMemo(() => {
+    const grouped: Record<string, { name: string; count: number; isVerified: boolean }> = {};
+    nftHoldings.forEach(nft => {
+      const key = nft.contractAddress.toLowerCase();
+      if (!grouped[key]) {
+        grouped[key] = { 
+          name: nft.collectionName || 'Unknown', 
+          count: 0, 
+          isVerified: nft.isVerified 
+        };
+      }
+      grouped[key].count += nft.quantity;
+    });
+    return Object.values(grouped).sort((a, b) => b.count - a.count);
+  }, [nftHoldings]);
+  
+  const totalNFTs = collections.reduce((sum, c) => sum + c.count, 0);
+  
+  // Colors for collections
+  const colors = ['#ffd700', '#9966ff', '#44ff88', '#00ffff', '#ff00ff', '#ff6b6b', '#4ecdc4', '#ffe66d'];
+  
+  return (
+    <div className="pixel-card p-4 animate-slide-in-up">
+      <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
+        🎨 COLLECTION BREAKDOWN
+      </h3>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center h-24">
+          <div className="text-2xl animate-spin">🎨</div>
+        </div>
+      ) : collections.length === 0 ? (
+        <div className="text-center py-4">
+          <p className="text-gray-500 text-xs">No NFT collections</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {collections.slice(0, 5).map((collection, i) => (
+            <div key={collection.name} className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded flex-shrink-0"
+                style={{ backgroundColor: colors[i % colors.length] }}
+              />
+              <span className="text-gray-300 text-[10px] truncate flex-1">
+                {collection.name}
+                {collection.isVerified && <span className="ml-1 text-[#44ff88]">✓</span>}
+              </span>
+              <span className="text-gray-400 text-[10px]">
+                {collection.count} ({((collection.count / totalNFTs) * 100).toFixed(0)}%)
+              </span>
+            </div>
+          ))}
+          {collections.length > 5 && (
+            <p className="text-gray-500 text-[9px] pt-1">
+              +{collections.length - 5} more collections
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Treasury Stats Grid Component
+ * Quick stats overview
+ */
+function TreasuryStatsGrid({ 
+  data, 
+  isLoading 
+}: { 
+  data: TreasuryData | null;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 animate-slide-in-up">
+      <div className="pixel-card p-3 text-center">
+        <p className="text-[#e8b923] text-lg font-bold">
+          {isLoading ? '...' : data?.collectionCount || 0}
+        </p>
+        <p className="text-gray-500 text-[9px]">COLLECTIONS</p>
+      </div>
+      <div className="pixel-card p-3 text-center">
+        <p className="text-[#9966ff] text-lg font-bold">
+          {isLoading ? '...' : data?.nftCount || 0}
+        </p>
+        <p className="text-gray-500 text-[9px]">TOTAL NFTs</p>
+      </div>
+      <div className="pixel-card p-3 text-center">
+        <p className="text-[#44ff88] text-lg font-bold">
+          {isLoading ? '...' : data?.starSkrumpeyCount || 0}
+        </p>
+        <p className="text-gray-500 text-[9px]">STAR SKRUMPEYS</p>
+      </div>
+      <div className="pixel-card p-3 text-center">
+        <p className="text-[#00ffff] text-lg font-bold">
+          {isLoading ? '...' : data?.recentActivities?.length || 0}
+        </p>
+        <p className="text-gray-500 text-[9px]">RECENT TXs</p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Activity Item Component - displays a single activity from blockchain
  */
 function ActivityItem({ 
@@ -561,6 +753,22 @@ export default function TreasuryContent() {
         currentValue={treasuryData?.estimatedValueMON || '0'} 
         isLoading={isLoading}
       />
+
+      {/* Treasury Stats Grid */}
+      <TreasuryStatsGrid data={treasuryData} isLoading={isLoading} />
+
+      {/* Analytics Grid - Portfolio Breakdown and Collection Distribution */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <PortfolioBreakdown 
+          monBalance={treasuryData?.monBalanceFormatted || '0'} 
+          nftValue={treasuryData?.estimatedNFTValueMON || '0'} 
+          isLoading={isLoading} 
+        />
+        <CollectionDistribution 
+          nftHoldings={treasuryData?.nftHoldings || []} 
+          isLoading={isLoading} 
+        />
+      </div>
 
       {/* NFT Holdings Section */}
       {treasuryData && treasuryData.nftHoldings.length > 0 && (

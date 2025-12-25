@@ -528,6 +528,221 @@ export function clearActivityCache(): void {
 }
 
 /**
+ * BlockVision Account Transaction types
+ */
+export interface BlockVisionTransaction {
+  hash: string;
+  blockHash: string;
+  blockNumber: number;
+  timestamp: number;
+  from: string;
+  to: string;
+  value: string; // in wei
+  transactionFee: number;
+  gasUsed?: number;
+  status?: string;
+  method?: string;
+  contractAddress?: string;
+}
+
+export interface BlockVisionTransactionResponse {
+  code: number;
+  reason?: string;
+  message: string;
+  result: {
+    data: BlockVisionTransaction[];
+    nextPageCursor: string;
+    total: number;
+  };
+}
+
+// Transaction cache
+const transactionCache = new Map<string, CacheEntry<TreasuryActivity[]>>();
+
+/**
+ * Fetch account transactions from BlockVision API
+ * This returns all transactions for the address (MON transfers, contract calls, etc.)
+ * 
+ * @param address Wallet address to fetch transactions for
+ * @param limit Max results (default 20, max 50)
+ * @returns BlockVision transaction response
+ */
+export async function fetchAccountTransactions(
+  address: string,
+  limit: number = 20
+): Promise<BlockVisionTransactionResponse> {
+  if (!BLOCKVISION_API_KEY) {
+    logger.warn('BlockVision API key not configured');
+    return {
+      code: -1,
+      message: 'BlockVision API key not configured',
+      result: {
+        data: [],
+        nextPageCursor: '',
+        total: 0,
+      },
+    };
+  }
+
+  try {
+    const url = new URL(`${BLOCKVISION_API_BASE}/account/transactions`);
+    url.searchParams.set('address', address);
+    url.searchParams.set('limit', String(Math.min(limit, 50)));
+    // Get newest first (descending order)
+    url.searchParams.set('ascendingOrder', 'false');
+
+    logger.debug('BlockVision: Fetching account transactions', { url: url.toString() });
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-API-KEY': BLOCKVISION_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data: BlockVisionTransactionResponse = await response.json();
+
+    if (data.code !== 0) {
+      logger.warn('BlockVision API returned non-zero code for transactions', { 
+        code: data.code, 
+        reason: data.reason,
+        message: data.message 
+      });
+    }
+
+    logger.info('BlockVision: Successfully fetched account transactions', {
+      address,
+      total: data.result.total,
+      returned: data.result.data?.length || 0,
+    });
+
+    return data;
+  } catch (error) {
+    logger.error('BlockVision: Failed to fetch account transactions', {
+      address,
+      error: String(error),
+    });
+    
+    return {
+      code: -1,
+      message: String(error),
+      result: {
+        data: [],
+        nextPageCursor: '',
+        total: 0,
+      },
+    };
+  }
+}
+
+/**
+ * Format wei to MON with appropriate decimals
+ */
+function formatMON(weiValue: string): string {
+  try {
+    // Convert from wei (18 decimals)
+    const value = parseFloat(weiValue) / 1e18;
+    if (value === 0) return '0 MON';
+    if (value < 0.001) return '<0.001 MON';
+    if (value < 1) return `${value.toFixed(4)} MON`;
+    if (value < 100) return `${value.toFixed(2)} MON`;
+    return `${value.toFixed(0)} MON`;
+  } catch {
+    return '? MON';
+  }
+}
+
+/**
+ * Get treasury activities from account transactions
+ * This is the primary method for getting treasury activity including MON transfers
+ * Results are cached for 1 hour
+ * 
+ * @param address Treasury wallet address
+ * @param limit Max number of activities to fetch
+ * @returns Array of treasury activities
+ */
+export async function getTreasuryTransactionActivities(
+  address: string,
+  limit: number = 20
+): Promise<TreasuryActivity[]> {
+  const cacheKey = `transactions-${address.toLowerCase()}`;
+  
+  // Check cache
+  const cached = transactionCache.get(cacheKey);
+  if (cached && isCacheValid(cached)) {
+    logger.debug('BlockVision: Returning cached transactions', { address });
+    return cached.data;
+  }
+
+  const response = await fetchAccountTransactions(address, limit);
+  
+  if (response.code !== 0 || !response.result.data || !response.result.data.length) {
+    logger.debug('BlockVision: No transactions found', { 
+      address, 
+      code: response.code,
+      dataLength: response.result.data?.length || 0
+    });
+    return [];
+  }
+
+  const addressLower = address.toLowerCase();
+  const activities: TreasuryActivity[] = response.result.data.map((tx) => {
+    const isIncoming = tx.to?.toLowerCase() === addressLower;
+    const hasValue = tx.value && tx.value !== '0';
+    
+    // Determine activity type based on direction and value
+    let type: TreasuryActivity['type'];
+    let description: string;
+    let amount: string;
+    
+    if (hasValue) {
+      type = isIncoming ? 'mon_in' : 'mon_out';
+      amount = formatMON(tx.value);
+      
+      if (tx.method) {
+        description = `${tx.method} ${isIncoming ? 'received' : 'sent'}`;
+      } else {
+        description = isIncoming ? 'Received MON' : 'Sent MON';
+      }
+    } else {
+      // Contract interaction without value transfer
+      type = isIncoming ? 'nft_in' : 'nft_out';
+      amount = 'Contract Call';
+      description = tx.method || (isIncoming ? 'Contract Interaction' : 'Contract Interaction');
+    }
+    
+    return {
+      type,
+      transactionHash: tx.hash,
+      timestamp: tx.timestamp,
+      description,
+      amount,
+    };
+  });
+
+  // Cache the results
+  transactionCache.set(cacheKey, {
+    data: activities,
+    timestamp: Date.now(),
+  });
+
+  return activities;
+}
+
+/**
+ * Clear transaction cache
+ */
+export function clearTransactionCache(): void {
+  transactionCache.clear();
+  logger.info('BlockVision: Transaction cache cleared');
+}
+
+/**
  * BlockVision Collection Floor Price response types
  */
 export interface BlockVisionFloorPriceResponse {

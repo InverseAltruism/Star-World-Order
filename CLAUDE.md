@@ -745,6 +745,46 @@ The floor price API is used to get real-time NFT floor prices for treasury value
 }
 ```
 
+### Account Transactions API
+
+The account transactions API is used to fetch all transactions for a wallet address, including MON transfers.
+
+**Endpoint**: `GET https://api.blockvision.org/v2/monad/account/transactions`
+
+**Parameters**:
+- `address` (required): Wallet address (42 chars with 0x prefix)
+- `limit` (optional): Max results per page (default 20, max 50)
+- `ascendingOrder` (optional): Sort order (default false for newest first)
+- `cursor` (optional): Pagination cursor
+
+**Response**:
+```json
+{
+  "code": 0,
+  "message": "OK",
+  "result": {
+    "data": [
+      {
+        "hash": "0x...",
+        "blockHash": "0x...",
+        "blockNumber": 12345,
+        "timestamp": 1712345678901,
+        "from": "0xSenderAddress",
+        "to": "0xRecipientAddress",
+        "value": "1000000000000000000",
+        "transactionFee": 21000
+      }
+    ],
+    "nextPageCursor": "cursor123...",
+    "total": 47
+  }
+}
+```
+
+**Note**: The `value` field is in wei (1e18 wei = 1 MON). Use this API instead of `/collection/activities` when fetching general account transactions.
+
+**Implementation**: See `lib/blockvision.ts` - `fetchAccountTransactions()` and `getTreasuryTransactionActivities()`
+
 ### Caching Strategy
 
 To minimize API usage:
@@ -793,6 +833,8 @@ See `lib/blockvision.ts` for the full implementation including:
 - `getTreasuryNFTHoldings()` - High-level function for treasury page
 - `fetchCollectionFloorPrice()` - Fetch floor price for a single collection
 - `fetchMultipleFloorPrices()` - Fetch floor prices for multiple collections
+- `fetchAccountTransactions()` - Fetch account transaction history (MON transfers)
+- `getTreasuryTransactionActivities()` - Get formatted transaction activities for treasury display
 - Cache management functions
 
 ### Documentation
@@ -967,7 +1009,7 @@ try {
 | `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks |
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
-| `lib/blockvision.ts` | BlockVision API integration for NFT fetching |
+| `lib/blockvision.ts` | BlockVision API integration for NFT fetching and account transactions |
 | `lib/db.ts` | SQLite database operations and queries |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
@@ -980,7 +1022,10 @@ try {
 | `app/exchange/page.tsx` | OTC marketplace page |
 | `app/staking/page.tsx` | NFT staking page |
 | `app/hangout/page.tsx` | Hangout Hub lobby |
-| `app/treasury/page.tsx` | Treasury page with NFT holdings |
+| `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
+| `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
+| `app/members/page.tsx` | Members page |
+| `app/members/MembersContent.tsx` | Members client component with analytics (Constellation distribution, Holdings distribution, Top holders) | |
 
 ---
 
@@ -1281,7 +1326,7 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 22, 2024
+**Last Updated**: December 25, 2024
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 
