@@ -167,6 +167,53 @@ function initializeDatabase(database: Database.Database): void {
     )
   `);
 
+  // User XP table - stores experience points and level for each user
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS user_xp (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL UNIQUE,
+      total_xp INTEGER NOT NULL DEFAULT 0,
+      level INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Quest definitions table - stores all available quests
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS quests (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      xp_reward INTEGER NOT NULL DEFAULT 100,
+      quest_type TEXT NOT NULL CHECK (quest_type IN ('daily', 'weekly', 'one_time', 'urgent')),
+      category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('social', 'trading', 'governance', 'community', 'general')),
+      requirements_json TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      priority INTEGER NOT NULL DEFAULT 0,
+      icon TEXT DEFAULT '⭐',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME
+    )
+  `);
+
+  // User quest progress table - tracks user completion of quests
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS user_quests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL,
+      quest_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'in_progress', 'completed', 'claimed')),
+      progress INTEGER NOT NULL DEFAULT 0,
+      started_at DATETIME,
+      completed_at DATETIME,
+      claimed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(wallet_address, quest_id),
+      FOREIGN KEY (quest_id) REFERENCES quests(id)
+    )
+  `);
+
   // Create indexes
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at DESC);
@@ -180,7 +227,146 @@ function initializeDatabase(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_star_skrumpey_metadata_constellation ON star_skrumpey_metadata(constellation);
     CREATE INDEX IF NOT EXISTS idx_holder_snapshots_constellation ON holder_snapshots(constellation, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_holder_snapshots_created ON holder_snapshots(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_xp_wallet ON user_xp(wallet_address);
+    CREATE INDEX IF NOT EXISTS idx_user_xp_level ON user_xp(level DESC);
+    CREATE INDEX IF NOT EXISTS idx_quests_type ON quests(quest_type, is_active);
+    CREATE INDEX IF NOT EXISTS idx_quests_priority ON quests(priority DESC, is_active);
+    CREATE INDEX IF NOT EXISTS idx_user_quests_wallet ON user_quests(wallet_address, status);
+    CREATE INDEX IF NOT EXISTS idx_user_quests_quest ON user_quests(quest_id, status);
   `);
+
+  // Insert default quests if none exist
+  insertDefaultQuests(database);
+}
+
+/**
+ * Insert default quests into the database
+ * Called during initialization if no quests exist
+ */
+function insertDefaultQuests(database: Database.Database): void {
+  const countStmt = database.prepare('SELECT COUNT(*) as count FROM quests');
+  const { count } = countStmt.get() as { count: number };
+  
+  if (count > 0) return; // Quests already exist
+
+  const insertStmt = database.prepare(`
+    INSERT INTO quests (id, name, description, xp_reward, quest_type, category, requirements_json, icon, priority)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  // Default quests
+  const defaultQuests = [
+    // Urgent Quests (high priority, time-sensitive)
+    {
+      id: 'urgent_follow_x',
+      name: 'Follow @StrWorldOrder on X',
+      description: 'Follow our official X account to stay updated with the latest news.',
+      xp_reward: 100,
+      quest_type: 'urgent',
+      category: 'social',
+      requirements_json: JSON.stringify({ action: 'follow_x', target: '@StrWorldOrder' }),
+      icon: '𝕏',
+      priority: 100,
+    },
+    {
+      id: 'urgent_join_discord',
+      name: 'Join the Star World Order Discord',
+      description: 'Join our Discord community to connect with other Star holders.',
+      xp_reward: 100,
+      quest_type: 'urgent',
+      category: 'social',
+      requirements_json: JSON.stringify({ action: 'join_discord' }),
+      icon: '💬',
+      priority: 99,
+    },
+    // One-time Quests
+    {
+      id: 'setup_profile',
+      name: 'Complete Your Profile',
+      description: 'Set up your display name and bio to personalize your Star identity.',
+      xp_reward: 50,
+      quest_type: 'one_time',
+      category: 'general',
+      requirements_json: JSON.stringify({ action: 'set_profile', fields: ['displayName', 'bio'] }),
+      icon: '👤',
+      priority: 50,
+    },
+    {
+      id: 'first_star_skrumpey',
+      name: 'Become a Star Bearer',
+      description: 'Own your first Star Skrumpey NFT to unlock DAO access.',
+      xp_reward: 200,
+      quest_type: 'one_time',
+      category: 'general',
+      requirements_json: JSON.stringify({ action: 'own_star_skrumpey', count: 1 }),
+      icon: '⭐',
+      priority: 90,
+    },
+    {
+      id: 'connect_socials',
+      name: 'Link Social Accounts',
+      description: 'Connect your X or Discord account to your Star World Order profile.',
+      xp_reward: 75,
+      quest_type: 'one_time',
+      category: 'social',
+      requirements_json: JSON.stringify({ action: 'connect_social', platforms: ['x', 'discord'] }),
+      icon: '🔗',
+      priority: 40,
+    },
+    {
+      id: 'collect_3_constellations',
+      name: 'Constellation Explorer',
+      description: 'Collect Star Skrumpeys from 3 different constellation types.',
+      xp_reward: 300,
+      quest_type: 'one_time',
+      category: 'trading',
+      requirements_json: JSON.stringify({ action: 'unique_constellations', count: 3 }),
+      icon: '🔭',
+      priority: 30,
+    },
+    // Daily Quests
+    {
+      id: 'daily_visit',
+      name: 'Daily Check-In',
+      description: 'Visit Star World Order to check in and earn XP.',
+      xp_reward: 10,
+      quest_type: 'daily',
+      category: 'general',
+      requirements_json: JSON.stringify({ action: 'daily_visit' }),
+      icon: '📅',
+      priority: 10,
+    },
+    // Weekly Quests
+    {
+      id: 'weekly_hangout',
+      name: 'Community Hangout',
+      description: 'Spend time in the Hangout Hub chatting with fellow Star holders.',
+      xp_reward: 50,
+      quest_type: 'weekly',
+      category: 'community',
+      requirements_json: JSON.stringify({ action: 'hangout_messages', count: 5 }),
+      icon: '🎉',
+      priority: 20,
+    },
+  ];
+
+  const insertMany = database.transaction((quests: typeof defaultQuests) => {
+    for (const quest of quests) {
+      insertStmt.run(
+        quest.id,
+        quest.name,
+        quest.description,
+        quest.xp_reward,
+        quest.quest_type,
+        quest.category,
+        quest.requirements_json,
+        quest.icon,
+        quest.priority
+      );
+    }
+  });
+
+  insertMany(defaultQuests);
 }
 
 // ============================================================
@@ -857,6 +1043,444 @@ export function cleanupOldHolderSnapshots(): void {
     DELETE FROM holder_snapshots 
     WHERE datetime(created_at) < datetime('now', '-7 days')
   `).run();
+}
+
+// ============================================================
+// QUESTS AND XP SYSTEM
+// ============================================================
+
+export interface Quest {
+  id: string;
+  name: string;
+  description: string;
+  xp_reward: number;
+  quest_type: 'daily' | 'weekly' | 'one_time' | 'urgent';
+  category: 'social' | 'trading' | 'governance' | 'community' | 'general';
+  requirements_json: string | null;
+  is_active: number;
+  priority: number;
+  icon: string;
+  created_at: string;
+  expires_at: string | null;
+}
+
+export interface UserQuest {
+  id: number;
+  wallet_address: string;
+  quest_id: string;
+  status: 'available' | 'in_progress' | 'completed' | 'claimed';
+  progress: number;
+  started_at: string | null;
+  completed_at: string | null;
+  claimed_at: string | null;
+  created_at: string;
+}
+
+export interface UserXP {
+  id: number;
+  wallet_address: string;
+  total_xp: number;
+  level: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Calculate level from XP using a curve formula
+ * Level = floor(sqrt(XP / 100)) + 1
+ * This means:
+ * - Level 1: 0-99 XP
+ * - Level 2: 100-399 XP
+ * - Level 3: 400-899 XP
+ * - Level 4: 900-1599 XP
+ * - etc.
+ */
+export function calculateLevelFromXP(xp: number): number {
+  return Math.floor(Math.sqrt(xp / 100)) + 1;
+}
+
+/**
+ * Calculate XP required for a given level
+ */
+export function getXPRequiredForLevel(level: number): number {
+  if (level <= 1) return 0;
+  return Math.pow(level - 1, 2) * 100;
+}
+
+/**
+ * Calculate XP progress within current level
+ * Returns { current, required, percentage }
+ */
+export function getXPProgress(totalXP: number): {
+  currentLevelXP: number;
+  requiredForNextLevel: number;
+  percentage: number;
+  level: number;
+} {
+  const level = calculateLevelFromXP(totalXP);
+  const xpForCurrentLevel = getXPRequiredForLevel(level);
+  const xpForNextLevel = getXPRequiredForLevel(level + 1);
+  const currentLevelXP = totalXP - xpForCurrentLevel;
+  const requiredForNextLevel = xpForNextLevel - xpForCurrentLevel;
+  const percentage = Math.min(100, (currentLevelXP / requiredForNextLevel) * 100);
+
+  return {
+    currentLevelXP,
+    requiredForNextLevel,
+    percentage,
+    level,
+  };
+}
+
+/**
+ * Get all active quests
+ */
+export function getActiveQuests(): Quest[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM quests 
+    WHERE is_active = 1
+    AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+    ORDER BY priority DESC, created_at ASC
+  `);
+  return stmt.all() as Quest[];
+}
+
+/**
+ * Get quests by type
+ */
+export function getQuestsByType(questType: Quest['quest_type']): Quest[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM quests 
+    WHERE quest_type = ? AND is_active = 1
+    AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+    ORDER BY priority DESC, created_at ASC
+  `);
+  return stmt.all(questType) as Quest[];
+}
+
+/**
+ * Get urgent quests (highest priority, time-sensitive)
+ */
+export function getUrgentQuests(): Quest[] {
+  return getQuestsByType('urgent');
+}
+
+/**
+ * Get a single quest by ID
+ */
+export function getQuestById(questId: string): Quest | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM quests WHERE id = ?');
+  return stmt.get(questId) as Quest | null;
+}
+
+/**
+ * Get user's XP data (creates record if not exists)
+ */
+export function getUserXP(walletAddress: string): UserXP {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  let userXP = db.prepare('SELECT * FROM user_xp WHERE wallet_address = ?')
+    .get(normalizedAddress) as UserXP | undefined;
+  
+  if (!userXP) {
+    // Create new user XP record
+    db.prepare(`
+      INSERT INTO user_xp (wallet_address, total_xp, level)
+      VALUES (?, 0, 1)
+    `).run(normalizedAddress);
+    
+    userXP = db.prepare('SELECT * FROM user_xp WHERE wallet_address = ?')
+      .get(normalizedAddress) as UserXP;
+  }
+  
+  return userXP;
+}
+
+/**
+ * Add XP to a user (automatically updates level)
+ */
+export function addUserXP(walletAddress: string, xpAmount: number): UserXP {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Ensure user exists
+  const userXP = getUserXP(normalizedAddress);
+  
+  // Calculate new XP and level
+  const newTotalXP = userXP.total_xp + xpAmount;
+  const newLevel = calculateLevelFromXP(newTotalXP);
+  
+  // Update user XP
+  db.prepare(`
+    UPDATE user_xp 
+    SET total_xp = ?, level = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE wallet_address = ?
+  `).run(newTotalXP, newLevel, normalizedAddress);
+  
+  return getUserXP(normalizedAddress);
+}
+
+/**
+ * Get user's quest progress
+ */
+export function getUserQuestProgress(walletAddress: string, questId: string): UserQuest | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM user_quests 
+    WHERE wallet_address = ? AND quest_id = ?
+  `);
+  return stmt.get(walletAddress.toLowerCase(), questId) as UserQuest | null;
+}
+
+/**
+ * Get all quest progress for a user
+ */
+export function getUserQuests(walletAddress: string): UserQuest[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM user_quests 
+    WHERE wallet_address = ?
+    ORDER BY created_at DESC
+  `);
+  return stmt.all(walletAddress.toLowerCase()) as UserQuest[];
+}
+
+/**
+ * Start a quest for a user
+ */
+export function startQuest(walletAddress: string, questId: string): UserQuest {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Check if already exists
+  const existing = getUserQuestProgress(normalizedAddress, questId);
+  if (existing) {
+    return existing;
+  }
+  
+  // Create new quest progress
+  db.prepare(`
+    INSERT INTO user_quests (wallet_address, quest_id, status, started_at)
+    VALUES (?, ?, 'in_progress', CURRENT_TIMESTAMP)
+  `).run(normalizedAddress, questId);
+  
+  return getUserQuestProgress(normalizedAddress, questId)!;
+}
+
+/**
+ * Update quest progress
+ */
+export function updateQuestProgress(
+  walletAddress: string, 
+  questId: string, 
+  progress: number
+): UserQuest | null {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  db.prepare(`
+    UPDATE user_quests 
+    SET progress = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE wallet_address = ? AND quest_id = ?
+  `).run(progress, normalizedAddress, questId);
+  
+  return getUserQuestProgress(normalizedAddress, questId);
+}
+
+/**
+ * Complete a quest for a user
+ */
+export function completeQuest(walletAddress: string, questId: string): UserQuest | null {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Check if quest exists and is not already completed
+  const existing = getUserQuestProgress(normalizedAddress, questId);
+  
+  if (existing && (existing.status === 'completed' || existing.status === 'claimed')) {
+    return existing; // Already completed
+  }
+  
+  if (!existing) {
+    // Create and complete in one step
+    db.prepare(`
+      INSERT INTO user_quests (wallet_address, quest_id, status, progress, started_at, completed_at)
+      VALUES (?, ?, 'completed', 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).run(normalizedAddress, questId);
+  } else {
+    // Update existing record
+    db.prepare(`
+      UPDATE user_quests 
+      SET status = 'completed', progress = 100, completed_at = CURRENT_TIMESTAMP
+      WHERE wallet_address = ? AND quest_id = ?
+    `).run(normalizedAddress, questId);
+  }
+  
+  return getUserQuestProgress(normalizedAddress, questId);
+}
+
+/**
+ * Claim quest rewards (XP)
+ * Returns the XP amount claimed, or 0 if already claimed
+ */
+export function claimQuestReward(walletAddress: string, questId: string): {
+  success: boolean;
+  xpClaimed: number;
+  error?: string;
+} {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Get quest details
+  const quest = getQuestById(questId);
+  if (!quest) {
+    return { success: false, xpClaimed: 0, error: 'Quest not found' };
+  }
+  
+  // Get user progress
+  const progress = getUserQuestProgress(normalizedAddress, questId);
+  if (!progress) {
+    return { success: false, xpClaimed: 0, error: 'Quest not started' };
+  }
+  
+  if (progress.status !== 'completed') {
+    return { success: false, xpClaimed: 0, error: 'Quest not completed' };
+  }
+  
+  // Mark as claimed
+  db.prepare(`
+    UPDATE user_quests 
+    SET status = 'claimed', claimed_at = CURRENT_TIMESTAMP
+    WHERE wallet_address = ? AND quest_id = ?
+  `).run(normalizedAddress, questId);
+  
+  // Add XP to user
+  addUserXP(normalizedAddress, quest.xp_reward);
+  
+  return { success: true, xpClaimed: quest.xp_reward };
+}
+
+/**
+ * Get quests with user progress for display
+ */
+export function getQuestsWithProgress(walletAddress: string): Array<Quest & { 
+  userProgress: UserQuest | null;
+  canClaim: boolean;
+}> {
+  const quests = getActiveQuests();
+  const userQuests = getUserQuests(walletAddress);
+  
+  const userQuestMap = new Map<string, UserQuest>();
+  for (const uq of userQuests) {
+    userQuestMap.set(uq.quest_id, uq);
+  }
+  
+  return quests.map(quest => {
+    const userProgress = userQuestMap.get(quest.id) || null;
+    const canClaim = userProgress?.status === 'completed';
+    return { ...quest, userProgress, canClaim };
+  });
+}
+
+/**
+ * Get XP leaderboard
+ */
+export function getXPLeaderboard(limit: number = 10): Array<UserXP & { rank: number }> {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT *, ROW_NUMBER() OVER (ORDER BY total_xp DESC) as rank
+    FROM user_xp
+    ORDER BY total_xp DESC
+    LIMIT ?
+  `);
+  return stmt.all(limit) as Array<UserXP & { rank: number }>;
+}
+
+// ============================================================
+// DATABASE BACKUP
+// ============================================================
+
+/**
+ * Create a backup of the database file
+ * @param backupDir Directory to store backups (defaults to data/backups)
+ * @returns Path to the backup file
+ */
+export function createDatabaseBackup(backupDir?: string): string {
+  const db = getDatabase();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDirectory = backupDir || path.join(process.cwd(), 'data', 'backups');
+  
+  // Ensure backup directory exists
+  if (!fs.existsSync(backupDirectory)) {
+    fs.mkdirSync(backupDirectory, { recursive: true });
+  }
+  
+  const backupPath = path.join(backupDirectory, `swo-backup-${timestamp}.db`);
+  
+  // Use SQLite's backup API
+  db.backup(backupPath);
+  
+  return backupPath;
+}
+
+/**
+ * List all database backups
+ */
+export function listDatabaseBackups(backupDir?: string): Array<{
+  filename: string;
+  path: string;
+  timestamp: Date;
+  size: number;
+}> {
+  const backupDirectory = backupDir || path.join(process.cwd(), 'data', 'backups');
+  
+  if (!fs.existsSync(backupDirectory)) {
+    return [];
+  }
+  
+  const files = fs.readdirSync(backupDirectory)
+    .filter(f => f.startsWith('swo-backup-') && f.endsWith('.db'))
+    .map(filename => {
+      const filePath = path.join(backupDirectory, filename);
+      const stats = fs.statSync(filePath);
+      // Extract timestamp from filename
+      const timestampMatch = filename.match(/swo-backup-(.+)\.db/);
+      const timestamp = timestampMatch 
+        ? new Date(timestampMatch[1].replace(/-/g, (m, i) => i < 10 ? '-' : i < 16 ? ':' : '.'))
+        : stats.mtime;
+      
+      return {
+        filename,
+        path: filePath,
+        timestamp,
+        size: stats.size,
+      };
+    })
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  
+  return files;
+}
+
+/**
+ * Clean up old backups, keeping only the most recent N backups
+ */
+export function cleanupOldBackups(keepCount: number = 7, backupDir?: string): number {
+  const backups = listDatabaseBackups(backupDir);
+  let deletedCount = 0;
+  
+  if (backups.length > keepCount) {
+    const toDelete = backups.slice(keepCount);
+    for (const backup of toDelete) {
+      fs.unlinkSync(backup.path);
+      deletedCount++;
+    }
+  }
+  
+  return deletedCount;
 }
 
 // ============================================================
