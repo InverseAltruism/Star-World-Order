@@ -71,7 +71,12 @@ export async function GET(request: NextRequest) {
  * - xpAmount: amount of XP to add (required)
  * - reason: reason for XP addition (optional, for logging)
  * 
- * Note: This endpoint should be protected in production
+ * SECURITY NOTE: This endpoint is for admin/internal use only.
+ * XP should normally be awarded through quest completion (/api/quests).
+ * In production, this endpoint should be:
+ * 1. Protected with authentication (admin only)
+ * 2. Rate limited to prevent abuse
+ * 3. Potentially restricted to server-side calls only
  */
 export async function POST(request: NextRequest) {
   try {
@@ -88,6 +93,14 @@ export async function POST(request: NextRequest) {
     if (xpAmount <= 0) {
       return NextResponse.json(
         { success: false, error: 'xpAmount must be positive' },
+        { status: 400 }
+      );
+    }
+    
+    // Limit max XP per request to prevent abuse
+    if (xpAmount > 1000) {
+      return NextResponse.json(
+        { success: false, error: 'xpAmount exceeds maximum allowed (1000)' },
         { status: 400 }
       );
     }

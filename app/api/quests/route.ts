@@ -101,6 +101,12 @@ export async function GET(request: NextRequest) {
  * - walletAddress: user's wallet address (required)
  * - questId: quest to interact with (required)
  * - action: 'start' | 'complete' | 'claim' (required)
+ * 
+ * SECURITY NOTE: In a production environment with proper authentication,
+ * the walletAddress should be verified against the authenticated session.
+ * Currently, this relies on client-side wallet connection verification.
+ * The claimQuestReward function validates that the quest was actually
+ * completed by this wallet before awarding XP.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -110,6 +116,14 @@ export async function POST(request: NextRequest) {
     if (!walletAddress || !questId || !action) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields: walletAddress, questId, action' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate wallet address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
         { status: 400 }
       );
     }

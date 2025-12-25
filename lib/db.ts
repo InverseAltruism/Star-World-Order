@@ -1421,8 +1421,12 @@ export function createDatabaseBackup(backupDir?: string): string {
   
   const backupPath = path.join(backupDirectory, `swo-backup-${timestamp}.db`);
   
-  // Use SQLite's backup API
-  db.backup(backupPath);
+  try {
+    // Use SQLite's backup API
+    db.backup(backupPath);
+  } catch (error) {
+    throw new Error(`Database backup failed: ${String(error)}`);
+  }
   
   return backupPath;
 }
@@ -1447,11 +1451,22 @@ export function listDatabaseBackups(backupDir?: string): Array<{
     .map(filename => {
       const filePath = path.join(backupDirectory, filename);
       const stats = fs.statSync(filePath);
-      // Extract timestamp from filename
+      
+      // Extract timestamp from filename: swo-backup-YYYY-MM-DDTHH-MM-SS-sssZ.db
+      // The ISO timestamp uses '-' instead of ':' and '.' for filesystem safety
       const timestampMatch = filename.match(/swo-backup-(.+)\.db/);
-      const timestamp = timestampMatch 
-        ? new Date(timestampMatch[1].replace(/-/g, (m, i) => i < 10 ? '-' : i < 16 ? ':' : '.'))
-        : stats.mtime;
+      let timestamp: Date;
+      
+      if (timestampMatch) {
+        // Reconstruct ISO format: replace position-based separators
+        // Format: 2024-12-26T12-00-00-000Z -> 2024-12-26T12:00:00.000Z
+        const ts = timestampMatch[1];
+        // Only need to fix the time portion (after T): positions 11,14 should be : and position 17 should be .
+        const isoString = ts.substring(0, 13) + ':' + ts.substring(14, 16) + ':' + ts.substring(17, 19) + '.' + ts.substring(20);
+        timestamp = new Date(isoString);
+      } else {
+        timestamp = stats.mtime;
+      }
       
       return {
         filename,

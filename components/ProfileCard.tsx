@@ -919,13 +919,13 @@ export default function ProfileCard() {
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-base sm:text-lg">
-              LVL {userXP?.level || calculateLevel(starSkrumpeys.length)}
+              LVL {userXP?.level ?? calculateLevel(starSkrumpeys.length)}
             </p>
             <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
           </div>
           <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
             <p className="text-[#44ff88] text-[10px] sm:text-xs font-bold leading-tight">
-              {userXP?.total_xp || 0} XP
+              {userXP?.total_xp ?? 0} XP
             </p>
             <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">EXPERIENCE</p>
           </div>
