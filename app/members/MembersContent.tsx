@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
+import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS, CONSTELLATION_RARITY } from '@/lib/starSkrumpey';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 
 // Max supply constant
@@ -1007,46 +1007,33 @@ function HolderChart() {
 }
 
 /**
- * Constellation Distribution Donut Chart
- * Shows the distribution of Star Skrumpeys by constellation type
+ * Constellation Distribution Component
+ * Shows the correct distribution of all 333 Star Skrumpeys by constellation type
+ * Uses static CONSTELLATION_RARITY data from lib/starSkrumpey.ts which is the authoritative source
  */
 function ConstellationDistribution({ 
-  members, 
   isLoading 
 }: { 
-  members: MemberData[]; 
   isLoading: boolean; 
 }) {
-  // Calculate constellation counts from member data
-  const constellationCounts = React.useMemo(() => {
-    const counts: Record<string, number> = {};
-    members.forEach(member => {
-      member.starVariants.forEach(variant => {
-        counts[variant] = (counts[variant] || 0) + 1;
-      });
-    });
-    return counts;
-  }, [members]);
-  
-  // Sort by count and prepare data
+  // Use the correct static constellation rarity data from CONSTELLATION_RARITY
+  // See lib/starSkrumpey.ts for the authoritative source of these counts
   const sortedData = React.useMemo(() => {
-    return Object.entries(constellationCounts)
+    return Object.entries(CONSTELLATION_RARITY)
       .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count }));
-  }, [constellationCounts]);
+  }, []);
   
-  const total = sortedData.reduce((sum, d) => sum + d.count, 0);
+  const total = 333; // Total Star Skrumpeys
   
-  // Chart dimensions - LARGER
-  const size = 220;
+  // Chart dimensions
+  const size = 240;
   const center = size / 2;
-  const radius = 80;
-  const innerRadius = 50;
+  const radius = 90;
+  const innerRadius = 55;
   
   // Generate donut segments
   const segments = React.useMemo(() => {
-    if (total === 0) return [];
-    
     let currentAngle = -90; // Start from top
     return sortedData.map(({ name, count }) => {
       const angle = (count / total) * 360;
@@ -1087,24 +1074,23 @@ function ConstellationDistribution({
         color: getVariantColor(name),
       };
     });
-  }, [sortedData, total]);
+  }, [sortedData]);
 
   return (
     <div className="pixel-card p-5 animate-slide-in-up">
-      <h3 className="text-[#9966ff] text-sm sm:text-base tracking-wider mb-5">
+      <h3 className="text-[#9966ff] text-sm sm:text-base tracking-wider mb-4">
         🌌 CONSTELLATION DISTRIBUTION
       </h3>
+      <p className="text-gray-500 text-[10px] mb-4">
+        Distribution of all 333 Star Skrumpeys across constellation types
+      </p>
       
       {isLoading ? (
-        <div className="flex items-center justify-center h-56">
+        <div className="flex items-center justify-center h-64">
           <div className="text-3xl animate-spin">⭐</div>
         </div>
-      ) : total === 0 ? (
-        <div className="flex items-center justify-center h-56">
-          <p className="text-gray-500 text-sm">No data available</p>
-        </div>
       ) : (
-        <div className="flex flex-col lg:flex-row items-center gap-6">
+        <div className="flex flex-col lg:flex-row items-center gap-8">
           {/* Donut Chart */}
           <div className="relative flex-shrink-0">
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -1114,12 +1100,12 @@ function ConstellationDistribution({
                   d={seg.path}
                   fill={seg.color}
                   stroke="#0a0a15"
-                  strokeWidth="1"
+                  strokeWidth="2"
                   style={{ 
-                    filter: `drop-shadow(0 0 4px ${seg.color}50)`,
+                    filter: `drop-shadow(0 0 6px ${seg.color}40)`,
                     cursor: 'pointer',
                   }}
-                  className="transition-all duration-200 hover:opacity-80"
+                  className="transition-all duration-200 hover:opacity-80 hover:scale-[1.02] origin-center"
                 >
                   <title>{seg.name}: {seg.count} ({seg.percentage}%)</title>
                 </path>
@@ -1127,10 +1113,10 @@ function ConstellationDistribution({
               {/* Center text */}
               <text
                 x={center}
-                y={center - 8}
+                y={center - 10}
                 textAnchor="middle"
                 fill="#ffd700"
-                fontSize="24"
+                fontSize="28"
                 fontWeight="bold"
               >
                 {total}
@@ -1140,25 +1126,50 @@ function ConstellationDistribution({
                 y={center + 12}
                 textAnchor="middle"
                 fill="#666"
-                fontSize="10"
+                fontSize="11"
               >
-                TOTAL
+                TOTAL STARS
               </text>
             </svg>
           </div>
           
-          {/* Legend - LARGER TEXT */}
-          <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
-            {sortedData.slice(0, 10).map(({ name, count }) => (
-              <div key={name} className="flex items-center gap-2 text-sm">
-                <div 
-                  className="w-4 h-4 rounded-sm flex-shrink-0"
-                  style={{ backgroundColor: getVariantColor(name) }}
-                />
-                <span className="text-gray-300 capitalize truncate font-medium">{name}</span>
-                <span className="text-gray-500 ml-auto">{count}</span>
-              </div>
-            ))}
+          {/* Legend - Improved Grid Layout */}
+          <div className="flex-1 w-full">
+            <div className="grid grid-cols-2 gap-3">
+              {sortedData.map(({ name, count }) => {
+                const percentage = ((count / total) * 100).toFixed(1);
+                const isRare = isRareVariant(name);
+                return (
+                  <div 
+                    key={name} 
+                    className={`flex items-center gap-3 p-2 rounded-lg bg-[#0a0a15]/50 border border-[#2a2a4e]/50 ${isRare ? 'ring-1 ring-[#ffd700]/30' : ''}`}
+                  >
+                    <div 
+                      className="w-5 h-5 rounded flex-shrink-0"
+                      style={{ 
+                        backgroundColor: getVariantColor(name),
+                        boxShadow: `0 0 8px ${getVariantColor(name)}40`,
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span 
+                          className="text-xs font-bold capitalize"
+                          style={getVariantTextStyle(name)}
+                        >
+                          {name}
+                        </span>
+                        {isRare && <span className="text-[8px]">✨</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-sm font-bold">{count}</span>
+                        <span className="text-gray-500 text-[10px]">({percentage}%)</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -1261,6 +1272,7 @@ function HolderTierBreakdown({
 /**
  * Top Holders Mini Leaderboard
  * Shows top 5 holders with their NFT counts
+ * Clicking on a holder opens their wallet on Monadvision
  */
 function TopHoldersMini({ 
   members, 
@@ -1271,11 +1283,19 @@ function TopHoldersMini({
 }) {
   const topHolders = members.slice(0, 5);
   
+  // Generate Monadvision URL for a wallet address
+  const getMonadvisionUrl = (address: string) => {
+    return `https://monadvision.com/address/${address}`;
+  };
+  
   return (
     <div className="pixel-card p-4 animate-slide-in-up">
-      <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-4">
+      <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-2">
         👑 TOP HOLDERS
       </h3>
+      <p className="text-gray-500 text-[9px] mb-4">
+        Click to view on Monadvision
+      </p>
       
       {isLoading ? (
         <div className="flex items-center justify-center h-32">
@@ -1286,18 +1306,24 @@ function TopHoldersMini({
           {topHolders.map((member, index) => {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
             return (
-              <div 
+              <a 
                 key={member.address}
-                className="flex items-center gap-2 py-1 px-2 rounded bg-[#0a0a15]/50 hover:bg-[#1a1a2e] transition-colors"
+                href={getMonadvisionUrl(member.address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 py-2 px-3 rounded bg-[#0a0a15]/50 hover:bg-[#1a1a2e] hover:border-[#ffd700]/30 border border-transparent transition-all cursor-pointer group"
               >
                 <span className="text-sm">{medal}</span>
-                <span className="text-gray-300 text-[10px] truncate flex-1">
+                <span className="text-gray-300 text-[10px] truncate flex-1 group-hover:text-[#ffd700] transition-colors">
                   {member.displayName || truncateAddress(member.address)}
                 </span>
                 <span className="text-[#ffd700] text-xs font-bold">
                   {member.count}⭐
                 </span>
-              </div>
+                <span className="text-gray-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                  ↗
+                </span>
+              </a>
             );
           })}
         </div>
@@ -1355,7 +1381,7 @@ function AnalyticsSection({
         
         {/* Constellation Distribution - Full Width */}
         <div className="mb-4">
-          <ConstellationDistribution members={members} isLoading={isLoading} />
+          <ConstellationDistribution isLoading={isLoading} />
         </div>
         
         {/* Holder Tier Breakdown - Full Width */}

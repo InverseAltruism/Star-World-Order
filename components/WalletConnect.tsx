@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+import Link from 'next/link';
 import { monad } from '@/lib/wagmi';
+import NotificationBell from './NotificationBell';
 
 // Wallet metadata for display
 interface WalletInfo {
@@ -129,9 +131,11 @@ export default function WalletConnect() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [detectedWallet, setDetectedWallet] = useState<WalletInfo | null>(null);
   const [showNoWalletMessage, setShowNoWalletMessage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   // Detect installed wallet
   useEffect(() => {
@@ -161,9 +165,13 @@ export default function WalletConnect() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node | null;
+      if (target && dropdownRef.current && !dropdownRef.current.contains(target)) {
         setShowDropdown(false);
         setShowNoWalletMessage(false);
+      }
+      if (target && accountMenuRef.current && !accountMenuRef.current.contains(target)) {
+        setShowAccountMenu(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -201,7 +209,10 @@ export default function WalletConnect() {
 
   if (isConnected && address) {
     return (
-      <div className="flex flex-col sm:flex-row items-center gap-2 animate-slide-in-right">
+      <div className="flex items-center gap-2 animate-slide-in-right">
+        {/* Notification Bell - shown when connected */}
+        <NotificationBell />
+        
         {isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
@@ -210,17 +221,47 @@ export default function WalletConnect() {
             ⚠️ SWITCH TO MONAD
           </button>
         ) : (
-          <div className="text-[10px] sm:text-xs text-[#44ff88] bg-[#1a1a2e] px-2 sm:px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover-lift whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
-            {address.slice(0, 6)}...{address.slice(-4)}
+          <div className="relative" ref={accountMenuRef}>
+            {/* Wallet Address Button - Opens Dropdown */}
+            <button
+              onClick={() => setShowAccountMenu(!showAccountMenu)}
+              className="text-[10px] sm:text-xs text-[#44ff88] bg-[#1a1a2e] px-2 sm:px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover:border-[#44ff88] hover-lift whitespace-nowrap cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
+              {address.slice(0, 6)}...{address.slice(-4)}
+              <span className={`text-[8px] transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+
+            {/* Account Dropdown Menu */}
+            {showAccountMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-[#1a1a2e] border-2 border-[#2a2a4e] rounded-lg shadow-xl z-50 overflow-hidden animate-slide-in-up">
+                <div className="p-2 border-b border-[#2a2a4e]">
+                  <p className="text-[10px] text-gray-500 tracking-wider text-center">CONNECTED</p>
+                </div>
+                <div className="p-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setShowAccountMenu(false)}
+                    className="flex items-center gap-3 px-3 py-2 text-xs text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ffd700] rounded smooth-transition"
+                  >
+                    <span className="text-base">👤</span>
+                    <span>Profile</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      disconnect();
+                      setShowAccountMenu(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2 text-xs text-gray-300 hover:bg-[#2a2a4e] hover:text-[#ff4466] rounded smooth-transition"
+                  >
+                    <span className="text-base">🚪</span>
+                    <span>Disconnect</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
-        <button
-          onClick={() => disconnect()}
-          className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-2 !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift whitespace-nowrap"
-        >
-          EXIT
-        </button>
       </div>
     );
   }
