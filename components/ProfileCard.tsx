@@ -1743,8 +1743,15 @@ function NotificationSettingsCard({
     
     try {
       // Map settings key to API format
-      const apiKey = key.replace('_notifications', 'Notifications').replace(/_/g, '');
-      const capitalizedKey = apiKey.charAt(0).toLowerCase() + apiKey.slice(1);
+      // e.g., 'quest_notifications' -> 'questNotifications'
+      const keyMap: Record<string, string> = {
+        quest_notifications: 'questNotifications',
+        achievement_notifications: 'achievementNotifications',
+        system_notifications: 'systemNotifications',
+        social_notifications: 'socialNotifications',
+        governance_notifications: 'governanceNotifications',
+      };
+      const apiKey = keyMap[key] || key;
       
       await fetch('/api/notifications', {
         method: 'POST',
@@ -1753,7 +1760,7 @@ function NotificationSettingsCard({
           walletAddress,
           action: 'updateSettings',
           settings: {
-            [`${capitalizedKey}`]: newValue,
+            [apiKey]: newValue,
           },
         }),
       });

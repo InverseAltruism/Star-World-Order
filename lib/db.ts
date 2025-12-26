@@ -1729,6 +1729,20 @@ export function deleteNotification(notificationId: number): void {
 
 /**
  * Delete old notifications (older than 30 days)
+ * 
+ * This function permanently deletes notifications from the database.
+ * It should be called periodically (e.g., daily via cron job) to prevent
+ * database bloat and maintain performance.
+ * 
+ * Usage:
+ * - Can be called from a cron endpoint or scheduled job
+ * - Recommended frequency: daily cleanup during low-traffic hours
+ * - Data retention: 30 days (can be adjusted by modifying the SQL query)
+ * 
+ * @example
+ * // In a cron endpoint:
+ * cleanupOldNotifications();
+ * cleanupOldData(); // Also cleanup other stale data
  */
 export function cleanupOldNotifications(): void {
   const db = getDatabase();

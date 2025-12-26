@@ -34,7 +34,7 @@ export default function Features() {
     {
       icon: 'skr_str_mon2',
       title: 'THE ORDER',
-      description: 'EXCLUSIVE REALM FOR THOSE CHOSEN BY THE STARS',
+      description: 'EXCLUSIVE ACCESS FOR STAR HOLDERS',
       color: '#ffd700',
       pixelIcon: '◆',
     },
@@ -48,21 +48,21 @@ export default function Features() {
     {
       icon: '🗳️',
       title: 'COSMIC VOTING',
-      description: 'SHAPE DESTINY WITH YOUR FELLOW STAR BEARERS',
+      description: 'SHAPE THE FUTURE WITH OTHER STAR HOLDERS',
       color: '#ff00ff',
       pixelIcon: '✦',
     },
     {
       icon: '💎',
       title: 'TREASURY',
-      description: 'COLLECTIVE COSMIC RESOURCES',
+      description: 'COLLECTIVE SWO RESOURCES',
       color: '#44ff88',
       pixelIcon: '◈',
     },
     {
       icon: '💬',
       title: 'STAR COUNCIL',
-      description: 'COMMUNE WITH FELLOW CHOSEN ONES',
+      description: 'HANG WITH THE GANG',
       color: '#ff7b00',
       pixelIcon: '●',
     },
@@ -137,7 +137,7 @@ export default function Features() {
               ═══════════════
             </div>
             <h2 className="text-lg md:text-xl text-[#ffd700] mb-4 tracking-wider" style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.5), 2px 2px 0 rgba(0,0,0,0.8)' }}>
-              ✦ 𓆩 THE ORDER AWAITS 𓆪 ✦
+              ✦ 𓆩 SWO FEATURES 𓆪 ✦
             </h2>
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-[#9966ff] tracking-widest">
               ═══════════════

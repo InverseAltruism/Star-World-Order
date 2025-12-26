@@ -21,7 +21,7 @@ interface AccessGateProps {
 export default function AccessGate({ 
   children, 
   title = 'ACCESS RESTRICTED',
-  message = 'Only Star Skrumpey holders may enter this realm.'
+  message = 'Only Star Skrumpey holders may enter.'
 }: AccessGateProps) {
   const { hasAccess, isLoading, isConnected } = useDAOAccess();
   const { isDemoMode } = useDemoMode();
