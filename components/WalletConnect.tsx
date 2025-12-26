@@ -210,9 +210,6 @@ export default function WalletConnect() {
   if (isConnected && address) {
     return (
       <div className="flex items-center gap-2 animate-slide-in-right">
-        {/* Notification Bell - shown when connected */}
-        <NotificationBell />
-        
         {isWrongNetwork ? (
           <button
             onClick={handleSwitchNetwork}
@@ -262,6 +259,9 @@ export default function WalletConnect() {
             )}
           </div>
         )}
+        
+        {/* Notification Bell - positioned to the right of wallet */}
+        <NotificationBell />
       </div>
     );
   }

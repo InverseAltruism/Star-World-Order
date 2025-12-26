@@ -11,8 +11,12 @@
  * - 300 Compute Units per second
  * - Retrieve Account's NFTs: 300 CU per call
  * 
+ * Error Codes:
+ * - -32605: Rate Limit - Too many requests were made
+ * - -32607: Call Limit - Monthly limit reached, need to upgrade plan
+ * 
  * Caching Strategy:
- * - Cache NFT data for 5 minutes to minimize API calls
+ * - Cache NFT data for 1 hour to minimize API calls
  * - Use database for persistent historical data
  */
 
@@ -26,6 +30,10 @@ const BLOCKVISION_API_KEY = process.env.BLOCKVISION_API || '';
 
 // Cache TTL in milliseconds (1 hour to minimize API calls)
 const CACHE_TTL = 60 * 60 * 1000;
+
+// Rate limit retry configuration
+const RATE_LIMIT_RETRY_DELAY_MS = 2000; // Start with 2 second delay
+const RATE_LIMIT_MAX_RETRIES = 3;
 
 // In-memory cache for NFT data
 interface CacheEntry<T> {
@@ -92,8 +100,25 @@ function isCacheValid<T>(entry: CacheEntry<T> | undefined): boolean {
 }
 
 /**
+ * Check if an error is a rate limit error
+ */
+function isRateLimitError(code: number): boolean {
+  // -32605: Rate Limit - Too many requests
+  // -32607: Call Limit - Monthly limit reached
+  return code === -32605 || code === -32607;
+}
+
+/**
+ * Sleep for a specified number of milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Fetch NFTs for an account from BlockVision API
  * Includes all collections (verified and unverified)
+ * Includes retry logic for rate limiting
  * 
  * @param address Wallet address to fetch NFTs for
  * @param pageIndex Page number (default 1, 5 collections per page)
@@ -113,10 +138,10 @@ export async function fetchAccountNFTs(
   }
 
   if (!BLOCKVISION_API_KEY) {
-    logger.warn('BlockVision API key not configured');
+    logger.error('BlockVision API key not configured - BLOCKVISION_API env var is missing or empty');
     return {
       code: -1,
-      message: 'BlockVision API key not configured',
+      message: 'BlockVision API key not configured. Please set BLOCKVISION_API environment variable.',
       result: {
         data: [],
         total: 0,
@@ -128,75 +153,111 @@ export async function fetchAccountNFTs(
     };
   }
 
-  try {
-    const url = new URL(`${BLOCKVISION_API_BASE}/account/nfts`);
-    url.searchParams.set('address', address);
-    url.searchParams.set('pageIndex', String(pageIndex));
-    // BlockVision API params: when both verified=false and unknown=false,
-    // the API returns ALL NFTs (both verified and unverified collections)
-    // Setting verified=true would return ONLY verified collections
-    // Setting unknown=true would return ONLY unverified/unknown collections
-    url.searchParams.set('verified', 'false');
-    url.searchParams.set('unknown', 'false');
+  // Retry loop for rate limiting
+  for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+    try {
+      const url = new URL(`${BLOCKVISION_API_BASE}/account/nfts`);
+      url.searchParams.set('address', address);
+      url.searchParams.set('pageIndex', String(pageIndex));
+      // BlockVision API params: when both verified=false and unknown=false,
+      // the API returns ALL NFTs (both verified and unverified collections)
+      // Setting verified=true would return ONLY verified collections
+      // Setting unknown=true would return ONLY unverified/unknown collections
+      url.searchParams.set('verified', 'false');
+      url.searchParams.set('unknown', 'false');
 
-    logger.debug('BlockVision: Fetching NFTs', { url: url.toString() });
+      logger.debug('BlockVision: Fetching NFTs', { url: url.toString(), attempt });
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'X-API-KEY': BLOCKVISION_API_KEY,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data: BlockVisionNFTResponse = await response.json();
-
-    if (data.code !== 0) {
-      logger.warn('BlockVision API returned non-zero code', { 
-        code: data.code, 
-        reason: data.reason,
-        message: data.message 
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-API-KEY': BLOCKVISION_API_KEY,
+        },
       });
+
+      if (!response.ok) {
+        throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data: BlockVisionNFTResponse = await response.json();
+
+      // Check for rate limit errors and retry
+      if (isRateLimitError(data.code)) {
+        const delayMs = RATE_LIMIT_RETRY_DELAY_MS * Math.pow(2, attempt);
+        logger.warn('BlockVision: Rate limited, retrying...', { 
+          code: data.code, 
+          attempt: attempt + 1,
+          maxRetries: RATE_LIMIT_MAX_RETRIES,
+          delayMs,
+        });
+        
+        if (attempt < RATE_LIMIT_MAX_RETRIES) {
+          await sleep(delayMs);
+          continue;
+        }
+        
+        // Max retries reached, return the rate limit error
+        logger.error('BlockVision: Rate limit exceeded after max retries', { 
+          code: data.code,
+          message: data.message,
+        });
+        return data;
+      }
+
+      if (data.code !== 0) {
+        logger.warn('BlockVision API returned non-zero code', { 
+          code: data.code, 
+          reason: data.reason,
+          message: data.message 
+        });
+      }
+
+      // Cache the successful response (only if code is 0)
+      if (data.code === 0) {
+        nftCache.set(cacheKey, {
+          data,
+          timestamp: Date.now(),
+        });
+      }
+
+      logger.info('BlockVision: Successfully fetched NFTs', {
+        address,
+        pageIndex,
+        total: data.result.total,
+        collections: data.result.collectionTotal,
+      });
+
+      return data;
+    } catch (error) {
+      logger.error('BlockVision: Failed to fetch NFTs', {
+        address,
+        attempt,
+        error: String(error),
+      });
+      
+      // Only retry on network errors if we haven't exhausted retries
+      if (attempt < RATE_LIMIT_MAX_RETRIES) {
+        const delayMs = RATE_LIMIT_RETRY_DELAY_MS * Math.pow(2, attempt);
+        await sleep(delayMs);
+        continue;
+      }
     }
-
-    // Cache the successful response
-    nftCache.set(cacheKey, {
-      data,
-      timestamp: Date.now(),
-    });
-
-    logger.info('BlockVision: Successfully fetched NFTs', {
-      address,
-      pageIndex,
-      total: data.result.total,
-      collections: data.result.collectionTotal,
-    });
-
-    return data;
-  } catch (error) {
-    logger.error('BlockVision: Failed to fetch NFTs', {
-      address,
-      error: String(error),
-    });
-    
-    // Return empty result on error
-    return {
-      code: -1,
-      message: String(error),
-      result: {
-        data: [],
-        total: 0,
-        nextPageIndex: pageIndex,
-        collectionTotal: 0,
-        verifiedTotal: 0,
-        unknownTotal: 0,
-      },
-    };
   }
+  
+  // Return empty result after all retries exhausted
+  return {
+    code: -1,
+    message: 'Failed to fetch NFTs after multiple retries',
+    result: {
+      data: [],
+      total: 0,
+      nextPageIndex: pageIndex,
+      collectionTotal: 0,
+      verifiedTotal: 0,
+      unknownTotal: 0,
+    },
+  };
 }
 
 /**
@@ -881,4 +942,80 @@ export async function fetchMultipleFloorPrices(
 export function clearFloorPriceCache(): void {
   floorPriceCache.clear();
   logger.info('BlockVision: Floor price cache cleared');
+}
+
+/**
+ * Clear ALL BlockVision caches (NFT, activities, transactions, floor prices)
+ * Useful for forcing a fresh fetch of all data
+ */
+export function clearAllBlockVisionCaches(): {
+  nftCacheCleared: number;
+  activityCacheCleared: number;
+  transactionCacheCleared: number;
+  floorPriceCacheCleared: number;
+} {
+  const nftCacheSize = nftCache.size;
+  const activityCacheSize = activityCache.size;
+  const transactionCacheSize = transactionCache.size;
+  const floorPriceCacheSize = floorPriceCache.size;
+  
+  nftCache.clear();
+  activityCache.clear();
+  transactionCache.clear();
+  floorPriceCache.clear();
+  
+  logger.info('BlockVision: All caches cleared', {
+    nftCacheCleared: nftCacheSize,
+    activityCacheCleared: activityCacheSize,
+    transactionCacheCleared: transactionCacheSize,
+    floorPriceCacheCleared: floorPriceCacheSize,
+  });
+  
+  return {
+    nftCacheCleared: nftCacheSize,
+    activityCacheCleared: activityCacheSize,
+    transactionCacheCleared: transactionCacheSize,
+    floorPriceCacheCleared: floorPriceCacheSize,
+  };
+}
+
+/**
+ * Get all cache statistics for monitoring
+ */
+export function getAllCacheStats(): {
+  nftCache: { entries: number; oldestEntry: number | null };
+  activityCache: { entries: number; oldestEntry: number | null };
+  transactionCache: { entries: number; oldestEntry: number | null };
+  floorPriceCache: { entries: number; oldestEntry: number | null };
+  totalEntries: number;
+} {
+  const getCacheOldestEntry = <T>(cache: Map<string, CacheEntry<T>>): number | null => {
+    let oldest: number | null = null;
+    for (const entry of cache.values()) {
+      if (oldest === null || entry.timestamp < oldest) {
+        oldest = entry.timestamp;
+      }
+    }
+    return oldest;
+  };
+  
+  return {
+    nftCache: {
+      entries: nftCache.size,
+      oldestEntry: getCacheOldestEntry(nftCache),
+    },
+    activityCache: {
+      entries: activityCache.size,
+      oldestEntry: getCacheOldestEntry(activityCache),
+    },
+    transactionCache: {
+      entries: transactionCache.size,
+      oldestEntry: getCacheOldestEntry(transactionCache),
+    },
+    floorPriceCache: {
+      entries: floorPriceCache.size,
+      oldestEntry: getCacheOldestEntry(floorPriceCache),
+    },
+    totalEntries: nftCache.size + activityCache.size + transactionCache.size + floorPriceCache.size,
+  };
 }

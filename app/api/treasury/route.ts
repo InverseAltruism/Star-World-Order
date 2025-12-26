@@ -30,6 +30,14 @@ let treasuryCache: {
 } | null = null;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+/**
+ * Clear the treasury cache (exported for admin use)
+ */
+export function clearTreasuryCache(): void {
+  treasuryCache = null;
+  logger.info('Treasury: Cache cleared');
+}
+
 // Known Skrumpeys contract address (fallback if env var not set)
 const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
 
