@@ -49,6 +49,50 @@ interface SkrumpeyDisplayData {
 }
 
 /**
+ * Quest and XP types for profile display
+ */
+interface UserQuestProgress {
+  id: number;
+  wallet_address: string;
+  quest_id: string;
+  status: 'available' | 'in_progress' | 'completed' | 'claimed';
+  progress: number;
+  started_at: string | null;
+  completed_at: string | null;
+  claimed_at: string | null;
+  created_at: string;
+}
+
+interface QuestWithProgress {
+  id: string;
+  name: string;
+  description: string;
+  xp_reward: number;
+  quest_type: 'daily' | 'weekly' | 'one_time' | 'urgent';
+  category: 'social' | 'trading' | 'governance' | 'community' | 'general';
+  requirements_json: string | null;
+  is_active: number;
+  priority: number;
+  icon: string;
+  created_at: string;
+  expires_at: string | null;
+  userProgress: UserQuestProgress | null;
+  canClaim: boolean;
+}
+
+interface UserXPData {
+  id: number;
+  wallet_address: string;
+  total_xp: number;
+  level: number;
+  currentLevelXP: number;
+  requiredForNextLevel: number;
+  percentage: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Achievement/Badge definitions
  * All constellations for "Gotta Catch 'Em All" badge (excluding Prime which is 1 of 1)
  */
@@ -430,11 +474,101 @@ export default function ProfileCard() {
   const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
   const [isEditingBadges, setIsEditingBadges] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+  
+  // Tab navigation state
+  const [activeSection, setActiveSection] = useState<'settings' | 'achievements' | 'quests'>('settings');
+  
+  // Quest system state
+  const [quests, setQuests] = useState<QuestWithProgress[]>([]);
+  const [userXP, setUserXP] = useState<UserXPData | null>(null);
+  const [isLoadingQuests, setIsLoadingQuests] = useState(false);
+  const [questClaimingId, setQuestClaimingId] = useState<string | null>(null);
 
   // Close modal handler
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
   }, []);
+  
+  // Fetch quests and user XP
+  const fetchQuestsAndXP = useCallback(async () => {
+    if (!address) return;
+    
+    setIsLoadingQuests(true);
+    try {
+      const response = await fetch(`/api/quests?address=${address}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setQuests(data.quests || []);
+        setUserXP(data.userXP || null);
+      }
+    } catch (error) {
+      console.error('Failed to fetch quests:', error);
+    } finally {
+      setIsLoadingQuests(false);
+    }
+  }, [address]);
+  
+  // Load quests when section changes to quests
+  useEffect(() => {
+    if (activeSection === 'quests' && address) {
+      fetchQuestsAndXP();
+    }
+  }, [activeSection, address, fetchQuestsAndXP]);
+  
+  // Claim quest reward handler
+  const handleClaimQuest = async (questId: string) => {
+    if (!address || questClaimingId) return;
+    
+    setQuestClaimingId(questId);
+    try {
+      const response = await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          questId,
+          action: 'claim',
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Update user XP
+        setUserXP(data.userXP);
+        // Refresh quests to update status
+        await fetchQuestsAndXP();
+      }
+    } catch (error) {
+      console.error('Failed to claim quest:', error);
+    } finally {
+      setQuestClaimingId(null);
+    }
+  };
+  
+  // Complete quest handler (for quests that can be auto-completed)
+  const handleCompleteQuest = async (questId: string) => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/quests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          questId,
+          action: 'complete',
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        await fetchQuestsAndXP();
+      }
+    } catch (error) {
+      console.error('Failed to complete quest:', error);
+    }
+  };
 
   // Fetch metadata for owned tokens to get real constellation data
   useEffect(() => {
@@ -785,36 +919,83 @@ export default function ProfileCard() {
           </div>
           <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
             <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-base sm:text-lg">
-              LVL {calculateLevel(starSkrumpeys.length)}
+              LVL {userXP?.level ?? calculateLevel(starSkrumpeys.length)}
             </p>
             <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
           </div>
           <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-[10px] sm:text-xs font-bold leading-tight">
-              {getLevelTitle(starSkrumpeys.length)}
+            <p className="text-[#44ff88] text-[10px] sm:text-xs font-bold leading-tight">
+              {userXP?.total_xp ?? 0} XP
             </p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">TITLE</p>
+            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">EXPERIENCE</p>
           </div>
         </div>
+        
+        {/* XP Progress Bar */}
+        {userXP && (
+          <div className="mt-3 pt-3 border-t-2 border-[#2a2a4e]">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-gray-400 text-[9px]">XP PROGRESS</span>
+              <span className="text-[#44ff88] text-[9px]">
+                {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
+              </span>
+            </div>
+            <div className="h-2 bg-[#1a1a2e] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${userXP.percentage}%`,
+                  boxShadow: '0 0 10px #44ff8880',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Profile Edit Box */}
-      <div className="pixel-card p-6 animate-slide-in-up">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[#9966ff] text-sm tracking-wider">
-            PROFILE SETTINGS
-          </h3>
-          {!isEditingProfile && (
+      {/* Section Tab Navigation */}
+      <div className="flex gap-2 justify-center flex-wrap animate-slide-in-up">
+        {(['settings', 'achievements', 'quests'] as const).map((section) => {
+          const isActive = activeSection === section;
+          const icons = { settings: '⚙️', achievements: '🏆', quests: '📜' };
+          const labels = { settings: 'Settings', achievements: 'Achievements', quests: 'Quests' };
+          
+          return (
             <button
-              onClick={() => setIsEditingProfile(true)}
-              disabled={isDemoMode}
-              className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isDemoMode ? 'Editing disabled in Demo Mode' : 'Edit profile'}
+              key={section}
+              onClick={() => setActiveSection(section)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold border-2 smooth-transition ${
+                isActive
+                  ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+                  : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50 hover:text-[#ffd700]/70'
+              }`}
             >
-              {isDemoMode ? '🔒 EDIT' : 'EDIT'}
+              {icons[section]} {labels[section]}
             </button>
-          )}
-        </div>
+          );
+        })}
+      </div>
+
+      {/* Settings Section */}
+      {activeSection === 'settings' && (
+        <>
+          {/* Profile Edit Box */}
+          <div className="pixel-card p-6 animate-slide-in-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[#9966ff] text-sm tracking-wider">
+                PROFILE SETTINGS
+              </h3>
+              {!isEditingProfile && (
+                <button
+                  onClick={() => setIsEditingProfile(true)}
+                  disabled={isDemoMode}
+                  className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={isDemoMode ? 'Editing disabled in Demo Mode' : 'Edit profile'}
+                >
+                  {isDemoMode ? '🔒 EDIT' : 'EDIT'}
+                </button>
+              )}
+            </div>
         
         {isEditingProfile ? (
           <div className="space-y-4">
@@ -894,7 +1075,7 @@ export default function ProfileCard() {
         )}
       </div>
 
-      {/* Star Trait Legend */}
+      {/* Star Trait Legend - Settings Section */}
       {starSkrumpeys.length > 0 && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
           <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
@@ -925,7 +1106,7 @@ export default function ProfileCard() {
         </div>
       )}
 
-      {/* Demo Data Notice */}
+      {/* Demo Data Notice - Settings Section */}
       {showDemoData && (
         <div className="text-center">
           <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
@@ -934,7 +1115,7 @@ export default function ProfileCard() {
         </div>
       )}
 
-      {/* NFT Collection */}
+      {/* NFT Collection - Settings Section */}
       <div className="pixel-card p-4 sm:p-6 animate-slide-in-up animate-delay-5">
         <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
           YOUR COLLECTION
@@ -990,9 +1171,14 @@ export default function ProfileCard() {
           </div>
         )}
       </div>
+        </>
+      )}
 
-      {/* Achievement Badges */}
-      <div className="pixel-card p-6 animate-slide-in-up">
+      {/* Achievements Section */}
+      {activeSection === 'achievements' && (
+        <>
+          {/* Achievement Badges */}
+          <div className="pixel-card p-6 animate-slide-in-up">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[#9966ff] text-sm tracking-wider">
             ACHIEVEMENTS ({unlockedAchievements.length}/{ACHIEVEMENTS.length})
@@ -1211,6 +1397,157 @@ export default function ProfileCard() {
           </div>
         </div>
       )}
+        </>
+      )}
+
+      {/* Quests Section */}
+      {activeSection === 'quests' && (
+        <>
+          {/* XP Overview Card */}
+          <div className="pixel-card p-4 animate-slide-in-up">
+            <h3 className="text-[#44ff88] text-sm tracking-wider mb-4 text-center">
+              ⚡ EXPERIENCE POINTS
+            </h3>
+            
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
+                <p className="text-[#44ff88] text-xl font-bold">{userXP?.total_xp || 0}</p>
+                <p className="text-gray-500 text-[10px]">TOTAL XP</p>
+              </div>
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
+                <p className="text-[#ffd700] text-xl font-bold">{userXP?.level || 1}</p>
+                <p className="text-gray-500 text-[10px]">LEVEL</p>
+              </div>
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
+                <p className="text-[#9966ff] text-xl font-bold">
+                  {quests.filter(q => q.userProgress?.status === 'claimed').length}
+                </p>
+                <p className="text-gray-500 text-[10px]">COMPLETED</p>
+              </div>
+            </div>
+            
+            {/* Level Progress */}
+            {userXP && (
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-gray-400 text-[9px]">Level {userXP.level} → {userXP.level + 1}</span>
+                  <span className="text-[#44ff88] text-[9px]">
+                    {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
+                  </span>
+                </div>
+                <div className="h-3 bg-[#1a1a2e] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${userXP.percentage}%`,
+                      boxShadow: '0 0 10px #44ff8880',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quest Lists by Type */}
+          {isLoadingQuests ? (
+            <div className="pixel-card p-8 text-center animate-slide-in-up">
+              <div className="text-4xl mb-4 animate-spin">⭐</div>
+              <p className="text-[#ffd700] text-xs">Loading quests...</p>
+            </div>
+          ) : (
+            <>
+              {/* Urgent Quests */}
+              {quests.filter(q => q.quest_type === 'urgent').length > 0 && (
+                <div className="pixel-card p-4 animate-slide-in-up border-2 border-[#ff6ec7]">
+                  <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
+                    🚨 URGENT QUESTS
+                  </h3>
+                  <div className="space-y-2">
+                    {quests.filter(q => q.quest_type === 'urgent').map(quest => (
+                      <QuestItem 
+                        key={quest.id} 
+                        quest={quest} 
+                        onClaim={handleClaimQuest}
+                        onComplete={handleCompleteQuest}
+                        isClaiming={questClaimingId === quest.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* One-Time Quests */}
+              {quests.filter(q => q.quest_type === 'one_time').length > 0 && (
+                <div className="pixel-card p-4 animate-slide-in-up">
+                  <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 flex items-center gap-2">
+                    ⭐ ONE-TIME QUESTS
+                  </h3>
+                  <div className="space-y-2">
+                    {quests.filter(q => q.quest_type === 'one_time').map(quest => (
+                      <QuestItem 
+                        key={quest.id} 
+                        quest={quest} 
+                        onClaim={handleClaimQuest}
+                        onComplete={handleCompleteQuest}
+                        isClaiming={questClaimingId === quest.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Daily Quests */}
+              {quests.filter(q => q.quest_type === 'daily').length > 0 && (
+                <div className="pixel-card p-4 animate-slide-in-up">
+                  <h3 className="text-[#00ffff] text-sm tracking-wider mb-3 flex items-center gap-2">
+                    📅 DAILY QUESTS
+                  </h3>
+                  <div className="space-y-2">
+                    {quests.filter(q => q.quest_type === 'daily').map(quest => (
+                      <QuestItem 
+                        key={quest.id} 
+                        quest={quest} 
+                        onClaim={handleClaimQuest}
+                        onComplete={handleCompleteQuest}
+                        isClaiming={questClaimingId === quest.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Weekly Quests */}
+              {quests.filter(q => q.quest_type === 'weekly').length > 0 && (
+                <div className="pixel-card p-4 animate-slide-in-up">
+                  <h3 className="text-[#9966ff] text-sm tracking-wider mb-3 flex items-center gap-2">
+                    📆 WEEKLY QUESTS
+                  </h3>
+                  <div className="space-y-2">
+                    {quests.filter(q => q.quest_type === 'weekly').map(quest => (
+                      <QuestItem 
+                        key={quest.id} 
+                        quest={quest} 
+                        onClaim={handleClaimQuest}
+                        onComplete={handleCompleteQuest}
+                        isClaiming={questClaimingId === quest.id}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Quests State */}
+              {quests.length === 0 && (
+                <div className="pixel-card p-8 text-center animate-slide-in-up">
+                  <div className="text-4xl mb-4">📜</div>
+                  <p className="text-gray-400 text-sm">No quests available</p>
+                  <p className="text-gray-500 text-xs mt-2">Check back later for new quests!</p>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
 
       {/* Skrumpey Inspect Modal */}
       {selectedSkrumpey && (
@@ -1221,6 +1558,118 @@ export default function ProfileCard() {
           getVariantTextStyle={getVariantTextStyle}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Quest Item Component
+ * Displays a single quest with progress and claim button
+ */
+function QuestItem({ 
+  quest, 
+  onClaim, 
+  onComplete,
+  isClaiming 
+}: { 
+  quest: QuestWithProgress; 
+  onClaim: (questId: string) => void;
+  onComplete: (questId: string) => void;
+  isClaiming: boolean;
+}) {
+  const status = quest.userProgress?.status || 'available';
+  const isClaimed = status === 'claimed';
+  const canClaim = quest.canClaim;
+  
+  // Get status color and text
+  const getStatusDisplay = () => {
+    switch (status) {
+      case 'claimed':
+        return { text: 'CLAIMED', color: '#44ff88', icon: '✓' };
+      case 'completed':
+        return { text: 'READY TO CLAIM', color: '#ffd700', icon: '🎁' };
+      case 'in_progress':
+        return { text: 'IN PROGRESS', color: '#00ffff', icon: '⏳' };
+      default:
+        return { text: 'AVAILABLE', color: '#9966ff', icon: '○' };
+    }
+  };
+  
+  const statusDisplay = getStatusDisplay();
+  
+  return (
+    <div 
+      className={`p-3 rounded-lg border-2 transition-all ${
+        isClaimed 
+          ? 'bg-[#44ff88]/10 border-[#44ff88]/30 opacity-60' 
+          : canClaim
+          ? 'bg-[#ffd700]/10 border-[#ffd700] animate-glow-pulse'
+          : 'bg-[#0a0a15] border-[#2a2a4e] hover:border-[#3a3a5e]'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {/* Quest Icon */}
+        <div 
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+          style={{ 
+            backgroundColor: `${statusDisplay.color}20`,
+            border: `2px solid ${statusDisplay.color}50`,
+          }}
+        >
+          {quest.icon}
+        </div>
+        
+        {/* Quest Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-gray-400' : 'text-white'}`}>
+              {quest.name}
+            </h4>
+            <span 
+              className="text-[9px] px-2 py-0.5 rounded border flex-shrink-0"
+              style={{ 
+                color: statusDisplay.color,
+                borderColor: statusDisplay.color,
+                backgroundColor: `${statusDisplay.color}10`,
+              }}
+            >
+              {statusDisplay.icon} {statusDisplay.text}
+            </span>
+          </div>
+          
+          <p className="text-gray-400 text-[10px] mb-2 leading-relaxed">
+            {quest.description}
+          </p>
+          
+          <div className="flex items-center justify-between">
+            {/* XP Reward */}
+            <span className="text-[#44ff88] text-[10px] font-bold">
+              +{quest.xp_reward} XP
+            </span>
+            
+            {/* Action Button */}
+            {canClaim && !isClaimed && (
+              <button
+                onClick={() => onClaim(quest.id)}
+                disabled={isClaiming}
+                className="pixel-btn pixel-btn-gold text-[9px] !px-3 !py-1 disabled:opacity-50"
+              >
+                {isClaiming ? '...' : 'CLAIM'}
+              </button>
+            )}
+            
+            {/* Mark Complete Button (for manual completion) */}
+            {status === 'available' && !canClaim && (
+              <button
+                onClick={() => onComplete(quest.id)}
+                className="pixel-btn text-[9px] !px-3 !py-1"
+              >
+                MARK DONE
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -617,6 +617,125 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 
 ---
 
+### user_xp
+
+Stores experience points and level for each user.
+
+```sql
+CREATE TABLE IF NOT EXISTS user_xp (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL UNIQUE,
+  total_xp INTEGER NOT NULL DEFAULT 0,
+  level INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_xp_wallet ON user_xp(wallet_address);
+CREATE INDEX idx_user_xp_level ON user_xp(level DESC);
+```
+
+**Level Calculation Formula**:
+```typescript
+// Level = floor(sqrt(XP / 100)) + 1
+// Level 1: 0-99 XP
+// Level 2: 100-399 XP
+// Level 3: 400-899 XP
+// Level 4: 900-1599 XP
+// etc.
+function calculateLevelFromXP(xp: number): number {
+  return Math.floor(Math.sqrt(xp / 100)) + 1;
+}
+```
+
+### quests
+
+Quest definitions for the quest system.
+
+```sql
+CREATE TABLE IF NOT EXISTS quests (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  xp_reward INTEGER NOT NULL DEFAULT 100,
+  quest_type TEXT NOT NULL CHECK (quest_type IN ('daily', 'weekly', 'one_time', 'urgent')),
+  category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('social', 'trading', 'governance', 'community', 'general')),
+  requirements_json TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  priority INTEGER NOT NULL DEFAULT 0,
+  icon TEXT DEFAULT '⭐',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME
+);
+
+CREATE INDEX idx_quests_type ON quests(quest_type, is_active);
+CREATE INDEX idx_quests_priority ON quests(priority DESC, is_active);
+```
+
+**Quest Types**:
+| Type | Description |
+|------|-------------|
+| `urgent` | High-priority quests shown prominently (e.g., "Follow on X") |
+| `one_time` | Quests that can only be completed once per user |
+| `daily` | Quests that reset daily |
+| `weekly` | Quests that reset weekly |
+
+### user_quests
+
+User quest progress tracking.
+
+```sql
+CREATE TABLE IF NOT EXISTS user_quests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL,
+  quest_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'in_progress', 'completed', 'claimed')),
+  progress INTEGER NOT NULL DEFAULT 0,
+  started_at DATETIME,
+  completed_at DATETIME,
+  claimed_at DATETIME,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(wallet_address, quest_id),
+  FOREIGN KEY (quest_id) REFERENCES quests(id)
+);
+
+CREATE INDEX idx_user_quests_wallet ON user_quests(wallet_address, status);
+CREATE INDEX idx_user_quests_quest ON user_quests(quest_id, status);
+```
+
+**Quest Status Flow**:
+```
+available → in_progress → completed → claimed
+```
+
+**Available Database Functions** (from `lib/db.ts`):
+
+```typescript
+// XP Functions
+getUserXP(walletAddress: string): UserXP
+addUserXP(walletAddress: string, xpAmount: number): UserXP
+getXPProgress(totalXP: number): { currentLevelXP, requiredForNextLevel, percentage, level }
+getXPLeaderboard(limit: number): Array<UserXP & { rank: number }>
+
+// Quest Functions
+getActiveQuests(): Quest[]
+getQuestsByType(questType: string): Quest[]
+getUrgentQuests(): Quest[]
+getQuestById(questId: string): Quest | null
+getUserQuests(walletAddress: string): UserQuest[]
+getQuestsWithProgress(walletAddress: string): Array<Quest & { userProgress, canClaim }>
+startQuest(walletAddress: string, questId: string): UserQuest
+completeQuest(walletAddress: string, questId: string): UserQuest | null
+claimQuestReward(walletAddress: string, questId: string): { success, xpClaimed, error? }
+
+// Database Backup
+createDatabaseBackup(backupDir?: string): string
+listDatabaseBackups(backupDir?: string): Array<{ filename, path, timestamp, size }>
+cleanupOldBackups(keepCount?: number, backupDir?: string): number
+```
+
+---
+
 ## API Endpoints
 
 | Endpoint | Method | Description |
@@ -643,6 +762,10 @@ npm run db:fetch-metadata  # Fetches all 333 Star Skrumpeys from IPFS and stores
 | `/api/members` | GET | Get all Star Skrumpey holders with profiles (5-min cache) |
 | `/api/holder-stats` | GET | Get holder count history for charts |
 | `/api/cron/refresh-holders` | GET | Cron endpoint to refresh holder data (requires `CRON_SECRET`) |
+| `/api/quests` | GET | Get quests with optional user progress (params: `address`, `type`, `urgentOnly`) |
+| `/api/quests` | POST | Start, complete, or claim a quest (body: `walletAddress`, `questId`, `action`) |
+| `/api/user-xp` | GET | Get user's XP and level (params: `address`, `leaderboard`, `limit`) |
+| `/api/user-xp` | POST | Add XP to user (body: `walletAddress`, `xpAmount`, `reason`) |
 
 **Base URL**: `https://starworldorder.com` (production)
 
@@ -928,6 +1051,62 @@ CRON_SECRET=your-secure-random-secret-here
 
 ---
 
+## Database Backup
+
+The database includes built-in backup functionality to protect user data.
+
+### Backup Functions
+
+```typescript
+import { createDatabaseBackup, listDatabaseBackups, cleanupOldBackups } from '@/lib/db';
+
+// Create a backup
+const backupPath = createDatabaseBackup();
+// Returns: /path/to/data/backups/swo-backup-2024-12-26T12-00-00-000Z.db
+
+// List all backups
+const backups = listDatabaseBackups();
+// Returns: [{ filename, path, timestamp, size }, ...]
+
+// Clean up old backups (keep last 7)
+const deletedCount = cleanupOldBackups(7);
+```
+
+### Backup Location
+
+Backups are stored in `data/backups/` directory with timestamped filenames:
+```
+data/backups/
+├── swo-backup-2024-12-26T00-00-00-000Z.db
+├── swo-backup-2024-12-25T00-00-00-000Z.db
+└── ...
+```
+
+### Recommended Backup Strategy
+
+1. **Daily Backups**: Create a daily backup via cron job
+2. **Retention**: Keep 7 days of backups
+3. **Off-site**: Copy backups to external storage periodically
+
+**Cron Job Example**:
+```bash
+# Daily backup at midnight
+0 0 * * * node -e "require('./lib/db').createDatabaseBackup(); require('./lib/db').cleanupOldBackups(7);"
+```
+
+### What Gets Backed Up
+
+The SQLite backup includes all user data:
+- User profiles and display names
+- Social connections (Discord, X)
+- Chat history
+- Quest progress and completions
+- User XP and levels
+- Voice session history
+- Holder snapshots for charts
+
+---
+
 ## RPC Optimization Strategy
 
 Star World Order uses a multi-tier resilience strategy for RPC calls to avoid rate limiting and ensure reliability:
@@ -1010,13 +1189,14 @@ try {
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
 | `lib/blockvision.ts` | BlockVision API integration for NFT fetching and account transactions |
-| `lib/db.ts` | SQLite database operations and queries |
+| `lib/db.ts` | SQLite database operations, quests, XP, and backup functions |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
 | `lib/contexts/DAOAccessContext.tsx` | DAO access state management |
 | `components/AccessGate.tsx` | Access control wrapper component |
 | `components/DemoMode.tsx` | Demo mode modal and UI |
 | `components/Header.tsx` | Navigation header with feature locks |
+| `components/ProfileCard.tsx` | Profile with tabbed sections (Settings, Achievements, Quests) |
 | `app/page.tsx` | Home page with N64 loading screen |
 | `app/dao/page.tsx` | DAO governance page |
 | `app/exchange/page.tsx` | OTC marketplace page |
@@ -1024,8 +1204,10 @@ try {
 | `app/hangout/page.tsx` | Hangout Hub lobby |
 | `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
 | `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
-| `app/members/page.tsx` | Members page |
-| `app/members/MembersContent.tsx` | Members client component with analytics (Constellation distribution, Holdings distribution, Top holders) | |
+| `app/members/page.tsx` | Members page with urgent quests for authenticated users |
+| `app/members/MembersContent.tsx` | Members client component with analytics (Constellation distribution, Holdings distribution, Top holders) |
+| `app/api/quests/route.ts` | Quest system API endpoints |
+| `app/api/user-xp/route.ts` | User XP API endpoints |
 
 ---
 
@@ -1326,7 +1508,7 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 25, 2024
+**Last Updated**: December 26, 2024
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 
