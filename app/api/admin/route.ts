@@ -4,13 +4,15 @@
  * Provides administrative functions for site management.
  * Access restricted to admin wallet address with signature verification.
  * 
- * Admin wallet: 0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582
+ * Admin wallet: Configurable via NEXT_PUBLIC_ADMIN_WALLET env var
+ * Default: 0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyMessage } from 'viem';
 import { clearAllBlockVisionCaches, getAllCacheStats } from '@/lib/blockvision';
 import { clearTreasuryCache } from '@/app/api/treasury/route';
+import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
 import { 
   getNotifications, 
   createNotification, 
@@ -21,10 +23,12 @@ import {
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Admin wallet address (case-insensitive comparison)
-const ADMIN_WALLET = '0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582'.toLowerCase();
+// Admin wallet address from config (case-insensitive comparison already applied)
+const ADMIN_WALLET = ADMIN_WALLET_ADDRESS;
 
-// Nonce storage for replay attack prevention (in production, use Redis or DB)
+// Nonce storage for replay attack prevention
+// TODO: In production with multiple instances, use Redis or database for nonce storage
+// Current implementation is sufficient for single-instance deployments
 const usedNonces = new Set<string>();
 const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 

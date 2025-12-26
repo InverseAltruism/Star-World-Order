@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
+import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
 
-// Admin wallet address
-const ADMIN_WALLET = '0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582'.toLowerCase();
+// Admin wallet address from config
+const ADMIN_WALLET = ADMIN_WALLET_ADDRESS;
 
 interface CacheStats {
   nftCache: { entries: number; oldestEntry: number | null };

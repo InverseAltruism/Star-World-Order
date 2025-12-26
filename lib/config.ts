@@ -8,6 +8,17 @@
 export type EnvMode = 'dev' | 'prod';
 
 /**
+ * Admin wallet address for the admin dashboard
+ * Can be overridden via NEXT_PUBLIC_ADMIN_WALLET environment variable
+ * 
+ * Default: 0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582
+ */
+export const ADMIN_WALLET_ADDRESS = (
+  process.env.NEXT_PUBLIC_ADMIN_WALLET || 
+  '0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582'
+).toLowerCase();
+
+/**
  * Determines if the app is in production mode
  * 
  * Detection priority:
