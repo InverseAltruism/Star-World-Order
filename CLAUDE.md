@@ -42,7 +42,7 @@ Star World Order supports two environment modes for feature control:
 
 ```bash
 NEXT_PUBLIC_ENV_MODE=dev   # All features unlocked
-NEXT_PUBLIC_ENV_MODE=prod  # DAO, Exchange locked with 🔒
+NEXT_PUBLIC_ENV_MODE=prod  # DAO, Exchange hidden from navigation
 ```
 
 ### Mode Detection
@@ -57,7 +57,7 @@ NEXT_PUBLIC_ENV_MODE=prod  # DAO, Exchange locked with 🔒
 | Mode | Features | Use Case |
 |------|----------|----------|
 | `dev` | All features unlocked | Local development, testing |
-| `prod` | DAO, Exchange, Enter the Order locked with 🔒 | Production deployment |
+| `prod` | DAO, Exchange hidden from navigation | Production deployment |
 
 **Implementation**: See `lib/config.ts`
 
@@ -708,6 +708,56 @@ CREATE INDEX idx_user_quests_quest ON user_quests(quest_id, status);
 available → in_progress → completed → claimed
 ```
 
+### notifications
+
+Stores user notifications for quests, achievements, system alerts, etc.
+
+```sql
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('quest', 'achievement', 'system', 'social', 'governance')),
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  link TEXT,
+  icon TEXT DEFAULT '🔔',
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_notifications_wallet ON notifications(wallet_address, is_read, created_at DESC);
+CREATE INDEX idx_notifications_type ON notifications(type, created_at DESC);
+```
+
+**Notification Types**:
+| Type | Description |
+|------|-------------|
+| `quest` | New quest available, quest rewards |
+| `achievement` | Badge unlocked |
+| `system` | Important announcements |
+| `social` | Community activity |
+| `governance` | DAO proposals and votes |
+
+### notification_settings
+
+User preferences for notification types.
+
+```sql
+CREATE TABLE IF NOT EXISTS notification_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_address TEXT NOT NULL UNIQUE,
+  quest_notifications INTEGER NOT NULL DEFAULT 1,
+  achievement_notifications INTEGER NOT NULL DEFAULT 1,
+  system_notifications INTEGER NOT NULL DEFAULT 1,
+  social_notifications INTEGER NOT NULL DEFAULT 1,
+  governance_notifications INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_notification_settings_wallet ON notification_settings(wallet_address);
+```
+
 **Available Database Functions** (from `lib/db.ts`):
 
 ```typescript
@@ -727,6 +777,17 @@ getQuestsWithProgress(walletAddress: string): Array<Quest & { userProgress, canC
 startQuest(walletAddress: string, questId: string): UserQuest
 completeQuest(walletAddress: string, questId: string): UserQuest | null
 claimQuestReward(walletAddress: string, questId: string): { success, xpClaimed, error? }
+
+// Notification Functions
+createNotification(walletAddress: string, data: { type, title, message, link?, icon? }): Notification
+getNotifications(walletAddress: string, options?: { unreadOnly?, limit?, offset? }): Notification[]
+getUnreadNotificationCount(walletAddress: string): number
+markNotificationRead(notificationId: number): void
+markAllNotificationsRead(walletAddress: string): void
+deleteNotification(notificationId: number): void
+cleanupOldNotifications(): void
+getNotificationSettings(walletAddress: string): NotificationSettings | null
+updateNotificationSettings(walletAddress: string, settings: { ...NotificationFlags }): NotificationSettings
 
 // Database Backup
 createDatabaseBackup(backupDir?: string): string
@@ -766,6 +827,10 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/quests` | POST | Start, complete, or claim a quest (body: `walletAddress`, `questId`, `action`) |
 | `/api/user-xp` | GET | Get user's XP and level (params: `address`, `leaderboard`, `limit`) |
 | `/api/user-xp` | POST | Add XP to user (body: `walletAddress`, `xpAmount`, `reason`) |
+| `/api/notifications` | GET | Get notifications for user (params: `address`, `unreadOnly`, `limit`, `settings`) |
+| `/api/notifications` | POST | Create notification or update settings (body: `walletAddress`, `type`, `title`, `message`) |
+| `/api/notifications` | PATCH | Mark notification(s) as read (body: `walletAddress`, `action`, `notificationId`) |
+| `/api/notifications` | DELETE | Delete a notification (params: `id`) |
 
 **Base URL**: `https://starworldorder.com` (production)
 
@@ -1189,25 +1254,27 @@ try {
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
 | `lib/blockvision.ts` | BlockVision API integration for NFT fetching and account transactions |
-| `lib/db.ts` | SQLite database operations, quests, XP, and backup functions |
+| `lib/db.ts` | SQLite database operations, quests, XP, notifications, and backup functions |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
 | `lib/contexts/DAOAccessContext.tsx` | DAO access state management |
 | `components/AccessGate.tsx` | Access control wrapper component |
 | `components/DemoMode.tsx` | Demo mode modal and UI |
-| `components/Header.tsx` | Navigation header with feature locks |
+| `components/Header.tsx` | Navigation header |
+| `components/NotificationBell.tsx` | Bell icon with unread count badge and dropdown |
 | `components/ProfileCard.tsx` | Profile with tabbed sections (Settings, Achievements, Quests) |
 | `app/page.tsx` | Home page with N64 loading screen |
-| `app/dao/page.tsx` | DAO governance page |
+| `app/dao/page.tsx` | DAO governance page (Governance, Forum, Staking tabs) |
 | `app/exchange/page.tsx` | OTC marketplace page |
 | `app/staking/page.tsx` | NFT staking page |
 | `app/hangout/page.tsx` | Hangout Hub lobby |
 | `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
 | `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
-| `app/members/page.tsx` | Members page with urgent quests for authenticated users |
+| `app/members/page.tsx` | Members page with holder analytics |
 | `app/members/MembersContent.tsx` | Members client component with analytics (Constellation distribution, Holdings distribution, Top holders) |
 | `app/api/quests/route.ts` | Quest system API endpoints |
 | `app/api/user-xp/route.ts` | User XP API endpoints |
+| `app/api/notifications/route.ts` | Notification system API endpoints |
 
 ---
 

@@ -21,7 +21,7 @@ interface AccessGateProps {
 export default function AccessGate({ 
   children, 
   title = 'ACCESS RESTRICTED',
-  message = 'Only Star Skrumpey holders may enter this realm.'
+  message = 'Only Star Skrumpey holders may enter.'
 }: AccessGateProps) {
   const { hasAccess, isLoading, isConnected } = useDAOAccess();
   const { isDemoMode } = useDemoMode();
@@ -132,7 +132,7 @@ export default function AccessGate({
           {!isConnected ? (
             <div className="space-y-3 animate-slide-in-up animate-delay-5">
               <p className="text-[#9966ff] text-[8px] tracking-wide animate-glow-pulse">
-                ✦ CONNECT THY WALLET ✦
+                ✦ CONNECT YOUR WALLET ✦
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <WalletConnect />

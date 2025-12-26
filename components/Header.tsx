@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
+import NotificationBell from './NotificationBell';
 import { isProdMode } from '@/lib/config';
 
 export default function Header() {
@@ -58,17 +59,8 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-2 md:gap-3">
-          {isProduction ? (
-            <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-              <span className="text-[10px] leading-none">🔒</span>
-              <span 
-                className="text-[10px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
-                title="Locked in production"
-              >
-                DAO
-              </span>
-            </div>
-          ) : (
+          {/* DAO link - hidden on PROD, shown on DEV */}
+          {!isProduction && (
             <Link 
               href="/dao" 
               className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group flex-shrink-0"
@@ -155,17 +147,8 @@ export default function Header() {
               }}
             />
           </Link>
-          {isProduction ? (
-            <div className="hidden md:flex flex-col items-center gap-0.5 flex-shrink-0">
-              <span className="text-[10px] leading-none">🔒</span>
-              <span 
-                className="text-[10px] text-gray-600 uppercase tracking-wider cursor-not-allowed leading-none"
-                title="Locked in production"
-              >
-                EXCHANGE
-              </span>
-            </div>
-          ) : (
+          {/* Exchange link - hidden on PROD, shown on DEV */}
+          {!isProduction && (
             <Link 
               href="/marketplace" 
               className="text-[10px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider hidden md:block relative group flex-shrink-0"
@@ -184,6 +167,8 @@ export default function Header() {
               />
             </Link>
           )}
+          {/* Notification Bell */}
+          <NotificationBell />
           {!isLandingPage && (
             <div className="flex-shrink-0">
               <DemoMode />
@@ -203,17 +188,8 @@ export default function Header() {
           <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" />
           
           <nav className="flex flex-col items-center gap-6 p-8 pb-safe relative">
-            {isProduction ? (
-              <div className="flex flex-col items-center gap-1 py-2">
-                <span className="text-lg leading-none">🔒</span>
-                <span 
-                  className="text-sm text-gray-500 uppercase tracking-wider cursor-not-allowed font-semibold"
-                  title="Locked in production"
-                >
-                  DAO
-                </span>
-              </div>
-            ) : (
+            {/* DAO link - hidden on PROD, shown on DEV */}
+            {!isProduction && (
               <Link 
                 href="/dao" 
                 className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
@@ -255,17 +231,8 @@ export default function Header() {
             >
               PROFILE
             </Link>
-            {isProduction ? (
-              <div className="flex flex-col items-center gap-1 py-2">
-                <span className="text-lg leading-none">🔒</span>
-                <span 
-                  className="text-sm text-gray-500 uppercase tracking-wider cursor-not-allowed font-semibold"
-                  title="Locked in production"
-                >
-                  EXCHANGE
-                </span>
-              </div>
-            ) : (
+            {/* Exchange link - hidden on PROD, shown on DEV */}
+            {!isProduction && (
               <Link 
                 href="/marketplace" 
                 className="text-base text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"

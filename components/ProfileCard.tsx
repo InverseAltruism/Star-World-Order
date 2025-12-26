@@ -1074,6 +1074,9 @@ export default function ProfileCard() {
           </div>
         )}
       </div>
+      
+      {/* Notification Settings */}
+      <NotificationSettingsCard walletAddress={address || ''} isDemoMode={isDemoMode} />
         </>
       )}
 
@@ -1675,6 +1678,169 @@ function QuestItem({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Notification Settings Card Component
+ * Allows users to configure their notification preferences
+ */
+function NotificationSettingsCard({ 
+  walletAddress, 
+  isDemoMode 
+}: { 
+  walletAddress: string;
+  isDemoMode: boolean;
+}) {
+  const [settings, setSettings] = useState({
+    quest_notifications: true,
+    achievement_notifications: true,
+    system_notifications: true,
+    social_notifications: true,
+    governance_notifications: true,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // Fetch settings on mount
+  useEffect(() => {
+    if (!walletAddress) return;
+    
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch(`/api/notifications?address=${walletAddress}&settings=true`);
+        const data = await response.json();
+        
+        if (data.success && data.settings) {
+          setSettings({
+            quest_notifications: data.settings.quest_notifications === 1,
+            achievement_notifications: data.settings.achievement_notifications === 1,
+            system_notifications: data.settings.system_notifications === 1,
+            social_notifications: data.settings.social_notifications === 1,
+            governance_notifications: data.settings.governance_notifications === 1,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch notification settings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchSettings();
+  }, [walletAddress]);
+  
+  // Save settings
+  const handleToggle = async (key: keyof typeof settings) => {
+    if (isDemoMode || !walletAddress) return;
+    
+    const newValue = !settings[key];
+    setSettings(prev => ({ ...prev, [key]: newValue }));
+    setIsSaving(true);
+    setSaveSuccess(false);
+    
+    try {
+      // Map settings key to API format
+      // e.g., 'quest_notifications' -> 'questNotifications'
+      const keyMap: Record<string, string> = {
+        quest_notifications: 'questNotifications',
+        achievement_notifications: 'achievementNotifications',
+        system_notifications: 'systemNotifications',
+        social_notifications: 'socialNotifications',
+        governance_notifications: 'governanceNotifications',
+      };
+      const apiKey = keyMap[key] || key;
+      
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress,
+          action: 'updateSettings',
+          settings: {
+            [apiKey]: newValue,
+          },
+        }),
+      });
+      
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to save notification settings:', error);
+      // Revert on error
+      setSettings(prev => ({ ...prev, [key]: !newValue }));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const settingsConfig = [
+    { key: 'quest_notifications' as const, label: 'Quest Updates', icon: '📜', description: 'New quests and rewards' },
+    { key: 'achievement_notifications' as const, label: 'Achievements', icon: '🏆', description: 'Unlocked badges' },
+    { key: 'system_notifications' as const, label: 'System', icon: '⚙️', description: 'Important announcements' },
+    { key: 'social_notifications' as const, label: 'Social', icon: '💬', description: 'Community activity' },
+    { key: 'governance_notifications' as const, label: 'Governance', icon: '🗳️', description: 'DAO proposals and votes' },
+  ];
+  
+  return (
+    <div className="pixel-card p-6 animate-slide-in-up mt-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[#9966ff] text-sm tracking-wider">
+          🔔 NOTIFICATION SETTINGS
+        </h3>
+        {saveSuccess && (
+          <span className="text-[#44ff88] text-[10px]">✓ Saved</span>
+        )}
+      </div>
+      
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <span className="text-xl animate-spin">⭐</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {settingsConfig.map(({ key, label, icon, description }) => (
+            <div 
+              key={key}
+              className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">{icon}</span>
+                <div>
+                  <p className="text-white text-xs">{label}</p>
+                  <p className="text-gray-500 text-[9px]">{description}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggle(key)}
+                disabled={isDemoMode || isSaving}
+                className={`w-12 h-6 rounded-full transition-all relative ${
+                  settings[key] 
+                    ? 'bg-[#44ff88]' 
+                    : 'bg-[#2a2a4e]'
+                } ${isDemoMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                style={{ 
+                  boxShadow: settings[key] ? '0 0 10px #44ff8840' : 'none',
+                }}
+              >
+                <span 
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                    settings[key] ? 'left-7' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {isDemoMode && (
+        <p className="text-gray-500 text-[9px] text-center mt-4">
+          🔒 Settings locked in Demo Mode
+        </p>
+      )}
     </div>
   );
 }
