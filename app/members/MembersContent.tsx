@@ -645,17 +645,19 @@ const CONSTELLATION_OPTIONS = [
 /**
  * Holder Chart - Displays Star Skrumpey holder count over time
  * Features:
- * - 1H / 1D time range toggle
+ * - 1H / 1D / 1W time range toggle
  * - Constellation filter (All or specific)
  * - SVG line chart with gradient fill
+ * - Zoom in/out capability
  * - Real-time data from database
  */
 function HolderChart() {
-  const [timeRange, setTimeRange] = useState<'1H' | '1D'>('1H');
+  const [timeRange, setTimeRange] = useState<'1H' | '1D' | '1W'>('1D');
   const [constellation, setConstellation] = useState<string>('all');
   const [statsData, setStatsData] = useState<HolderStatsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   // Fetch holder stats data
   const fetchHolderStats = useCallback(async () => {
@@ -693,9 +695,11 @@ function HolderChart() {
   }, [fetchHolderStats]);
 
   // Chart dimensions - use aspect ratio 2:1 for better proportions
-  const chartWidth = 400;
-  const chartHeight = 200;
-  const padding = { top: 20, right: 20, bottom: 35, left: 35 };
+  const baseChartWidth = 400;
+  const baseChartHeight = 200;
+  const chartWidth = baseChartWidth * zoomLevel;
+  const chartHeight = baseChartHeight * zoomLevel;
+  const padding = { top: 20, right: 20, bottom: 40, left: 45 };
   
   // Calculate chart data
   const history = statsData?.history || [];
@@ -704,15 +708,15 @@ function HolderChart() {
   const maxCount = holderCounts.length > 0 ? Math.max(...holderCounts) + 2 : 10;
   const countRange = maxCount - minCount || 1;
   
-  // Generate time labels for horizontal axis
+  // Generate time labels for horizontal axis with proper date formatting
   const generateTimeLabels = () => {
     if (history.length < 2) return [];
     
     const labels: Array<{ x: number; label: string }> = [];
     const effectiveWidth = chartWidth - padding.left - padding.right;
     
-    // Get number of labels based on time range (show 4-5 evenly spaced labels)
-    const labelCount = 5;
+    // Get number of labels based on time range
+    const labelCount = zoomLevel >= 1.5 ? 7 : 5;
     
     for (let i = 0; i < labelCount; i++) {
       const dataIndex = Math.floor((i / (labelCount - 1)) * (history.length - 1));
@@ -723,11 +727,14 @@ function HolderChart() {
         let label: string;
         
         if (timeRange === '1H') {
-          // For 1H time range (last 24 hours of data), show hours and minutes
+          // For 1H time range: show hours and minutes
           label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (timeRange === '1D') {
+          // For 1D time range: show month/day with time
+          label = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
         } else {
-          // For 1D time range (last 30 days of data), show month/day
-          label = date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+          // For 1W time range: show full date
+          label = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
         }
         
         labels.push({
@@ -807,17 +814,21 @@ function HolderChart() {
   const chartColor = constellation === 'all' ? '#ffd700' : getVariantColor(constellation);
   const currentHolders = statsData?.currentHolders || 0;
   const timeLabels = generateTimeLabels();
+  
+  // Zoom handlers
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 2.5));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
 
   return (
-    <div className="pixel-card p-4 mb-6 animate-slide-in-up">
+    <div className="pixel-card p-5 animate-slide-in-up">
       {/* Header with Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-1">
+          <h3 className="text-[#ffd700] text-sm sm:text-base tracking-wider mb-1">
             👥 STAR SKRUMPEY HOLDERS
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-white text-xl sm:text-2xl font-bold" style={{ color: chartColor }}>
+            <span className="text-white text-2xl sm:text-3xl font-bold" style={{ color: chartColor }}>
               {isLoading ? '...' : currentHolders}
             </span>
             <span className="text-gray-500 text-xs">
@@ -831,7 +842,7 @@ function HolderChart() {
           <select
             value={constellation}
             onChange={(e) => setConstellation(e.target.value)}
-            className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-2 py-1 text-[10px] sm:text-xs text-white focus:border-[#ffd700] focus:outline-none cursor-pointer smooth-transition"
+            className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-2 py-1 text-xs text-white focus:border-[#ffd700] focus:outline-none cursor-pointer smooth-transition"
           >
             {CONSTELLATION_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -842,11 +853,11 @@ function HolderChart() {
           
           {/* Time Range Toggle */}
           <div className="flex gap-1">
-            {(['1H', '1D'] as const).map((tf) => (
+            {(['1H', '1D', '1W'] as const).map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeRange(tf)}
-                className={`px-3 py-1 text-[10px] sm:text-xs rounded border-2 smooth-transition ${
+                className={`px-3 py-1 text-xs rounded border-2 smooth-transition ${
                   timeRange === tf
                     ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
                     : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:border-[#ffd700]/50'
@@ -856,126 +867,156 @@ function HolderChart() {
               </button>
             ))}
           </div>
-        </div>
-      </div>
-      
-      {/* Chart */}
-      <div className="relative w-full" style={{ maxWidth: '100%', aspectRatio: '2 / 1' }}>
-        {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-2xl animate-spin">⭐</div>
-          </div>
-        ) : error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <p className="text-[#ff4466] text-xs mb-2">{error}</p>
-            <button 
-              onClick={fetchHolderStats}
-              className="text-[#ffd700] text-xs underline hover:no-underline"
+          
+          {/* Zoom Controls */}
+          <div className="flex gap-1 ml-2">
+            <button
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 1}
+              className="px-2 py-1 text-xs rounded border-2 border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed smooth-transition"
+              title="Zoom Out"
             >
-              Retry
+              −
+            </button>
+            <button
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 2.5}
+              className="px-2 py-1 text-xs rounded border-2 border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed smooth-transition"
+              title="Zoom In"
+            >
+              +
             </button>
           </div>
-        ) : history.length < 2 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-3xl mb-2">📊</div>
-            <p className="text-gray-500 text-xs text-center">
-              Collecting data... First chart will appear
-              <br />
-              after multiple snapshots are recorded.
-            </p>
-          </div>
-        ) : (
-          <svg 
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            className="w-full h-full"
-            preserveAspectRatio="xMidYMid meet"
-          >
-            {/* Grid lines */}
-            <g stroke="#2a2a4e" strokeWidth="0.5">
-              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
-                <line
-                  key={ratio}
-                  x1={padding.left}
-                  y1={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
-                  x2={chartWidth - padding.right}
-                  y2={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
-                />
-              ))}
-            </g>
-            
-            {/* Y-axis labels */}
-            <g fill="#666" fontSize="10" fontFamily="monospace">
-              <text x={padding.left - 5} y={padding.top + 4} textAnchor="end">
-                {maxCount}
-              </text>
-              <text x={padding.left - 5} y={chartHeight - padding.bottom + 4} textAnchor="end">
-                {minCount}
-              </text>
-            </g>
-            
-            {/* X-axis time labels */}
-            <g fill="#666" fontSize="9" fontFamily="monospace">
-              {timeLabels.map((item, index) => (
-                <text 
-                  key={index} 
-                  x={item.x} 
-                  y={chartHeight - padding.bottom + 18} 
-                  textAnchor="middle"
-                >
-                  {item.label}
-                </text>
-              ))}
-            </g>
-            
-            {/* Gradient definition */}
-            <defs>
-              <linearGradient id={`holderGradient-${constellation}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor={chartColor} stopOpacity="0.4"/>
-                <stop offset="100%" stopColor={chartColor} stopOpacity="0"/>
-              </linearGradient>
-            </defs>
-            
-            {/* Area fill */}
-            <path
-              d={generateAreaPath()}
-              fill={`url(#holderGradient-${constellation})`}
-            />
-            
-            {/* Line */}
-            <path
-              d={generatePath()}
-              fill="none"
-              stroke={chartColor}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ filter: `drop-shadow(0 0 4px ${chartColor})` }}
-            />
-            
-            {/* Current value dot */}
-            {history.length > 0 && (
-              <circle
-                cx={chartWidth - padding.right}
-                cy={padding.top + (chartHeight - padding.top - padding.bottom) - 
-                   ((history[history.length - 1].holderCount - minCount) / countRange) * 
-                   (chartHeight - padding.top - padding.bottom)}
-                r="4"
-                fill={chartColor}
-                style={{ filter: `drop-shadow(0 0 6px ${chartColor})` }}
-              />
-            )}
-          </svg>
-        )}
+        </div>
       </div>
       
-      {/* Last updated */}
-      {statsData?.lastUpdated && !isLoading && (
-        <div className="text-center mt-2">
-          <span className="text-gray-500 text-[8px]">
+      {/* Chart Container with horizontal scroll for zoom */}
+      <div 
+        className="relative w-full overflow-x-auto scrollbar-pixel" 
+        style={{ maxWidth: '100%' }}
+      >
+        <div style={{ width: zoomLevel > 1 ? `${zoomLevel * 100}%` : '100%', aspectRatio: '2 / 1', minWidth: '300px' }}>
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-3xl animate-spin">⭐</div>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <p className="text-[#ff4466] text-sm mb-2">{error}</p>
+              <button 
+                onClick={fetchHolderStats}
+                className="text-[#ffd700] text-sm underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </div>
+          ) : history.length < 2 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-4xl mb-2">📊</div>
+              <p className="text-gray-500 text-sm text-center">
+                Collecting data... First chart will appear
+                <br />
+                after multiple snapshots are recorded.
+              </p>
+            </div>
+          ) : (
+            <svg 
+              viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+              className="w-full h-full"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {/* Grid lines */}
+              <g stroke="#2a2a4e" strokeWidth="0.5">
+                {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+                  <line
+                    key={ratio}
+                    x1={padding.left}
+                    y1={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
+                    x2={chartWidth - padding.right}
+                    y2={padding.top + (chartHeight - padding.top - padding.bottom) * ratio}
+                  />
+                ))}
+              </g>
+              
+              {/* Y-axis labels */}
+              <g fill="#888" fontSize="11" fontFamily="monospace">
+                <text x={padding.left - 8} y={padding.top + 4} textAnchor="end">
+                  {maxCount}
+                </text>
+                <text x={padding.left - 8} y={chartHeight - padding.bottom + 4} textAnchor="end">
+                  {minCount}
+                </text>
+              </g>
+              
+              {/* X-axis time labels */}
+              <g fill="#888" fontSize="10" fontFamily="monospace">
+                {timeLabels.map((item, index) => (
+                  <text 
+                    key={index} 
+                    x={item.x} 
+                    y={chartHeight - padding.bottom + 20} 
+                    textAnchor="middle"
+                  >
+                    {item.label}
+                  </text>
+                ))}
+              </g>
+              
+              {/* Gradient definition */}
+              <defs>
+                <linearGradient id={`holderGradient-${constellation}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor={chartColor} stopOpacity="0.4"/>
+                  <stop offset="100%" stopColor={chartColor} stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              
+              {/* Area fill */}
+              <path
+                d={generateAreaPath()}
+                fill={`url(#holderGradient-${constellation})`}
+              />
+              
+              {/* Line */}
+              <path
+                d={generatePath()}
+                fill="none"
+                stroke={chartColor}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ filter: `drop-shadow(0 0 4px ${chartColor})` }}
+              />
+              
+              {/* Current value dot */}
+              {history.length > 0 && (
+                <circle
+                  cx={chartWidth - padding.right}
+                  cy={padding.top + (chartHeight - padding.top - padding.bottom) - 
+                     ((history[history.length - 1].holderCount - minCount) / countRange) * 
+                     (chartHeight - padding.top - padding.bottom)}
+                  r="5"
+                  fill={chartColor}
+                  style={{ filter: `drop-shadow(0 0 6px ${chartColor})` }}
+                />
+              )}
+            </svg>
+          )}
+        </div>
+      </div>
+      
+      {/* Chart Info */}
+      <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
+        <span>
+          {timeRange === '1H' && 'Last 24 hours (hourly data)'}
+          {timeRange === '1D' && 'Last 30 days (daily data)'}
+          {timeRange === '1W' && 'Last 90 days (weekly data)'}
+        </span>
+        {statsData?.lastUpdated && !isLoading && (
+          <span>
             Updated {new Date(statsData.lastUpdated).toLocaleTimeString()}
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -1011,11 +1052,11 @@ function ConstellationDistribution({
   
   const total = sortedData.reduce((sum, d) => sum + d.count, 0);
   
-  // Chart dimensions
-  const size = 160;
+  // Chart dimensions - LARGER
+  const size = 220;
   const center = size / 2;
-  const radius = 55;
-  const innerRadius = 35;
+  const radius = 80;
+  const innerRadius = 50;
   
   // Generate donut segments
   const segments = React.useMemo(() => {
@@ -1064,25 +1105,25 @@ function ConstellationDistribution({
   }, [sortedData, total]);
 
   return (
-    <div className="pixel-card p-4 animate-slide-in-up">
-      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
+    <div className="pixel-card p-5 animate-slide-in-up">
+      <h3 className="text-[#9966ff] text-sm sm:text-base tracking-wider mb-5">
         🌌 CONSTELLATION DISTRIBUTION
       </h3>
       
       {isLoading ? (
-        <div className="flex items-center justify-center h-40">
-          <div className="text-2xl animate-spin">⭐</div>
+        <div className="flex items-center justify-center h-56">
+          <div className="text-3xl animate-spin">⭐</div>
         </div>
       ) : total === 0 ? (
-        <div className="flex items-center justify-center h-40">
-          <p className="text-gray-500 text-xs">No data available</p>
+        <div className="flex items-center justify-center h-56">
+          <p className="text-gray-500 text-sm">No data available</p>
         </div>
       ) : (
-        <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="flex flex-col lg:flex-row items-center gap-6">
           {/* Donut Chart */}
           <div className="relative flex-shrink-0">
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-              {segments.map((seg, i) => (
+              {segments.map((seg) => (
                 <path
                   key={seg.name}
                   d={seg.path}
@@ -1090,7 +1131,7 @@ function ConstellationDistribution({
                   stroke="#0a0a15"
                   strokeWidth="1"
                   style={{ 
-                    filter: `drop-shadow(0 0 3px ${seg.color}50)`,
+                    filter: `drop-shadow(0 0 4px ${seg.color}50)`,
                     cursor: 'pointer',
                   }}
                   className="transition-all duration-200 hover:opacity-80"
@@ -1101,35 +1142,35 @@ function ConstellationDistribution({
               {/* Center text */}
               <text
                 x={center}
-                y={center - 5}
+                y={center - 8}
                 textAnchor="middle"
                 fill="#ffd700"
-                fontSize="16"
+                fontSize="24"
                 fontWeight="bold"
               >
                 {total}
               </text>
               <text
                 x={center}
-                y={center + 10}
+                y={center + 12}
                 textAnchor="middle"
                 fill="#666"
-                fontSize="8"
+                fontSize="10"
               >
                 TOTAL
               </text>
             </svg>
           </div>
           
-          {/* Legend */}
-          <div className="flex-1 grid grid-cols-2 gap-1">
+          {/* Legend - LARGER TEXT */}
+          <div className="flex-1 grid grid-cols-2 gap-2 min-w-0">
             {sortedData.slice(0, 10).map(({ name, count }) => (
-              <div key={name} className="flex items-center gap-2 text-[10px]">
+              <div key={name} className="flex items-center gap-2 text-sm">
                 <div 
-                  className="w-3 h-3 rounded-sm flex-shrink-0"
+                  className="w-4 h-4 rounded-sm flex-shrink-0"
                   style={{ backgroundColor: getVariantColor(name) }}
                 />
-                <span className="text-gray-400 capitalize truncate">{name}</span>
+                <span className="text-gray-300 capitalize truncate font-medium">{name}</span>
                 <span className="text-gray-500 ml-auto">{count}</span>
               </div>
             ))}
@@ -1140,85 +1181,92 @@ function ConstellationDistribution({
   );
 }
 
-// Holdings distribution bucket configuration
-const HOLDINGS_BUCKETS = [
-  { label: '1 NFT', min: 1, max: 1, color: '#9966ff' },
-  { label: '2 NFTs', min: 2, max: 2, color: '#44ff88' },
-  { label: '3-5', min: 3, max: 5, color: '#00ffff' },
-  { label: '6-10', min: 6, max: 10, color: '#ffd700' },
-  { label: '10+', min: 11, max: Infinity, color: '#ff00ff' },
+// Holder tier configuration using rank names
+const HOLDER_TIERS = [
+  { rank: 'COSMIC EMPEROR', icon: '🏆', min: 10, max: Infinity, color: '#ffd700', description: '10+ Star Skrumpeys' },
+  { rank: 'STAR LORD', icon: '👑', min: 5, max: 9, color: '#ff00ff', description: '5-9 Star Skrumpeys' },
+  { rank: 'CONSTELLATION KEEPER', icon: '🌟', min: 3, max: 4, color: '#00ffff', description: '3-4 Star Skrumpeys' },
+  { rank: 'STAR SEEKER', icon: '⭐', min: 1, max: 2, color: '#9966ff', description: '1-2 Star Skrumpeys' },
 ] as const;
 
 /**
- * Holdings Distribution Bar Chart
- * Shows how many members hold 1, 2, 3-5, 6-10, 10+ NFTs
+ * Holder Tier Breakdown
+ * Shows how many members are in each rank tier (Cosmic Emperor, Star Lord, etc.)
  */
-function HoldingsDistribution({ 
+function HolderTierBreakdown({ 
   members, 
   isLoading 
 }: { 
   members: MemberData[]; 
   isLoading: boolean; 
 }) {
-  // Calculate distribution buckets using configuration constant
-  const distribution = React.useMemo(() => {
-    const buckets = HOLDINGS_BUCKETS.map(b => ({ ...b, count: 0 }));
-    
-    members.forEach(member => {
-      const bucket = buckets.find(b => member.count >= b.min && member.count <= b.max);
-      if (bucket) bucket.count++;
+  // Calculate tier counts
+  const tierCounts = React.useMemo(() => {
+    return HOLDER_TIERS.map(tier => {
+      const count = members.filter(m => m.count >= tier.min && m.count <= tier.max).length;
+      return { ...tier, count };
     });
-    
-    return buckets;
   }, [members]);
   
-  const maxCount = Math.max(...distribution.map(d => d.count), 1);
+  const maxCount = Math.max(...tierCounts.map(t => t.count), 1);
+  const totalHolders = members.length;
   
   return (
-    <div className="pixel-card p-4 animate-slide-in-up">
-      <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
-        📊 HOLDINGS DISTRIBUTION
+    <div className="pixel-card p-5 animate-slide-in-up">
+      <h3 className="text-[#44ff88] text-sm sm:text-base tracking-wider mb-5">
+        👑 HOLDER TIER BREAKDOWN
       </h3>
       
       {isLoading ? (
-        <div className="flex items-center justify-center h-40">
-          <div className="text-2xl animate-spin">📊</div>
+        <div className="flex items-center justify-center h-48">
+          <div className="text-3xl animate-spin">👑</div>
         </div>
       ) : (
-        <div className="space-y-3">
-          {distribution.map((bucket) => (
-            <div key={bucket.label} className="flex items-center gap-3">
-              <span className="text-gray-400 text-[10px] w-12 text-right">
-                {bucket.label}
-              </span>
-              <div className="flex-1 h-6 bg-[#1a1a2e] rounded overflow-hidden relative">
-                <div
-                  className="h-full rounded transition-all duration-500"
-                  style={{ 
-                    width: `${(bucket.count / maxCount) * 100}%`,
-                    backgroundColor: bucket.color,
-                    boxShadow: `0 0 10px ${bucket.color}50`,
-                    minWidth: bucket.count > 0 ? '20px' : '0',
-                  }}
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white font-bold">
-                  {bucket.count}
-                </span>
+        <div className="space-y-4">
+          {tierCounts.map((tier) => {
+            const percentage = totalHolders > 0 ? ((tier.count / totalHolders) * 100).toFixed(1) : '0';
+            return (
+              <div key={tier.rank} className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">{tier.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span 
+                        className="text-sm font-bold truncate"
+                        style={{ color: tier.color }}
+                      >
+                        {tier.rank}
+                      </span>
+                      <span className="text-white text-sm font-bold flex-shrink-0">
+                        {tier.count} <span className="text-gray-500 text-xs">({percentage}%)</span>
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-xs">{tier.description}</p>
+                  </div>
+                </div>
+                <div className="h-3 bg-[#1a1a2e] rounded overflow-hidden">
+                  <div
+                    className="h-full rounded transition-all duration-500"
+                    style={{ 
+                      width: `${(tier.count / maxCount) * 100}%`,
+                      backgroundColor: tier.color,
+                      boxShadow: `0 0 10px ${tier.color}50`,
+                      minWidth: tier.count > 0 ? '8px' : '0',
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       
-      {/* Distribution Summary */}
+      {/* Tier Info */}
       {!isLoading && (
-        <div className="mt-4 pt-3 border-t border-[#2a2a4e] flex justify-between text-[9px] text-gray-500">
-          <span>
-            🐋 Whales (6+): {distribution.filter(d => d.min >= 6).reduce((sum, d) => sum + d.count, 0)}
-          </span>
-          <span>
-            🦐 Shrimps (1-2): {distribution.filter(d => d.max <= 2).reduce((sum, d) => sum + d.count, 0)}
-          </span>
+        <div className="mt-5 pt-4 border-t border-[#2a2a4e] text-xs text-gray-500">
+          <p className="text-center">
+            Total: {totalHolders} holders across all tiers
+          </p>
         </div>
       )}
     </div>
@@ -1269,6 +1317,63 @@ function TopHoldersMini({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Analytics Section - Collapsible section containing detailed analytics
+ * Hidden by default, users can click to expand and view charts/distributions
+ */
+function AnalyticsSection({ 
+  members, 
+  isLoading 
+}: { 
+  members: MemberData[]; 
+  isLoading: boolean; 
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  return (
+    <div className="mb-6">
+      {/* Collapsible Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full pixel-card p-4 flex items-center justify-between cursor-pointer hover:bg-[#1a1a2e]/50 smooth-transition group"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xl">📊</span>
+          <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
+            ANALYTICS
+          </h2>
+          <span className="text-gray-500 text-xs">
+            ({isExpanded ? 'click to hide' : 'click to view'})
+          </span>
+        </div>
+        <span 
+          className={`text-xl text-gray-400 smooth-transition transform ${isExpanded ? 'rotate-180' : ''}`}
+        >
+          ▼
+        </span>
+      </button>
+      
+      {/* Collapsible Content */}
+      <div 
+        className={`overflow-hidden smooth-transition ${
+          isExpanded ? 'max-h-[2000px] opacity-100 mt-4' : 'max-h-0 opacity-0'
+        }`}
+      >
+        {/* Analytics Grid - Two columns on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ConstellationDistribution members={members} isLoading={isLoading} />
+          <HolderTierBreakdown members={members} isLoading={isLoading} />
+        </div>
+        
+        {/* Top Holders in full width below */}
+        <div className="mt-4">
+          <TopHoldersMini members={members} isLoading={isLoading} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1605,12 +1710,8 @@ export default function MembersContent() {
       {/* Holder Chart Section */}
       <HolderChart />
 
-      {/* Analytics Grid - Constellation Distribution, Holdings Distribution, Top Holders */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <ConstellationDistribution members={members} isLoading={isLoading} />
-        <HoldingsDistribution members={members} isLoading={isLoading} />
-        <TopHoldersMini members={members} isLoading={isLoading} />
-      </div>
+      {/* Analytics Section - Collapsible */}
+      <AnalyticsSection members={members} isLoading={isLoading} />
 
       {/* Divider */}
       <div className="pixel-divider mb-6" />
