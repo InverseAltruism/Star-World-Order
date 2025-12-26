@@ -773,13 +773,7 @@ export default function TreasuryContent() {
       {/* Treasury Stats Grid */}
       <TreasuryStatsGrid data={treasuryData} isLoading={isLoading} />
 
-      {/* Collection Distribution - Full Width */}
-      <CollectionDistribution 
-        nftHoldings={treasuryData?.nftHoldings || []} 
-        isLoading={isLoading} 
-      />
-
-      {/* NFT Holdings Section */}
+      {/* NFT Holdings Section - Moved above Collection Breakdown */}
       {treasuryData && treasuryData.nftHoldings.length > 0 && (
         <div className="pixel-card p-6 mb-6 animate-slide-in-up animate-delay-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
@@ -809,6 +803,12 @@ export default function TreasuryContent() {
           <p className="text-gray-600 text-xs mt-1">Treasury is accumulating MON</p>
         </div>
       )}
+
+      {/* Collection Distribution - Full Width */}
+      <CollectionDistribution 
+        nftHoldings={treasuryData?.nftHoldings || []} 
+        isLoading={isLoading} 
+      />
 
       {/* Transaction History - Simplified */}
       <div className="pixel-card p-6 mb-6 animate-slide-in-up animate-delay-4">

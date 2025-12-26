@@ -8,21 +8,6 @@ import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
 
 /**
- * Quest types for urgent quests display
- */
-interface UrgentQuest {
-  id: string;
-  name: string;
-  description: string;
-  xp_reward: number;
-  icon: string;
-  userProgress: {
-    status: 'available' | 'in_progress' | 'completed' | 'claimed';
-  } | null;
-  canClaim: boolean;
-}
-
-/**
  * Member data interface from API
  */
 interface MemberData {
@@ -1475,7 +1460,7 @@ function SearchFilter({
  * Main Members Content Component
  */
 export default function MembersContent() {
-  const { address, starSkrumpeys, isConnected } = useDAOAccess();
+  const { isConnected } = useDAOAccess();
   const [members, setMembers] = useState<MemberData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1484,11 +1469,6 @@ export default function MembersContent() {
   const [sortBy, setSortBy] = useState<'holdings' | 'level' | 'address'>('holdings');
   const [totalMembers, setTotalMembers] = useState(0);
   const [totalStarSkrumpeys, setTotalStarSkrumpeys] = useState(0);
-  
-  // Urgent quests state
-  const [urgentQuests, setUrgentQuests] = useState<UrgentQuest[]>([]);
-  const [questsLoading, setQuestsLoading] = useState(false);
-  const [questClaimingId, setQuestClaimingId] = useState<string | null>(null);
 
   // Fetch members from API
   const fetchMembers = useCallback(async () => {
@@ -1513,89 +1493,11 @@ export default function MembersContent() {
       setIsLoading(false);
     }
   }, []);
-  
-  // Fetch urgent quests for authenticated users
-  const fetchUrgentQuests = useCallback(async () => {
-    if (!address || !isConnected) return;
-    
-    setQuestsLoading(true);
-    try {
-      const response = await fetch(`/api/quests?address=${address}&urgentOnly=true`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setUrgentQuests(data.quests || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch urgent quests:', err);
-    } finally {
-      setQuestsLoading(false);
-    }
-  }, [address, isConnected]);
-  
-  // Handle quest claim
-  const handleClaimQuest = async (questId: string) => {
-    if (!address || questClaimingId) return;
-    
-    setQuestClaimingId(questId);
-    try {
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'claim',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Refresh quests
-        await fetchUrgentQuests();
-      }
-    } catch (error) {
-      console.error('Failed to claim quest:', error);
-    } finally {
-      setQuestClaimingId(null);
-    }
-  };
-  
-  // Handle quest complete
-  const handleCompleteQuest = async (questId: string) => {
-    if (!address) return;
-    
-    try {
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'complete',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        await fetchUrgentQuests();
-      }
-    } catch (error) {
-      console.error('Failed to complete quest:', error);
-    }
-  };
 
   // Initial load
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
-  
-  // Load urgent quests when user is authenticated with a Star Skrumpey
-  useEffect(() => {
-    if (isConnected && starSkrumpeys.length > 0) {
-      fetchUrgentQuests();
-    }
-  }, [isConnected, starSkrumpeys.length, fetchUrgentQuests]);
 
   // Filter and sort members
   const filteredMembers = members
@@ -1626,10 +1528,10 @@ export default function MembersContent() {
       {/* Page Header */}
       <div className="text-center mb-8 animate-slide-in-up px-4">
         <h1 className="text-base sm:text-lg md:text-xl text-[#ffd700] pixel-glow-gold tracking-wider mb-2 whitespace-nowrap">
-          STAR BEARERS
+          STAR HOLDERS
         </h1>
         <p className="text-xs sm:text-sm text-[#9966ff] tracking-wide animate-glow-pulse">
-          The Order{"'"}s Cosmic Assembly
+          the real ones
         </p>
       </div>
 
@@ -1640,82 +1542,6 @@ export default function MembersContent() {
         isLoading={isLoading}
       />
 
-      {/* Urgent Quests Section - Only show for authenticated Star Skrumpey holders */}
-      {isConnected && starSkrumpeys.length > 0 && urgentQuests.length > 0 && (
-        <div className="pixel-card p-4 mb-6 animate-slide-in-up border-2 border-[#ff6ec7]">
-          <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
-            🚨 URGENT QUESTS
-            <span className="text-[9px] px-2 py-0.5 bg-[#ff6ec7]/20 border border-[#ff6ec7] rounded">
-              {urgentQuests.filter(q => q.userProgress?.status !== 'claimed').length} ACTIVE
-            </span>
-          </h3>
-          
-          {questsLoading ? (
-            <div className="text-center py-4">
-              <div className="text-2xl animate-spin">⭐</div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {urgentQuests.map(quest => {
-                const status = quest.userProgress?.status || 'available';
-                const isClaimed = status === 'claimed';
-                const canClaim = quest.canClaim;
-                
-                return (
-                  <div 
-                    key={quest.id}
-                    className={`p-3 rounded-lg border-2 transition-all ${
-                      isClaimed 
-                        ? 'bg-[#44ff88]/10 border-[#44ff88]/30 opacity-60' 
-                        : canClaim
-                        ? 'bg-[#ffd700]/10 border-[#ffd700] animate-glow-pulse'
-                        : 'bg-[#0a0a15] border-[#2a2a4e]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl">{quest.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-gray-400' : 'text-white'}`}>
-                          {quest.name}
-                        </h4>
-                        <p className="text-gray-400 text-[10px] truncate">{quest.description}</p>
-                      </div>
-                      <span className="text-[#44ff88] text-[10px] font-bold flex-shrink-0">
-                        +{quest.xp_reward} XP
-                      </span>
-                      {canClaim && !isClaimed && (
-                        <button
-                          onClick={() => handleClaimQuest(quest.id)}
-                          disabled={questClaimingId === quest.id}
-                          className="pixel-btn pixel-btn-gold text-[9px] !px-2 !py-1 disabled:opacity-50 flex-shrink-0"
-                        >
-                          {questClaimingId === quest.id ? '...' : 'CLAIM'}
-                        </button>
-                      )}
-                      {status === 'available' && !canClaim && (
-                        <button
-                          onClick={() => handleCompleteQuest(quest.id)}
-                          className="pixel-btn text-[9px] !px-2 !py-1 flex-shrink-0"
-                        >
-                          DONE
-                        </button>
-                      )}
-                      {isClaimed && (
-                        <span className="text-[#44ff88] text-[10px]">✓</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          
-          <p className="text-gray-500 text-[9px] text-center mt-3">
-            Complete quests to earn XP and level up! View all quests in your Profile.
-          </p>
-        </div>
-      )}
-
       {/* Analytics Section - Collapsible (includes Holder Chart) */}
       <AnalyticsSection members={members} isLoading={isLoading} />
 
@@ -1725,7 +1551,7 @@ export default function MembersContent() {
       {/* Members Section Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
-          👤 STAR BEARERS LEADERBOARD
+          👤 LEADERBOARD
         </h2>
       </div>
 

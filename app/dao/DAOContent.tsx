@@ -17,7 +17,7 @@ import {
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
-type TabId = 'governance' | 'forum' | 'staking' | 'treasury';
+type TabId = 'governance' | 'forum' | 'staking';
 
 interface Tab {
   id: TabId;
@@ -29,7 +29,6 @@ const tabs: Tab[] = [
   { id: 'governance', label: 'GOVERNANCE', icon: '🗳️' },
   { id: 'forum', label: 'STAR COUNCIL', icon: '💬' },
   { id: 'staking', label: 'STAKING', icon: '🔒' },
-  { id: 'treasury', label: 'TREASURY', icon: '💎' },
 ];
 
 /**
@@ -987,88 +986,6 @@ function StakingTab({
   );
 }
 
-/**
- * Treasury Tab Component
- */
-function TreasuryTab() {
-  return (
-    <div className="space-y-6">
-      {/* Treasury Overview */}
-      <div className="pixel-card p-6 text-center animate-slide-in-up">
-        <h3 className="text-[#ffd700] text-xs tracking-wider mb-4 animate-glow-pulse">COSMIC TREASURY</h3>
-        
-        {/* Balance Display */}
-        <div className="bg-[#0a0a15] p-6 rounded-lg border-2 border-[#ffd700]/30 mb-4 smooth-transition hover-lift">
-          <p className="text-gray-500 text-xs mb-2">TOTAL BALANCE</p>
-          <p className="text-[#ffd700] text-2xl font-bold pixel-glow-gold animate-pixel-pulse">
-            💎 42,069 MON
-          </p>
-          <p className="text-gray-600 text-[10px] mt-2">≈ $XX,XXX USD</p>
-        </div>
-
-        {/* Treasury Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#44ff88] text-sm">+1,337</p>
-            <p className="text-gray-500 text-[10px]">30D INFLOW</p>
-          </div>
-          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p className="text-[#ff4466] text-sm">-420</p>
-            <p className="text-gray-500 text-[10px]">30D OUTFLOW</p>
-          </div>
-          <div className="bg-[#1a1a2e] p-3 rounded-lg smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#9966ff] text-sm">99</p>
-            <p className="text-gray-500 text-[10px]">STAR HOLDERS</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Transactions */}
-      <div className="pixel-card p-6 animate-slide-in-up animate-delay-4">
-        <h3 className="text-[#9966ff] text-xs tracking-wider mb-4">RECENT TRANSACTIONS</h3>
-        <div className="space-y-3">
-          {[
-            { type: 'in', amount: '+500 MON', desc: 'Marketplace Fees', date: '2 days ago' },
-            { type: 'out', amount: '-200 MON', desc: 'Dev Payment (SWO-002)', date: '5 days ago' },
-            { type: 'in', amount: '+337 MON', desc: 'Royalties', date: '1 week ago' },
-            { type: 'in', amount: '+150 MON', desc: 'Staking Deposits', date: '2 weeks ago' },
-          ].map((tx, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2">
-              <div className="flex items-center gap-3">
-                <span className={`text-lg ${tx.type === 'in' ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
-                  {tx.type === 'in' ? '↓' : '↑'}
-                </span>
-                <div>
-                  <p className="text-gray-300 text-xs">{tx.desc}</p>
-                  <p className="text-gray-600 text-[10px]">{tx.date}</p>
-                </div>
-              </div>
-              <p className={`text-[10px] ${tx.type === 'in' ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
-                {tx.amount}
-              </p>
-            </div>
-          ))}
-        </div>
-        
-        <button className="w-full mt-4 pixel-btn text-xs smooth-transition hover-lift">
-          VIEW ALL TRANSACTIONS
-        </button>
-      </div>
-
-      {/* Treasury Sources */}
-      <div className="pixel-card p-4 bg-[#0a0a15] animate-slide-in-up animate-delay-5">
-        <p className="text-[#ffd700] text-xs tracking-wide mb-2">💰 TREASURY SOURCES</p>
-        <ul className="text-gray-500 text-[10px] space-y-1">
-          <li>• 2.5% fee from Cosmic Exchange trades</li>
-          <li>• NFT royalties from secondary sales</li>
-          <li>• Staking protocol fees</li>
-          <li>• Community donations</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
 export default function DAOContent() {
   const [activeTab, setActiveTab] = useState<TabId>('governance');
   
@@ -1175,7 +1092,6 @@ export default function DAOContent() {
               isLoading={isLoadingStaking}
             />
           )}
-          {activeTab === 'treasury' && <TreasuryTab />}
         </div>
       </AccessGate>
     </>

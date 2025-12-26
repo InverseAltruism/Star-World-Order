@@ -209,10 +209,10 @@ export default function Features() {
             <div className="absolute inset-2 border border-[#ffd700]/20 rounded pointer-events-none" />
             
             <p className="text-[#ffd700] text-[10px] mb-3 tracking-wide animate-glow-pulse" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
-              ★ ARE YOU CHOSEN? ★
+              ★ u in or what? ★
             </p>
             <p className="text-gray-400 text-xs mb-4">
-              connect thy wallet • reveal thy star
+              connect wallet • check stars
             </p>
             <WalletConnect />
             

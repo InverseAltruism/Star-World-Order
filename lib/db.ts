@@ -235,6 +235,43 @@ function initializeDatabase(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_user_quests_quest ON user_quests(quest_id, status);
   `);
 
+  // Notifications table - stores user notifications
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('quest', 'achievement', 'system', 'social', 'governance')),
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      link TEXT,
+      icon TEXT DEFAULT '🔔',
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Notification settings table - stores user preferences
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS notification_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL UNIQUE,
+      quest_notifications INTEGER NOT NULL DEFAULT 1,
+      achievement_notifications INTEGER NOT NULL DEFAULT 1,
+      system_notifications INTEGER NOT NULL DEFAULT 1,
+      social_notifications INTEGER NOT NULL DEFAULT 1,
+      governance_notifications INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Notification indexes
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_notifications_wallet ON notifications(wallet_address, is_read, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notification_settings_wallet ON notification_settings(wallet_address);
+  `);
+
   // Insert default quests if none exist
   insertDefaultQuests(database);
 }
@@ -1536,4 +1573,235 @@ export function closeDatabase(): void {
     db.close();
     db = null;
   }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+export type NotificationType = 'quest' | 'achievement' | 'system' | 'social' | 'governance';
+
+export interface Notification {
+  id: number;
+  wallet_address: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string | null;
+  icon: string;
+  is_read: number;
+  created_at: string;
+}
+
+export interface NotificationSettings {
+  id: number;
+  wallet_address: string;
+  quest_notifications: number;
+  achievement_notifications: number;
+  system_notifications: number;
+  social_notifications: number;
+  governance_notifications: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Create a notification for a user
+ */
+export function createNotification(
+  walletAddress: string,
+  data: {
+    type: NotificationType;
+    title: string;
+    message: string;
+    link?: string;
+    icon?: string;
+  }
+): Notification {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Check user's notification settings before creating
+  const settings = getNotificationSettings(normalizedAddress);
+  const settingKey = `${data.type}_notifications` as keyof NotificationSettings;
+  if (settings && settings[settingKey] === 0) {
+    // User has disabled this notification type, don't create it
+    // Return a dummy notification that won't be saved
+    return {
+      id: 0,
+      wallet_address: normalizedAddress,
+      type: data.type,
+      title: data.title,
+      message: data.message,
+      link: data.link || null,
+      icon: data.icon || '🔔',
+      is_read: 1,
+      created_at: new Date().toISOString(),
+    };
+  }
+  
+  const stmt = db.prepare(`
+    INSERT INTO notifications (wallet_address, type, title, message, link, icon)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  
+  const result = stmt.run(
+    normalizedAddress,
+    data.type,
+    data.title,
+    data.message,
+    data.link || null,
+    data.icon || '🔔'
+  );
+  
+  const getStmt = db.prepare('SELECT * FROM notifications WHERE id = ?');
+  return getStmt.get(result.lastInsertRowid) as Notification;
+}
+
+/**
+ * Get notifications for a user
+ */
+export function getNotifications(
+  walletAddress: string,
+  options?: {
+    unreadOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  }
+): Notification[] {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
+  
+  let query = 'SELECT * FROM notifications WHERE wallet_address = ?';
+  const params: (string | number)[] = [normalizedAddress];
+  
+  if (options?.unreadOnly) {
+    query += ' AND is_read = 0';
+  }
+  
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  
+  const stmt = db.prepare(query);
+  return stmt.all(...params) as Notification[];
+}
+
+/**
+ * Get unread notification count for a user
+ */
+export function getUnreadNotificationCount(walletAddress: string): number {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count FROM notifications 
+    WHERE wallet_address = ? AND is_read = 0
+  `);
+  const result = stmt.get(walletAddress.toLowerCase()) as { count: number };
+  return result.count;
+}
+
+/**
+ * Mark a notification as read
+ */
+export function markNotificationRead(notificationId: number): void {
+  const db = getDatabase();
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').run(notificationId);
+}
+
+/**
+ * Mark all notifications as read for a user
+ */
+export function markAllNotificationsRead(walletAddress: string): void {
+  const db = getDatabase();
+  db.prepare(`
+    UPDATE notifications SET is_read = 1 WHERE wallet_address = ?
+  `).run(walletAddress.toLowerCase());
+}
+
+/**
+ * Delete a notification
+ */
+export function deleteNotification(notificationId: number): void {
+  const db = getDatabase();
+  db.prepare('DELETE FROM notifications WHERE id = ?').run(notificationId);
+}
+
+/**
+ * Delete old notifications (older than 30 days)
+ */
+export function cleanupOldNotifications(): void {
+  const db = getDatabase();
+  db.prepare(`
+    DELETE FROM notifications 
+    WHERE datetime(created_at) < datetime('now', '-30 days')
+  `).run();
+}
+
+/**
+ * Get notification settings for a user
+ */
+export function getNotificationSettings(walletAddress: string): NotificationSettings | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM notification_settings WHERE wallet_address = ?');
+  return stmt.get(walletAddress.toLowerCase()) as NotificationSettings | null;
+}
+
+/**
+ * Update notification settings for a user
+ */
+export function updateNotificationSettings(
+  walletAddress: string,
+  settings: {
+    questNotifications?: boolean;
+    achievementNotifications?: boolean;
+    systemNotifications?: boolean;
+    socialNotifications?: boolean;
+    governanceNotifications?: boolean;
+  }
+): NotificationSettings {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  // Get existing settings or use defaults
+  const existing = getNotificationSettings(normalizedAddress);
+  
+  const questNotifications = settings.questNotifications !== undefined 
+    ? (settings.questNotifications ? 1 : 0) 
+    : (existing?.quest_notifications ?? 1);
+  const achievementNotifications = settings.achievementNotifications !== undefined 
+    ? (settings.achievementNotifications ? 1 : 0) 
+    : (existing?.achievement_notifications ?? 1);
+  const systemNotifications = settings.systemNotifications !== undefined 
+    ? (settings.systemNotifications ? 1 : 0) 
+    : (existing?.system_notifications ?? 1);
+  const socialNotifications = settings.socialNotifications !== undefined 
+    ? (settings.socialNotifications ? 1 : 0) 
+    : (existing?.social_notifications ?? 1);
+  const governanceNotifications = settings.governanceNotifications !== undefined 
+    ? (settings.governanceNotifications ? 1 : 0) 
+    : (existing?.governance_notifications ?? 1);
+  
+  db.prepare(`
+    INSERT INTO notification_settings (
+      wallet_address, quest_notifications, achievement_notifications,
+      system_notifications, social_notifications, governance_notifications
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(wallet_address) DO UPDATE SET
+      quest_notifications = ?,
+      achievement_notifications = ?,
+      system_notifications = ?,
+      social_notifications = ?,
+      governance_notifications = ?,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(
+    normalizedAddress,
+    questNotifications, achievementNotifications, systemNotifications,
+    socialNotifications, governanceNotifications,
+    questNotifications, achievementNotifications, systemNotifications,
+    socialNotifications, governanceNotifications
+  );
+  
+  return getNotificationSettings(normalizedAddress)!;
 }
