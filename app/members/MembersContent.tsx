@@ -1009,16 +1009,15 @@ function HolderChart() {
 /**
  * Constellation Distribution Component
  * Shows the correct distribution of all 333 Star Skrumpeys by constellation type
- * Uses static CONSTELLATION_RARITY data which is the authoritative source
+ * Uses static CONSTELLATION_RARITY data from lib/starSkrumpey.ts which is the authoritative source
  */
 function ConstellationDistribution({ 
   isLoading 
 }: { 
   isLoading: boolean; 
 }) {
-  // Use the correct static constellation rarity data
-  // These counts are verified: 52 aether, 52 spectra, 46 solveil, 44 nebulu, 
-  // 42 chroma, 36 rose, 27 monflare, 23 auracore, 10 parallel, 1 prime
+  // Use the correct static constellation rarity data from CONSTELLATION_RARITY
+  // See lib/starSkrumpey.ts for the authoritative source of these counts
   const sortedData = React.useMemo(() => {
     return Object.entries(CONSTELLATION_RARITY)
       .sort((a, b) => b[1] - a[1])

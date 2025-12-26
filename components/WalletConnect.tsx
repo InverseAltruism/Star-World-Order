@@ -165,11 +165,12 @@ export default function WalletConnect() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node | null;
+      if (target && dropdownRef.current && !dropdownRef.current.contains(target)) {
         setShowDropdown(false);
         setShowNoWalletMessage(false);
       }
-      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target as Node)) {
+      if (target && accountMenuRef.current && !accountMenuRef.current.contains(target)) {
         setShowAccountMenu(false);
       }
     }
