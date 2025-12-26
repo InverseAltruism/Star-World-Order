@@ -831,6 +831,34 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/notifications` | POST | Create notification or update settings (body: `walletAddress`, `type`, `title`, `message`) |
 | `/api/notifications` | PATCH | Mark notification(s) as read (body: `walletAddress`, `action`, `notificationId`) |
 | `/api/notifications` | DELETE | Delete a notification (params: `id`) |
+| `/api/notifications/test` | GET | Get usage info for test endpoint |
+| `/api/notifications/test` | POST | Create test notifications (body: `walletAddress`, `testType`) |
+
+### Testing Notifications
+
+The `/api/notifications/test` endpoint allows you to create test notifications for any wallet address.
+
+**Example usage:**
+
+```bash
+# Create all types of test notifications
+curl -X POST http://localhost:3000/api/notifications/test \
+  -H "Content-Type: application/json" \
+  -d '{"walletAddress": "0x1234...", "testType": "all"}'
+
+# Create a specific type of notification
+curl -X POST http://localhost:3000/api/notifications/test \
+  -H "Content-Type: application/json" \
+  -d '{"walletAddress": "0x1234...", "testType": "quest"}'
+```
+
+**Available test types:** `all`, `quest`, `achievement`, `system`, `social`, `governance`
+
+Notifications have two statuses:
+- **Unread** (`is_read = 0`): Shows with a colored dot indicator
+- **Read** (`is_read = 1`): No indicator, dimmed appearance
+
+Click on a notification to mark it as read, or use "Mark all read" to clear all unread notifications.
 
 **Base URL**: `https://starworldorder.com` (production)
 
@@ -1452,11 +1480,13 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true
 
 ---
 
-## Demo Mode
+## Demo Mode (Currently Disabled)
 
-Demo Mode allows visitors to preview the app without connecting a wallet.
+> ⚠️ **STATUS: DISABLED** - Demo Mode is currently disabled in the UI. The code has been commented out but preserved for potential future use. The only way for members to login is via wallet connect.
 
-### How It Works
+Demo Mode was designed to allow visitors to preview the app without connecting a wallet.
+
+### How It Worked
 
 1. Click **🎮 DEMO MODE** button in header
 2. Enter any wallet address that holds Star Skrumpeys
@@ -1472,7 +1502,27 @@ Demo Mode allows visitors to preview the app without connecting a wallet.
 - ❌ Trading or transfers (disabled)
 - ❌ Any write operations (disabled)
 
-**Implementation**: See `lib/contexts/DemoModeContext.tsx`
+### Re-enabling Demo Mode
+
+To re-enable Demo Mode in the future:
+
+1. Uncomment the import in `components/Header.tsx`:
+   ```typescript
+   import DemoMode from './DemoMode';
+   ```
+
+2. Uncomment the DemoMode component in the header navigation:
+   ```tsx
+   {!isLandingPage && (
+     <div className="flex-shrink-0">
+       <DemoMode />
+     </div>
+   )}
+   ```
+
+**Implementation Files**:
+- `lib/contexts/DemoModeContext.tsx` - Context provider and hooks
+- `components/DemoMode.tsx` - UI component (preserved)
 
 ---
 

@@ -3,20 +3,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { usePathname } from 'next/navigation';
 import WalletConnect from './WalletConnect';
-import DemoMode from './DemoMode';
+// Demo Mode is disabled for now - keeping imports for future use
+// import DemoMode from './DemoMode';
 import NotificationBell from './NotificationBell';
 import { isProdMode } from '@/lib/config';
 
 export default function Header() {
   const isProduction = isProdMode();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
-  
-  // Hide demo mode button on landing page (shown elsewhere for locked profile views)
-  // Handle edge cases like trailing slashes or empty paths
-  const isLandingPage = pathname === '/' || pathname === '';
 
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">
@@ -167,13 +162,7 @@ export default function Header() {
               />
             </Link>
           )}
-          {/* Notification Bell */}
-          <NotificationBell />
-          {!isLandingPage && (
-            <div className="flex-shrink-0">
-              <DemoMode />
-            </div>
-          )}
+          {/* Wallet Connect with integrated Notification Bell */}
           <div className="flex-shrink-0">
             <WalletConnect />
           </div>
