@@ -49,8 +49,8 @@ interface Achievement {
 }
 
 const ACHIEVEMENTS: Achievement[] = [
-  { id: 'star_seeker', name: 'Star Seeker', description: 'Hold at least 1 Star Skrumpey', icon: '⭐', color: '#ffd700' },
-  { id: 'constellation_keeper', name: 'Constellation Keeper', description: 'Hold 3 or more Star Skrumpeys', icon: '🌟', color: '#00ffff' },
+  { id: 'star_forged', name: 'Star Forged', description: 'Hold at least 1 Star Skrumpey', icon: '⭐', color: '#9966ff' },
+  { id: 'cosmic_warden', name: 'Cosmic Warden', description: 'Hold 2 or more Star Skrumpeys', icon: '🌟', color: '#00ffff' },
   { id: 'star_lord', name: 'Star Lord', description: 'Hold 5 or more Star Skrumpeys', icon: '👑', color: '#ff00ff' },
   { id: 'cosmic_emperor', name: 'Cosmic Emperor', description: 'Hold 10 or more Star Skrumpeys', icon: '🏆', color: '#ffd700' },
   { id: 'gotta_catch_em_all', name: 'Gotta Catch Em All!', description: 'Collect all 9 constellation types', icon: '🔮', color: '#ff6ec7' },
@@ -150,8 +150,8 @@ function getVariantTextStyle(variant?: string): React.CSSProperties {
 function getLevelColor(holdingsCount: number): string {
   if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
   if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
-  if (holdingsCount >= 3) return '#00ffff'; // Cyan - Constellation Keeper
-  return '#9966ff'; // Purple - Star Seeker
+  if (holdingsCount >= 2) return '#00ffff'; // Cyan - Cosmic Warden
+  return '#9966ff'; // Purple - Star Forged
 }
 
 /**
@@ -160,14 +160,14 @@ function getLevelColor(holdingsCount: number): string {
  * Title thresholds (based on holdings):
  * - 10+ holdings: COSMIC EMPEROR (highest honor)
  * - 5+ holdings: STAR LORD (veteran collector)
- * - 3+ holdings: CONSTELLATION KEEPER (dedicated member)
- * - 1+ holdings: STAR SEEKER (entry level)
+ * - 2+ holdings: COSMIC WARDEN (dedicated member)
+ * - 1+ holdings: STAR FORGED (entry level)
  */
 function getLevelTitle(holdingsCount: number): string {
   if (holdingsCount >= 10) return 'COSMIC EMPEROR';
   if (holdingsCount >= 5) return 'STAR LORD';
-  if (holdingsCount >= 3) return 'CONSTELLATION KEEPER';
-  return 'STAR SEEKER';
+  if (holdingsCount >= 2) return 'COSMIC WARDEN';
+  return 'STAR FORGED';
 }
 
 /**
@@ -1185,8 +1185,8 @@ function ConstellationDistribution({
 const HOLDER_TIERS = [
   { rank: 'COSMIC EMPEROR', icon: '🏆', min: 10, max: Infinity, color: '#ffd700', description: '10+ Star Skrumpeys' },
   { rank: 'STAR LORD', icon: '👑', min: 5, max: 9, color: '#ff00ff', description: '5-9 Star Skrumpeys' },
-  { rank: 'CONSTELLATION KEEPER', icon: '🌟', min: 3, max: 4, color: '#00ffff', description: '3-4 Star Skrumpeys' },
-  { rank: 'STAR SEEKER', icon: '⭐', min: 1, max: 2, color: '#9966ff', description: '1-2 Star Skrumpeys' },
+  { rank: 'COSMIC WARDEN', icon: '🌟', min: 2, max: 4, color: '#00ffff', description: '2-4 Star Skrumpeys' },
+  { rank: 'STAR FORGED', icon: '⭐', min: 1, max: 1, color: '#9966ff', description: '1 Star Skrumpey' },
 ] as const;
 
 /**
@@ -1360,12 +1360,21 @@ function AnalyticsSection({
       {/* Collapsible Content */}
       <div 
         className={`overflow-hidden smooth-transition ${
-          isExpanded ? 'max-h-[2000px] opacity-100 mt-4' : 'max-h-0 opacity-0'
+          isExpanded ? 'max-h-[3000px] opacity-100 mt-4' : 'max-h-0 opacity-0'
         }`}
       >
-        {/* Analytics Grid - Two columns on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Holder Chart - Full Width */}
+        <div className="mb-4">
+          <HolderChart />
+        </div>
+        
+        {/* Constellation Distribution - Full Width */}
+        <div className="mb-4">
           <ConstellationDistribution members={members} isLoading={isLoading} />
+        </div>
+        
+        {/* Holder Tier Breakdown - Full Width */}
+        <div className="mb-4">
           <HolderTierBreakdown members={members} isLoading={isLoading} />
         </div>
         
@@ -1707,10 +1716,7 @@ export default function MembersContent() {
         </div>
       )}
 
-      {/* Holder Chart Section */}
-      <HolderChart />
-
-      {/* Analytics Section - Collapsible */}
+      {/* Analytics Section - Collapsible (includes Holder Chart) */}
       <AnalyticsSection members={members} isLoading={isLoading} />
 
       {/* Divider */}
@@ -1800,8 +1806,8 @@ export default function MembersContent() {
         <ul className="text-gray-400 text-[10px] space-y-1">
           <li>• <span className="text-[#ffd700]">COSMIC EMPEROR</span> - 10+ Star Skrumpeys</li>
           <li>• <span className="text-[#ff00ff]">STAR LORD</span> - 5+ Star Skrumpeys</li>
-          <li>• <span className="text-[#00ffff]">CONSTELLATION KEEPER</span> - 3+ Star Skrumpeys</li>
-          <li>• <span className="text-[#9966ff]">STAR SEEKER</span> - 1+ Star Skrumpeys</li>
+          <li>• <span className="text-[#00ffff]">COSMIC WARDEN</span> - 2+ Star Skrumpeys</li>
+          <li>• <span className="text-[#9966ff]">STAR FORGED</span> - 1+ Star Skrumpeys</li>
         </ul>
       </div>
     </>

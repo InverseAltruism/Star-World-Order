@@ -13,8 +13,8 @@ import SocialConnect from './SocialConnect';
 function getLevelTitle(holdingsCount: number): string {
   if (holdingsCount >= 10) return 'COSMIC EMPEROR';
   if (holdingsCount >= 5) return 'STAR LORD';
-  if (holdingsCount >= 3) return 'CONSTELLATION KEEPER';
-  return 'STAR SEEKER';
+  if (holdingsCount >= 2) return 'COSMIC WARDEN';
+  return 'STAR FORGED';
 }
 
 /**
@@ -23,8 +23,8 @@ function getLevelTitle(holdingsCount: number): string {
 function getLevelColor(holdingsCount: number): string {
   if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
   if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
-  if (holdingsCount >= 3) return '#00ffff'; // Cyan - Constellation Keeper
-  return '#9966ff'; // Purple - Star Seeker
+  if (holdingsCount >= 2) return '#00ffff'; // Cyan - Cosmic Warden
+  return '#9966ff'; // Purple - Star Forged
 }
 
 /**
@@ -123,20 +123,20 @@ interface AchievementCheckData {
  */
 const ACHIEVEMENTS: Achievement[] = [
   {
-    id: 'star_seeker',
-    name: 'Star Seeker',
+    id: 'star_forged',
+    name: 'Star Forged',
     description: 'Hold at least 1 Star Skrumpey',
     icon: '⭐',
-    color: '#ffd700',
+    color: '#9966ff',
     check: (data) => data.starCount >= 1,
   },
   {
-    id: 'constellation_keeper',
-    name: 'Constellation Keeper',
-    description: 'Hold 3 or more Star Skrumpeys',
+    id: 'cosmic_warden',
+    name: 'Cosmic Warden',
+    description: 'Hold 2 or more Star Skrumpeys',
     icon: '🌟',
     color: '#00ffff',
-    check: (data) => data.starCount >= 3,
+    check: (data) => data.starCount >= 2,
   },
   {
     id: 'star_lord',
@@ -475,8 +475,8 @@ export default function ProfileCard() {
   const [isEditingBadges, setIsEditingBadges] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   
-  // Tab navigation state
-  const [activeSection, setActiveSection] = useState<'settings' | 'achievements' | 'quests'>('settings');
+  // Tab navigation state - now includes 'collection'
+  const [activeSection, setActiveSection] = useState<'settings' | 'collection' | 'achievements' | 'quests'>('settings');
   
   // Quest system state
   const [quests, setQuests] = useState<QuestWithProgress[]>([]);
@@ -955,16 +955,16 @@ export default function ProfileCard() {
 
       {/* Section Tab Navigation */}
       <div className="flex gap-2 justify-center flex-wrap animate-slide-in-up">
-        {(['settings', 'achievements', 'quests'] as const).map((section) => {
+        {(['settings', 'collection', 'achievements', 'quests'] as const).map((section) => {
           const isActive = activeSection === section;
-          const icons = { settings: '⚙️', achievements: '🏆', quests: '📜' };
-          const labels = { settings: 'Settings', achievements: 'Achievements', quests: 'Quests' };
+          const icons = { settings: '⚙️', collection: '🎨', achievements: '🏆', quests: '📜' };
+          const labels = { settings: 'Settings', collection: 'My Collection', achievements: 'Achievements', quests: 'Quests' };
           
           return (
             <button
               key={section}
               onClick={() => setActiveSection(section)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold border-2 smooth-transition ${
+              className={`px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-bold border-2 smooth-transition ${
                 isActive
                   ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
                   : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50 hover:text-[#ffd700]/70'
@@ -1074,103 +1074,108 @@ export default function ProfileCard() {
           </div>
         )}
       </div>
-
-      {/* Star Trait Legend - Settings Section */}
-      {starSkrumpeys.length > 0 && (
-        <div className="pixel-card p-4 animate-slide-in-up animate-delay-4">
-          <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
-            STAR CONSTELLATIONS
-          </h3>
-          <div className="flex flex-wrap justify-center gap-2">
-            {STAR_TRAIT_VARIANTS.map((variant, index) => {
-              // Use displaySkrumpeys which has the correct fetched IPFS metadata
-              const hasVariant = displaySkrumpeys.some(s => s.hasStar && s.starVariant === variant);
-              return (
-                <div 
-                  key={variant}
-                  className={`px-2 py-1 rounded text-xs border smooth-transition hover-lift ${
-                    hasVariant 
-                      ? 'border-[#ffd700] bg-[#ffd700]/20' 
-                      : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
-                  }`}
-                  style={{ 
-                    ...(hasVariant ? getVariantTextStyle(variant) : { color: '#666' }),
-                    animationDelay: `${index * 0.05}s`
-                  }}
-                >
-                  {variant.toUpperCase()}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        </>
       )}
 
-      {/* Demo Data Notice - Settings Section */}
-      {showDemoData && (
-        <div className="text-center">
-          <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
-            📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
-          </p>
-        </div>
-      )}
+      {/* My Collection Section */}
+      {activeSection === 'collection' && (
+        <>
+          {/* Star Trait Legend - Collection Section */}
+          {starSkrumpeys.length > 0 && (
+            <div className="pixel-card p-4 animate-slide-in-up">
+              <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
+                STAR CONSTELLATIONS
+              </h3>
+              <div className="flex flex-wrap justify-center gap-2">
+                {STAR_TRAIT_VARIANTS.map((variant, index) => {
+                  // Use displaySkrumpeys which has the correct fetched IPFS metadata
+                  const hasVariant = displaySkrumpeys.some(s => s.hasStar && s.starVariant === variant);
+                  return (
+                    <div 
+                      key={variant}
+                      className={`px-2 py-1 rounded text-xs border smooth-transition hover-lift ${
+                        hasVariant 
+                          ? 'border-[#ffd700] bg-[#ffd700]/20' 
+                          : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
+                      }`}
+                      style={{ 
+                        ...(hasVariant ? getVariantTextStyle(variant) : { color: '#666' }),
+                        animationDelay: `${index * 0.05}s`
+                      }}
+                    >
+                      {variant.toUpperCase()}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-      {/* NFT Collection - Settings Section */}
-      <div className="pixel-card p-4 sm:p-6 animate-slide-in-up animate-delay-5">
-        <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
-          YOUR COLLECTION
-        </h3>
-        <p className="text-gray-500 text-[8px] text-center mb-3 sm:mb-4">
-          Click on a Skrumpey to inspect
-        </p>
-        
-        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-          {finalDisplaySkrumpeys.map((nft, index) => (
-            <div 
-              key={nft.id}
-              onClick={() => setSelectedSkrumpey(nft)}
-              className={`relative p-3 sm:p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} min-h-[44px] ${
-                nft.hasStar 
-                  ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
-                  : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
-              }`}
-            >
-              {/* Star badge */}
-              {nft.hasStar && (
-                <div className="absolute -top-2 -right-2 text-lg sm:text-xl animate-pixel-pulse animate-star-rotate z-10">
-                  ⭐
-                </div>
-              )}
-              
-              {/* NFT Image */}
-              <NFTImage 
-                tokenId={nft.id} 
-                hasStar={nft.hasStar}
-                name={nft.name}
-              />
-              
-              {/* NFT Info */}
-              <p className={`text-[9px] sm:text-[10px] font-bold tracking-wide truncate ${
-                nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
-              }`}>
-                {nft.name}
-              </p>
-              <p className="text-[10px] sm:text-xs truncate">
-                <span className="gradient-text" style={{backgroundImage:  getVariantGradient(nft.starVariant)}}>
-                  {nft.rarity}
-                </span>
+          {/* Demo Data Notice - Collection Section */}
+          {showDemoData && (
+            <div className="text-center">
+              <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
+                📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
               </p>
             </div>
-          ))}
-        </div>
-        
-        {/* Empty state */}
-        {finalDisplaySkrumpeys.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500 text-[10px]">No Skrumpeys found in this wallet</p>
+          )}
+
+          {/* NFT Collection Grid */}
+          <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
+            <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
+              YOUR COLLECTION
+            </h3>
+            <p className="text-gray-500 text-[8px] text-center mb-3 sm:mb-4">
+              Click on a Skrumpey to inspect
+            </p>
+            
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
+              {finalDisplaySkrumpeys.map((nft, index) => (
+                <div 
+                  key={nft.id}
+                  onClick={() => setSelectedSkrumpey(nft)}
+                  className={`relative p-3 sm:p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} min-h-[44px] ${
+                    nft.hasStar 
+                      ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
+                      : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
+                  }`}
+                >
+                  {/* Star badge */}
+                  {nft.hasStar && (
+                    <div className="absolute -top-2 -right-2 text-lg sm:text-xl animate-pixel-pulse animate-star-rotate z-10">
+                      ⭐
+                    </div>
+                  )}
+                  
+                  {/* NFT Image */}
+                  <NFTImage 
+                    tokenId={nft.id} 
+                    hasStar={nft.hasStar}
+                    name={nft.name}
+                  />
+                  
+                  {/* NFT Info */}
+                  <p className={`text-[9px] sm:text-[10px] font-bold tracking-wide truncate ${
+                    nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
+                  }`}>
+                    {nft.name}
+                  </p>
+                  <p className="text-[10px] sm:text-xs truncate">
+                    <span className="gradient-text" style={{backgroundImage:  getVariantGradient(nft.starVariant)}}>
+                      {nft.rarity}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            {/* Empty state */}
+            {finalDisplaySkrumpeys.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-[10px]">No Skrumpeys found in this wallet</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
         </>
       )}
 

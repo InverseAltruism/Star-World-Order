@@ -810,35 +810,17 @@ export default function TreasuryContent() {
         </div>
       )}
 
-      {/* Recent Moves - Shows real blockchain activity */}
+      {/* Transaction History - Simplified */}
       <div className="pixel-card p-6 mb-6 animate-slide-in-up animate-delay-4">
         <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
-          📜 RECENT MOVES
+          📜 TRANSACTION HISTORY
         </h3>
-        
-        <div className="space-y-1">
-          {treasuryData && treasuryData.recentActivities.length > 0 ? (
-            treasuryData.recentActivities.map((activity, i) => (
-              <ActivityItem 
-                key={activity.transactionHash || i} 
-                activity={activity} 
-                formatTime={formatRelativeTime}
-              />
-            ))
-          ) : (
-            <div className="text-center py-4">
-              <p className="text-gray-500 text-xs">
-                {isLoading ? 'Loading activities...' : 'No recent activity'}
-              </p>
-            </div>
-          )}
-        </div>
         
         <a 
           href={`https://monadscan.com/address/${TREASURY_ADDRESS}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="block w-full mt-4 pixel-btn text-xs text-center smooth-transition hover-lift"
+          className="block w-full pixel-btn text-xs text-center smooth-transition hover-lift"
         >
           FULL HISTORY ON EXPLORER ↗
         </a>
