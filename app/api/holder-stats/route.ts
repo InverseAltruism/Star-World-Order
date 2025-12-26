@@ -5,7 +5,10 @@
  * 
  * Query Parameters:
  * - constellation: 'all' | specific constellation name (default: 'all')
- * - timeRange: '1H' | '1D' (default: '1H')
+ * - timeRange: '1H' | '1D' | '1W' (default: '1D')
+ *   - 1H: Last 24 hours (hourly data)
+ *   - 1D: Last 30 days (daily data)
+ *   - 1W: Last 90 days (weekly data)
  * 
  * This endpoint returns historical holder count data for charting,
  * and also records a new snapshot if enough time has passed since the last one.
