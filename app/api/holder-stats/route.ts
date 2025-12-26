@@ -5,7 +5,10 @@
  * 
  * Query Parameters:
  * - constellation: 'all' | specific constellation name (default: 'all')
- * - timeRange: '1H' | '1D' (default: '1H')
+ * - timeRange: '1H' | '1D' | '1W' (default: '1D')
+ *   - 1H: Last 24 hours (hourly data)
+ *   - 1D: Last 30 days (daily data)
+ *   - 1W: Last 90 days (weekly data)
  * 
  * This endpoint returns historical holder count data for charting,
  * and also records a new snapshot if enough time has passed since the last one.
@@ -171,9 +174,9 @@ export async function GET(request: Request) {
     }
     
     // Validate time range
-    if (timeRange !== '1H' && timeRange !== '1D') {
+    if (timeRange !== '1H' && timeRange !== '1D' && timeRange !== '1W') {
       return NextResponse.json(
-        { success: false, error: `Invalid timeRange: ${timeRange}. Use '1H' or '1D'` },
+        { success: false, error: `Invalid timeRange: ${timeRange}. Use '1H', '1D', or '1W'` },
         { status: 400 }
       );
     }
@@ -203,7 +206,15 @@ export async function GET(request: Request) {
     }
     
     // Get historical data based on time range
-    const hoursBack = timeRange === '1H' ? 24 : 24 * 30; // 24 hours for 1H, 30 days for 1D
+    // 1H = last 24 hours (hourly data), 1D = last 30 days (daily data), 1W = last 90 days (weekly data)
+    let hoursBack: number;
+    if (timeRange === '1H') {
+      hoursBack = 24;
+    } else if (timeRange === '1D') {
+      hoursBack = 24 * 30; // 30 days
+    } else {
+      hoursBack = 24 * 90; // 90 days for 1W
+    }
     const history = getHolderSnapshots(constellation, hoursBack, 200);
     
     // Get current holder count

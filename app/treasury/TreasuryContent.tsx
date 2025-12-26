@@ -363,84 +363,8 @@ function TreasuryChart({
 }
 
 /**
- * Portfolio Breakdown Component
- * Shows the breakdown of MON vs NFT value
- */
-function PortfolioBreakdown({ 
-  monBalance, 
-  nftValue, 
-  isLoading 
-}: { 
-  monBalance: string;
-  nftValue: string;
-  isLoading: boolean;
-}) {
-  const monVal = parseFloat(monBalance) || 0;
-  const nftVal = parseFloat(nftValue) || 0;
-  const total = monVal + nftVal;
-  const monPercent = total > 0 ? (monVal / total) * 100 : 0;
-  const nftPercent = total > 0 ? (nftVal / total) * 100 : 0;
-  
-  return (
-    <div className="pixel-card p-4 animate-slide-in-up">
-      <h3 className="text-[#9966ff] text-xs sm:text-sm tracking-wider mb-4">
-        💼 PORTFOLIO BREAKDOWN
-      </h3>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center h-24">
-          <div className="text-2xl animate-spin">💼</div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Progress bar visualization */}
-          <div className="h-6 bg-[#1a1a2e] rounded-lg overflow-hidden flex">
-            {monPercent > 0 && (
-              <div 
-                className="h-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
-                style={{ 
-                  width: `${monPercent}%`,
-                  backgroundColor: '#e8b923',
-                  minWidth: monPercent > 5 ? '40px' : '0',
-                }}
-              >
-                {monPercent > 10 && `${monPercent.toFixed(0)}%`}
-              </div>
-            )}
-            {nftPercent > 0 && (
-              <div 
-                className="h-full flex items-center justify-center text-[10px] font-bold transition-all duration-500"
-                style={{ 
-                  width: `${nftPercent}%`,
-                  backgroundColor: '#9966ff',
-                  minWidth: nftPercent > 5 ? '40px' : '0',
-                }}
-              >
-                {nftPercent > 10 && `${nftPercent.toFixed(0)}%`}
-              </div>
-            )}
-          </div>
-          
-          {/* Legend */}
-          <div className="flex justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-[#e8b923]" />
-              <span className="text-gray-400">MON: {monVal.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-[#9966ff]" />
-              <span className="text-gray-400">NFTs: {nftVal.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Collection Distribution Component
- * Shows NFT holdings grouped by collection
+ * Shows NFT holdings grouped by collection with a donut chart
  */
 function CollectionDistribution({ 
   nftHoldings, 
@@ -471,42 +395,140 @@ function CollectionDistribution({
   // Colors for collections
   const colors = ['#ffd700', '#9966ff', '#44ff88', '#00ffff', '#ff00ff', '#ff6b6b', '#4ecdc4', '#ffe66d'];
   
+  // Chart dimensions - larger size
+  const size = 200;
+  const center = size / 2;
+  const radius = 70;
+  const innerRadius = 45;
+  
+  // Generate donut segments
+  const segments = React.useMemo(() => {
+    if (totalNFTs === 0) return [];
+    
+    let currentAngle = -90; // Start from top
+    return collections.slice(0, 8).map((collection, i) => {
+      const angle = (collection.count / totalNFTs) * 360;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + angle;
+      currentAngle = endAngle;
+      
+      // Calculate arc path
+      const startRad = (startAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+      
+      const x1 = center + radius * Math.cos(startRad);
+      const y1 = center + radius * Math.sin(startRad);
+      const x2 = center + radius * Math.cos(endRad);
+      const y2 = center + radius * Math.sin(endRad);
+      
+      const ix1 = center + innerRadius * Math.cos(startRad);
+      const iy1 = center + innerRadius * Math.sin(startRad);
+      const ix2 = center + innerRadius * Math.cos(endRad);
+      const iy2 = center + innerRadius * Math.sin(endRad);
+      
+      const largeArc = angle > 180 ? 1 : 0;
+      
+      const path = `
+        M ${ix1} ${iy1}
+        L ${x1} ${y1}
+        A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}
+        L ${ix2} ${iy2}
+        A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${ix1} ${iy1}
+        Z
+      `;
+      
+      return {
+        name: collection.name,
+        count: collection.count,
+        isVerified: collection.isVerified,
+        percentage: ((collection.count / totalNFTs) * 100).toFixed(1),
+        path,
+        color: colors[i % colors.length],
+      };
+    });
+  }, [collections, totalNFTs]);
+  
   return (
-    <div className="pixel-card p-4 animate-slide-in-up">
+    <div className="pixel-card p-4 mb-6 animate-slide-in-up">
       <h3 className="text-[#44ff88] text-xs sm:text-sm tracking-wider mb-4">
         🎨 COLLECTION BREAKDOWN
       </h3>
       
       {isLoading ? (
-        <div className="flex items-center justify-center h-24">
+        <div className="flex items-center justify-center h-48">
           <div className="text-2xl animate-spin">🎨</div>
         </div>
       ) : collections.length === 0 ? (
-        <div className="text-center py-4">
+        <div className="flex items-center justify-center h-48">
           <p className="text-gray-500 text-xs">No NFT collections</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {collections.slice(0, 5).map((collection, i) => (
-            <div key={collection.name} className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded flex-shrink-0"
-                style={{ backgroundColor: colors[i % colors.length] }}
-              />
-              <span className="text-gray-300 text-[10px] truncate flex-1">
-                {collection.name}
-                {collection.isVerified && <span className="ml-1 text-[#44ff88]">✓</span>}
-              </span>
-              <span className="text-gray-400 text-[10px]">
-                {collection.count} ({((collection.count / totalNFTs) * 100).toFixed(0)}%)
-              </span>
-            </div>
-          ))}
-          {collections.length > 5 && (
-            <p className="text-gray-500 text-[9px] pt-1">
-              +{collections.length - 5} more collections
-            </p>
-          )}
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          {/* Donut Chart */}
+          <div className="relative flex-shrink-0">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+              {segments.map((seg) => (
+                <path
+                  key={seg.name}
+                  d={seg.path}
+                  fill={seg.color}
+                  stroke="#0a0a15"
+                  strokeWidth="1"
+                  style={{ 
+                    filter: `drop-shadow(0 0 3px ${seg.color}50)`,
+                    cursor: 'pointer',
+                  }}
+                  className="transition-all duration-200 hover:opacity-80"
+                >
+                  <title>{seg.name}: {seg.count} ({seg.percentage}%)</title>
+                </path>
+              ))}
+              {/* Center text */}
+              <text
+                x={center}
+                y={center - 5}
+                textAnchor="middle"
+                fill="#ffd700"
+                fontSize="20"
+                fontWeight="bold"
+              >
+                {totalNFTs}
+              </text>
+              <text
+                x={center}
+                y={center + 12}
+                textAnchor="middle"
+                fill="#666"
+                fontSize="10"
+              >
+                TOTAL NFTs
+              </text>
+            </svg>
+          </div>
+          
+          {/* Legend */}
+          <div className="flex-1 space-y-2 min-w-0">
+            {collections.slice(0, 8).map((collection, i) => (
+              <div key={collection.name} className="flex items-center gap-3">
+                <div 
+                  className="w-4 h-4 rounded flex-shrink-0"
+                  style={{ backgroundColor: colors[i % colors.length] }}
+                />
+                <span className="text-gray-300 text-xs truncate flex-1">
+                  {collection.name}
+                  {collection.isVerified && <span className="ml-1 text-[#44ff88]">✓</span>}
+                </span>
+                <span className="text-gray-400 text-xs">
+                  {collection.count} ({((collection.count / totalNFTs) * 100).toFixed(0)}%)
+                </span>
+              </div>
+            ))}
+            {collections.length > 8 && (
+              <p className="text-gray-500 text-[10px] pt-1">
+                +{collections.length - 8} more collections
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -525,7 +547,7 @@ function TreasuryStatsGrid({
   isLoading: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 animate-slide-in-up">
+    <div className="grid grid-cols-3 gap-3 mb-6 animate-slide-in-up">
       <div className="pixel-card p-3 text-center">
         <p className="text-[#e8b923] text-lg font-bold">
           {isLoading ? '...' : data?.collectionCount || 0}
@@ -543,12 +565,6 @@ function TreasuryStatsGrid({
           {isLoading ? '...' : data?.starSkrumpeyCount || 0}
         </p>
         <p className="text-gray-500 text-[9px]">STAR SKRUMPEYS</p>
-      </div>
-      <div className="pixel-card p-3 text-center">
-        <p className="text-[#00ffff] text-lg font-bold">
-          {isLoading ? '...' : data?.recentActivities?.length || 0}
-        </p>
-        <p className="text-gray-500 text-[9px]">RECENT TXs</p>
       </div>
     </div>
   );
@@ -757,18 +773,11 @@ export default function TreasuryContent() {
       {/* Treasury Stats Grid */}
       <TreasuryStatsGrid data={treasuryData} isLoading={isLoading} />
 
-      {/* Analytics Grid - Portfolio Breakdown and Collection Distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <PortfolioBreakdown 
-          monBalance={treasuryData?.monBalanceFormatted || '0'} 
-          nftValue={treasuryData?.estimatedNFTValueMON || '0'} 
-          isLoading={isLoading} 
-        />
-        <CollectionDistribution 
-          nftHoldings={treasuryData?.nftHoldings || []} 
-          isLoading={isLoading} 
-        />
-      </div>
+      {/* Collection Distribution - Full Width */}
+      <CollectionDistribution 
+        nftHoldings={treasuryData?.nftHoldings || []} 
+        isLoading={isLoading} 
+      />
 
       {/* NFT Holdings Section */}
       {treasuryData && treasuryData.nftHoldings.length > 0 && (
