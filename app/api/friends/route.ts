@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
           type: 'social',
           title: 'New Friend Request',
           message: `${senderName} wants to be your friend!`,
-          link: '/profile?tab=settings',
+          link: '/profile?tab=friends',
           icon: '👋',
         });
         
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
           type: 'social',
           title: 'Friend Request Accepted',
           message: `${accepterName} accepted your friend request!`,
-          link: '/profile?tab=settings',
+          link: '/profile?tab=friends',
           icon: '🎉',
         });
         

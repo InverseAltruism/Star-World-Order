@@ -78,8 +78,9 @@ export default function MessageIcon() {
     if (isConnected && address) {
       fetchConversations();
       
-      // Poll every 30 seconds for new messages
-      const interval = setInterval(fetchConversations, 30000);
+      // Poll every 60 seconds for new messages
+      // This reduces server load while still providing reasonably up-to-date info
+      const interval = setInterval(fetchConversations, 60000);
       return () => clearInterval(interval);
     }
   }, [isConnected, address, fetchConversations]);
