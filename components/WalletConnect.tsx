@@ -5,6 +5,7 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import Link from 'next/link';
 import { monad } from '@/lib/wagmi';
 import NotificationBell from './NotificationBell';
+import MessageIcon from './MessageIcon';
 
 // Wallet metadata for display
 interface WalletInfo {
@@ -260,7 +261,10 @@ export default function WalletConnect() {
           </div>
         )}
         
-        {/* Notification Bell - positioned to the right of wallet */}
+        {/* Message Icon - positioned between wallet and notifications */}
+        <MessageIcon />
+        
+        {/* Notification Bell - positioned to the right */}
         <NotificationBell />
       </div>
     );

@@ -3,9 +3,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS, CONSTELLATION_RARITY } from '@/lib/starSkrumpey';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { useAccount } from 'wagmi';
 
 // Max supply constant
 const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
+
+/**
+ * Friend status type
+ */
+type FriendStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked';
 
 /**
  * Member data interface from API
@@ -409,11 +415,95 @@ function MemberDetailModal({
   member: MemberData;
   onClose: () => void;
 }) {
+  const { address: currentUserAddress, isConnected } = useAccount();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<FriendStatus>('none');
+  const [isLoadingFriendStatus, setIsLoadingFriendStatus] = useState(false);
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
+  
   const primaryTokenId = member.tokenIds[0];
   const imageUrl = primaryTokenId ? getSkrumpeyImageUrl(primaryTokenId) : null;
   const levelTitle = getLevelTitle(member.count);
+  
+  // Check if this is the current user
+  const isCurrentUser = currentUserAddress?.toLowerCase() === member.address.toLowerCase();
+  
+  // Fetch friend status
+  useEffect(() => {
+    if (!currentUserAddress || isCurrentUser) return;
+    
+    const fetchStatus = async () => {
+      setIsLoadingFriendStatus(true);
+      try {
+        const res = await fetch(`/api/friends?address=${currentUserAddress}&type=status&otherAddress=${member.address}`);
+        const data = await res.json();
+        if (data.success) {
+          setFriendStatus(data.status);
+        }
+      } catch (error) {
+        console.error('Failed to fetch friend status:', error);
+      } finally {
+        setIsLoadingFriendStatus(false);
+      }
+    };
+    
+    fetchStatus();
+  }, [currentUserAddress, member.address, isCurrentUser]);
+  
+  // Send friend request handler
+  const handleSendFriendRequest = async () => {
+    if (!currentUserAddress || isSendingRequest) return;
+    
+    setIsSendingRequest(true);
+    try {
+      const res = await fetch('/api/friends', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: currentUserAddress,
+          targetAddress: member.address,
+          action: 'send',
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setFriendStatus('pending_sent');
+      }
+    } catch (error) {
+      console.error('Failed to send friend request:', error);
+    } finally {
+      setIsSendingRequest(false);
+    }
+  };
+  
+  // Accept friend request handler
+  const handleAcceptRequest = async () => {
+    if (!currentUserAddress || isSendingRequest) return;
+    
+    setIsSendingRequest(true);
+    try {
+      const res = await fetch('/api/friends', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: currentUserAddress,
+          targetAddress: member.address,
+          action: 'accept',
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setFriendStatus('accepted');
+      }
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+    } finally {
+      setIsSendingRequest(false);
+    }
+  };
   
   // Close on escape
   useEffect(() => {
@@ -523,6 +613,50 @@ function MemberDetailModal({
                   </div>
                 );
               })}
+            </div>
+          )}
+          
+          {/* Action Buttons - Only show for other users */}
+          {isConnected && !isCurrentUser && (
+            <div className="flex justify-center gap-3 mt-4">
+              {/* Friend Request Button */}
+              {isLoadingFriendStatus ? (
+                <span className="text-gray-500 text-xs">Loading...</span>
+              ) : friendStatus === 'none' ? (
+                <button
+                  onClick={handleSendFriendRequest}
+                  disabled={isSendingRequest}
+                  className="pixel-btn text-[10px] !px-4 !py-2 disabled:opacity-50"
+                >
+                  {isSendingRequest ? '...' : '👋 Add Friend'}
+                </button>
+              ) : friendStatus === 'pending_sent' ? (
+                <span className="text-[#ffd700] text-xs bg-[#ffd700]/20 px-3 py-2 rounded border border-[#ffd700]/50">
+                  ⏳ Request Sent
+                </span>
+              ) : friendStatus === 'pending_received' ? (
+                <button
+                  onClick={handleAcceptRequest}
+                  disabled={isSendingRequest}
+                  className="pixel-btn pixel-btn-gold text-[10px] !px-4 !py-2 disabled:opacity-50"
+                >
+                  {isSendingRequest ? '...' : '✓ Accept Request'}
+                </button>
+              ) : friendStatus === 'accepted' ? (
+                <span className="text-[#44ff88] text-xs bg-[#44ff88]/20 px-3 py-2 rounded border border-[#44ff88]/50">
+                  ✓ Friends
+                </span>
+              ) : null}
+              
+              {/* Message Button - Always show for non-blocked users */}
+              {friendStatus !== 'blocked' && (
+                <a
+                  href={`/profile?tab=messages&chat=${member.address}`}
+                  className="pixel-btn text-[10px] !px-4 !py-2"
+                >
+                  💬 Message
+                </a>
+              )}
             </div>
           )}
         </div>

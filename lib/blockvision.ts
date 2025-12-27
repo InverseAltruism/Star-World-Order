@@ -18,6 +18,11 @@
  * Caching Strategy:
  * - Cache NFT data for 1 hour to minimize API calls
  * - Use database for persistent historical data
+ * 
+ * IMPORTANT: 403 Forbidden errors typically indicate:
+ * - Invalid or expired API key
+ * - API key lacks required permissions for the endpoint
+ * - Endpoint access restricted on current plan
  */
 
 import { logger } from './logger';
@@ -27,6 +32,16 @@ const BLOCKVISION_API_BASE = 'https://api.blockvision.org/v2/monad';
 
 // Get API key from environment
 const BLOCKVISION_API_KEY = process.env.BLOCKVISION_API || '';
+
+// Log API key status at startup (redacted for security)
+if (BLOCKVISION_API_KEY) {
+  logger.info('BlockVision: API key configured', { 
+    keyLength: BLOCKVISION_API_KEY.length,
+    keyPrefix: BLOCKVISION_API_KEY.substring(0, 4) + '...',
+  });
+} else {
+  logger.warn('BlockVision: API key not configured - BLOCKVISION_API env var is missing');
+}
 
 // Cache TTL in milliseconds (1 hour to minimize API calls)
 const CACHE_TTL = 60 * 60 * 1000;
@@ -177,6 +192,16 @@ export async function fetchAccountNFTs(
       });
 
       if (!response.ok) {
+        // Log detailed error info for debugging 403/401 issues
+        const responseText = await response.text().catch(() => 'Unable to read response body');
+        logger.error('BlockVision: HTTP error response', {
+          status: response.status,
+          statusText: response.statusText,
+          endpoint: '/account/nfts',
+          address,
+          responseBody: responseText.substring(0, 500), // Truncate for logging
+          apiKeyConfigured: !!BLOCKVISION_API_KEY,
+        });
         throw new Error(`BlockVision API error: ${response.status} ${response.statusText}`);
       }
 

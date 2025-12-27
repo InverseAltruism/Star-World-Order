@@ -272,6 +272,40 @@ function initializeDatabase(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_notification_settings_wallet ON notification_settings(wallet_address);
   `);
 
+  // Friends table - stores friend relationships
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS friends (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_address TEXT NOT NULL,
+      friend_address TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_address, friend_address)
+    )
+  `);
+
+  // Direct messages table - stores private messages between users
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_address TEXT NOT NULL,
+      recipient_address TEXT NOT NULL,
+      message TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Friends and DM indexes
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_friends_user ON friends(user_address, status);
+    CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_address, status);
+    CREATE INDEX IF NOT EXISTS idx_dm_sender ON direct_messages(sender_address, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_dm_recipient ON direct_messages(recipient_address, is_read, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_dm_conversation ON direct_messages(sender_address, recipient_address, created_at DESC);
+  `);
+
   // Insert default quests if none exist
   insertDefaultQuests(database);
 }
@@ -1818,4 +1852,465 @@ export function updateNotificationSettings(
   );
   
   return getNotificationSettings(normalizedAddress)!;
+}
+
+// ============================================================
+// FRIENDS SYSTEM
+// ============================================================
+
+export type FriendStatus = 'pending' | 'accepted' | 'blocked';
+
+export interface Friend {
+  id: number;
+  user_address: string;
+  friend_address: string;
+  status: FriendStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendWithProfile extends Friend {
+  display_name?: string;
+  bio?: string;
+}
+
+/**
+ * Send a friend request
+ */
+export function sendFriendRequest(userAddress: string, friendAddress: string): Friend | null {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedFriend = friendAddress.toLowerCase();
+  
+  // Can't friend yourself
+  if (normalizedUser === normalizedFriend) {
+    return null;
+  }
+  
+  // Check if relationship already exists
+  const existing = db.prepare(`
+    SELECT * FROM friends 
+    WHERE (user_address = ? AND friend_address = ?)
+    OR (user_address = ? AND friend_address = ?)
+  `).get(normalizedUser, normalizedFriend, normalizedFriend, normalizedUser) as Friend | undefined;
+  
+  if (existing) {
+    return existing;
+  }
+  
+  // Create new friend request
+  const stmt = db.prepare(`
+    INSERT INTO friends (user_address, friend_address, status)
+    VALUES (?, ?, 'pending')
+  `);
+  
+  const result = stmt.run(normalizedUser, normalizedFriend);
+  
+  const getStmt = db.prepare('SELECT * FROM friends WHERE id = ?');
+  return getStmt.get(result.lastInsertRowid) as Friend;
+}
+
+/**
+ * Accept a friend request
+ */
+export function acceptFriendRequest(userAddress: string, friendAddress: string): Friend | null {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedFriend = friendAddress.toLowerCase();
+  
+  // Find the pending request (where friend_address is the current user)
+  const request = db.prepare(`
+    SELECT * FROM friends 
+    WHERE user_address = ? AND friend_address = ? AND status = 'pending'
+  `).get(normalizedFriend, normalizedUser) as Friend | undefined;
+  
+  if (!request) {
+    return null;
+  }
+  
+  // Update to accepted
+  db.prepare(`
+    UPDATE friends 
+    SET status = 'accepted', updated_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+  `).run(request.id);
+  
+  return db.prepare('SELECT * FROM friends WHERE id = ?').get(request.id) as Friend;
+}
+
+/**
+ * Decline/reject a friend request
+ */
+export function declineFriendRequest(userAddress: string, friendAddress: string): boolean {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedFriend = friendAddress.toLowerCase();
+  
+  const result = db.prepare(`
+    DELETE FROM friends 
+    WHERE user_address = ? AND friend_address = ? AND status = 'pending'
+  `).run(normalizedFriend, normalizedUser);
+  
+  return result.changes > 0;
+}
+
+/**
+ * Remove a friend (unfriend)
+ */
+export function removeFriend(userAddress: string, friendAddress: string): boolean {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedFriend = friendAddress.toLowerCase();
+  
+  const result = db.prepare(`
+    DELETE FROM friends 
+    WHERE ((user_address = ? AND friend_address = ?) OR (user_address = ? AND friend_address = ?))
+    AND status = 'accepted'
+  `).run(normalizedUser, normalizedFriend, normalizedFriend, normalizedUser);
+  
+  return result.changes > 0;
+}
+
+/**
+ * Block a user
+ */
+export function blockUser(userAddress: string, blockAddress: string): Friend | null {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedBlock = blockAddress.toLowerCase();
+  
+  // Delete any existing relationship
+  db.prepare(`
+    DELETE FROM friends 
+    WHERE (user_address = ? AND friend_address = ?) OR (user_address = ? AND friend_address = ?)
+  `).run(normalizedUser, normalizedBlock, normalizedBlock, normalizedUser);
+  
+  // Create block entry
+  const stmt = db.prepare(`
+    INSERT INTO friends (user_address, friend_address, status)
+    VALUES (?, ?, 'blocked')
+  `);
+  
+  const result = stmt.run(normalizedUser, normalizedBlock);
+  
+  return db.prepare('SELECT * FROM friends WHERE id = ?').get(result.lastInsertRowid) as Friend;
+}
+
+/**
+ * Get all friends (accepted) for a user
+ */
+export function getFriends(userAddress: string): FriendWithProfile[] {
+  const db = getDatabase();
+  const normalizedAddress = userAddress.toLowerCase();
+  
+  // Get friends where user is either the requester or the accepter
+  const friends = db.prepare(`
+    SELECT f.*, 
+           CASE 
+             WHEN f.user_address = ? THEN p2.display_name
+             ELSE p1.display_name
+           END as display_name,
+           CASE 
+             WHEN f.user_address = ? THEN p2.bio
+             ELSE p1.bio
+           END as bio
+    FROM friends f
+    LEFT JOIN user_profiles p1 ON f.user_address = p1.wallet_address
+    LEFT JOIN user_profiles p2 ON f.friend_address = p2.wallet_address
+    WHERE (f.user_address = ? OR f.friend_address = ?) AND f.status = 'accepted'
+    ORDER BY f.updated_at DESC
+  `).all(normalizedAddress, normalizedAddress, normalizedAddress, normalizedAddress) as FriendWithProfile[];
+  
+  return friends;
+}
+
+/**
+ * Get pending friend requests (incoming)
+ */
+export function getPendingFriendRequests(userAddress: string): FriendWithProfile[] {
+  const db = getDatabase();
+  const normalizedAddress = userAddress.toLowerCase();
+  
+  const requests = db.prepare(`
+    SELECT f.*, p.display_name, p.bio
+    FROM friends f
+    LEFT JOIN user_profiles p ON f.user_address = p.wallet_address
+    WHERE f.friend_address = ? AND f.status = 'pending'
+    ORDER BY f.created_at DESC
+  `).all(normalizedAddress) as FriendWithProfile[];
+  
+  return requests;
+}
+
+/**
+ * Get outgoing friend requests (sent but not accepted)
+ */
+export function getOutgoingFriendRequests(userAddress: string): FriendWithProfile[] {
+  const db = getDatabase();
+  const normalizedAddress = userAddress.toLowerCase();
+  
+  const requests = db.prepare(`
+    SELECT f.*, p.display_name, p.bio
+    FROM friends f
+    LEFT JOIN user_profiles p ON f.friend_address = p.wallet_address
+    WHERE f.user_address = ? AND f.status = 'pending'
+    ORDER BY f.created_at DESC
+  `).all(normalizedAddress) as FriendWithProfile[];
+  
+  return requests;
+}
+
+/**
+ * Check if two users are friends
+ */
+export function areFriends(userAddress: string, otherAddress: string): boolean {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedOther = otherAddress.toLowerCase();
+  
+  const friend = db.prepare(`
+    SELECT 1 FROM friends 
+    WHERE ((user_address = ? AND friend_address = ?) OR (user_address = ? AND friend_address = ?))
+    AND status = 'accepted'
+    LIMIT 1
+  `).get(normalizedUser, normalizedOther, normalizedOther, normalizedUser);
+  
+  return !!friend;
+}
+
+/**
+ * Get friendship status between two users
+ */
+export function getFriendshipStatus(userAddress: string, otherAddress: string): {
+  status: 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked';
+  friend?: Friend;
+} {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedOther = otherAddress.toLowerCase();
+  
+  const friend = db.prepare(`
+    SELECT * FROM friends 
+    WHERE (user_address = ? AND friend_address = ?) OR (user_address = ? AND friend_address = ?)
+    LIMIT 1
+  `).get(normalizedUser, normalizedOther, normalizedOther, normalizedUser) as Friend | undefined;
+  
+  if (!friend) {
+    return { status: 'none' };
+  }
+  
+  if (friend.status === 'blocked') {
+    return { status: 'blocked', friend };
+  }
+  
+  if (friend.status === 'accepted') {
+    return { status: 'accepted', friend };
+  }
+  
+  // Pending - determine direction
+  if (friend.user_address === normalizedUser) {
+    return { status: 'pending_sent', friend };
+  } else {
+    return { status: 'pending_received', friend };
+  }
+}
+
+/**
+ * Get count of pending friend requests
+ */
+export function getPendingFriendRequestCount(userAddress: string): number {
+  const db = getDatabase();
+  const result = db.prepare(`
+    SELECT COUNT(*) as count FROM friends 
+    WHERE friend_address = ? AND status = 'pending'
+  `).get(userAddress.toLowerCase()) as { count: number };
+  return result.count;
+}
+
+// ============================================================
+// DIRECT MESSAGES
+// ============================================================
+
+export interface DirectMessage {
+  id: number;
+  sender_address: string;
+  recipient_address: string;
+  message: string;
+  is_read: number;
+  created_at: string;
+}
+
+export interface DirectMessageWithProfile extends DirectMessage {
+  sender_display_name?: string;
+  recipient_display_name?: string;
+}
+
+export interface Conversation {
+  other_address: string;
+  other_display_name?: string;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  is_sender: boolean;
+}
+
+/**
+ * Send a direct message
+ */
+export function sendDirectMessage(senderAddress: string, recipientAddress: string, message: string): DirectMessage | null {
+  const db = getDatabase();
+  const normalizedSender = senderAddress.toLowerCase();
+  const normalizedRecipient = recipientAddress.toLowerCase();
+  
+  // Can't message yourself
+  if (normalizedSender === normalizedRecipient) {
+    return null;
+  }
+  
+  // Check if user is blocked
+  const isBlocked = db.prepare(`
+    SELECT 1 FROM friends 
+    WHERE user_address = ? AND friend_address = ? AND status = 'blocked'
+    LIMIT 1
+  `).get(normalizedRecipient, normalizedSender);
+  
+  if (isBlocked) {
+    return null;
+  }
+  
+  const stmt = db.prepare(`
+    INSERT INTO direct_messages (sender_address, recipient_address, message)
+    VALUES (?, ?, ?)
+  `);
+  
+  const result = stmt.run(normalizedSender, normalizedRecipient, message);
+  
+  return db.prepare('SELECT * FROM direct_messages WHERE id = ?').get(result.lastInsertRowid) as DirectMessage;
+}
+
+/**
+ * Get conversation between two users
+ */
+export function getConversation(
+  userAddress: string, 
+  otherAddress: string, 
+  limit: number = 50,
+  offset: number = 0
+): DirectMessageWithProfile[] {
+  const db = getDatabase();
+  const normalizedUser = userAddress.toLowerCase();
+  const normalizedOther = otherAddress.toLowerCase();
+  
+  const messages = db.prepare(`
+    SELECT dm.*, 
+           sp.display_name as sender_display_name,
+           rp.display_name as recipient_display_name
+    FROM direct_messages dm
+    LEFT JOIN user_profiles sp ON dm.sender_address = sp.wallet_address
+    LEFT JOIN user_profiles rp ON dm.recipient_address = rp.wallet_address
+    WHERE (dm.sender_address = ? AND dm.recipient_address = ?)
+    OR (dm.sender_address = ? AND dm.recipient_address = ?)
+    ORDER BY dm.created_at DESC
+    LIMIT ? OFFSET ?
+  `).all(normalizedUser, normalizedOther, normalizedOther, normalizedUser, limit, offset) as DirectMessageWithProfile[];
+  
+  return messages.reverse(); // Return in chronological order
+}
+
+/**
+ * Get all conversations for a user (grouped by other party)
+ */
+export function getConversations(userAddress: string): Conversation[] {
+  const db = getDatabase();
+  const normalizedAddress = userAddress.toLowerCase();
+  
+  // Complex query to get the latest message from each conversation
+  const conversations = db.prepare(`
+    WITH latest_messages AS (
+      SELECT 
+        CASE 
+          WHEN sender_address = ? THEN recipient_address
+          ELSE sender_address
+        END as other_address,
+        message as last_message,
+        created_at as last_message_at,
+        sender_address = ? as is_sender,
+        ROW_NUMBER() OVER (
+          PARTITION BY 
+            CASE WHEN sender_address = ? THEN recipient_address ELSE sender_address END
+          ORDER BY created_at DESC
+        ) as rn
+      FROM direct_messages
+      WHERE sender_address = ? OR recipient_address = ?
+    ),
+    unread_counts AS (
+      SELECT 
+        sender_address as other_address,
+        COUNT(*) as unread_count
+      FROM direct_messages
+      WHERE recipient_address = ? AND is_read = 0
+      GROUP BY sender_address
+    )
+    SELECT 
+      lm.other_address,
+      p.display_name as other_display_name,
+      lm.last_message,
+      lm.last_message_at,
+      COALESCE(uc.unread_count, 0) as unread_count,
+      lm.is_sender
+    FROM latest_messages lm
+    LEFT JOIN user_profiles p ON lm.other_address = p.wallet_address
+    LEFT JOIN unread_counts uc ON lm.other_address = uc.other_address
+    WHERE lm.rn = 1
+    ORDER BY lm.last_message_at DESC
+  `).all(
+    normalizedAddress, normalizedAddress, normalizedAddress, 
+    normalizedAddress, normalizedAddress, normalizedAddress
+  ) as Conversation[];
+  
+  return conversations;
+}
+
+/**
+ * Mark messages as read
+ */
+export function markMessagesAsRead(recipientAddress: string, senderAddress: string): void {
+  const db = getDatabase();
+  db.prepare(`
+    UPDATE direct_messages 
+    SET is_read = 1 
+    WHERE recipient_address = ? AND sender_address = ? AND is_read = 0
+  `).run(recipientAddress.toLowerCase(), senderAddress.toLowerCase());
+}
+
+/**
+ * Mark a single message as read
+ */
+export function markMessageAsRead(messageId: number): void {
+  const db = getDatabase();
+  db.prepare('UPDATE direct_messages SET is_read = 1 WHERE id = ?').run(messageId);
+}
+
+/**
+ * Get unread message count for a user
+ */
+export function getUnreadMessageCount(userAddress: string): number {
+  const db = getDatabase();
+  const result = db.prepare(`
+    SELECT COUNT(*) as count FROM direct_messages 
+    WHERE recipient_address = ? AND is_read = 0
+  `).get(userAddress.toLowerCase()) as { count: number };
+  return result.count;
+}
+
+/**
+ * Delete a message (only sender can delete)
+ */
+export function deleteMessage(messageId: number, senderAddress: string): boolean {
+  const db = getDatabase();
+  const result = db.prepare(`
+    DELETE FROM direct_messages 
+    WHERE id = ? AND sender_address = ?
+  `).run(messageId, senderAddress.toLowerCase());
+  return result.changes > 0;
 }
