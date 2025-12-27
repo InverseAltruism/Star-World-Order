@@ -250,8 +250,6 @@ function convertCachedToNFTHoldings(cachedNFTs: Array<{
   });
 }
 
-}
-
 export async function GET() {
   try {
     // Check cache first
