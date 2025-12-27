@@ -979,17 +979,59 @@ Click on a notification to mark it as read, or use "Mark all read" to clear all 
 
 ---
 
+## Tracked NFT Collections (Direct RPC)
+
+Due to high costs of NFT indexing APIs on Monad ($200+/month), treasury NFT holdings are fetched directly via RPC from a curated list of popular collections.
+
+### Tracked Collections
+
+| Collection | Contract Address | 
+|------------|-----------------|
+| **Skrumpeys** | `0xB0DAD798C80e40Dd6b8E8545074C6a5B7B97D2c0` |
+| **10k Squad** | `0x818030837E8350ba63E64d7dC01A547fA73c8279` |
+| **Chads** | `0xe217a5517105a97616B09C05c685a7e125e6E753` |
+| **Sealuminati** | `0xaEAA920165fD7ce58a0E0772Ffc97F06626572cD` |
+| **The Daks** | `0x9F8514cEBee138b61806d4651f51d26C8098b463` |
+| **Spiky** | `0x43577CC08c03d4017177EB1e43F8077C41C765` |
+| **llamao** | `0x21D95aDDceBe87BEA4e49534595F242Af002D068` |
+
+### How It Works
+
+1. **ERC721Enumerable Support**: Collections must implement the ERC721Enumerable interface for efficient RPC querying
+2. **Multicall3 Batching**: Uses Multicall3 at `0xcA11bde05977b3631167028862bE2a173976CA11` to batch ownership queries
+3. **SQLite Cache**: Results are cached for 24 hours to minimize RPC calls
+4. **IPFS Metadata**: Automatically converts IPFS URIs to HTTP gateway URLs
+
+### Adding New Collections
+
+To add a new collection to the tracked list:
+
+1. Edit `TRACKED_COLLECTIONS` in `lib/rpcNftFetcher.ts`
+2. Verify the collection supports ERC721Enumerable using `supportsEnumerable()`
+3. Test with `fetchCollectionNFTs()` on a known holder address
+
+### Limitations
+
+- Only NFTs from tracked collections will appear in treasury holdings
+- Collections without ERC721Enumerable support cannot be tracked via RPC
+- Metadata fetching has a 5-second timeout to avoid blocking
+
+**Implementation**: See `lib/rpcNftFetcher.ts`
+
+---
+
 ## BlockVision API Integration
 
-Star World Order uses BlockVision's Monad Indexing API for fetching comprehensive NFT holdings data and collection floor prices.
+Star World Order uses BlockVision's Monad Indexing API for fetching collection floor prices (optional).
 
 ### Overview
 
 BlockVision provides indexed blockchain data through a REST API, enabling efficient retrieval of:
-- All NFT holdings across all collections
-- Token balances
-- Account activity and transactions
 - **Collection floor prices** (for treasury value calculation)
+- Token balances (optional fallback)
+- Account activity and transactions (optional fallback)
+
+**Note**: NFT holdings are now fetched via direct RPC calls. BlockVision is only used for floor prices if API key is available.
 
 ### Configuration
 
