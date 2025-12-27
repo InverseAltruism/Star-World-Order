@@ -295,14 +295,14 @@ export default function NotificationBell() {
             )}
           </div>
           
-          {/* Footer - Link to Profile Quests */}
+          {/* Footer - Link to Profile Messages/Notifications */}
           <div className="px-4 py-3 border-t border-[#2a2a4e] bg-[#1a1a2e]">
             <Link 
-              href="/profile"
+              href="/profile?tab=messages"
               onClick={() => setIsOpen(false)}
               className="block w-full text-center text-[10px] text-[#9966ff] hover:text-[#ffd700] transition-colors"
             >
-              View all in Profile →
+              View all notifications →
             </Link>
           </div>
         </div>

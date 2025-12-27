@@ -758,6 +758,51 @@ CREATE TABLE IF NOT EXISTS notification_settings (
 CREATE INDEX idx_notification_settings_wallet ON notification_settings(wallet_address);
 ```
 
+### friends
+
+Stores friend relationships between users.
+
+```sql
+CREATE TABLE IF NOT EXISTS friends (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_address TEXT NOT NULL,
+  friend_address TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_address, friend_address)
+);
+
+CREATE INDEX idx_friends_user ON friends(user_address, status);
+CREATE INDEX idx_friends_friend ON friends(friend_address, status);
+```
+
+**Friend Status**:
+| Status | Description |
+|--------|-------------|
+| `pending` | Friend request sent, awaiting response |
+| `accepted` | Mutual friends |
+| `blocked` | User has blocked this person |
+
+### direct_messages
+
+Stores private messages between users.
+
+```sql
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender_address TEXT NOT NULL,
+  recipient_address TEXT NOT NULL,
+  message TEXT NOT NULL,
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_dm_sender ON direct_messages(sender_address, created_at DESC);
+CREATE INDEX idx_dm_recipient ON direct_messages(recipient_address, is_read, created_at DESC);
+CREATE INDEX idx_dm_conversation ON direct_messages(sender_address, recipient_address, created_at DESC);
+```
+
 **Available Database Functions** (from `lib/db.ts`):
 
 ```typescript
@@ -788,6 +833,28 @@ deleteNotification(notificationId: number): void
 cleanupOldNotifications(): void
 getNotificationSettings(walletAddress: string): NotificationSettings | null
 updateNotificationSettings(walletAddress: string, settings: { ...NotificationFlags }): NotificationSettings
+
+// Friends Functions
+sendFriendRequest(userAddress: string, friendAddress: string): Friend | null
+acceptFriendRequest(userAddress: string, friendAddress: string): Friend | null
+declineFriendRequest(userAddress: string, friendAddress: string): boolean
+removeFriend(userAddress: string, friendAddress: string): boolean
+blockUser(userAddress: string, blockAddress: string): Friend | null
+getFriends(userAddress: string): FriendWithProfile[]
+getPendingFriendRequests(userAddress: string): FriendWithProfile[]
+getOutgoingFriendRequests(userAddress: string): FriendWithProfile[]
+areFriends(userAddress: string, otherAddress: string): boolean
+getFriendshipStatus(userAddress: string, otherAddress: string): { status, friend? }
+getPendingFriendRequestCount(userAddress: string): number
+
+// Direct Message Functions
+sendDirectMessage(senderAddress: string, recipientAddress: string, message: string): DirectMessage | null
+getConversation(userAddress: string, otherAddress: string, limit?, offset?): DirectMessageWithProfile[]
+getConversations(userAddress: string): Conversation[]
+markMessagesAsRead(recipientAddress: string, senderAddress: string): void
+markMessageAsRead(messageId: number): void
+getUnreadMessageCount(userAddress: string): number
+deleteMessage(messageId: number, senderAddress: string): boolean
 
 // Database Backup
 createDatabaseBackup(backupDir?: string): string
@@ -833,6 +900,54 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/notifications` | DELETE | Delete a notification (params: `id`) |
 | `/api/notifications/test` | GET | Get usage info for test endpoint |
 | `/api/notifications/test` | POST | Create test notifications (body: `walletAddress`, `testType`) |
+| `/api/friends` | GET | Get friends list, pending requests, or friendship status |
+| `/api/friends` | POST | Send/accept/decline friend request, remove/block user |
+| `/api/messages` | GET | Get conversations or specific conversation messages |
+| `/api/messages` | POST | Send a direct message |
+| `/api/messages` | PATCH | Mark messages as read |
+| `/api/messages` | DELETE | Delete a message (sender only) |
+
+### Friends API
+
+**GET /api/friends**
+
+Query parameters:
+- `address` (required): User's wallet address
+- `type`: `all` (default) | `pending` | `outgoing` | `status`
+- `otherAddress`: Required for `type=status` - check friendship status with this address
+
+**POST /api/friends**
+
+Body:
+```json
+{
+  "walletAddress": "0x...",
+  "targetAddress": "0x...",
+  "action": "send" | "accept" | "decline" | "remove" | "block"
+}
+```
+
+### Direct Messages API
+
+**GET /api/messages**
+
+Query parameters:
+- `address` (required): User's wallet address
+- `type`: `conversations` (default) | `conversation` | `unread`
+- `otherAddress`: Required for `type=conversation`
+- `limit`: Number of messages (default 50)
+- `offset`: Pagination offset
+
+**POST /api/messages**
+
+Body:
+```json
+{
+  "senderAddress": "0x...",
+  "recipientAddress": "0x...",
+  "message": "Hello!"
+}
+```
 
 ### Testing Notifications
 
@@ -1282,7 +1397,7 @@ try {
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
 | `lib/blockvision.ts` | BlockVision API integration for NFT fetching and account transactions |
-| `lib/db.ts` | SQLite database operations, quests, XP, notifications, and backup functions |
+| `lib/db.ts` | SQLite database operations, quests, XP, notifications, friends, DMs, and backup functions |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
 | `lib/contexts/DAOAccessContext.tsx` | DAO access state management |
@@ -1290,7 +1405,8 @@ try {
 | `components/DemoMode.tsx` | Demo mode modal and UI |
 | `components/Header.tsx` | Navigation header |
 | `components/NotificationBell.tsx` | Bell icon with unread count badge and dropdown |
-| `components/ProfileCard.tsx` | Profile with tabbed sections (Settings, Achievements, Quests) |
+| `components/MessageIcon.tsx` | DM icon with unread count badge and conversation dropdown |
+| `components/ProfileCard.tsx` | Profile with tabbed sections (Settings, Friends, Messages, Collection, Achievements, Quests) |
 | `app/page.tsx` | Home page with N64 loading screen |
 | `app/dao/page.tsx` | DAO governance page (Governance, Forum, Staking tabs) |
 | `app/exchange/page.tsx` | OTC marketplace page |
@@ -1299,10 +1415,12 @@ try {
 | `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
 | `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
 | `app/members/page.tsx` | Members page with holder analytics |
-| `app/members/MembersContent.tsx` | Members client component with analytics (Constellation distribution, Holdings distribution, Top holders) |
+| `app/members/MembersContent.tsx` | Members client component with friend requests and messaging from member profiles |
 | `app/api/quests/route.ts` | Quest system API endpoints |
 | `app/api/user-xp/route.ts` | User XP API endpoints |
 | `app/api/notifications/route.ts` | Notification system API endpoints |
+| `app/api/friends/route.ts` | Friends system API endpoints |
+| `app/api/messages/route.ts` | Direct messaging API endpoints |
 
 ---
 
