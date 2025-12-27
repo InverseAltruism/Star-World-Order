@@ -178,7 +178,7 @@ function convertCachedToNFTHoldings(cachedNFTs: Array<{
   
   const nfts: NFTHolding[] = cachedNFTs.map(nft => {
     const tokenIdNum = parseInt(nft.token_id, 10);
-    const isSkrumpeyContract = skrumpeyContractLower && nft.contract_address.toLowerCase() === skrumpeyContractLower;
+    const isSkrumpeyContract = skrumpeyContractLower !== '' && nft.contract_address.toLowerCase() === skrumpeyContractLower;
     const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
     
     let constellation: string | undefined;
@@ -238,7 +238,7 @@ function convertRPCToNFTHoldings(rpcNFTs: RPCNFTHolding[]): NFTHolding[] {
   
   const nfts: NFTHolding[] = rpcNFTs.map(nft => {
     const tokenIdNum = parseInt(nft.tokenId, 10);
-    const isSkrumpeyContract = skrumpeyContractLower && nft.contractAddress.toLowerCase() === skrumpeyContractLower;
+    const isSkrumpeyContract = skrumpeyContractLower !== '' && nft.contractAddress.toLowerCase() === skrumpeyContractLower;
     const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
     
     let constellation: string | undefined;

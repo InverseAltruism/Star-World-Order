@@ -15,7 +15,7 @@
 
 import { getResilientClient, retryWithBackoff } from './rpcClient';
 import { logger } from './logger';
-import { Address, parseAbi } from 'viem';
+import { Address, parseAbi, encodeFunctionData, decodeFunctionResult } from 'viem';
 
 /**
  * Multicall3 contract address (deployed on all networks)
@@ -252,7 +252,7 @@ export async function fetchCollectionNFTs(
     // Step 3: Fetch all token IDs using multicall for efficiency
     const tokenIdCalls = Array.from({ length: balanceNum }, (_, index) => ({
       target: contractAddress,
-      callData: client.encodeFunctionData({
+      callData: encodeFunctionData({
         abi: ERC721_ENUMERABLE_ABI,
         functionName: 'tokenOfOwnerByIndex',
         args: [walletAddress, BigInt(index)],
@@ -273,7 +273,7 @@ export async function fetchCollectionNFTs(
     for (const result of tokenIdsResult) {
       if (result.success && result.returnData !== '0x') {
         try {
-          const decoded = client.decodeFunctionResult({
+          const decoded = decodeFunctionResult({
             abi: ERC721_ENUMERABLE_ABI,
             functionName: 'tokenOfOwnerByIndex',
             data: result.returnData,
@@ -293,7 +293,7 @@ export async function fetchCollectionNFTs(
     // Step 4: Fetch token URIs using multicall
     const uriCalls = tokenIds.map(tokenId => ({
       target: contractAddress,
-      callData: client.encodeFunctionData({
+      callData: encodeFunctionData({
         abi: ERC721_ENUMERABLE_ABI,
         functionName: 'tokenURI',
         args: [tokenId],
@@ -319,7 +319,7 @@ export async function fetchCollectionNFTs(
       let tokenURI = '';
       if (uriResult.success && uriResult.returnData !== '0x') {
         try {
-          tokenURI = client.decodeFunctionResult({
+          tokenURI = decodeFunctionResult({
             abi: ERC721_ENUMERABLE_ABI,
             functionName: 'tokenURI',
             data: uriResult.returnData,

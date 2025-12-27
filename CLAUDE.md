@@ -869,7 +869,7 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/metadata` | GET | Get NFT metadata by tokenId(s) - **uses database first, IPFS fallback** |
-| `/api/treasury` | GET | Get treasury wallet data including MON balance and all NFT holdings (uses BlockVision API) |
+| `/api/treasury` | GET | Get treasury wallet data including MON balance and all NFT holdings (uses direct RPC with SQLite cache, BlockVision optional for floor prices) |
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
