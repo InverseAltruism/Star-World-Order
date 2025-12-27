@@ -1438,8 +1438,9 @@ try {
 | `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks |
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
-| `lib/blockvision.ts` | BlockVision API integration for NFT fetching and account transactions |
-| `lib/db.ts` | SQLite database operations, quests, XP, notifications, friends, DMs, and backup functions |
+| `lib/rpcNftFetcher.ts` | **Direct RPC NFT fetcher with tracked collections** |
+| `lib/blockvision.ts` | BlockVision API integration (optional: floor prices, activities) |
+| `lib/db.ts` | SQLite database operations including treasury NFT cache |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
 | `lib/contexts/DAOAccessContext.tsx` | DAO access state management |
@@ -1456,6 +1457,7 @@ try {
 | `app/hangout/page.tsx` | Hangout Hub lobby |
 | `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
 | `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
+| `app/api/treasury/route.ts` | **Treasury API with RPC NFT fetching and SQLite cache** |
 | `app/members/page.tsx` | Members page with holder analytics |
 | `app/members/MembersContent.tsx` | Members client component with friend requests and messaging from member profiles |
 | `app/api/quests/route.ts` | Quest system API endpoints |
