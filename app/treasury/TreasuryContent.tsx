@@ -792,6 +792,11 @@ export default function TreasuryContent() {
               <NFTCard key={`${nft.contractAddress}-${nft.tokenId}-${index}`} nft={nft} />
             ))}
           </div>
+          
+          {/* Footnote about tracked collections */}
+          <p className="text-[8px] text-gray-500 mt-2 text-center">
+            * Only showing NFTs from tracked collections. Some holdings may not appear.
+          </p>
         </div>
       )}
 
