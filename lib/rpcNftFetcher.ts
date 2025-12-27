@@ -1,6 +1,14 @@
 /**
- * Direct RPC NFT Fetcher
+ * Direct RPC NFT Fetcher (DEPRECATED - Use Magic Eden API instead)
  * 
+ * This module is deprecated due to lack of ERC721Enumerable support in most Monad NFT contracts.
+ * The current implementation relies on ERC721Enumerable interface which is not widely supported.
+ * 
+ * Use lib/magiceden.ts for NFT fetching instead.
+ * 
+ * @deprecated Use Magic Eden API (lib/magiceden.ts) for reliable NFT fetching
+ * 
+ * Original Purpose:
  * Fetches NFT holdings directly from blockchain via RPC calls.
  * Used as a free alternative to BlockVision API indexer.
  * 
@@ -11,6 +19,9 @@
  * 
  * NOTE: Only fetches from tracked collections due to Monad lacking
  * affordable NFT indexing APIs. See TRACKED_COLLECTIONS below.
+ * 
+ * ISSUE: None of the tracked collections actually support ERC721Enumerable,
+ * making this approach non-functional. Magic Eden API is the recommended solution.
  */
 
 import { getResilientClient, retryWithBackoff } from './rpcClient';
@@ -52,8 +63,21 @@ const MULTICALL3_ABI = parseAbi([
 ]);
 
 /**
- * Tracked NFT Collections
- * Only these collections are monitored for treasury holdings
+ * Tracked NFT Collections (LEGACY - Most do NOT support ERC721Enumerable)
+ * 
+ * NOTE: This list is maintained for reference only.
+ * Use Magic Eden API (lib/magiceden.ts) instead for actual NFT fetching.
+ * 
+ * Verification Status:
+ * - Skrumpeys: Does NOT support ERC721Enumerable ❌
+ * - 10k Squad: Does NOT support ERC721Enumerable ❌
+ * - Chads: Does NOT support ERC721Enumerable ❌
+ * - Sealuminati: Does NOT support ERC721Enumerable ❌
+ * - The Daks: Does NOT support ERC721Enumerable ❌
+ * - llamao: Does NOT support ERC721Enumerable ❌
+ * 
+ * Original invalid Spiky address (38 chars): 0x43577CC08c03d4017177EB1e43F8077C41C765
+ * Removed due to invalid address format.
  */
 export interface TrackedCollection {
   name: string;
@@ -82,13 +106,11 @@ export const TRACKED_COLLECTIONS: TrackedCollection[] = [
     address: '0x9F8514cEBee138b61806d4651f51d26C8098b463',
   },
   {
-    name: 'Spiky',
-    address: '0x43577CC08c03d4017177EB1e43F8077C41C765',
-  },
-  {
     name: 'llamao',
     address: '0x21D95aDDceBe87BEA4e49534595F242Af002D068',
   },
+  // Spiky removed - invalid address (only 38 hex chars instead of 40)
+  // Original: 0x43577CC08c03d4017177EB1e43F8077C41C765
 ];
 
 /**
@@ -171,6 +193,9 @@ async function fetchMetadata(uri: string): Promise<{
 
 /**
  * Check if a collection supports ERC721Enumerable interface
+ * 
+ * @deprecated This function is part of a deprecated RPC-based approach.
+ *             Use Magic Eden API (lib/magiceden.ts) instead.
  */
 export async function supportsEnumerable(
   contractAddress: Address
@@ -199,6 +224,10 @@ export async function supportsEnumerable(
 
 /**
  * Fetch NFTs from a specific collection for a wallet
+ * 
+ * @deprecated This function is part of a deprecated RPC-based approach.
+ *             Use Magic Eden API (lib/magiceden.ts) instead.
+ *             Most NFT contracts on Monad do NOT support ERC721Enumerable.
  */
 export async function fetchCollectionNFTs(
   walletAddress: Address,
@@ -373,6 +402,10 @@ export async function fetchCollectionNFTs(
 
 /**
  * Fetch all NFTs for a wallet from tracked collections
+ * 
+ * @deprecated This function is part of a deprecated RPC-based approach.
+ *             Use Magic Eden API (lib/magiceden.ts) instead.
+ *             Most NFT contracts on Monad do NOT support ERC721Enumerable.
  */
 export async function fetchNFTsViaRPC(
   walletAddress: Address
