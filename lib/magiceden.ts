@@ -28,7 +28,6 @@ const MAGIC_EDEN_API_BASE = 'https://api-mainnet.magiceden.dev/v4/evm-public';
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 // Rate limit configuration
-const RATE_LIMIT_QPM = 180; // 180 queries per minute
 const RATE_LIMIT_RETRY_DELAY_MS = 2000; // 2 second delay on rate limit
 const RATE_LIMIT_MAX_RETRIES = 3;
 
@@ -41,14 +40,41 @@ interface CacheEntry<T> {
 const collectionsCache = new Map<string, CacheEntry<MagicEdenUserCollectionsResponse>>();
 
 /**
- * Magic Eden API response types
+ * Magic Eden API response types - matching actual API response structure
+ */
+export interface MagicEdenCollectionRaw {
+  id: string;
+  chain: string;
+  name: string;
+  symbol?:  string;
+  media: {
+    url?:  string;
+    type?: string;
+  };
+  verification: string;
+  chainData:  {
+    contract: string;
+    transferability?:  string;
+    collectionBidSupported?: boolean;
+    isMinting?: boolean;
+  };
+  ownedCount:  number;
+  listedCount?:  number;
+}
+
+export interface MagicEdenUserCollectionsResponseRaw {
+  collections: MagicEdenCollectionRaw[];
+}
+
+/**
+ * Normalized collection type for internal use
  */
 export interface MagicEdenCollection {
   contract: string;
   name: string;
   symbol?: string;
   ownedCount: number;
-  media: {
+  media:  {
     url?: string;
     type?: string;
   };
@@ -65,7 +91,7 @@ export interface MagicEdenUserCollectionsResponse {
 export interface TreasuryNFTHolding {
   collectionName: string;
   contractAddress: string;
-  imageUrl: string;
+  imageUrl:  string;
   ownedCount: number;
   isVerified: boolean;
 }
@@ -86,6 +112,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Normalize raw Magic Eden response to our internal format
+ */
+function normalizeCollections(raw: MagicEdenUserCollectionsResponseRaw): MagicEdenUserCollectionsResponse {
+  const collections: MagicEdenCollection[] = (raw.collections || [])
+    .filter(c => c && (c.chainData?. contract || c.id))
+    .map(c => ({
+      contract: c.chainData?.contract || c.id || '',
+      name: c.name || 'Unknown Collection',
+      symbol: c.symbol,
+      ownedCount: c.ownedCount || 0,
+      media: {
+        url: c.media?. url || '',
+        type: c.media?.type,
+      },
+      verified: c.verification === 'VERIFIED',
+    }));
+
+  return { collections };
+}
+
+/**
  * Fetch NFT collections for a wallet address from Magic Eden API
  * 
  * @param walletAddress Wallet address to fetch collections for
@@ -99,8 +146,8 @@ export async function fetchUserCollections(
   // Check cache first
   const cached = collectionsCache.get(cacheKey);
   if (cached && isCacheValid(cached)) {
-    logger.debug('MagicEden: Returning cached collections', { walletAddress });
-    return cached.data;
+    logger.debug('MagicEden:  Returning cached collections', { walletAddress });
+    return cached. data;
   }
 
   // Retry loop for rate limiting
@@ -115,7 +162,7 @@ export async function fetchUserCollections(
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+        body: JSON. stringify({
           chain: 'monad',
           walletAddresses: [walletAddress],
         }),
@@ -125,9 +172,9 @@ export async function fetchUserCollections(
         // Check for rate limiting (429)
         if (response.status === 429 && attempt < RATE_LIMIT_MAX_RETRIES) {
           const delayMs = RATE_LIMIT_RETRY_DELAY_MS * Math.pow(2, attempt);
-          logger.warn('MagicEden: Rate limited, retrying...', { 
+          logger.warn('MagicEden: Rate limited, retrying... ', { 
             status: response.status,
-            attempt: attempt + 1,
+            attempt:  attempt + 1,
             maxRetries: RATE_LIMIT_MAX_RETRIES,
             delayMs,
           });
@@ -141,36 +188,55 @@ export async function fetchUserCollections(
           statusText: response.statusText,
           endpoint: '/collections/user-collections',
           walletAddress,
-          responseBody: errorText.substring(0, 500), // Truncate for logging
+          responseBody: errorText. substring(0, 500),
         });
         throw new Error(`Magic Eden API error: ${response.status} ${response.statusText}`);
       }
 
-      const data: MagicEdenUserCollectionsResponse = await response.json();
+      const rawData:  MagicEdenUserCollectionsResponseRaw = await response. json();
+
+      // Log raw response for debugging
+      logger. info('MagicEden: Raw API response', {
+        walletAddress,
+        rawCollectionCount: rawData?. collections?.length || 0,
+        firstCollection: rawData?.collections?.[0] ?  {
+          id: rawData.collections[0]. id,
+          name: rawData.collections[0].name,
+          contract: rawData.collections[0]. chainData?.contract,
+          ownedCount: rawData.collections[0].ownedCount,
+          mediaUrl: rawData.collections[0].media?.url,
+        } : null,
+      });
 
       // Validate response structure
-      if (!data || !Array.isArray(data.collections)) {
+      if (!rawData || !Array.isArray(rawData.collections)) {
         logger.warn('MagicEden: Invalid response structure', { 
           walletAddress,
-          hasData: !!data,
-          hasCollections: data && 'collections' in data,
-          collectionsType: data && typeof data.collections,
+          hasData: !!rawData,
+          hasCollections: rawData && 'collections' in rawData,
         });
-        
-        // Return empty result for invalid structure
         return { collections: [] };
       }
+
+      // Normalize the response
+      const data = normalizeCollections(rawData);
 
       // Cache the successful response
       collectionsCache.set(cacheKey, {
         data,
-        timestamp: Date.now(),
+        timestamp:  Date.now(),
       });
 
-      logger.info('MagicEden: Successfully fetched collections', {
+      logger.info('MagicEden: Successfully fetched and normalized collections', {
         walletAddress,
         collectionCount: data.collections.length,
         totalNFTs: data.collections.reduce((sum, c) => sum + c.ownedCount, 0),
+        collections: data.collections. map(c => ({
+          name: c.name,
+          contract: c.contract,
+          count: c.ownedCount,
+          imageUrl: c.media?.url?. substring(0, 50),
+        })),
       });
 
       return data;
@@ -181,7 +247,6 @@ export async function fetchUserCollections(
         error: String(error),
       });
       
-      // Only retry on network errors if we haven't exhausted retries
       if (attempt < RATE_LIMIT_MAX_RETRIES) {
         const delayMs = RATE_LIMIT_RETRY_DELAY_MS * Math.pow(2, attempt);
         await sleep(delayMs);
@@ -190,8 +255,7 @@ export async function fetchUserCollections(
     }
   }
   
-  // Return empty result after all retries exhausted
-  logger.warn('MagicEden: Returning empty result after retries exhausted', { walletAddress });
+  logger.warn('MagicEden:  Returning empty result after retries exhausted', { walletAddress });
   return { collections: [] };
 }
 
@@ -207,17 +271,19 @@ export function convertToTreasuryHoldings(
   const holdings: TreasuryNFTHolding[] = [];
 
   for (const collection of collections) {
+    if (! collection.contract) continue;
+    
     holdings.push({
       collectionName: collection.name || 'Unknown Collection',
       contractAddress: collection.contract,
       imageUrl: collection.media?.url || '',
-      ownedCount: collection.ownedCount,
-      isVerified: collection.verified,
+      ownedCount:  collection.ownedCount || 0,
+      isVerified:  collection.verified || false,
     });
   }
 
   // Sort by owned count (descending)
-  holdings.sort((a, b) => b.ownedCount - a.ownedCount);
+  holdings.sort((a, b) => b.ownedCount - a. ownedCount);
 
   return holdings;
 }
@@ -242,7 +308,7 @@ export async function getTreasuryNFTHoldings(
   return {
     holdings,
     totalCount: holdings.reduce((sum, h) => sum + h.ownedCount, 0),
-    collectionCount: holdings.length,
+    collectionCount:  holdings.length,
   };
 }
 
@@ -250,7 +316,7 @@ export async function getTreasuryNFTHoldings(
  * Clear the collections cache (useful for manual refresh)
  */
 export function clearCollectionsCache(): void {
-  collectionsCache.clear();
+  collectionsCache. clear();
   logger.info('MagicEden: Collections cache cleared');
 }
 
@@ -259,12 +325,12 @@ export function clearCollectionsCache(): void {
  */
 export function getCacheStats(): {
   entries: number;
-  oldestEntry: number | null;
+  oldestEntry:  number | null;
 } {
-  let oldestTimestamp: number | null = null;
+  let oldestTimestamp:  number | null = null;
   
   for (const entry of collectionsCache.values()) {
-    if (oldestTimestamp === null || entry.timestamp < oldestTimestamp) {
+    if (oldestTimestamp === null || entry. timestamp < oldestTimestamp) {
       oldestTimestamp = entry.timestamp;
     }
   }
@@ -277,25 +343,20 @@ export function getCacheStats(): {
 
 /**
  * Note: Floor prices are not yet supported by Magic Eden for Monad
- * This is a placeholder for future implementation
- * For now, display "Coming soon ~DN" in the UI
  */
 export async function fetchCollectionFloorPrice(
   _collectionAddress: string
 ): Promise<number | null> {
-  // Floor prices not yet available on Monad via Magic Eden
   logger.debug('MagicEden: Floor prices not yet supported for Monad');
   return null;
 }
 
 /**
  * Batch fetch floor prices (placeholder)
- * For now, returns empty map since floor prices aren't available
  */
 export async function fetchMultipleFloorPrices(
-  _collectionAddresses: string[]
+  _collectionAddresses:  string[]
 ): Promise<Map<string, number>> {
-  // Floor prices not yet available on Monad via Magic Eden
   logger.debug('MagicEden: Floor prices not yet supported for Monad');
   return new Map();
 }
