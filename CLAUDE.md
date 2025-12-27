@@ -423,7 +423,7 @@ Star Skrumpeys can have one of the following constellation variants:
 
 ## Database Schema (SQLite)
 
-**Database Location**: `data/swo.db`
+**Database Location**: `/opt/swo/data/swo.db` (shared PROD database, backed up daily to `/opt/swo/backups/`)
 
 ### chat_messages
 
