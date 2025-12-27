@@ -1665,6 +1665,13 @@ export interface NotificationSettings {
 /**
  * Create a notification for a user
  */
+/**
+ * Create a notification for a user or globally for all users
+ * 
+ * @param walletAddress User wallet address or 'GLOBAL' for all users
+ * @param data Notification data
+ * @returns Created notification
+ */
 export function createNotification(
   walletAddress: string,
   data: {
@@ -1678,23 +1685,28 @@ export function createNotification(
   const db = getDatabase();
   const normalizedAddress = walletAddress.toLowerCase();
   
-  // Check user's notification settings before creating
-  const settings = getNotificationSettings(normalizedAddress);
-  const settingKey = `${data.type}_notifications` as keyof NotificationSettings;
-  if (settings && settings[settingKey] === 0) {
-    // User has disabled this notification type, don't create it
-    // Return a dummy notification that won't be saved
-    return {
-      id: 0,
-      wallet_address: normalizedAddress,
-      type: data.type,
-      title: data.title,
-      message: data.message,
-      link: data.link || null,
-      icon: data.icon || '🔔',
-      is_read: 1,
-      created_at: new Date().toISOString(),
-    };
+  // Global notifications bypass user settings check
+  const isGlobal = normalizedAddress === 'global';
+  
+  // Check user's notification settings before creating (skip for global)
+  if (!isGlobal) {
+    const settings = getNotificationSettings(normalizedAddress);
+    const settingKey = `${data.type}_notifications` as keyof NotificationSettings;
+    if (settings && settings[settingKey] === 0) {
+      // User has disabled this notification type, don't create it
+      // Return a dummy notification that won't be saved
+      return {
+        id: 0,
+        wallet_address: normalizedAddress,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        link: data.link || null,
+        icon: data.icon || '🔔',
+        is_read: 1,
+        created_at: new Date().toISOString(),
+      };
+    }
   }
   
   const stmt = db.prepare(`
@@ -1716,7 +1728,11 @@ export function createNotification(
 }
 
 /**
- * Get notifications for a user
+ * Get notifications for a user (includes both user-specific and global notifications)
+ * 
+ * @param walletAddress User wallet address
+ * @param options Query options (unreadOnly, limit, offset)
+ * @returns Array of notifications
  */
 export function getNotifications(
   walletAddress: string,
@@ -1731,8 +1747,9 @@ export function getNotifications(
   const limit = options?.limit || 50;
   const offset = options?.offset || 0;
   
-  let query = 'SELECT * FROM notifications WHERE wallet_address = ?';
-  const params: (string | number)[] = [normalizedAddress];
+  // Include both user-specific AND global notifications
+  let query = 'SELECT * FROM notifications WHERE (wallet_address = ? OR wallet_address = ?)';
+  const params: (string | number)[] = [normalizedAddress, 'global'];
   
   if (options?.unreadOnly) {
     query += ' AND is_read = 0';
@@ -1746,15 +1763,19 @@ export function getNotifications(
 }
 
 /**
- * Get unread notification count for a user
+ * Get unread notification count for a user (includes global notifications)
+ * 
+ * @param walletAddress User wallet address
+ * @returns Count of unread notifications
  */
 export function getUnreadNotificationCount(walletAddress: string): number {
   const db = getDatabase();
   const stmt = db.prepare(`
     SELECT COUNT(*) as count FROM notifications 
-    WHERE wallet_address = ? AND is_read = 0
+    WHERE (wallet_address = ? OR wallet_address = ?) AND is_read = 0
   `);
-  const result = stmt.get(walletAddress.toLowerCase()) as { count: number };
+  const normalizedAddress = walletAddress.toLowerCase();
+  const result = stmt.get(normalizedAddress, 'global') as { count: number };
   return result.count;
 }
 

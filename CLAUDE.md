@@ -710,12 +710,12 @@ available → in_progress → completed → claimed
 
 ### notifications
 
-Stores user notifications for quests, achievements, system alerts, etc.
+Stores user notifications for quests, achievements, system alerts, etc. **Supports global notifications** by using `wallet_address = 'global'`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  wallet_address TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,  -- Use 'global' for notifications visible to all users
   type TEXT NOT NULL CHECK (type IN ('quest', 'achievement', 'system', 'social', 'governance')),
   title TEXT NOT NULL,
   message TEXT NOT NULL,
@@ -737,6 +737,30 @@ CREATE INDEX idx_notifications_type ON notifications(type, created_at DESC);
 | `system` | Important announcements |
 | `social` | Community activity |
 | `governance` | DAO proposals and votes |
+
+**Global Notifications**:
+- Set `wallet_address = 'global'` to create notifications visible to ALL users
+- User queries automatically include both user-specific AND global notifications
+- Global notifications bypass user notification settings
+- Useful for important announcements, system-wide updates, emergency alerts
+
+**Example Usage**:
+```typescript
+// Create global notification (visible to everyone)
+createNotification('GLOBAL', {
+  type: 'system',
+  title: 'Maintenance Notice',
+  message: 'Scheduled maintenance tonight at 10 PM UTC',
+  icon: '⚠️'
+});
+
+// Create user-specific notification
+createNotification('0x1234...', {
+  type: 'quest',
+  title: 'Quest Completed!',
+  message: 'You earned 100 XP',
+});
+```
 
 ### notification_settings
 
@@ -869,7 +893,7 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/metadata` | GET | Get NFT metadata by tokenId(s) - **uses database first, IPFS fallback** |
-| `/api/treasury` | GET | Get treasury wallet data including MON balance and all NFT holdings (uses direct RPC with SQLite cache, BlockVision optional for floor prices) |
+| `/api/treasury` | GET | Get treasury wallet data including MON balance and all NFT holdings (uses **Magic Eden API** with SQLite cache, floor prices show "Coming soon ~DN") |
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -894,8 +918,8 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/quests` | POST | Start, complete, or claim a quest (body: `walletAddress`, `questId`, `action`) |
 | `/api/user-xp` | GET | Get user's XP and level (params: `address`, `leaderboard`, `limit`) |
 | `/api/user-xp` | POST | Add XP to user (body: `walletAddress`, `xpAmount`, `reason`) |
-| `/api/notifications` | GET | Get notifications for user (params: `address`, `unreadOnly`, `limit`, `settings`) |
-| `/api/notifications` | POST | Create notification or update settings (body: `walletAddress`, `type`, `title`, `message`) |
+| `/api/notifications` | GET | Get notifications for user (params: `address`, `unreadOnly`, `limit`, `settings`) - **includes global notifications** |
+| `/api/notifications` | POST | Create notification or update settings (body: `walletAddress` (or 'GLOBAL' for all users), `type`, `title`, `message`) |
 | `/api/notifications` | PATCH | Mark notification(s) as read (body: `walletAddress`, `action`, `notificationId`) |
 | `/api/notifications` | DELETE | Delete a notification (params: `id`) |
 | `/api/notifications/test` | GET | Get usage info for test endpoint |
@@ -979,59 +1003,87 @@ Click on a notification to mark it as read, or use "Mark all read" to clear all 
 
 ---
 
-## Tracked NFT Collections (Direct RPC)
+## Magic Eden API Integration
 
-Due to high costs of NFT indexing APIs on Monad ($200+/month), treasury NFT holdings are fetched directly via RPC from a curated list of popular collections.
-
-### Tracked Collections
-
-| Collection | Contract Address | 
-|------------|-----------------|
-| **Skrumpeys** | `0xB0DAD798C80e40Dd6b8E8545074C6a5B7B97D2c0` |
-| **10k Squad** | `0x818030837E8350ba63E64d7dC01A547fA73c8279` |
-| **Chads** | `0xe217a5517105a97616B09C05c685a7e125e6E753` |
-| **Sealuminati** | `0xaEAA920165fD7ce58a0E0772Ffc97F06626572cD` |
-| **The Daks** | `0x9F8514cEBee138b61806d4651f51d26C8098b463` |
-| **Spiky** | `0x43577CC08c03d4017177EB1e43F8077C41C765` |
-| **llamao** | `0x21D95aDDceBe87BEA4e49534595F242Af002D068` |
-
-### How It Works
-
-1. **ERC721Enumerable Support**: Collections must implement the ERC721Enumerable interface for efficient RPC querying
-2. **Multicall3 Batching**: Uses Multicall3 at `0xcA11bde05977b3631167028862bE2a173976CA11` to batch ownership queries
-3. **SQLite Cache**: Results are cached for 24 hours to minimize RPC calls
-4. **IPFS Metadata**: Automatically converts IPFS URIs to HTTP gateway URLs
-
-### Adding New Collections
-
-To add a new collection to the tracked list:
-
-1. Edit `TRACKED_COLLECTIONS` in `lib/rpcNftFetcher.ts`
-2. Verify the collection supports ERC721Enumerable using `supportsEnumerable()`
-3. Test with `fetchCollectionNFTs()` on a known holder address
-
-### Limitations
-
-- Only NFTs from tracked collections will appear in treasury holdings
-- Collections without ERC721Enumerable support cannot be tracked via RPC
-- Metadata fetching has a 5-second timeout to avoid blocking
-
-**Implementation**: See `lib/rpcNftFetcher.ts`
-
----
-
-## BlockVision API Integration
-
-Star World Order uses BlockVision's Monad Indexing API for fetching collection floor prices (optional).
+Star World Order uses Magic Eden's public Monad API for fetching NFT collection holdings.
 
 ### Overview
 
-BlockVision provides indexed blockchain data through a REST API, enabling efficient retrieval of:
+Magic Eden provides a free public API for Monad with no API key required:
+- **User collections** - Get all NFT collections owned by a wallet
+- **Collection metadata** - Names, images, verification status
+- **Owned counts** - Number of NFTs owned per collection
+- **Rate limit**: 180 requests per minute (free tier)
+
+**Note**: Floor prices are not yet supported by Magic Eden for Monad. The UI displays "Coming soon ~DN" for floor price estimates.
+
+### Why Magic Eden?
+
+The previous RPC-based approach failed because:
+1. **ERC721Enumerable Not Supported** - Most Monad NFT contracts don't implement ERC721Enumerable interface
+2. **BlockVision API Quota Exhausted** - $200+/month costs exceeded
+3. **Invalid Contract Addresses** - Some tracked addresses were malformed
+
+Magic Eden solves these issues with:
+- ✅ Works with any NFT contract (no interface requirements)
+- ✅ Free tier with 180 QPM rate limit
+- ✅ No API key required
+- ✅ Collection-level data (faster than token-by-token)
+
+### API Endpoints
+
+**POST** `https://api-mainnet.magiceden.dev/v4/evm-public/collections/user-collections`
+
+Request body:
+```json
+{
+  "chain": "monad",
+  "walletAddresses": ["0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af"]
+}
+```
+
+Response:
+```json
+{
+  "collections": [
+    {
+      "contract": "0xB0DAD798C80e40Dd6b8E8545074C6a5B7B97D2c0",
+      "name": "Skrumpeys",
+      "ownedCount": 25,
+      "media": {
+        "url": "https://..."
+      },
+      "verified": true
+    }
+  ]
+}
+```
+
+### Caching Strategy
+
+To minimize API usage:
+
+1. **In-Memory Cache**: Collection data cached for 1 hour per address
+2. **SQLite Cache**: Treasury NFT data cached for 24 hours
+3. **Rate Limiting**: Exponential backoff on 429 errors (2s, 4s, 8s delays)
+4. **Graceful Degradation**: Returns empty result after 3 retry attempts
+
+**Implementation**: See `lib/magiceden.ts`
+
+---
+
+## BlockVision API Integration (Floor Prices Only)
+
+Star World Order optionally uses BlockVision's Monad Indexing API for fetching collection floor prices.
+
+### Overview
+
+BlockVision provides indexed blockchain data through a REST API:
 - **Collection floor prices** (for treasury value calculation)
 - Token balances (optional fallback)
-- Account activity and transactions (optional fallback)
+- Account activity and transactions (optional)
 
-**Note**: NFT holdings are now fetched via direct RPC calls. BlockVision is only used for floor prices if API key is available.
+**Note**: NFT holdings are now fetched via Magic Eden API. BlockVision is only used for floor prices if API key is available. Floor prices are currently not available on Monad and display as "Coming soon ~DN".
 
 ### Configuration
 
@@ -1438,16 +1490,17 @@ try {
 | `lib/starSkrumpey.ts` | Star trait verification, token IDs, ownership checks |
 | `lib/wagmi.ts` | Wagmi/Viem chain configuration for Monad |
 | `lib/rpcClient.ts` | RPC fallback and retry logic |
-| `lib/rpcNftFetcher.ts` | **Direct RPC NFT fetcher with tracked collections** |
-| `lib/blockvision.ts` | BlockVision API integration (optional: floor prices, activities) |
-| `lib/db.ts` | SQLite database operations including treasury NFT cache |
+| `lib/magiceden.ts` | **Magic Eden API integration for NFT collections (PRIMARY)** |
+| `lib/rpcNftFetcher.ts` | ~~Direct RPC NFT fetcher~~ (DEPRECATED - ERC721Enumerable not supported) |
+| `lib/blockvision.ts` | BlockVision API integration (optional: floor prices only) |
+| `lib/db.ts` | SQLite database operations including treasury NFT cache and global notifications |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
 | `lib/contexts/DAOAccessContext.tsx` | DAO access state management |
 | `components/AccessGate.tsx` | Access control wrapper component |
 | `components/DemoMode.tsx` | Demo mode modal and UI |
 | `components/Header.tsx` | Navigation header |
-| `components/NotificationBell.tsx` | Bell icon with unread count badge and dropdown |
+| `components/NotificationBell.tsx` | Bell icon with unread count badge and dropdown (includes global notifications) |
 | `components/MessageIcon.tsx` | DM icon with unread count badge and conversation dropdown |
 | `components/ProfileCard.tsx` | Profile with tabbed sections (Settings, Friends, Messages, Collection, Achievements, Quests) |
 | `app/page.tsx` | Home page with N64 loading screen |
@@ -1457,12 +1510,13 @@ try {
 | `app/hangout/page.tsx` | Hangout Hub lobby |
 | `app/treasury/page.tsx` | Treasury page with NFT holdings and analytics |
 | `app/treasury/TreasuryContent.tsx` | Treasury client component with charts (Portfolio, Collection breakdown) |
-| `app/api/treasury/route.ts` | **Treasury API with RPC NFT fetching and SQLite cache** |
+| `app/api/treasury/route.ts` | **Treasury API with Magic Eden NFT fetching and SQLite cache** |
 | `app/members/page.tsx` | Members page with holder analytics |
 | `app/members/MembersContent.tsx` | Members client component with friend requests and messaging from member profiles |
+| `app/admin_xyz/AdminContent.tsx` | Admin dashboard with cache management and global notifications |
 | `app/api/quests/route.ts` | Quest system API endpoints |
 | `app/api/user-xp/route.ts` | User XP API endpoints |
-| `app/api/notifications/route.ts` | Notification system API endpoints |
+| `app/api/notifications/route.ts` | Notification system API endpoints (supports global notifications) |
 | `app/api/friends/route.ts` | Friends system API endpoints |
 | `app/api/messages/route.ts` | Direct messaging API endpoints |
 

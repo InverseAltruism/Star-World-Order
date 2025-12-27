@@ -5,22 +5,22 @@
  * 
  * Treasury wallet: 0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af
  * 
- * Uses direct RPC calls with SQLite caching to fetch NFT holdings.
- * Falls back to BlockVision API if available for floor prices and activities.
+ * Uses Magic Eden API for NFT holdings and direct RPC for MON balance.
+ * SQLite caching for 24-hour persistence.
  */
 
 import { NextResponse } from 'next/server';
 import { 
   SKRUMPEY_CONTRACT_ADDRESS,
-  getStarVariantForTokenId,
-  STAR_SKRUMPEY_IDS_SET,
 } from '@/lib/starSkrumpey';
-import { getStarSkrumpeyMetadataBatch, getCachedTreasuryNFTs, cacheTreasuryNFTs, getTreasuryNFTCacheAge } from '@/lib/db';
+import { getCachedTreasuryNFTs, cacheTreasuryNFTs, getTreasuryNFTCacheAge } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { TreasuryActivity, fetchMultipleFloorPrices } from '@/lib/blockvision';
-import { fetchNFTsViaRPC, RPCNFTHolding } from '@/lib/rpcNftFetcher';
+import { 
+  getTreasuryNFTHoldings as getMagicEdenNFTHoldings,
+  TreasuryNFTHolding as MagicEdenNFTHolding,
+} from '@/lib/magiceden';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
@@ -43,9 +43,6 @@ export function clearTreasuryCache(): void {
 // Known Skrumpeys contract address (fallback if env var not set)
 const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
 
-// Star Skrumpey premium multiplier (Star trait NFTs are worth more)
-const STAR_SKRUMPEY_PREMIUM = 1.5;
-
 export interface NFTHolding {
   tokenId: string;
   name: string;
@@ -58,6 +55,17 @@ export interface NFTHolding {
   isVerified: boolean;
   // Estimated floor price for this NFT in MON
   estimatedFloorPrice?: number;
+}
+
+export interface TreasuryActivity {
+  type: 'nft_in' | 'nft_out' | 'mon_in' | 'mon_out';
+  transactionHash: string;
+  timestamp: number;
+  description: string;
+  amount: string;
+  collectionName?: string;
+  tokenId?: string;
+  imageUrl?: string;
 }
 
 export interface TreasuryData {
@@ -98,9 +106,14 @@ async function fetchTreasuryBalance(): Promise<bigint> {
 }
 
 /**
- * Fetch ALL NFTs owned by treasury using RPC with SQLite cache
+ * Fetch ALL NFTs owned by treasury using Magic Eden API with SQLite cache
  * Cache TTL: 24 hours
- * Falls back to BlockVision if available (but not required)
+ * 
+ * Data Flow:
+ * 1. Check SQLite cache (24 hour TTL)
+ * 2. If cache miss, fetch from Magic Eden API
+ * 3. Store in SQLite cache for next time
+ * 4. Enrich with Star Skrumpey metadata
  */
 async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
   try {
@@ -118,35 +131,69 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
       return convertCachedToNFTHoldings(cachedNFTs);
     }
     
-    // Step 2: Cache miss - fetch via RPC
-    logger.info('Cache miss - fetching NFTs via RPC', { address: TREASURY_ADDRESS });
-    const rpcNFTs = await fetchNFTsViaRPC(TREASURY_ADDRESS as `0x${string}`);
+    // Step 2: Cache miss - fetch via Magic Eden API
+    logger.info('Cache miss - fetching NFTs via Magic Eden API', { address: TREASURY_ADDRESS });
+    const { holdings: magicEdenHoldings } = await getMagicEdenNFTHoldings(TREASURY_ADDRESS);
     
     // Step 3: Save to cache for next time
-    if (rpcNFTs.length > 0) {
-      const cacheData = rpcNFTs.map(nft => ({
+    if (magicEdenHoldings.length > 0) {
+      const cacheData = magicEdenHoldings.map(holding => ({
         wallet_address: TREASURY_ADDRESS,
-        contract_address: nft.contractAddress,
-        token_id: nft.tokenId,
-        name: nft.name,
-        collection_name: nft.collectionName,
-        image_url: nft.imageUrl,
+        contract_address: holding.contractAddress,
+        token_id: '0', // Magic Eden returns collection-level data, not individual token IDs
+        name: holding.collectionName,
+        collection_name: holding.collectionName,
+        image_url: holding.imageUrl,
         metadata_json: JSON.stringify({
-          metadataUri: nft.metadataUri,
-          quantity: nft.quantity,
+          ownedCount: holding.ownedCount,
+          isVerified: holding.isVerified,
         }),
       }));
       
       cacheTreasuryNFTs(TREASURY_ADDRESS, cacheData);
-      logger.info('Cached treasury NFTs', { count: rpcNFTs.length });
+      logger.info('Cached treasury NFTs', { count: magicEdenHoldings.length });
     }
     
     // Step 4: Convert to NFTHolding format with enrichment
-    return convertRPCToNFTHoldings(rpcNFTs);
+    return convertMagicEdenToNFTHoldings(magicEdenHoldings);
   } catch (error) {
     logger.error('Failed to fetch treasury NFTs', { error: String(error) });
     return [];
   }
+}
+
+/**
+ * Convert Magic Eden holdings to NFTHolding format with enrichment
+ */
+function convertMagicEdenToNFTHoldings(holdings: MagicEdenNFTHolding[]): NFTHolding[] {
+  const skrumpeyContractLower = (SKRUMPEY_CONTRACT_ADDRESS || KNOWN_SKRUMPEY_ADDRESS).toLowerCase();
+  
+  const nfts: NFTHolding[] = holdings.map(holding => {
+    const isSkrumpeyContract = holding.contractAddress.toLowerCase() === skrumpeyContractLower;
+    
+    return {
+      tokenId: '0', // Magic Eden doesn't provide individual token IDs, only collection-level data
+      name: holding.collectionName,
+      collectionName: holding.collectionName,
+      contractAddress: holding.contractAddress,
+      imageUrl: holding.imageUrl,
+      quantity: holding.ownedCount,
+      isStarSkrumpey: false, // Can't determine individual Star Skrumpeys from collection-level data
+      isVerified: holding.isVerified,
+      estimatedFloorPrice: 0, // Floor prices not yet available - will show "Coming soon ~DN"
+    };
+  });
+  
+  // Sort: Skrumpeys first, then by quantity (descending), then by name
+  return nfts.sort((a, b) => {
+    const aIsSkrumpey = a.contractAddress.toLowerCase() === skrumpeyContractLower;
+    const bIsSkrumpey = b.contractAddress.toLowerCase() === skrumpeyContractLower;
+    
+    if (aIsSkrumpey && !bIsSkrumpey) return -1;
+    if (!aIsSkrumpey && bIsSkrumpey) return 1;
+    if (a.quantity !== b.quantity) return b.quantity - a.quantity;
+    return a.collectionName.localeCompare(b.collectionName);
+  });
 }
 
 /**
@@ -160,39 +207,19 @@ function convertCachedToNFTHoldings(cachedNFTs: Array<{
   image_url?: string;
   metadata_json?: string;
 }>): NFTHolding[] {
-  const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase() ?? '';
-  
-  // Get Star Skrumpey metadata for enrichment
-  const starSkrumpeyTokenIds = cachedNFTs
-    .filter(nft => nft.contract_address.toLowerCase() === skrumpeyContractLower)
-    .map(nft => parseInt(nft.token_id, 10))
-    .filter(id => !isNaN(id) && STAR_SKRUMPEY_IDS_SET.has(id));
-  
-  const metadataMap = getStarSkrumpeyMetadataBatch(starSkrumpeyTokenIds);
-  
-  // Get unique collection addresses for floor price lookup
-  const uniqueCollections = [...new Set(cachedNFTs.map(nft => nft.contract_address.toLowerCase()))];
-  
-  // Note: Floor prices are fetched in the main GET handler
-  // This conversion happens before that step
+  const skrumpeyContractLower = (SKRUMPEY_CONTRACT_ADDRESS || KNOWN_SKRUMPEY_ADDRESS).toLowerCase();
   
   const nfts: NFTHolding[] = cachedNFTs.map(nft => {
-    const tokenIdNum = parseInt(nft.token_id, 10);
-    const isSkrumpeyContract = skrumpeyContractLower !== '' && nft.contract_address.toLowerCase() === skrumpeyContractLower;
-    const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
-    
-    let constellation: string | undefined;
-    if (isStarSkrumpey) {
-      const metadata = metadataMap.get(tokenIdNum);
-      constellation = metadata?.constellation || getStarVariantForTokenId(tokenIdNum);
-    }
+    const isSkrumpeyContract = nft.contract_address.toLowerCase() === skrumpeyContractLower;
     
     // Parse metadata JSON if available
     let quantity = 1;
+    let isVerified = false;
     if (nft.metadata_json) {
       try {
         const parsed = JSON.parse(nft.metadata_json);
-        quantity = parsed.quantity || 1;
+        quantity = parsed.ownedCount || parsed.quantity || 1;
+        isVerified = parsed.isVerified || false;
       } catch (e) {
         // Ignore parse errors
       }
@@ -200,73 +227,25 @@ function convertCachedToNFTHoldings(cachedNFTs: Array<{
     
     return {
       tokenId: nft.token_id,
-      name: nft.name || `${nft.collection_name} #${nft.token_id}`,
+      name: nft.name || `${nft.collection_name}`,
       collectionName: nft.collection_name,
       contractAddress: nft.contract_address,
       imageUrl: nft.image_url,
       quantity,
-      isStarSkrumpey,
-      constellation,
-      isVerified: false, // RPC-fetched NFTs don't have verified flag
+      isStarSkrumpey: false, // Can't determine from cached collection-level data
+      isVerified,
+      estimatedFloorPrice: 0, // Floor prices not yet available
     };
   });
   
-  // Sort: Star Skrumpeys first, then by collection name
+  // Sort: Skrumpeys first, then by quantity, then by collection name
   return nfts.sort((a, b) => {
-    if (a.isStarSkrumpey && !b.isStarSkrumpey) return -1;
-    if (!a.isStarSkrumpey && b.isStarSkrumpey) return 1;
-    if (a.isStarSkrumpey && b.isStarSkrumpey) {
-      return parseInt(a.tokenId, 10) - parseInt(b.tokenId, 10);
-    }
-    return a.collectionName.localeCompare(b.collectionName);
-  });
-}
-
-/**
- * Convert RPC NFTs to NFTHolding format with enrichment
- */
-function convertRPCToNFTHoldings(rpcNFTs: RPCNFTHolding[]): NFTHolding[] {
-  const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS?.toLowerCase() ?? '';
-  
-  // Get Star Skrumpey metadata for enrichment
-  const starSkrumpeyTokenIds = rpcNFTs
-    .filter(nft => nft.contractAddress.toLowerCase() === skrumpeyContractLower)
-    .map(nft => parseInt(nft.tokenId, 10))
-    .filter(id => !isNaN(id) && STAR_SKRUMPEY_IDS_SET.has(id));
-  
-  const metadataMap = getStarSkrumpeyMetadataBatch(starSkrumpeyTokenIds);
-  
-  const nfts: NFTHolding[] = rpcNFTs.map(nft => {
-    const tokenIdNum = parseInt(nft.tokenId, 10);
-    const isSkrumpeyContract = skrumpeyContractLower !== '' && nft.contractAddress.toLowerCase() === skrumpeyContractLower;
-    const isStarSkrumpey = isSkrumpeyContract && !isNaN(tokenIdNum) && STAR_SKRUMPEY_IDS_SET.has(tokenIdNum);
+    const aIsSkrumpey = a.contractAddress.toLowerCase() === skrumpeyContractLower;
+    const bIsSkrumpey = b.contractAddress.toLowerCase() === skrumpeyContractLower;
     
-    let constellation: string | undefined;
-    if (isStarSkrumpey) {
-      const metadata = metadataMap.get(tokenIdNum);
-      constellation = metadata?.constellation || getStarVariantForTokenId(tokenIdNum);
-    }
-    
-    return {
-      tokenId: nft.tokenId,
-      name: nft.name,
-      collectionName: nft.collectionName,
-      contractAddress: nft.contractAddress,
-      imageUrl: nft.imageUrl,
-      quantity: nft.quantity,
-      isStarSkrumpey,
-      constellation,
-      isVerified: false, // RPC-fetched NFTs don't have verified flag
-    };
-  });
-  
-  // Sort: Star Skrumpeys first, then by collection name
-  return nfts.sort((a, b) => {
-    if (a.isStarSkrumpey && !b.isStarSkrumpey) return -1;
-    if (!a.isStarSkrumpey && b.isStarSkrumpey) return 1;
-    if (a.isStarSkrumpey && b.isStarSkrumpey) {
-      return parseInt(a.tokenId, 10) - parseInt(b.tokenId, 10);
-    }
+    if (aIsSkrumpey && !bIsSkrumpey) return -1;
+    if (!aIsSkrumpey && bIsSkrumpey) return 1;
+    if (a.quantity !== b.quantity) return b.quantity - a.quantity;
     return a.collectionName.localeCompare(b.collectionName);
   });
 }
@@ -290,35 +269,8 @@ export async function GET() {
       fetchTreasuryNFTs(),
     ]);
     
-    // Get unique collection addresses for floor price lookup
-    const uniqueCollections = [...new Set(nfts.map(n => n.contractAddress.toLowerCase()))];
-    
-    // Try to fetch floor prices from BlockVision (optional - graceful degradation)
-    let floorPricesMap = new Map<string, number>();
-    try {
-      floorPricesMap = await fetchMultipleFloorPrices(uniqueCollections);
-      logger.info('Fetched floor prices for collections', {
-        requestedCollections: uniqueCollections.length,
-        receivedPrices: floorPricesMap.size,
-      });
-    } catch (error) {
-      logger.warn('Failed to fetch floor prices (continuing without)', { 
-        error: String(error),
-      });
-    }
-    
-    // Apply floor prices to NFTs
-    for (const nft of nfts) {
-      const contractLower = nft.contractAddress.toLowerCase();
-      let estimatedFloorPrice = floorPricesMap.get(contractLower) || 0;
-      
-      // Apply premium for Star Skrumpeys (they are rarer and worth more)
-      if (nft.isStarSkrumpey && estimatedFloorPrice > 0) {
-        estimatedFloorPrice *= STAR_SKRUMPEY_PREMIUM;
-      }
-      
-      nft.estimatedFloorPrice = estimatedFloorPrice;
-    }
+    // Note: Floor prices are not yet available via Magic Eden for Monad
+    // All NFTs will have estimatedFloorPrice = 0 (display "Coming soon ~DN" in UI)
 
     // Format balance
     const monBalanceFormatted = formatEther(balance);
@@ -326,10 +278,11 @@ export async function GET() {
     
     // Count NFTs and collections
     const nftCount = nfts.reduce((sum, nft) => sum + nft.quantity, 0);
+    const uniqueCollections = [...new Set(nfts.map(n => n.contractAddress.toLowerCase()))];
     const uniqueCollectionsCount = uniqueCollections.length;
     const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
     
-    // Calculate total NFT value based on floor prices
+    // Calculate total NFT value based on floor prices (currently 0)
     const nftValue = nfts.reduce((sum, nft) => {
       return sum + ((nft.estimatedFloorPrice || 0) * nft.quantity);
     }, 0);

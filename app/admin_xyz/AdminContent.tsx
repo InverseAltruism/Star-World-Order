@@ -58,6 +58,7 @@ export default function AdminContent() {
   
   // Notification management state
   const [targetWallet, setTargetWallet] = useState('');
+  const [isGlobalNotification, setIsGlobalNotification] = useState(false);
   const [notificationType, setNotificationType] = useState<string>('system');
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
@@ -213,8 +214,14 @@ export default function AdminContent() {
    * Create a notification
    */
   const createNotification = async () => {
-    if (!targetWallet || !notificationTitle || !notificationMessage) {
-      setActionResult({ success: false, message: 'Fill in all required fields' });
+    // For global notifications, we don't need a target wallet
+    if (!isGlobalNotification && !targetWallet) {
+      setActionResult({ success: false, message: 'Target wallet required (or enable "Send to All Users")' });
+      return;
+    }
+    
+    if (!notificationTitle || !notificationMessage) {
+      setActionResult({ success: false, message: 'Title and message are required' });
       return;
     }
 
@@ -230,7 +237,7 @@ export default function AdminContent() {
         },
         body: JSON.stringify({
           action: 'createNotification',
-          walletAddress: targetWallet,
+          walletAddress: isGlobalNotification ? 'GLOBAL' : targetWallet,
           type: notificationType,
           title: notificationTitle,
           message: notificationMessage,
@@ -242,7 +249,9 @@ export default function AdminContent() {
       const data = await response.json();
       setActionResult({
         success: data.success,
-        message: data.success ? 'Notification created!' : data.error,
+        message: data.success 
+          ? `Notification created ${isGlobalNotification ? 'for all users' : 'successfully'}!` 
+          : data.error,
       });
 
       if (data.success) {
@@ -250,8 +259,10 @@ export default function AdminContent() {
         setNotificationTitle('');
         setNotificationMessage('');
         setNotificationLink('');
-        // Refresh notifications list
-        await fetchUserNotifications();
+        // Refresh notifications list if viewing a specific user
+        if (targetWallet && !isGlobalNotification) {
+          await fetchUserNotifications();
+        }
       }
     } catch (error) {
       setActionResult({ success: false, message: 'Failed to create notification' });
@@ -509,26 +520,60 @@ export default function AdminContent() {
       <div className="pixel-card p-6 mb-6">
         <h2 className="text-[#9966ff] text-sm tracking-wider mb-4">🔔 NOTIFICATION MANAGEMENT</h2>
         
-        {/* Target Wallet */}
-        <div className="mb-4">
-          <label className="text-gray-400 text-xs block mb-2">Target Wallet Address</label>
-          <div className="flex gap-2">
+        {/* Global Notification Toggle */}
+        <div className="mb-4 bg-[#0a0a15] p-3 rounded-lg border-2 border-[#9966ff]">
+          <label className="flex items-center cursor-pointer">
             <input
-              type="text"
-              value={targetWallet}
-              onChange={(e) => setTargetWallet(e.target.value)}
-              placeholder="0x..."
-              className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded px-3 py-2 text-xs text-white focus:border-[#9966ff] outline-none"
+              type="checkbox"
+              checked={isGlobalNotification}
+              onChange={(e) => {
+                setIsGlobalNotification(e.target.checked);
+                if (e.target.checked) {
+                  // Clear target wallet when enabling global mode
+                  setTargetWallet('');
+                }
+              }}
+              className="w-4 h-4 mr-3"
             />
-            <button
-              onClick={fetchUserNotifications}
-              disabled={!targetWallet || isLoadingNotifications}
-              className="pixel-btn text-[10px] !px-3"
-            >
-              {isLoadingNotifications ? '...' : 'FETCH'}
-            </button>
-          </div>
+            <div>
+              <span className="text-[#ffd700] text-xs font-bold">🌐 Send to All Users</span>
+              <p className="text-gray-500 text-[10px] mt-1">
+                Enable this to create a global notification visible to everyone
+              </p>
+            </div>
+          </label>
         </div>
+        
+        {/* Target Wallet (disabled when global is enabled) */}
+        {!isGlobalNotification && (
+          <div className="mb-4">
+            <label className="text-gray-400 text-xs block mb-2">Target Wallet Address</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={targetWallet}
+                onChange={(e) => setTargetWallet(e.target.value)}
+                placeholder="0x..."
+                className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded px-3 py-2 text-xs text-white focus:border-[#9966ff] outline-none"
+              />
+              <button
+                onClick={fetchUserNotifications}
+                disabled={!targetWallet || isLoadingNotifications}
+                className="pixel-btn text-[10px] !px-3"
+              >
+                {isLoadingNotifications ? '...' : 'FETCH'}
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {isGlobalNotification && (
+          <div className="mb-4 bg-[#ffd700]/10 border border-[#ffd700] rounded-lg p-3">
+            <p className="text-[#ffd700] text-xs">
+              ⚠️ <strong>Global Mode Active</strong> - This notification will be visible to all users
+            </p>
+          </div>
+        )}
 
         {/* Create Notification Form */}
         <div className="bg-[#0a0a15] p-4 rounded-lg mb-4">
@@ -595,7 +640,7 @@ export default function AdminContent() {
           
           <button
             onClick={createNotification}
-            disabled={!targetWallet || !notificationTitle || !notificationMessage}
+            disabled={(!isGlobalNotification && !targetWallet) || !notificationTitle || !notificationMessage}
             className="pixel-btn pixel-btn-gold text-xs w-full"
           >
             📨 SEND NOTIFICATION
