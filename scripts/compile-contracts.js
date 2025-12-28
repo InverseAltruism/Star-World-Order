@@ -18,7 +18,8 @@ const NODE_MODULES_DIR = path.join(__dirname, '..', 'node_modules');
 const CONTRACTS = [
   'StarSkrumpeyMarketplace.sol',
   'StarSkrumpeyStaking.sol',
-  'StarWorldOrderGovernor.sol'
+  'StarWorldOrderGovernor.sol',
+  'StarForge.sol'
 ];
 
 /**
