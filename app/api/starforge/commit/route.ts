@@ -10,8 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { 
   createCommitment,
-  createStarForgeGame,
 } from '@/lib/starforge';
+import { createStarForgeGame } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { parseEther } from 'viem';
