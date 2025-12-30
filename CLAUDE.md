@@ -935,7 +935,9 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 
 ### Floor Prices API (SWO Product)
 
-This is a **public API product** offered by Star World Order that aggregates NFT floor prices from Magic Eden and OpenSea for all Monad collections.
+This is a **public API product** offered by Star World Order that serves NFT floor prices for Monad collections.
+
+> **⚠️ NOTE:** Magic Eden and OpenSea do not provide public APIs for Monad floor prices. Floor price data must be **manually entered by admins** via the database or admin panel. The API serves whatever data has been manually entered.
 
 **GET /api/floor-prices**
 
@@ -981,7 +983,7 @@ curl "https://starworldorder.com/api/floor-prices?verified=true"
         "volumeTotal": 45000.0,
         "salesCount24h": 85,
         "holdersCount": 1200,
-        "source": "magic_eden",
+        "source": "manual",
         "isVerified": true,
         "updatedAt": "2024-12-30T01:00:00.000Z"
       }
@@ -995,17 +997,18 @@ curl "https://starworldorder.com/api/floor-prices?verified=true"
 ```
 
 **Features:**
-- ✅ **15-minute refresh interval** - Data updated via cron job
+- ✅ **SQLite persistence** - Data stored in database
 - ✅ **CORS enabled** - Can be called from any domain
 - ✅ **No API key required** - Free public access
-- ✅ **SQLite caching** - Efficient database persistence
-- ✅ **Aggregated data** - Combines Magic Eden + OpenSea
+- ✅ **15-minute cache** - In-memory caching for performance
 
-**Cron Setup for Floor Price Refresh:**
+**Data Entry:**
 
-```bash
-# Call every 15 minutes
-*/15 * * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" https://starworldorder.com/api/cron/refresh-floor-prices
+Floor price data must be manually entered into the `nft_floor_prices` database table. Use the `upsertFloorPrice()` function from `lib/floorPrices.ts` or direct SQL:
+
+```sql
+INSERT INTO nft_floor_prices (contract_address, name, floor_price_mon, source)
+VALUES ('0x...', 'Collection Name', 5.25, 'manual');
 ```
 
 ### Friends API

@@ -1709,10 +1709,67 @@ export default function MembersContent() {
       <div className="pixel-divider mb-6" />
 
       {/* Members Section Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h2 className="text-[#ffd700] text-sm sm:text-base tracking-wider">
           👤 LEADERBOARD
         </h2>
+        
+        {/* CSV Export Button */}
+        {!isLoading && members.length > 0 && (
+          <div className="relative group">
+            <button
+              onClick={() => {
+                // Generate CSV content
+                const csvRows = [
+                  // Header row
+                  ['Rank', 'Wallet Address', 'Display Name', 'Holdings Count', 'Level', 'Tier', 'Star Variants', 'Token IDs'].join(','),
+                  // Data rows
+                  ...members.map((member, index) => {
+                    const tier = member.count >= 10 ? 'Cosmic Emperor' : 
+                                 member.count >= 5 ? 'Star Lord' : 
+                                 member.count >= 2 ? 'Cosmic Warden' : 'Star Forged';
+                    return [
+                      index + 1,
+                      member.address,
+                      `"${(member.displayName || '').replace(/"/g, '""')}"`,
+                      member.count,
+                      member.level,
+                      tier,
+                      `"${member.starVariants.join(', ')}"`,
+                      `"${member.tokenIds.join(', ')}"`,
+                    ].join(',');
+                  }),
+                ];
+                const csvContent = csvRows.join('\n');
+                
+                // Create download
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', `star-skrumpey-holders-${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              className="pixel-btn text-[10px] sm:text-xs flex items-center gap-2 !py-2 !px-3"
+              title="Download holder data as CSV"
+            >
+              <span>📊</span>
+              <span className="hidden sm:inline">EXPORT CSV</span>
+              <span className="sm:hidden">CSV</span>
+            </button>
+            
+            {/* Tooltip */}
+            <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-[#1a1a2e] border border-[#9966ff]/50 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible smooth-transition z-20 pointer-events-none">
+              <p className="text-[#ffd700] text-xs font-bold mb-1">📊 Export Holder Data</p>
+              <p className="text-gray-400 text-[10px] leading-relaxed">
+                Download a CSV file containing all {members.length} Star Skrumpey holder wallets, their holdings count, tier rankings, constellation variants, and token IDs. Perfect for airdrops, snapshot tools, or community analysis.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Search and Filter */}
