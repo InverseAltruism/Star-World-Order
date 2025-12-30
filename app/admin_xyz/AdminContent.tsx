@@ -46,7 +46,12 @@ interface Raffle {
   start_time: string;
   end_time: string;
   winner_address: string | null;
+  winner_drawn_at: string | null;
+  winner_draw_seed: string | null;
   discord_bonus_enabled: number;
+  require_x: number;
+  require_discord: number;
+  tweet_url: string | null;
   created_at: string;
 }
 
@@ -96,6 +101,9 @@ export default function AdminContent() {
   const [rafflePrizeImage, setRafflePrizeImage] = useState('');
   const [raffleEndTime, setRaffleEndTime] = useState('');
   const [raffleDiscordBonus, setRaffleDiscordBonus] = useState(false);
+  const [raffleRequireX, setRaffleRequireX] = useState(false);
+  const [raffleRequireDiscord, setRaffleRequireDiscord] = useState(false);
+  const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
   
   // Check if connected wallet is admin
@@ -412,6 +420,9 @@ export default function AdminContent() {
           prizeImageUrl: rafflePrizeImage || undefined,
           endTime: raffleEndTime,
           discordBonusEnabled: raffleDiscordBonus,
+          requireX: raffleRequireX,
+          requireDiscord: raffleRequireDiscord,
+          tweetUrl: raffleTweetUrl || undefined,
         }),
       });
 
@@ -429,6 +440,9 @@ export default function AdminContent() {
         setRafflePrizeImage('');
         setRaffleEndTime('');
         setRaffleDiscordBonus(false);
+        setRaffleRequireX(false);
+        setRaffleRequireDiscord(false);
+        setRaffleTweetUrl('');
         // Refresh raffles
         await fetchRaffles();
       }
@@ -944,16 +958,64 @@ export default function AdminContent() {
             />
           </div>
           
-          <div className="mb-3">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={raffleDiscordBonus}
-                onChange={(e) => setRaffleDiscordBonus(e.target.checked)}
-                className="w-4 h-4 mr-2"
-              />
-              <span className="text-gray-400 text-xs">Enable Discord Bonus (+1 entry for Discord members)</span>
-            </label>
+          {/* Social Requirements Section */}
+          <div className="mb-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4e]">
+            <h4 className="text-[#9966ff] text-[10px] mb-2">📱 SOCIAL REQUIREMENTS (Mandatory to Enter)</h4>
+            
+            <div className="space-y-2">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={raffleRequireX}
+                  onChange={(e) => setRaffleRequireX(e.target.checked)}
+                  className="w-4 h-4 mr-2"
+                />
+                <span className="text-gray-400 text-xs">Require X (Twitter) connection</span>
+              </label>
+              
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={raffleRequireDiscord}
+                  onChange={(e) => setRaffleRequireDiscord(e.target.checked)}
+                  className="w-4 h-4 mr-2"
+                />
+                <span className="text-gray-400 text-xs">Require Discord connection</span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Engagement Bonus Section */}
+          <div className="mb-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4e]">
+            <h4 className="text-[#44ff88] text-[10px] mb-2">🎁 BONUS ENTRY OPTIONS</h4>
+            
+            <div className="space-y-2">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={raffleDiscordBonus}
+                  onChange={(e) => setRaffleDiscordBonus(e.target.checked)}
+                  className="w-4 h-4 mr-2"
+                />
+                <span className="text-gray-400 text-xs">Discord Bonus (+1 entry for Discord members)</span>
+              </label>
+              
+              <div>
+                <label className="text-gray-500 text-[10px] block mb-1">
+                  Tweet URL for Like & RT Bonus (+1 entry)
+                </label>
+                <input
+                  type="text"
+                  value={raffleTweetUrl}
+                  onChange={(e) => setRaffleTweetUrl(e.target.value)}
+                  placeholder="https://x.com/StrWorldOrder/status/..."
+                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
+                />
+                <p className="text-gray-600 text-[9px] mt-1">
+                  Users who like & retweet this tweet get +1 bonus entry
+                </p>
+              </div>
+            </div>
           </div>
           
           <button
@@ -992,6 +1054,24 @@ export default function AdminContent() {
                     <div>
                       <h4 className="text-white text-sm font-bold">{raffle.name}</h4>
                       <p className="text-gray-400 text-[10px]">{raffle.prize_description}</p>
+                      {/* Show requirements */}
+                      <div className="flex gap-2 mt-1">
+                        {raffle.require_x === 1 && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-black/50 text-gray-300 rounded border border-gray-600">
+                            𝕏 Required
+                          </span>
+                        )}
+                        {raffle.require_discord === 1 && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-[#5865F2]/30 text-[#7289DA] rounded border border-[#5865F2]">
+                            Discord Required
+                          </span>
+                        )}
+                        {raffle.tweet_url && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded border border-[#44ff88]">
+                            RT Bonus
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       raffle.status === 'active' && !isEnded
@@ -1028,10 +1108,20 @@ export default function AdminContent() {
                       <p className="text-[#ffd700] text-[10px]">
                         🏆 Winner: {raffle.winner_address.slice(0, 6)}...{raffle.winner_address.slice(-4)}
                       </p>
+                      {raffle.winner_draw_seed && (
+                        <p className="text-gray-500 text-[8px] mt-1 font-mono break-all">
+                          Seed: {raffle.winner_draw_seed}
+                        </p>
+                      )}
+                      {raffle.winner_drawn_at && (
+                        <p className="text-gray-600 text-[8px]">
+                          Drawn: {new Date(raffle.winner_drawn_at).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   )}
                   
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {canDraw && (
                       <button
                         onClick={() => drawRaffleWinner(raffle.id)}
@@ -1048,6 +1138,14 @@ export default function AdminContent() {
                         ✗ CANCEL
                       </button>
                     )}
+                    <a
+                      href={`/api/raffle?id=${raffle.id}&export=csv`}
+                      download
+                      className="pixel-btn text-[10px]"
+                      title="Download participant list as CSV"
+                    >
+                      📥 CSV
+                    </a>
                     <a
                       href="/raffle"
                       target="_blank"
