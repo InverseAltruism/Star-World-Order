@@ -29,19 +29,23 @@ import { CollectionFloorPrice, upsertFloorPricesBatch, initializeFloorPricesTabl
 const MAGIC_EDEN_API_BASE = 'https://api-mainnet.magiceden.dev/v4/evm-public';
 const MAGIC_EDEN_CHAIN = 'monad';
 const MAGIC_EDEN_COLLECTIONS_LIMIT = 100; // Max collections per request
+const MAGIC_EDEN_MAX_PAGINATION_OFFSET = 1000; // Safety limit to prevent infinite loops
 
 // OpenSea API configuration (requires API key)
 const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 const OPENSEA_CHAIN = 'monad';
 
 // Rate limiting
-const API_REQUEST_DELAY_MS = 500; // 500ms between requests
+const API_REQUEST_DELAY_MS = 500; // 500ms between normal requests
+const API_RATE_LIMIT_DELAY_MS = 5000; // 5s delay when rate limited (429)
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
 
-// MON to USD conversion (approximate, update as needed)
-// TODO: Integrate with price oracle for accurate conversion
-const MON_TO_USD_RATE = 5.0; // Placeholder rate
+// MON to USD conversion rate
+// NOTE: This is a placeholder rate. In production, this should be fetched
+// from a price oracle (e.g., CoinGecko API) or configured via environment variable.
+// The rate is used for approximate USD floor price display only.
+const MON_TO_USD_RATE = parseFloat(process.env.MON_USD_RATE || '5.0');
 
 // ============================================================
 // TYPES
@@ -198,7 +202,7 @@ async function fetchMagicEdenTrendingCollections(): Promise<MagicEdenCollection[
         // Handle rate limiting
         if (response.status === 429) {
           logger.warn('FloorPriceScraper: Magic Eden rate limited, waiting...');
-          await sleep(5000);
+          await sleep(API_RATE_LIMIT_DELAY_MS);
           continue;
         }
         
@@ -223,7 +227,7 @@ async function fetchMagicEdenTrendingCollections(): Promise<MagicEdenCollection[
       }
       
       // Safety limit to prevent infinite loops
-      if (offset >= 1000) {
+      if (offset >= MAGIC_EDEN_MAX_PAGINATION_OFFSET) {
         hasMore = false;
       }
       

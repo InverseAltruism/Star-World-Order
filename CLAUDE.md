@@ -937,7 +937,13 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 
 This is a **public API product** offered by Star World Order that serves NFT floor prices for Monad collections.
 
-> **⚠️ NOTE:** Magic Eden and OpenSea do not provide public APIs for Monad floor prices. Floor price data must be **manually entered by admins** via the database or admin panel. The API serves whatever data has been manually entered.
+**Data Sources:**
+- ✅ **Magic Eden API** (primary) - Automatically scraped every 15-30 minutes
+- ✅ **OpenSea API** (secondary) - Optional, requires `OPENSEA_API_KEY` env var
+
+**Refresh Schedule:**
+- Automatic refresh via cron job every 15-30 minutes
+- Manual refresh: `curl -H "Authorization: Bearer <CRON_SECRET>" https://your-domain/api/cron/refresh-floor-prices`
 
 **GET /api/floor-prices**
 
@@ -983,7 +989,7 @@ curl "https://starworldorder.com/api/floor-prices?verified=true"
         "volumeTotal": 45000.0,
         "salesCount24h": 85,
         "holdersCount": 1200,
-        "source": "manual",
+        "source": "magic_eden",
         "isVerified": true,
         "updatedAt": "2024-12-30T01:00:00.000Z"
       }
@@ -996,20 +1002,29 @@ curl "https://starworldorder.com/api/floor-prices?verified=true"
 }
 ```
 
+**Source Values:**
+| Source | Description |
+|--------|-------------|
+| `magic_eden` | Data from Magic Eden API |
+| `opensea` | Data from OpenSea API |
+| `aggregated` | Data combined from multiple sources |
+| `manual` | Manually entered data |
+
 **Features:**
+- ✅ **Automated scraping** - Data refreshed automatically every 15-30 minutes
+- ✅ **Multi-source aggregation** - Combines Magic Eden and OpenSea data
 - ✅ **SQLite persistence** - Data stored in database
 - ✅ **CORS enabled** - Can be called from any domain
 - ✅ **No API key required** - Free public access
 - ✅ **15-minute cache** - In-memory caching for performance
 
-**Data Entry:**
+**Scraper Configuration:**
 
-Floor price data must be manually entered into the `nft_floor_prices` database table. Use the `upsertFloorPrice()` function from `lib/floorPrices.ts` or direct SQL:
+The floor price scraper is implemented in `lib/floorPriceScraper.ts` and uses:
+- Magic Eden API: `https://api-mainnet.magiceden.dev/v4/evm-public/collections?chain=monad`
+- OpenSea API: `https://api.opensea.io/api/v2/collections` (requires API key)
 
-```sql
-INSERT INTO nft_floor_prices (contract_address, name, floor_price_mon, source)
-VALUES ('0x...', 'Collection Name', 5.25, 'manual');
-```
+To enable OpenSea as a secondary data source, set the `OPENSEA_API_KEY` environment variable.
 
 ### Friends API
 
@@ -1600,8 +1615,10 @@ try {
 | `app/api/notifications/route.ts` | Notification system API endpoints (supports global notifications) |
 | `app/api/friends/route.ts` | Friends system API endpoints |
 | `app/api/messages/route.ts` | Direct messaging API endpoints |
+| `lib/floorPrices.ts` | **Floor Price Aggregator** - Database functions and caching |
+| `lib/floorPriceScraper.ts` | **Floor Price Scraper** - Magic Eden and OpenSea API integration |
 | `app/api/floor-prices/route.ts` | **Public Floor Prices API** - Monad NFT floor prices |
-| `app/api/cron/refresh-floor-prices/route.ts` | Cron job to refresh floor prices every 15 min |
+| `app/api/cron/refresh-floor-prices/route.ts` | Cron job to auto-scrape floor prices every 15-30 min |
 
 ---
 

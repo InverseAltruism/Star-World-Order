@@ -498,7 +498,9 @@ export async function refreshAllFloorPrices(): Promise<{
     // Initialize table if needed
     initializeFloorPricesTable();
     
-    // Import and run the scraper dynamically to avoid circular dependencies
+    // Import scraper dynamically to avoid circular dependencies:
+    // floorPriceScraper.ts imports from floorPrices.ts (upsertFloorPricesBatch, initializeFloorPricesTable)
+    // If we did a static import here, it would create: floorPrices -> floorPriceScraper -> floorPrices
     const { scrapeAllFloorPrices } = await import('./floorPriceScraper');
     const scrapeResult = await scrapeAllFloorPrices();
     
