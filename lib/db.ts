@@ -14,6 +14,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -3323,16 +3324,13 @@ export function drawRaffleWinner(raffleId: string, blockHash: string): {
   const timestamp = Date.now().toString();
   const seedString = `${blockHash}-${raffleId}-${timestamp}-${entries.length}`;
   
-  // Simple hash function for randomness (in production, use crypto.createHash)
-  let hash = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    const char = seedString.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
+  // Use cryptographically secure hash for verifiable randomness
+  const hashBuffer = crypto.createHash('sha256').update(seedString).digest();
+  // Read first 4 bytes as unsigned 32-bit integer for winner index
+  const hashNumber = hashBuffer.readUInt32BE(0);
   
   // Select winner using the hash
-  const winnerIndex = Math.abs(hash) % entryPool.length;
+  const winnerIndex = hashNumber % entryPool.length;
   const winner = entryPool[winnerIndex];
   
   // Update raffle with winner

@@ -1043,7 +1043,7 @@ export default function AdminContent() {
                     {raffle.status === 'active' && !raffle.winner_address && (
                       <button
                         onClick={() => cancelRaffleAction(raffle.id)}
-                        className="pixel-btn text-[10px] bg-[#ff4466] border-[#ff6688_#aa2244_#aa2244_#ff6688]"
+                        className="pixel-btn text-[10px] bg-[#ff4466]"
                       >
                         ✗ CANCEL
                       </button>

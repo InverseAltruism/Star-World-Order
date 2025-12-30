@@ -133,33 +133,46 @@ function CountdownTimer({ endTime }: { endTime: string }) {
 
 // Win Animation Component
 function WinAnimation({ onClose }: { onClose: () => void }) {
-  const [stars, setStars] = useState<Array<{ id: number; x: number; y: number; size: number; delay: number }>>([]);
+  const [stars, setStars] = useState<Array<{ 
+    id: number; 
+    x: number; 
+    y: number; 
+    size: number; 
+    delay: number;
+    dirX: number;
+    dirY: number;
+  }>>([]);
   
   useEffect(() => {
-    // Generate flying stars
+    // Generate flying stars with pre-calculated directions
     const newStars = Array.from({ length: 50 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
       size: Math.random() * 20 + 10,
       delay: Math.random() * 2,
+      dirX: (Math.random() - 0.5) * 400, // -200 to 200
+      dirY: (Math.random() - 0.5) * 400, // -200 to 200
     }));
     setStars(newStars);
   }, []);
   
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90" onClick={onClose}>
-      {/* Flying stars */}
+      {/* Flying stars - using CSS custom properties for animation */}
       {stars.map((star) => (
         <div
           key={star.id}
-          className="absolute animate-fly-star"
+          className="absolute star-fly-animation"
           style={{
             left: `${star.x}%`,
             top: `${star.y}%`,
             fontSize: `${star.size}px`,
             animationDelay: `${star.delay}s`,
-          }}
+            // Use CSS custom properties for animation targets
+            '--tx': `${star.dirX}px`,
+            '--ty': `${star.dirY}px`,
+          } as React.CSSProperties}
         >
           ⭐
         </div>
@@ -188,11 +201,11 @@ function WinAnimation({ onClose }: { onClose: () => void }) {
             transform: scale(1);
           }
           100% {
-            transform: translate(${Math.random() > 0.5 ? '' : '-'}${Math.random() * 200 + 100}px, ${Math.random() > 0.5 ? '' : '-'}${Math.random() * 200 + 100}px) rotate(720deg) scale(0);
+            transform: translate(var(--tx, 100px), var(--ty, 100px)) rotate(720deg) scale(0);
             opacity: 0;
           }
         }
-        .animate-fly-star {
+        .star-fly-animation {
           animation: fly-star 3s ease-out infinite;
         }
         @keyframes bounce-in {
@@ -217,20 +230,31 @@ function WinAnimation({ onClose }: { onClose: () => void }) {
 
 // Lose Animation Component
 function LoseAnimation({ onClose }: { onClose: () => void }) {
+  // Pre-calculate star positions and properties
+  const [fallingStars] = useState(() => 
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      size: Math.random() * 15 + 10,
+      delay: Math.random() * 3,
+      duration: Math.random() * 2 + 3,
+    }))
+  );
+
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90" onClick={onClose}>
       {/* Falling stars (sad) */}
       <div className="absolute inset-0 overflow-hidden">
-        {Array.from({ length: 20 }).map((_, i) => (
+        {fallingStars.map((star) => (
           <div
-            key={i}
+            key={star.id}
             className="absolute animate-fall-star"
             style={{
-              left: `${Math.random() * 100}%`,
+              left: `${star.left}%`,
               top: `-20px`,
-              fontSize: `${Math.random() * 15 + 10}px`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${Math.random() * 2 + 3}s`,
+              fontSize: `${star.size}px`,
+              animationDelay: `${star.delay}s`,
+              animationDuration: `${star.duration}s`,
               opacity: 0.5,
             }}
           >
