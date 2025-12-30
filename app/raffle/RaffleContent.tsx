@@ -701,7 +701,7 @@ export default function RaffleContent() {
                   alt="Prize"
                   fill
                   className="object-cover rounded-lg"
-                  unoptimized
+                  sizes="80px"
                 />
               </div>
             ) : (

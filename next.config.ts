@@ -4,14 +4,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   turbopack: {},
   images: {
-    // Allow images from any HTTPS source for raffle prize images
+    // Allow HTTPS images from any source for raffle prize images
+    // Note: Only HTTPS is allowed for security (no HTTP)
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
-      },
-      {
-        protocol: 'http',
         hostname: '**',
       },
     ],
