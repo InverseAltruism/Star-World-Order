@@ -884,7 +884,107 @@ deleteMessage(messageId: number, senderAddress: string): boolean
 createDatabaseBackup(backupDir?: string): string
 listDatabaseBackups(backupDir?: string): Array<{ filename, path, timestamp, size }>
 cleanupOldBackups(keepCount?: number, backupDir?: string): number
+
+// Raffle Functions
+getRaffleById(raffleId: string): Raffle | null
+getRaffles(status?: string): Raffle[]
+getActiveRaffles(): Raffle[]
+getUpcomingRaffles(): Raffle[]
+getPastRaffles(): Raffle[]
+createRaffle(data: {...}): Raffle
+enterRaffle(data: { raffleId, walletAddress, starCount, discordBonus?, engagementBonus? }): RaffleEntry
+getRaffleEntry(raffleId: string, walletAddress: string): RaffleEntry | null
+getRaffleEntries(raffleId: string): RaffleEntryWithProfile[]
+getRaffleTotalEntries(raffleId: string): { participants: number; totalTickets: number }
+drawRaffleWinner(raffleId: string, blockHash: string): { success, winner?, seed?, error? }
+endRaffle(raffleId: string): boolean
+cancelRaffle(raffleId: string): boolean
+hasViewedRaffleResult(raffleId: string, walletAddress: string): boolean
+markRaffleResultViewed(raffleId: string, walletAddress: string): void
+getUserRaffleEntries(walletAddress: string): UserRaffleHistory[]
+calculateHolderTier(starCount: number): HolderTier
 ```
+
+### raffles
+
+Stores raffle definitions and state.
+
+```sql
+CREATE TABLE IF NOT EXISTS raffles (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  prize_description TEXT NOT NULL,
+  prize_image_url TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'ended', 'drawn', 'cancelled')),
+  created_by TEXT NOT NULL,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NOT NULL,
+  winner_address TEXT,
+  winner_drawn_at DATETIME,
+  winner_draw_seed TEXT,
+  discord_bonus_enabled INTEGER NOT NULL DEFAULT 0,
+  require_x INTEGER NOT NULL DEFAULT 0,
+  require_discord INTEGER NOT NULL DEFAULT 0,
+  tweet_url TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_raffles_status ON raffles(status, end_time);
+```
+
+**Raffle Status Flow**:
+```
+active → ended/drawn/cancelled
+```
+
+### raffle_entries
+
+Stores user entries for each raffle.
+
+```sql
+CREATE TABLE IF NOT EXISTS raffle_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  raffle_id TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  entries_count INTEGER NOT NULL,
+  discord_bonus INTEGER NOT NULL DEFAULT 0,
+  engagement_bonus INTEGER NOT NULL DEFAULT 0,
+  star_count INTEGER NOT NULL,
+  entered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (raffle_id) REFERENCES raffles(id),
+  UNIQUE(raffle_id, wallet_address)
+);
+
+CREATE INDEX idx_raffle_entries_raffle ON raffle_entries(raffle_id);
+CREATE INDEX idx_raffle_entries_wallet ON raffle_entries(wallet_address);
+```
+
+### Holder Tiers
+
+Entry counts are based on how many Star Skrumpeys a user holds:
+
+| Tier | Stars Required | Entries |
+|------|----------------|---------|
+| **Cosmic Emperor** | 10+ | 4 |
+| **Star Lord** | 5-9 | 3 |
+| **Cosmic Warden** | 2-4 | 2 |
+| **Star Forged** | 1 | 1 |
+
+### Verifiable Randomness
+
+Winner selection uses cryptographically verifiable randomness:
+
+1. **Seed Generation**: `${blockHash}-${raffleId}-${timestamp}-${entryCount}`
+2. **Hash**: SHA-256 of the seed string
+3. **Selection**: First 4 bytes converted to 32-bit unsigned integer
+4. **Winner Index**: `hashNumber % totalWeightedEntries`
+
+This ensures:
+- ✅ **Deterministic**: Same seed always produces same winner
+- ✅ **Verifiable**: Anyone can verify the hash calculation
+- ✅ **Transparent**: Seed is stored and displayed publicly
 
 ---
 
@@ -930,6 +1030,8 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/messages` | POST | Send a direct message |
 | `/api/messages` | PATCH | Mark messages as read |
 | `/api/messages` | DELETE | Delete a message (sender only) |
+| `/api/raffle` | GET | Get raffles (params: `type=active\|upcoming\|past\|all`, `id`, `address`, `export=csv`) |
+| `/api/raffle` | POST | Enter raffle or admin actions (body: `action`, `walletAddress`, `raffleId`, etc.) |
 | `/api/floor-prices` | GET | **Public API**: Get floor prices for all Monad NFT collections |
 | `/api/cron/refresh-floor-prices` | GET | Cron endpoint to refresh floor prices (requires `CRON_SECRET`) |
 
@@ -1010,6 +1112,82 @@ Floor price data must be manually entered into the `nft_floor_prices` database t
 INSERT INTO nft_floor_prices (contract_address, name, floor_price_mon, source)
 VALUES ('0x...', 'Collection Name', 5.25, 'manual');
 ```
+
+### Raffle API
+
+The Cosmic Raffle system allows Star Skrumpey holders to participate in exclusive giveaways.
+
+**GET /api/raffle**
+
+Query parameters:
+- `type`: `active` | `upcoming` | `past` | `all` | `history` (default: `all`)
+- `id`: Get specific raffle by ID
+- `address`: User's wallet address (for entry status)
+- `export`: `csv` to download participant list (admin only)
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "raffles": [
+    {
+      "id": "raffle-1234567890-abc123",
+      "name": "Cosmic Giveaway #1",
+      "description": "Win a Star Skrumpey NFT!",
+      "prize_description": "1 Star Skrumpey NFT",
+      "prize_image_url": "https://...",
+      "status": "active",
+      "start_time": "2024-12-30T00:00:00.000Z",
+      "end_time": "2025-01-06T23:59:59.000Z",
+      "winner_address": null,
+      "discord_bonus_enabled": true,
+      "require_x": false,
+      "require_discord": false,
+      "tweet_url": "https://x.com/StrWorldOrder/status/..."
+    }
+  ],
+  "holderTiers": {
+    "cosmic_emperor": { "minStars": 10, "entries": 4 },
+    "star_lord": { "minStars": 5, "entries": 3 },
+    "cosmic_warden": { "minStars": 2, "entries": 2 },
+    "star_forged": { "minStars": 1, "entries": 1 }
+  }
+}
+```
+
+**POST /api/raffle**
+
+Actions:
+- `enter`: Enter a raffle (requires `walletAddress`, `raffleId`)
+- `create`: Create new raffle (admin only)
+- `draw`: Draw winner (admin only)
+- `end`: End raffle without drawing (admin only)
+- `cancel`: Cancel raffle (admin only)
+- `markViewed`: Mark raffle result as viewed
+
+**Enter Raffle Example:**
+
+```json
+{
+  "action": "enter",
+  "walletAddress": "0x...",
+  "raffleId": "raffle-1234567890-abc123",
+  "discordBonus": false,
+  "engagementBonus": true
+}
+```
+
+**Bonus Entry Options:**
+- **Discord Bonus** (+1): For Discord server members
+- **Engagement Bonus** (+1): For users who like & retweet the raffle announcement tweet
+
+**Social Requirements:**
+Raffles can require users to have connected:
+- X (Twitter) account (`require_x: true`)
+- Discord account (`require_discord: true`)
+
+Users must connect these accounts in their profile settings before entering.
 
 ### Friends API
 
@@ -1602,6 +1780,9 @@ try {
 | `app/api/messages/route.ts` | Direct messaging API endpoints |
 | `app/api/floor-prices/route.ts` | **Public Floor Prices API** - Monad NFT floor prices |
 | `app/api/cron/refresh-floor-prices/route.ts` | Cron job to refresh floor prices every 15 min |
+| `app/raffle/page.tsx` | **Cosmic Raffle page** - Entry point for raffle system |
+| `app/raffle/RaffleContent.tsx` | Raffle client component with animations and entry management |
+| `app/api/raffle/route.ts` | **Raffle API** - Create, enter, draw winner, admin actions |
 
 ---
 
@@ -1927,7 +2108,7 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 26, 2024
+**Last Updated**: December 30, 2024
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 
