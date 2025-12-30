@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
@@ -588,6 +588,9 @@ export default function ProfileCard() {
   // Raffle history state
   const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
   const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
+  
+  // Memoized count of won raffles for badge display
+  const wonRafflesCount = useMemo(() => raffleHistory.filter(r => r.won).length, [raffleHistory]);
 
   // Close modal handler
   const closeModal = useCallback(() => {
@@ -1277,8 +1280,7 @@ export default function ProfileCard() {
             raffles: 'Raffles'
           };
           
-          // Show badge for pending friend requests or won raffles
-          const wonRafflesCount = raffleHistory.filter(r => r.won).length;
+          // Show badge for pending friend requests or won raffles (wonRafflesCount is memoized above)
           const badge = section === 'friends' && pendingRequests.length > 0 
             ? pendingRequests.length 
             : section === 'raffles' && wonRafflesCount > 0 

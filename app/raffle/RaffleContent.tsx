@@ -396,6 +396,34 @@ function TierBadge({ tier, small = false }: { tier: string; small?: boolean }) {
   );
 }
 
+/**
+ * Check if user is missing required social connections for a raffle
+ */
+function getMissingSocialRequirements(
+  raffle: Raffle, 
+  socialConnections: SocialConnections | null
+): { missesX: boolean; missesDiscord: boolean; hasMissing: boolean; message: string } {
+  const missesX = raffle.require_x === 1 && !socialConnections?.hasX;
+  const missesDiscord = raffle.require_discord === 1 && !socialConnections?.hasDiscord;
+  const hasMissing = missesX || missesDiscord;
+  
+  let message = '';
+  if (missesX) {
+    message += 'Connect your X (Twitter) account';
+  }
+  if (missesX && missesDiscord) {
+    message += ' and ';
+  }
+  if (missesDiscord) {
+    message += 'Connect your Discord account';
+  }
+  if (hasMissing) {
+    message += ' to enter this raffle.';
+  }
+  
+  return { missesX, missesDiscord, hasMissing, message };
+}
+
 // Main Raffle Content Component
 export default function RaffleContent() {
   const { address, isConnected } = useAccount();
@@ -880,23 +908,27 @@ export default function RaffleContent() {
             ) : (
               <div className="text-center">
                 {/* Check social requirements first */}
-                {((activeRaffle.require_x === 1 && !userSocialConnections?.hasX) || (activeRaffle.require_discord === 1 && !userSocialConnections?.hasDiscord)) ? (
-                  <div className="bg-[#ff4466]/10 border border-[#ff4466]/30 rounded-lg p-4">
-                    <p className="text-[#ff4466] text-sm mb-2">⚠️ Social Connection Required</p>
-                    <p className="text-gray-400 text-xs mb-3">
-                      {activeRaffle.require_x === 1 && !userSocialConnections?.hasX && "Connect your X (Twitter) account"}
-                      {activeRaffle.require_x === 1 && !userSocialConnections?.hasX && activeRaffle.require_discord === 1 && !userSocialConnections?.hasDiscord && " and "}
-                      {activeRaffle.require_discord === 1 && !userSocialConnections?.hasDiscord && "Connect your Discord account"}
-                      {" to enter this raffle."}
-                    </p>
-                    <a 
-                      href="/profile?tab=settings"
-                      className="pixel-btn text-xs"
-                    >
-                      GO TO PROFILE SETTINGS
-                    </a>
-                  </div>
-                ) : userTier ? (
+                {(() => {
+                  const socialReqs = getMissingSocialRequirements(activeRaffle, userSocialConnections);
+                  if (socialReqs.hasMissing) {
+                    return (
+                      <div className="bg-[#ff4466]/10 border border-[#ff4466]/30 rounded-lg p-4">
+                        <p className="text-[#ff4466] text-sm mb-2">⚠️ Social Connection Required</p>
+                        <p className="text-gray-400 text-xs mb-3">
+                          {socialReqs.message}
+                        </p>
+                        <a 
+                          href="/profile?tab=settings"
+                          className="pixel-btn text-xs"
+                        >
+                          GO TO PROFILE SETTINGS
+                        </a>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                {!getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing && userTier ? (
                   <>
                     <div className="mb-3">
                       <p className="text-gray-400 text-xs mb-2">Your Tier:</p>
@@ -945,7 +977,7 @@ export default function RaffleContent() {
                       </button>
                     )}
                   </>
-                ) : (
+                ) : !getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing ? (
                   <div className="text-center">
                     <p className="text-[#ff4466] text-xs mb-2">
                       You must own at least 1 Star Skrumpey to enter
@@ -959,7 +991,7 @@ export default function RaffleContent() {
                       GET A STAR SKRUMPEY
                     </a>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
             

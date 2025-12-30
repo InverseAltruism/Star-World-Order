@@ -84,6 +84,17 @@ export async function GET(request: NextRequest) {
         'Entered At',
       ].join(',');
       
+      // Helper to safely escape CSV values and prevent formula injection
+      const escapeCSVValue = (value: string | number): string => {
+        const strValue = String(value);
+        // Prefix with single quote if starts with potentially dangerous characters
+        // This prevents Excel/Sheets from interpreting as formula
+        const needsPrefix = /^[=+\-@\t\r]/.test(strValue);
+        // Also escape any existing quotes
+        const escaped = strValue.replace(/"/g, '""');
+        return needsPrefix ? `"'${escaped}"` : `"${escaped}"`;
+      };
+      
       const csvRows = entries.map(entry => [
         entry.wallet_address,
         entry.display_name || '',
@@ -95,7 +106,7 @@ export async function GET(request: NextRequest) {
         entry.discord_username || '',
         entry.x_username || '',
         entry.entered_at,
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      ].map(v => escapeCSVValue(v)).join(','));
       
       const csvContent = [csvHeaders, ...csvRows].join('\n');
       
