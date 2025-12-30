@@ -36,6 +36,25 @@ interface Notification {
   created_at: string;
 }
 
+interface Raffle {
+  id: string;
+  name: string;
+  description: string;
+  prize_description: string;
+  prize_image_url: string | null;
+  status: 'active' | 'ended' | 'drawn' | 'cancelled';
+  start_time: string;
+  end_time: string;
+  winner_address: string | null;
+  discord_bonus_enabled: number;
+  created_at: string;
+}
+
+interface RaffleStats {
+  participants: number;
+  totalTickets: number;
+}
+
 /**
  * Admin Content Component
  * 
@@ -43,6 +62,7 @@ interface Notification {
  * - Site health monitoring
  * - Cache management
  * - Notification management
+ * - Raffle management
  */
 export default function AdminContent() {
   const { address, isConnected } = useAccount();
@@ -66,6 +86,17 @@ export default function AdminContent() {
   const [notificationIcon, setNotificationIcon] = useState('📢');
   const [userNotifications, setUserNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  
+  // Raffle management state
+  const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
+  const [raffleName, setRaffleName] = useState('');
+  const [raffleDescription, setRaffleDescription] = useState('');
+  const [rafflePrize, setRafflePrize] = useState('');
+  const [rafflePrizeImage, setRafflePrizeImage] = useState('');
+  const [raffleEndTime, setRaffleEndTime] = useState('');
+  const [raffleDiscordBonus, setRaffleDiscordBonus] = useState(false);
+  const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
   
   // Check if connected wallet is admin
   const isAdminWallet = address?.toLowerCase() === ADMIN_WALLET;
@@ -325,6 +356,155 @@ export default function AdminContent() {
       setActionResult({ success: false, message: 'Failed to cleanup notifications' });
     }
   };
+
+  /**
+   * Fetch all raffles
+   */
+  const fetchRaffles = useCallback(async () => {
+    setIsLoadingRaffles(true);
+    try {
+      const response = await fetch('/api/raffle?type=all');
+      const data = await response.json();
+      
+      if (data.success) {
+        setRaffles(data.raffles || []);
+        
+        // Fetch stats for each active raffle
+        const statsPromises = (data.raffles || []).map(async (raffle: Raffle) => {
+          const statsRes = await fetch(`/api/raffle?id=${raffle.id}`);
+          const statsData = await statsRes.json();
+          return { id: raffle.id, stats: statsData.stats };
+        });
+        
+        const allStats = await Promise.all(statsPromises);
+        const statsMap: { [key: string]: RaffleStats } = {};
+        allStats.forEach(({ id, stats }) => {
+          if (stats) statsMap[id] = stats;
+        });
+        setSelectedRaffleStats(statsMap);
+      }
+    } catch (error) {
+      console.error('Failed to fetch raffles:', error);
+    } finally {
+      setIsLoadingRaffles(false);
+    }
+  }, []);
+
+  /**
+   * Create a new raffle
+   */
+  const createRaffle = async () => {
+    if (!raffleName || !rafflePrize || !raffleEndTime) {
+      setActionResult({ success: false, message: 'Name, prize, and end time are required' });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/raffle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          walletAddress: address,
+          name: raffleName,
+          description: raffleDescription,
+          prizeDescription: rafflePrize,
+          prizeImageUrl: rafflePrizeImage || undefined,
+          endTime: raffleEndTime,
+          discordBonusEnabled: raffleDiscordBonus,
+        }),
+      });
+
+      const data = await response.json();
+      setActionResult({
+        success: data.success,
+        message: data.success ? `Raffle "${raffleName}" created!` : data.error,
+      });
+
+      if (data.success) {
+        // Clear form
+        setRaffleName('');
+        setRaffleDescription('');
+        setRafflePrize('');
+        setRafflePrizeImage('');
+        setRaffleEndTime('');
+        setRaffleDiscordBonus(false);
+        // Refresh raffles
+        await fetchRaffles();
+      }
+    } catch (error) {
+      setActionResult({ success: false, message: 'Failed to create raffle' });
+    }
+  };
+
+  /**
+   * Draw winner for a raffle
+   */
+  const drawRaffleWinner = async (raffleId: string) => {
+    try {
+      const response = await fetch('/api/raffle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'draw',
+          walletAddress: address,
+          raffleId,
+        }),
+      });
+
+      const data = await response.json();
+      setActionResult({
+        success: data.success,
+        message: data.success 
+          ? `Winner drawn: ${data.winner?.wallet_address?.slice(0, 6)}...${data.winner?.wallet_address?.slice(-4)}`
+          : data.error,
+      });
+
+      if (data.success) {
+        await fetchRaffles();
+      }
+    } catch (error) {
+      setActionResult({ success: false, message: 'Failed to draw winner' });
+    }
+  };
+
+  /**
+   * Cancel a raffle
+   */
+  const cancelRaffleAction = async (raffleId: string) => {
+    if (!confirm('Are you sure you want to cancel this raffle?')) return;
+
+    try {
+      const response = await fetch('/api/raffle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel',
+          walletAddress: address,
+          raffleId,
+        }),
+      });
+
+      const data = await response.json();
+      setActionResult({
+        success: data.success,
+        message: data.success ? 'Raffle cancelled' : data.error,
+      });
+
+      if (data.success) {
+        await fetchRaffles();
+      }
+    } catch (error) {
+      setActionResult({ success: false, message: 'Failed to cancel raffle' });
+    }
+  };
+
+  // Fetch raffles when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchRaffles();
+    }
+  }, [isAuthenticated, fetchRaffles]);
 
   // Clear action result after 5 seconds
   useEffect(() => {
@@ -692,6 +872,220 @@ export default function AdminContent() {
         </div>
       </div>
 
+      {/* Raffle Management */}
+      <div className="pixel-card p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[#ff6ec7] text-sm tracking-wider">🎰 RAFFLE MANAGEMENT</h2>
+          <button
+            onClick={fetchRaffles}
+            disabled={isLoadingRaffles}
+            className="pixel-btn text-[10px] !px-3 !py-1"
+          >
+            {isLoadingRaffles ? '...' : 'REFRESH'}
+          </button>
+        </div>
+        
+        {/* Create New Raffle Form */}
+        <div className="bg-[#0a0a15] p-4 rounded-lg mb-4">
+          <h3 className="text-[#ffd700] text-xs mb-3">Create New Raffle</h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-gray-500 text-[10px] block mb-1">Name *</label>
+              <input
+                type="text"
+                value={raffleName}
+                onChange={(e) => setRaffleName(e.target.value)}
+                placeholder="Cosmic Giveaway #1"
+                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="text-gray-500 text-[10px] block mb-1">End Time *</label>
+              <input
+                type="datetime-local"
+                value={raffleEndTime}
+                onChange={(e) => setRaffleEndTime(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
+              />
+            </div>
+          </div>
+          
+          <div className="mb-3">
+            <label className="text-gray-500 text-[10px] block mb-1">Prize Description *</label>
+            <input
+              type="text"
+              value={rafflePrize}
+              onChange={(e) => setRafflePrize(e.target.value)}
+              placeholder="1 Star Skrumpey NFT"
+              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="text-gray-500 text-[10px] block mb-1">Description (optional)</label>
+            <textarea
+              value={raffleDescription}
+              onChange={(e) => setRaffleDescription(e.target.value)}
+              placeholder="Enter for a chance to win..."
+              rows={2}
+              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white resize-none"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="text-gray-500 text-[10px] block mb-1">Prize Image URL (optional)</label>
+            <input
+              type="text"
+              value={rafflePrizeImage}
+              onChange={(e) => setRafflePrizeImage(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
+            />
+          </div>
+          
+          <div className="mb-3">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={raffleDiscordBonus}
+                onChange={(e) => setRaffleDiscordBonus(e.target.checked)}
+                className="w-4 h-4 mr-2"
+              />
+              <span className="text-gray-400 text-xs">Enable Discord Bonus (+1 entry for Discord members)</span>
+            </label>
+          </div>
+          
+          <button
+            onClick={createRaffle}
+            disabled={!raffleName || !rafflePrize || !raffleEndTime}
+            className="pixel-btn pixel-btn-gold text-xs w-full"
+          >
+            🎰 CREATE RAFFLE
+          </button>
+        </div>
+        
+        {/* Existing Raffles */}
+        <div className="space-y-3">
+          <h3 className="text-[#ffd700] text-xs">Active & Recent Raffles ({raffles.length})</h3>
+          
+          {raffles.length === 0 ? (
+            <p className="text-gray-500 text-xs text-center py-4">No raffles yet</p>
+          ) : (
+            raffles.map((raffle) => {
+              const stats = selectedRaffleStats[raffle.id];
+              const isEnded = new Date(raffle.end_time) <= new Date();
+              const canDraw = raffle.status === 'active' && isEnded && !raffle.winner_address;
+              
+              return (
+                <div 
+                  key={raffle.id}
+                  className={`p-4 rounded-lg border ${
+                    raffle.status === 'active' && !isEnded
+                      ? 'bg-[#44ff88]/10 border-[#44ff88]'
+                      : raffle.status === 'drawn'
+                      ? 'bg-[#ffd700]/10 border-[#ffd700]'
+                      : 'bg-[#0a0a15] border-[#2a2a4e]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="text-white text-sm font-bold">{raffle.name}</h4>
+                      <p className="text-gray-400 text-[10px]">{raffle.prize_description}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      raffle.status === 'active' && !isEnded
+                        ? 'bg-[#44ff88]/20 text-[#44ff88]'
+                        : raffle.status === 'drawn'
+                        ? 'bg-[#ffd700]/20 text-[#ffd700]'
+                        : raffle.status === 'cancelled'
+                        ? 'bg-[#ff4466]/20 text-[#ff4466]'
+                        : 'bg-gray-500/20 text-gray-400'
+                    }`}>
+                      {raffle.status === 'active' && isEnded ? 'ENDED' : raffle.status.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                    <div className="bg-[#0a0a15] rounded p-2">
+                      <p className="text-[#9966ff] text-sm font-bold">{stats?.participants || 0}</p>
+                      <p className="text-gray-600 text-[9px]">Participants</p>
+                    </div>
+                    <div className="bg-[#0a0a15] rounded p-2">
+                      <p className="text-[#00ffff] text-sm font-bold">{stats?.totalTickets || 0}</p>
+                      <p className="text-gray-600 text-[9px]">Tickets</p>
+                    </div>
+                    <div className="bg-[#0a0a15] rounded p-2">
+                      <p className="text-white text-[9px]">
+                        {new Date(raffle.end_time).toLocaleDateString()}
+                      </p>
+                      <p className="text-gray-600 text-[9px]">End Date</p>
+                    </div>
+                  </div>
+                  
+                  {raffle.winner_address && (
+                    <div className="bg-[#ffd700]/10 rounded p-2 mb-3">
+                      <p className="text-[#ffd700] text-[10px]">
+                        🏆 Winner: {raffle.winner_address.slice(0, 6)}...{raffle.winner_address.slice(-4)}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    {canDraw && (
+                      <button
+                        onClick={() => drawRaffleWinner(raffle.id)}
+                        className="pixel-btn pixel-btn-gold text-[10px] flex-1"
+                      >
+                        🎲 DRAW WINNER
+                      </button>
+                    )}
+                    {raffle.status === 'active' && !raffle.winner_address && (
+                      <button
+                        onClick={() => cancelRaffleAction(raffle.id)}
+                        className="pixel-btn text-[10px] bg-[#ff4466]"
+                      >
+                        ✗ CANCEL
+                      </button>
+                    )}
+                    <a
+                      href="/raffle"
+                      target="_blank"
+                      className="pixel-btn text-[10px]"
+                    >
+                      👁️ VIEW
+                    </a>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        
+        {/* Tier Reference */}
+        <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
+          <h4 className="text-gray-400 text-xs mb-2">Entry Tiers Reference:</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[9px]">
+            <div className="bg-[#ffd700]/10 rounded p-2 text-center">
+              <p className="text-[#ffd700] font-bold">COSMIC EMPEROR</p>
+              <p className="text-gray-400">10+ Stars = 4 entries</p>
+            </div>
+            <div className="bg-[#ff00ff]/10 rounded p-2 text-center">
+              <p className="text-[#ff00ff] font-bold">STAR LORD</p>
+              <p className="text-gray-400">5+ Stars = 3 entries</p>
+            </div>
+            <div className="bg-[#00ffff]/10 rounded p-2 text-center">
+              <p className="text-[#00ffff] font-bold">COSMIC WARDEN</p>
+              <p className="text-gray-400">2+ Stars = 2 entries</p>
+            </div>
+            <div className="bg-[#9966ff]/10 rounded p-2 text-center">
+              <p className="text-[#9966ff] font-bold">STAR FORGED</p>
+              <p className="text-gray-400">1 Star = 1 entry</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="pixel-card p-6">
         <h2 className="text-[#ffd700] text-sm tracking-wider mb-4">⚡ QUICK ACTIONS</h2>
@@ -712,12 +1106,11 @@ export default function AdminContent() {
             <p className="text-gray-400 text-xs">Members</p>
           </a>
           <a
-            href="/api/notifications/test"
-            target="_blank"
-            className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e] hover:border-[#ffd700] transition-colors text-center"
+            href="/raffle"
+            className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e] hover:border-[#ff6ec7] transition-colors text-center"
           >
-            <div className="text-2xl mb-2">🔔</div>
-            <p className="text-gray-400 text-xs">Test Notifications</p>
+            <div className="text-2xl mb-2">🎰</div>
+            <p className="text-gray-400 text-xs">Raffle</p>
           </a>
           <a
             href="https://monadscan.com/address/0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af"

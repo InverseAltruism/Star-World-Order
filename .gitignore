@@ -52,3 +52,6 @@ next-env.d.ts
 # SQLite WAL files
 *.db-shm
 *.db-wal
+
+# SQLite database files (use server-side db, not commit local copies)
+data/*.db
