@@ -178,9 +178,10 @@ export function getFloorPricesFromDB(): CollectionFloorPrice[] {
   const db = getDatabase();
   
   try {
+    // SQLite naturally sorts NULL values as smallest, so DESC puts NULLs last
     const stmt = db.prepare(`
       SELECT * FROM nft_floor_prices 
-      ORDER BY floor_price_mon DESC NULLS LAST, name ASC
+      ORDER BY floor_price_mon DESC, name ASC
     `);
     
     const rows = stmt.all() as Array<{
