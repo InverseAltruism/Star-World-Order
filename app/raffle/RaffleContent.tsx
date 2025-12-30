@@ -324,23 +324,34 @@ function LoseAnimation({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Animation configuration constants
+const ENTRY_ANIMATION_DURATION_MS = 4000;
+
 // Entry Confirmation Animation with lottery-style flying tickets
 function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: number; tier: string; raffleName: string; onClose: () => void }) {
   const style = TIER_STYLES[tier] || TIER_STYLES.star_forged;
   
   // Generate flying tickets based on entry count
+  // Tickets fly outward from center to random positions
   const [flyingTickets] = useState(() => 
-    Array.from({ length: Math.min(entries * 3, 30) }, (_, i) => ({
-      id: i,
-      startX: 50 + (Math.random() - 0.5) * 20, // Start near center
-      startY: 110, // Start from below
-      endX: Math.random() * 100,
-      endY: Math.random() * 40, // End in upper half
-      rotation: Math.random() * 720 - 360,
-      delay: Math.random() * 0.5,
-      duration: 0.8 + Math.random() * 0.4,
-      size: 16 + Math.random() * 16,
-    }))
+    Array.from({ length: Math.min(entries * 3, 30) }, (_, i) => {
+      const startX = 50 + (Math.random() - 0.5) * 20; // Start near center
+      const startY = 110; // Start from below
+      const endX = Math.random() * 100;
+      const endY = Math.random() * 40; // End in upper half
+      return {
+        id: i,
+        startX,
+        startY,
+        // Calculate displacement (can be negative for flying left/up)
+        deltaX: endX - startX,
+        deltaY: endY - startY,
+        rotation: Math.random() * 720 - 360,
+        delay: Math.random() * 0.5,
+        duration: 0.8 + Math.random() * 0.4,
+        size: 16 + Math.random() * 16,
+      };
+    })
   );
   
   // Sparkle effects
@@ -355,7 +366,7 @@ function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: nu
   );
   
   useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
+    const timer = setTimeout(onClose, ENTRY_ANIMATION_DURATION_MS);
     return () => clearTimeout(timer);
   }, [onClose]);
   
@@ -370,8 +381,8 @@ function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: nu
             left: `${ticket.startX}%`,
             top: `${ticket.startY}%`,
             fontSize: `${ticket.size}px`,
-            '--endX': `${ticket.endX - ticket.startX}vw`,
-            '--endY': `${ticket.endY - ticket.startY}vh`,
+            '--endX': `${ticket.deltaX}vw`,
+            '--endY': `${ticket.deltaY}vh`,
             '--rotation': `${ticket.rotation}deg`,
             animationDelay: `${ticket.delay}s`,
             animationDuration: `${ticket.duration}s`,
@@ -1047,6 +1058,9 @@ export default function RaffleContent() {
                     >
                       {enteringRaffleId === activeRaffle.id ? 'UPDATING...' : '2. CLAIM +1 ENTRY FOR LIKE & RT'}
                     </button>
+                    <p className="text-gray-500 text-[10px] mt-2 italic">
+                      ℹ️ Honor system - admins may verify engagement
+                    </p>
                   </div>
                 )}
                 

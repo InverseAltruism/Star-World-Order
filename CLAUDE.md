@@ -1182,6 +1182,22 @@ Actions:
 - **Discord Bonus** (+1): For Discord server members
 - **Engagement Bonus** (+1): For users who like & retweet the raffle announcement tweet
 
+**Like & RT Verification:**
+
+The engagement bonus uses an **honor-based system** where users claim their bonus after completing the social action. This approach is standard in the NFT space because:
+
+1. **Twitter/X API Limitations**: Twitter's API access is restricted and expensive
+2. **Manual Verification**: Admins can export CSV and manually verify claims via Twitter's web interface
+3. **Community Trust**: Works well for smaller, community-focused giveaways
+4. **Simplicity**: No complex integrations required
+
+**Verification Process:**
+1. User clicks the tweet link and likes/retweets
+2. User clicks "CLAIM +1 ENTRY FOR LIKE & RT"
+3. Claim is recorded with timestamp
+4. Admin can download CSV export to manually verify claims if needed
+5. Fraudulent claims can be disqualified before winner announcement
+
 **Social Requirements:**
 Raffles can require users to have connected:
 - X (Twitter) account (`require_x: true`)
