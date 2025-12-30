@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Header from '@/components/Header';
 import RaffleContent from './RaffleContent';
 
 export const metadata: Metadata = {
@@ -8,8 +9,11 @@ export const metadata: Metadata = {
 
 export default function RafflePage() {
   return (
-    <main className="min-h-screen px-4 py-8 max-w-6xl mx-auto">
-      <RaffleContent />
-    </main>
+    <div className="min-h-screen">
+      <Header />
+      <main className="px-4 py-8 max-w-6xl mx-auto">
+        <RaffleContent />
+      </main>
+    </div>
   );
 }

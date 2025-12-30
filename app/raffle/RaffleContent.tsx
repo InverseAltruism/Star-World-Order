@@ -313,7 +313,7 @@ function LoseAnimation({ onClose }: { onClose: () => void }) {
 }
 
 // Entry Confirmation Animation
-function EntryConfirmation({ entries, tier, onClose }: { entries: number; tier: string; onClose: () => void }) {
+function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: number; tier: string; raffleName: string; onClose: () => void }) {
   const style = TIER_STYLES[tier] || TIER_STYLES.star_forged;
   
   useEffect(() => {
@@ -324,7 +324,7 @@ function EntryConfirmation({ entries, tier, onClose }: { entries: number; tier: 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 animate-fade-in" onClick={onClose}>
       <div 
-        className="text-center p-8 rounded-xl border-2 animate-scale-in"
+        className="text-center p-8 rounded-xl border-2 animate-scale-in max-w-sm mx-4"
         style={{ 
           backgroundColor: style.bgColor, 
           borderColor: style.borderColor,
@@ -338,8 +338,11 @@ function EntryConfirmation({ entries, tier, onClose }: { entries: number; tier: 
         <p className="text-white text-lg mb-2">
           +{entries} Ticket{entries > 1 ? 's' : ''} Added
         </p>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-400 text-sm mb-1">
           {TIER_STYLES[tier] ? tier.replace('_', ' ').toUpperCase() : 'STAR FORGED'}
+        </p>
+        <p className="text-[#ff6ec7] text-xs">
+          for &quot;{raffleName}&quot;
         </p>
       </div>
       
@@ -386,103 +389,121 @@ function TierBadge({ tier, small = false }: { tier: string; small?: boolean }) {
 export default function RaffleContent() {
   const { address, isConnected } = useAccount();
   
-  // State
-  const [raffles, setRaffles] = useState<Raffle[]>([]);
-  const [activeRaffle, setActiveRaffle] = useState<Raffle | null>(null);
-  const [entries, setEntries] = useState<RaffleEntry[]>([]);
-  const [stats, setStats] = useState<RaffleStats>({ participants: 0, totalTickets: 0 });
-  const [userEntry, setUserEntry] = useState<RaffleEntry | null>(null);
+  // Types for extended raffle data
+  interface ActiveRaffleData {
+    raffle: Raffle;
+    entries: RaffleEntry[];
+    stats: RaffleStats;
+    userEntry: RaffleEntry | null;
+  }
+  
+  // State - now supporting multiple active raffles
+  const [activeRaffles, setActiveRaffles] = useState<ActiveRaffleData[]>([]);
+  const [pastRaffles, setPastRaffles] = useState<Raffle[]>([]);
   const [userTier, setUserTier] = useState<UserTier | null>(null);
   const [holderTiers, setHolderTiers] = useState<HolderTiers | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEntering, setIsEntering] = useState(false);
+  const [enteringRaffleId, setEnteringRaffleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // Animation states
   const [showWinAnimation, setShowWinAnimation] = useState(false);
   const [showLoseAnimation, setShowLoseAnimation] = useState(false);
   const [showEntryConfirmation, setShowEntryConfirmation] = useState(false);
-  const [entryConfirmData, setEntryConfirmData] = useState<{ entries: number; tier: string } | null>(null);
+  const [entryConfirmData, setEntryConfirmData] = useState<{ entries: number; tier: string; raffleName: string } | null>(null);
   
-  // Fetch active raffle
-  const fetchRaffle = useCallback(async () => {
+  // Fetch ALL active raffles
+  const fetchRaffles = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      // First, get all active raffles
+      // Get all active raffles
       const activeRes = await fetch(`/api/raffle?type=active${address ? `&address=${address}` : ''}`);
       const activeData = await activeRes.json();
       
       if (activeData.success && activeData.raffles.length > 0) {
-        // Get the first active raffle details
-        const raffleId = activeData.raffles[0].id;
-        const detailRes = await fetch(`/api/raffle?id=${raffleId}${address ? `&address=${address}` : ''}`);
-        const detailData = await detailRes.json();
-        
-        if (detailData.success) {
-          setActiveRaffle(detailData.raffle);
-          setEntries(detailData.entries || []);
-          setStats(detailData.stats || { participants: 0, totalTickets: 0 });
-          setUserEntry(detailData.userEntry);
-          setUserTier(detailData.userTier);
-          setHolderTiers(detailData.holderTiers);
+        // Fetch detailed data for ALL active raffles
+        const raffleDetailsPromises = activeData.raffles.map(async (raffle: Raffle) => {
+          const detailRes = await fetch(`/api/raffle?id=${raffle.id}${address ? `&address=${address}` : ''}`);
+          const detailData = await detailRes.json();
           
-          // Check for winner animation (only show once)
-          if (detailData.raffle.status === 'drawn' && address && !detailData.hasViewedResult) {
-            const isWinner = detailData.raffle.winner_address?.toLowerCase() === address.toLowerCase();
-            
-            // Check if user entered this raffle
-            const didEnter = detailData.userEntry !== null;
-            
-            if (didEnter) {
-              if (isWinner) {
-                setShowWinAnimation(true);
-              } else {
-                setShowLoseAnimation(true);
-              }
+          if (detailData.success) {
+            // Check for winner animation (only show once per drawn raffle)
+            if (detailData.raffle.status === 'drawn' && address && !detailData.hasViewedResult) {
+              const isWinner = detailData.raffle.winner_address?.toLowerCase() === address.toLowerCase();
+              const didEnter = detailData.userEntry !== null;
               
-              // Mark as viewed
-              await fetch('/api/raffle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'markViewed',
-                  walletAddress: address,
-                  raffleId,
-                }),
-              });
+              if (didEnter) {
+                if (isWinner) {
+                  setShowWinAnimation(true);
+                } else {
+                  setShowLoseAnimation(true);
+                }
+                
+                // Mark as viewed
+                await fetch('/api/raffle', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'markViewed',
+                    walletAddress: address,
+                    raffleId: raffle.id,
+                  }),
+                });
+              }
             }
+            
+            return {
+              raffle: detailData.raffle,
+              entries: detailData.entries || [],
+              stats: detailData.stats || { participants: 0, totalTickets: 0 },
+              userEntry: detailData.userEntry,
+            } as ActiveRaffleData;
+          }
+          return null;
+        });
+        
+        const raffleDetails = (await Promise.all(raffleDetailsPromises)).filter((r): r is ActiveRaffleData => r !== null);
+        setActiveRaffles(raffleDetails);
+        
+        // Set user tier from any raffle response
+        if (activeData.raffles.length > 0) {
+          const firstDetailRes = await fetch(`/api/raffle?id=${activeData.raffles[0].id}${address ? `&address=${address}` : ''}`);
+          const firstDetailData = await firstDetailRes.json();
+          if (firstDetailData.success) {
+            setUserTier(firstDetailData.userTier);
+            setHolderTiers(firstDetailData.holderTiers);
           }
         }
       } else {
+        setActiveRaffles([]);
+        
         // No active raffle, fetch past raffles
         const pastRes = await fetch(`/api/raffle?type=past${address ? `&address=${address}` : ''}`);
         const pastData = await pastRes.json();
         
         if (pastData.success) {
-          setRaffles(pastData.raffles || []);
+          setPastRaffles(pastData.raffles || []);
           setHolderTiers(pastData.holderTiers);
         }
-        
-        setActiveRaffle(null);
       }
     } catch (err) {
-      console.error('Error fetching raffle:', err);
-      setError('Failed to load raffle');
+      console.error('Error fetching raffles:', err);
+      setError('Failed to load raffles');
     } finally {
       setIsLoading(false);
     }
   }, [address]);
   
   useEffect(() => {
-    fetchRaffle();
-  }, [fetchRaffle]);
+    fetchRaffles();
+  }, [fetchRaffles]);
   
-  // Enter raffle
-  const handleEnterRaffle = async (discordBonus = false) => {
-    if (!address || !activeRaffle) return;
+  // Enter a specific raffle
+  const handleEnterRaffle = async (raffleId: string, raffleName: string, discordBonus = false) => {
+    if (!address) return;
     
-    setIsEntering(true);
+    setEnteringRaffleId(raffleId);
     setError(null);
     
     try {
@@ -492,7 +513,7 @@ export default function RaffleContent() {
         body: JSON.stringify({
           action: 'enter',
           walletAddress: address,
-          raffleId: activeRaffle.id,
+          raffleId,
           discordBonus,
         }),
       });
@@ -500,12 +521,11 @@ export default function RaffleContent() {
       const data = await res.json();
       
       if (data.success) {
-        setUserEntry(data.entry);
-        setEntryConfirmData({ entries: data.entry.entries_count, tier: data.entry.tier });
+        setEntryConfirmData({ entries: data.entry.entries_count, tier: data.entry.tier, raffleName });
         setShowEntryConfirmation(true);
         
         // Refresh data
-        await fetchRaffle();
+        await fetchRaffles();
       } else {
         setError(data.error || 'Failed to enter raffle');
       }
@@ -513,7 +533,7 @@ export default function RaffleContent() {
       setError('Failed to enter raffle');
       console.error(err);
     } finally {
-      setIsEntering(false);
+      setEnteringRaffleId(null);
     }
   };
   
@@ -557,14 +577,14 @@ export default function RaffleContent() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl mb-4 animate-bounce">🎰</div>
-          <p className="text-gray-400 text-sm">Loading raffle...</p>
+          <p className="text-gray-400 text-sm">Loading raffles...</p>
         </div>
       </div>
     );
   }
   
-  // No active raffle
-  if (!activeRaffle) {
+  // No active raffles
+  if (activeRaffles.length === 0) {
     return (
       <>
         {/* Header */}
@@ -594,11 +614,11 @@ export default function RaffleContent() {
           </p>
           
           {/* Past raffles */}
-          {raffles.length > 0 && (
+          {pastRaffles.length > 0 && (
             <div className="mt-8">
               <h3 className="text-[#ffd700] text-sm mb-4">PAST RAFFLES</h3>
               <div className="space-y-3">
-                {raffles.map((raffle) => (
+                {pastRaffles.map((raffle) => (
                   <div 
                     key={raffle.id}
                     className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]"
@@ -625,7 +645,7 @@ export default function RaffleContent() {
     );
   }
   
-  // Active raffle display
+  // Active raffles display - now shows multiple raffles
   return (
     <>
       {/* Animations */}
@@ -635,6 +655,7 @@ export default function RaffleContent() {
         <EntryConfirmation 
           entries={entryConfirmData.entries} 
           tier={entryConfirmData.tier}
+          raffleName={entryConfirmData.raffleName}
           onClose={() => setShowEntryConfirmation(false)}
         />
       )}
@@ -646,10 +667,18 @@ export default function RaffleContent() {
         <p className="text-gray-400 text-xs">
           Exclusive prizes for Star Skrumpey holders
         </p>
+        {activeRaffles.length > 1 && (
+          <p className="text-[#ff6ec7] text-xs mt-2">
+            🎉 {activeRaffles.length} Active Raffles!
+          </p>
+        )}
       </div>
       
-      {/* Main Raffle Card */}
-      <div className="pixel-card p-6 mb-6">
+      {/* Raffle Cards - one for each active raffle */}
+      {activeRaffles.map((raffleData) => {
+        const activeRaffle = raffleData.raffle;
+        return (
+      <div key={activeRaffle.id} className="pixel-card p-6 mb-6">
         {/* Raffle Name & Status */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[#ffd700] text-lg">{activeRaffle.name}</h2>
@@ -672,6 +701,7 @@ export default function RaffleContent() {
                   alt="Prize"
                   fill
                   className="object-cover rounded-lg"
+                  sizes="80px"
                 />
               </div>
             ) : (
@@ -712,11 +742,11 @@ export default function RaffleContent() {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-[#0a0a15] rounded-lg p-3 text-center">
-            <p className="text-[#9966ff] text-2xl font-bold">{stats.participants}</p>
+            <p className="text-[#9966ff] text-2xl font-bold">{raffleData.stats.participants}</p>
             <p className="text-gray-500 text-[10px]">PARTICIPANTS</p>
           </div>
           <div className="bg-[#0a0a15] rounded-lg p-3 text-center">
-            <p className="text-[#00ffff] text-2xl font-bold">{stats.totalTickets}</p>
+            <p className="text-[#00ffff] text-2xl font-bold">{raffleData.stats.totalTickets}</p>
             <p className="text-gray-500 text-[10px]">TOTAL TICKETS</p>
           </div>
         </div>
@@ -729,26 +759,26 @@ export default function RaffleContent() {
                 <p className="text-gray-400 text-xs mb-3">Connect your wallet to enter</p>
                 <WalletConnect />
               </div>
-            ) : userEntry ? (
+            ) : raffleData.userEntry ? (
               <div className="text-center">
-                <div className="bg-[#44ff88]/10 border border-[#44ff88] rounded-lg p-4 mb-3">
+                <div className="bg-[#44ff88]/10 border border-[#44ff88] rounded-lg p-4">
                   <p className="text-[#44ff88] text-sm mb-2">✅ You&apos;re Entered!</p>
                   <div className="flex items-center justify-center gap-2">
-                    <TierBadge tier={userEntry.tier} />
+                    <TierBadge tier={raffleData.userEntry.tier} />
                     <span className="text-white text-xs">
-                      {userEntry.entries_count} Ticket{userEntry.entries_count > 1 ? 's' : ''}
+                      {raffleData.userEntry.entries_count} Ticket{raffleData.userEntry.entries_count > 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
                 
                 {/* Discord bonus option */}
-                {activeRaffle.discord_bonus_enabled && !userEntry.discord_bonus && (
+                {activeRaffle.discord_bonus_enabled && !raffleData.userEntry.discord_bonus && (
                   <button
-                    onClick={() => handleEnterRaffle(true)}
-                    disabled={isEntering}
-                    className="pixel-btn text-xs w-full"
+                    onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
+                    disabled={enteringRaffleId === activeRaffle.id}
+                    className="pixel-btn text-xs w-full mt-3"
                   >
-                    {isEntering ? 'UPDATING...' : '🎮 JOIN DISCORD FOR +1 ENTRY'}
+                    {enteringRaffleId === activeRaffle.id ? 'UPDATING...' : '🎮 JOIN DISCORD FOR +1 ENTRY'}
                   </button>
                 )}
               </div>
@@ -764,20 +794,20 @@ export default function RaffleContent() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleEnterRaffle(false)}
-                      disabled={isEntering}
+                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false)}
+                      disabled={enteringRaffleId === activeRaffle.id}
                       className="pixel-btn pixel-btn-gold text-xs w-full mb-2"
                     >
-                      {isEntering ? 'ENTERING...' : '🎟️ ENTER RAFFLE'}
+                      {enteringRaffleId === activeRaffle.id ? 'ENTERING...' : '🎟️ ENTER RAFFLE'}
                     </button>
                     
                     {activeRaffle.discord_bonus_enabled && (
                       <button
-                        onClick={() => handleEnterRaffle(true)}
-                        disabled={isEntering}
+                        onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
+                        disabled={enteringRaffleId === activeRaffle.id}
                         className="pixel-btn text-xs w-full"
                       >
-                        {isEntering ? 'ENTERING...' : '🎮 ENTER + JOIN DISCORD (+1 ENTRY)'}
+                        {enteringRaffleId === activeRaffle.id ? 'ENTERING...' : '🎮 ENTER + JOIN DISCORD (+1 ENTRY)'}
                       </button>
                     )}
                   </>
@@ -804,7 +834,50 @@ export default function RaffleContent() {
             )}
           </div>
         )}
+        
+        {/* Entries List (collapsible for each raffle) */}
+        {raffleData.entries.length > 0 && (
+          <div className="mt-4 border-t border-[#2a2a4e] pt-4">
+            <details className="group">
+              <summary className="cursor-pointer text-[#00ffff] text-xs tracking-wider mb-2 flex items-center gap-2">
+                <span className="transition-transform group-open:rotate-90">▶</span>
+                📜 ENTRIES ({raffleData.entries.length})
+              </summary>
+              <div className="space-y-2 max-h-40 overflow-y-auto mt-2">
+                {raffleData.entries.map((entry) => (
+                  <div 
+                    key={entry.id}
+                    className={`flex items-center justify-between p-2 rounded-lg ${
+                      address && entry.wallet_address.toLowerCase() === address.toLowerCase()
+                        ? 'bg-[#ffd700]/10 border border-[#ffd700]/30'
+                        : 'bg-[#0a0a15]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 text-xs font-mono">
+                        {entry.display_name || `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`}
+                      </span>
+                      <TierBadge tier={entry.tier} small />
+                    </div>
+                    <span className="text-white text-xs">
+                      {entry.entries_count} 🎟️
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+        )}
+        
+        {/* Description */}
+        {activeRaffle.description && (
+          <div className="mt-4 text-center">
+            <p className="text-gray-500 text-xs">{activeRaffle.description}</p>
+          </div>
+        )}
       </div>
+        );
+      })}
       
       {/* Tier Info */}
       <div className="pixel-card p-6 mb-6">
@@ -814,49 +887,6 @@ export default function RaffleContent() {
           More Star Skrumpeys = More entries per raffle!
         </p>
       </div>
-      
-      {/* Current Entries */}
-      <div className="pixel-card p-6">
-        <h2 className="text-[#00ffff] text-sm tracking-wider mb-4">
-          📜 CURRENT ENTRIES ({entries.length})
-        </h2>
-        
-        {entries.length === 0 ? (
-          <p className="text-gray-500 text-xs text-center py-4">
-            No entries yet. Be the first to enter!
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {entries.map((entry) => (
-              <div 
-                key={entry.id}
-                className={`flex items-center justify-between p-2 rounded-lg ${
-                  address && entry.wallet_address.toLowerCase() === address.toLowerCase()
-                    ? 'bg-[#ffd700]/10 border border-[#ffd700]/30'
-                    : 'bg-[#0a0a15]'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-400 text-xs font-mono">
-                    {entry.display_name || `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`}
-                  </span>
-                  <TierBadge tier={entry.tier} small />
-                </div>
-                <span className="text-white text-xs">
-                  {entry.entries_count} 🎟️
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      
-      {/* Description */}
-      {activeRaffle.description && (
-        <div className="mt-6 text-center">
-          <p className="text-gray-500 text-xs">{activeRaffle.description}</p>
-        </div>
-      )}
     </>
   );
 }
