@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
@@ -145,6 +145,35 @@ interface NotificationData {
   icon: string;
   is_read: number;
   created_at: string;
+}
+
+/**
+ * Raffle history data interface
+ */
+interface RaffleHistoryEntry {
+  id: number;
+  raffle_id: string;
+  wallet_address: string;
+  tier: string;
+  entries_count: number;
+  discord_bonus: number;
+  engagement_bonus: number;
+  star_count: number;
+  entered_at: string;
+  won: boolean;
+  raffle: {
+    id: string;
+    name: string;
+    description: string;
+    status: 'active' | 'ended' | 'drawn' | 'cancelled';
+    prize_description: string;
+    prize_image_url: string | null;
+    start_time: string;
+    end_time: string;
+    winner_address: string | null;
+    winner_drawn_at: string | null;
+    winner_draw_seed: string | null;
+  };
 }
 
 /**
@@ -531,7 +560,7 @@ export default function ProfileCard() {
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   
   // Tab navigation state - includes all sections
-  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'quests'>('settings');
+  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'quests' | 'raffles'>('settings');
   
   // Friends system state
   const [friends, setFriends] = useState<FriendWithProfileData[]>([]);
@@ -555,6 +584,13 @@ export default function ProfileCard() {
   const [userXP, setUserXP] = useState<UserXPData | null>(null);
   const [isLoadingQuests, setIsLoadingQuests] = useState(false);
   const [questClaimingId, setQuestClaimingId] = useState<string | null>(null);
+  
+  // Raffle history state
+  const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
+  const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
+  
+  // Memoized count of won raffles for badge display
+  const wonRafflesCount = useMemo(() => raffleHistory.filter(r => r.won).length, [raffleHistory]);
 
   // Close modal handler
   const closeModal = useCallback(() => {
@@ -665,6 +701,25 @@ export default function ProfileCard() {
     }
   }, [address]);
   
+  // Fetch raffle history
+  const fetchRaffleHistory = useCallback(async () => {
+    if (!address) return;
+    
+    setIsLoadingRaffles(true);
+    try {
+      const response = await fetch(`/api/raffle?type=history&address=${address}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRaffleHistory(data.entries || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch raffle history:', error);
+    } finally {
+      setIsLoadingRaffles(false);
+    }
+  }, [address]);
+  
   // Load data when section changes
   useEffect(() => {
     if (!address) return;
@@ -680,8 +735,11 @@ export default function ProfileCard() {
         fetchConversations();
         fetchAllNotifications();
         break;
+      case 'raffles':
+        fetchRaffleHistory();
+        break;
     }
-  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications]);
+  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
   
   // Load chat when selected
   useEffect(() => {
@@ -697,7 +755,7 @@ export default function ProfileCard() {
       const tab = params.get('tab');
       const chat = params.get('chat');
       
-      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'quests') {
+      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'quests' || tab === 'raffles') {
         setActiveSection(tab);
       }
       if (chat) {
@@ -1201,7 +1259,7 @@ export default function ProfileCard() {
 
       {/* Section Tab Navigation */}
       <div className="flex gap-2 justify-center flex-wrap animate-slide-in-up">
-        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests'] as const).map((section) => {
+        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests', 'raffles'] as const).map((section) => {
           const isActive = activeSection === section;
           const icons: Record<string, string> = { 
             settings: '⚙️', 
@@ -1209,7 +1267,8 @@ export default function ProfileCard() {
             messages: '💬',
             collection: '🎨', 
             achievements: '🏆', 
-            quests: '📜' 
+            quests: '📜',
+            raffles: '🎰'
           };
           const labels: Record<string, string> = { 
             settings: 'Settings', 
@@ -1217,11 +1276,16 @@ export default function ProfileCard() {
             messages: 'Messages',
             collection: 'Collection', 
             achievements: 'Achievements', 
-            quests: 'Quests' 
+            quests: 'Quests',
+            raffles: 'Raffles'
           };
           
-          // Show badge for pending friend requests
-          const badge = section === 'friends' && pendingRequests.length > 0 ? pendingRequests.length : null;
+          // Show badge for pending friend requests or won raffles (wonRafflesCount is memoized above)
+          const badge = section === 'friends' && pendingRequests.length > 0 
+            ? pendingRequests.length 
+            : section === 'raffles' && wonRafflesCount > 0 
+            ? wonRafflesCount 
+            : null;
           
           return (
             <button
@@ -2151,6 +2215,176 @@ export default function ProfileCard() {
                 </div>
               )}
             </>
+          )}
+        </>
+      )}
+
+      {/* Raffle History Section */}
+      {activeSection === 'raffles' && (
+        <>
+          {/* Raffle History Stats */}
+          <div className="pixel-card p-4 animate-slide-in-up">
+            <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-4 text-center">
+              🎰 RAFFLE HISTORY
+            </h3>
+            
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
+                <p className="text-[#9966ff] text-xl font-bold">{raffleHistory.length}</p>
+                <p className="text-gray-500 text-[10px]">ENTERED</p>
+              </div>
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
+                <p className="text-[#ffd700] text-xl font-bold">{raffleHistory.filter(r => r.won).length}</p>
+                <p className="text-gray-500 text-[10px]">WON</p>
+              </div>
+              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
+                <p className="text-[#44ff88] text-xl font-bold">
+                  {raffleHistory.reduce((acc, r) => acc + r.entries_count, 0)}
+                </p>
+                <p className="text-gray-500 text-[10px]">TOTAL TICKETS</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Raffle List */}
+          {isLoadingRaffles ? (
+            <div className="pixel-card p-8 text-center animate-slide-in-up">
+              <div className="text-4xl mb-4 animate-spin">⭐</div>
+              <p className="text-[#ffd700] text-xs">Loading raffle history...</p>
+            </div>
+          ) : raffleHistory.length === 0 ? (
+            <div className="pixel-card p-8 text-center animate-slide-in-up">
+              <div className="text-4xl mb-4">🎰</div>
+              <p className="text-gray-400 text-sm">No raffle entries yet</p>
+              <p className="text-gray-500 text-xs mt-2">Enter a raffle to see your history here!</p>
+              <a href="/raffle" className="pixel-btn pixel-btn-gold text-xs mt-4 inline-block">
+                VIEW RAFFLES
+              </a>
+            </div>
+          ) : (
+            <div className="space-y-3 animate-slide-in-up">
+              {raffleHistory.map((entry) => {
+                const isWinner = entry.won;
+                const isActive = entry.raffle.status === 'active';
+                const isDrawn = entry.raffle.status === 'drawn';
+                const isEnded = new Date(entry.raffle.end_time) <= new Date();
+                
+                let statusColor = '#2a2a4e';
+                let statusText = 'ENTERED';
+                let statusBg = 'bg-[#2a2a4e]';
+                
+                if (isWinner) {
+                  statusColor = '#ffd700';
+                  statusText = '🏆 WON';
+                  statusBg = 'bg-[#ffd700]/20';
+                } else if (isDrawn) {
+                  statusColor = '#ff4466';
+                  statusText = 'NOT WON';
+                  statusBg = 'bg-[#ff4466]/10';
+                } else if (isActive && !isEnded) {
+                  statusColor = '#44ff88';
+                  statusText = 'ACTIVE';
+                  statusBg = 'bg-[#44ff88]/20';
+                } else if (isEnded && !isDrawn) {
+                  statusColor = '#9966ff';
+                  statusText = 'PENDING DRAW';
+                  statusBg = 'bg-[#9966ff]/20';
+                }
+                
+                return (
+                  <div 
+                    key={entry.id}
+                    className={`pixel-card p-4 ${
+                      isWinner 
+                        ? 'border-2 border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
+                        : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h4 className={`text-sm font-bold ${isWinner ? 'text-[#ffd700]' : 'text-white'}`}>
+                          {entry.raffle.name}
+                        </h4>
+                        <p className="text-gray-400 text-[10px]">{entry.raffle.prize_description}</p>
+                      </div>
+                      <span 
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusBg}`}
+                        style={{ color: statusColor }}
+                      >
+                        {statusText}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+                      <div className="bg-[#0a0a15] rounded p-2">
+                        <p className="text-[#00ffff] text-sm font-bold">{entry.entries_count}</p>
+                        <p className="text-gray-600 text-[8px]">Tickets</p>
+                      </div>
+                      <div className="bg-[#0a0a15] rounded p-2">
+                        <p className="text-[#9966ff] text-[10px] font-bold uppercase">{entry.tier.replace('_', ' ')}</p>
+                        <p className="text-gray-600 text-[8px]">Tier</p>
+                      </div>
+                      <div className="bg-[#0a0a15] rounded p-2">
+                        <p className="text-[#44ff88] text-sm font-bold">{entry.star_count}</p>
+                        <p className="text-gray-600 text-[8px]">Stars</p>
+                      </div>
+                      <div className="bg-[#0a0a15] rounded p-2">
+                        <p className="text-gray-300 text-[9px]">
+                          {new Date(entry.entered_at).toLocaleDateString()}
+                        </p>
+                        <p className="text-gray-600 text-[8px]">Entered</p>
+                      </div>
+                    </div>
+                    
+                    {/* Bonuses */}
+                    {(entry.engagement_bonus > 0 || entry.discord_bonus > 0) && (
+                      <div className="flex gap-2 mb-2">
+                        {entry.engagement_bonus > 0 && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
+                            +{entry.engagement_bonus} Like & RT
+                          </span>
+                        )}
+                        {entry.discord_bonus > 0 && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-[#5865F2]/20 text-[#7289DA] rounded">
+                            +{entry.discord_bonus} Discord
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Winner Info for Won Raffles */}
+                    {isWinner && entry.raffle.winner_drawn_at && (
+                      <div className="bg-[#ffd700]/10 rounded p-2 mt-2 border border-[#ffd700]/30">
+                        <p className="text-[#ffd700] text-[10px] text-center">
+                          🎉 Congratulations! You won this raffle!
+                        </p>
+                        <p className="text-gray-500 text-[8px] text-center mt-1">
+                          Drawn on {new Date(entry.raffle.winner_drawn_at).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Raffle End Info */}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a4e]">
+                      <p className="text-gray-500 text-[9px]">
+                        {isEnded 
+                          ? `Ended: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
+                          : `Ends: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
+                        }
+                      </p>
+                      {isActive && !isEnded && (
+                        <a 
+                          href="/raffle" 
+                          className="text-[#00ffff] text-[9px] hover:underline"
+                        >
+                          View Raffle →
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </>
       )}

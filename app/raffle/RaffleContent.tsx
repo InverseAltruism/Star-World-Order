@@ -32,6 +32,9 @@ interface Raffle {
   winner_address: string | null;
   winner_drawn_at: string | null;
   discord_bonus_enabled: number;
+  require_x: number;
+  require_discord: number;
+  tweet_url: string | null;
   userEntry?: RaffleEntry | null;
 }
 
@@ -42,9 +45,17 @@ interface RaffleEntry {
   tier: string;
   entries_count: number;
   discord_bonus: number;
+  engagement_bonus: number;
   star_count: number;
   entered_at: string;
   display_name?: string;
+}
+
+interface SocialConnections {
+  hasDiscord: boolean;
+  hasX: boolean;
+  discord?: { username: string; platform_user_id: string };
+  x?: { username: string; platform_user_id: string };
 }
 
 interface RaffleStats {
@@ -385,6 +396,34 @@ function TierBadge({ tier, small = false }: { tier: string; small?: boolean }) {
   );
 }
 
+/**
+ * Check if user is missing required social connections for a raffle
+ */
+function getMissingSocialRequirements(
+  raffle: Raffle, 
+  socialConnections: SocialConnections | null
+): { missesX: boolean; missesDiscord: boolean; hasMissing: boolean; message: string } {
+  const missesX = raffle.require_x === 1 && !socialConnections?.hasX;
+  const missesDiscord = raffle.require_discord === 1 && !socialConnections?.hasDiscord;
+  const hasMissing = missesX || missesDiscord;
+  
+  let message = '';
+  if (missesX) {
+    message += 'Connect your X (Twitter) account';
+  }
+  if (missesX && missesDiscord) {
+    message += ' and ';
+  }
+  if (missesDiscord) {
+    message += 'Connect your Discord account';
+  }
+  if (hasMissing) {
+    message += ' to enter this raffle.';
+  }
+  
+  return { missesX, missesDiscord, hasMissing, message };
+}
+
 // Main Raffle Content Component
 export default function RaffleContent() {
   const { address, isConnected } = useAccount();
@@ -395,6 +434,7 @@ export default function RaffleContent() {
     entries: RaffleEntry[];
     stats: RaffleStats;
     userEntry: RaffleEntry | null;
+    socialConnections: SocialConnections | null;
   }
   
   // State - now supporting multiple active raffles
@@ -405,6 +445,7 @@ export default function RaffleContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [enteringRaffleId, setEnteringRaffleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [userSocialConnections, setUserSocialConnections] = useState<SocialConnections | null>(null);
   
   // Animation states
   const [showWinAnimation, setShowWinAnimation] = useState(false);
@@ -428,6 +469,11 @@ export default function RaffleContent() {
           const detailData = await detailRes.json();
           
           if (detailData.success) {
+            // Store social connections for later use
+            if (detailData.socialConnections) {
+              setUserSocialConnections(detailData.socialConnections);
+            }
+            
             // Check for winner animation (only show once per drawn raffle)
             if (detailData.raffle.status === 'drawn' && address && !detailData.hasViewedResult) {
               const isWinner = detailData.raffle.winner_address?.toLowerCase() === address.toLowerCase();
@@ -458,6 +504,7 @@ export default function RaffleContent() {
               entries: detailData.entries || [],
               stats: detailData.stats || { participants: 0, totalTickets: 0 },
               userEntry: detailData.userEntry,
+              socialConnections: detailData.socialConnections,
             } as ActiveRaffleData;
           }
           return null;
@@ -473,6 +520,9 @@ export default function RaffleContent() {
           if (firstDetailData.success) {
             setUserTier(firstDetailData.userTier);
             setHolderTiers(firstDetailData.holderTiers);
+            if (firstDetailData.socialConnections) {
+              setUserSocialConnections(firstDetailData.socialConnections);
+            }
           }
         }
       } else {
@@ -499,8 +549,8 @@ export default function RaffleContent() {
     fetchRaffles();
   }, [fetchRaffles]);
   
-  // Enter a specific raffle
-  const handleEnterRaffle = async (raffleId: string, raffleName: string, discordBonus = false) => {
+  // Enter a specific raffle with optional engagement bonus
+  const handleEnterRaffle = async (raffleId: string, raffleName: string, discordBonus = false, engagementBonus = false) => {
     if (!address) return;
     
     setEnteringRaffleId(raffleId);
@@ -515,6 +565,7 @@ export default function RaffleContent() {
           walletAddress: address,
           raffleId,
           discordBonus,
+          engagementBonus,
         }),
       });
       
@@ -751,6 +802,41 @@ export default function RaffleContent() {
           </div>
         </div>
         
+        {/* Social Requirements */}
+        {(activeRaffle.require_x || activeRaffle.require_discord) && (
+          <div className="bg-[#ff4466]/10 border border-[#ff4466]/30 rounded-lg p-3 mb-4">
+            <p className="text-[#ff4466] text-[10px] mb-2">⚠️ REQUIREMENTS TO ENTER:</p>
+            <div className="flex gap-2 flex-wrap">
+              {activeRaffle.require_x === 1 && (
+                <span className={`text-[9px] px-2 py-1 rounded border ${
+                  userSocialConnections?.hasX 
+                    ? 'bg-[#44ff88]/20 border-[#44ff88] text-[#44ff88]' 
+                    : 'bg-black/50 border-gray-600 text-gray-300'
+                }`}>
+                  {userSocialConnections?.hasX ? '✓' : '✗'} X (Twitter) Connected
+                </span>
+              )}
+              {activeRaffle.require_discord === 1 && (
+                <span className={`text-[9px] px-2 py-1 rounded border ${
+                  userSocialConnections?.hasDiscord 
+                    ? 'bg-[#44ff88]/20 border-[#44ff88] text-[#44ff88]' 
+                    : 'bg-[#5865F2]/20 border-[#5865F2] text-[#7289DA]'
+                }`}>
+                  {userSocialConnections?.hasDiscord ? '✓' : '✗'} Discord Connected
+                </span>
+              )}
+            </div>
+            {isConnected && ((activeRaffle.require_x === 1 && !userSocialConnections?.hasX) || (activeRaffle.require_discord === 1 && !userSocialConnections?.hasDiscord)) && (
+              <a 
+                href="/profile?tab=settings"
+                className="text-[#00ffff] text-[9px] hover:underline mt-2 inline-block"
+              >
+                → Connect in Profile Settings
+              </a>
+            )}
+          </div>
+        )}
+        
         {/* Entry Section */}
         {activeRaffle.status === 'active' && (
           <div className="border-t border-[#2a2a4e] pt-4">
@@ -769,12 +855,49 @@ export default function RaffleContent() {
                       {raffleData.userEntry.entries_count} Ticket{raffleData.userEntry.entries_count > 1 ? 's' : ''}
                     </span>
                   </div>
+                  {/* Show bonuses applied */}
+                  {(raffleData.userEntry.engagement_bonus > 0 || raffleData.userEntry.discord_bonus > 0) && (
+                    <div className="flex gap-2 justify-center mt-2">
+                      {raffleData.userEntry.engagement_bonus > 0 && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
+                          +{raffleData.userEntry.engagement_bonus} Like & RT
+                        </span>
+                      )}
+                      {raffleData.userEntry.discord_bonus > 0 && (
+                        <span className="text-[8px] px-1.5 py-0.5 bg-[#5865F2]/20 text-[#7289DA] rounded">
+                          +{raffleData.userEntry.discord_bonus} Discord
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
+                
+                {/* Engagement bonus option (Like & RT) */}
+                {activeRaffle.tweet_url && !raffleData.userEntry.engagement_bonus && (
+                  <div className="mt-3 p-3 bg-[#44ff88]/10 border border-[#44ff88]/30 rounded-lg">
+                    <p className="text-[#44ff88] text-[10px] mb-2">🔥 BONUS ENTRY AVAILABLE!</p>
+                    <a 
+                      href={activeRaffle.tweet_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#00ffff] text-xs hover:underline block mb-2"
+                    >
+                      1. Like & Retweet this tweet →
+                    </a>
+                    <button
+                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, true)}
+                      disabled={enteringRaffleId === activeRaffle.id}
+                      className="pixel-btn text-xs w-full"
+                    >
+                      {enteringRaffleId === activeRaffle.id ? 'UPDATING...' : '2. CLAIM +1 ENTRY FOR LIKE & RT'}
+                    </button>
+                  </div>
+                )}
                 
                 {/* Discord bonus option */}
                 {activeRaffle.discord_bonus_enabled && !raffleData.userEntry.discord_bonus && (
                   <button
-                    onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
+                    onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true, false)}
                     disabled={enteringRaffleId === activeRaffle.id}
                     className="pixel-btn text-xs w-full mt-3"
                   >
@@ -784,7 +907,28 @@ export default function RaffleContent() {
               </div>
             ) : (
               <div className="text-center">
-                {userTier ? (
+                {/* Check social requirements first */}
+                {(() => {
+                  const socialReqs = getMissingSocialRequirements(activeRaffle, userSocialConnections);
+                  if (socialReqs.hasMissing) {
+                    return (
+                      <div className="bg-[#ff4466]/10 border border-[#ff4466]/30 rounded-lg p-4">
+                        <p className="text-[#ff4466] text-sm mb-2">⚠️ Social Connection Required</p>
+                        <p className="text-gray-400 text-xs mb-3">
+                          {socialReqs.message}
+                        </p>
+                        <a 
+                          href="/profile?tab=settings"
+                          className="pixel-btn text-xs"
+                        >
+                          GO TO PROFILE SETTINGS
+                        </a>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                {!getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing && userTier ? (
                   <>
                     <div className="mb-3">
                       <p className="text-gray-400 text-xs mb-2">Your Tier:</p>
@@ -794,24 +938,46 @@ export default function RaffleContent() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false)}
+                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, false)}
                       disabled={enteringRaffleId === activeRaffle.id}
                       className="pixel-btn pixel-btn-gold text-xs w-full mb-2"
                     >
                       {enteringRaffleId === activeRaffle.id ? 'ENTERING...' : '🎟️ ENTER RAFFLE'}
                     </button>
                     
+                    {/* Engagement bonus (Like & RT) at entry time */}
+                    {activeRaffle.tweet_url && (
+                      <div className="mt-3 p-3 bg-[#0a0a15] border border-[#44ff88]/30 rounded-lg">
+                        <p className="text-[#44ff88] text-[10px] mb-2">🔥 GET +1 BONUS ENTRY!</p>
+                        <a 
+                          href={activeRaffle.tweet_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00ffff] text-xs hover:underline block mb-2"
+                        >
+                          1. Like & Retweet this tweet →
+                        </a>
+                        <button
+                          onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, true)}
+                          disabled={enteringRaffleId === activeRaffle.id}
+                          className="pixel-btn text-xs w-full"
+                        >
+                          {enteringRaffleId === activeRaffle.id ? 'ENTERING...' : '2. ENTER + CLAIM LIKE & RT BONUS'}
+                        </button>
+                      </div>
+                    )}
+                    
                     {activeRaffle.discord_bonus_enabled && (
                       <button
-                        onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
+                        onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true, false)}
                         disabled={enteringRaffleId === activeRaffle.id}
-                        className="pixel-btn text-xs w-full"
+                        className="pixel-btn text-xs w-full mt-2"
                       >
                         {enteringRaffleId === activeRaffle.id ? 'ENTERING...' : '🎮 ENTER + JOIN DISCORD (+1 ENTRY)'}
                       </button>
                     )}
                   </>
-                ) : (
+                ) : !getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing ? (
                   <div className="text-center">
                     <p className="text-[#ff4466] text-xs mb-2">
                       You must own at least 1 Star Skrumpey to enter
@@ -825,7 +991,7 @@ export default function RaffleContent() {
                       GET A STAR SKRUMPEY
                     </a>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
             

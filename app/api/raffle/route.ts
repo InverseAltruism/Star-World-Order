@@ -24,6 +24,9 @@ import {
   markRaffleResultViewed,
   calculateHolderTier,
   HOLDER_TIERS,
+  getUserRaffleEntries,
+  checkSocialConnections,
+  getRaffleEntriesForExport,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
@@ -34,8 +37,9 @@ import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
  * 
  * Query params:
  * - id: Get specific raffle by ID
- * - type: 'active' | 'upcoming' | 'past' | 'all' (default: 'all')
- * - address: User's wallet address (for entry status)
+ * - type: 'active' | 'upcoming' | 'past' | 'all' | 'history' (default: 'all')
+ * - address: User's wallet address (for entry status or history)
+ * - export: 'csv' to export raffle entries as CSV (admin only, requires id)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +47,76 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id');
     const type = searchParams.get('type') || 'all';
     const address = searchParams.get('address');
+    const exportFormat = searchParams.get('export');
+    
+    // Handle user raffle history
+    if (type === 'history' && address) {
+      const entries = getUserRaffleEntries(address);
+      return NextResponse.json({
+        success: true,
+        entries,
+      });
+    }
+    
+    // Handle CSV export (admin only)
+    if (exportFormat === 'csv' && id) {
+      const entries = getRaffleEntriesForExport(id);
+      const raffle = getRaffleById(id);
+      
+      if (!raffle) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Generate CSV content
+      const csvHeaders = [
+        'Wallet Address',
+        'Display Name',
+        'Tier',
+        'Entries',
+        'Star Count',
+        'Engagement Bonus',
+        'Discord Bonus',
+        'Discord Username',
+        'X Username',
+        'Entered At',
+      ].join(',');
+      
+      // Helper to safely escape CSV values and prevent formula injection
+      const escapeCSVValue = (value: string | number): string => {
+        const strValue = String(value);
+        // Prefix with single quote if starts with potentially dangerous characters
+        // This prevents Excel/Sheets from interpreting as formula
+        const needsPrefix = /^[=+\-@\t\r]/.test(strValue);
+        // Also escape any existing quotes
+        const escaped = strValue.replace(/"/g, '""');
+        return needsPrefix ? `"'${escaped}"` : `"${escaped}"`;
+      };
+      
+      const csvRows = entries.map(entry => [
+        entry.wallet_address,
+        entry.display_name || '',
+        entry.tier,
+        entry.entries_count,
+        entry.star_count,
+        entry.engagement_bonus,
+        entry.discord_bonus,
+        entry.discord_username || '',
+        entry.x_username || '',
+        entry.entered_at,
+      ].map(v => escapeCSVValue(v)).join(','));
+      
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+      
+      return new NextResponse(csvContent, {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${raffle.name.replace(/[^a-z0-9]/gi, '_')}_participants.csv"`,
+        },
+      });
+    }
     
     // Get specific raffle by ID
     if (id) {
@@ -60,6 +134,7 @@ export async function GET(request: NextRequest) {
       let userEntry = null;
       let hasViewedResult = false;
       let userTier = null;
+      let socialConnections = null;
       
       if (address) {
         userEntry = getRaffleEntry(id, address);
@@ -77,6 +152,9 @@ export async function GET(request: NextRequest) {
         } catch {
           // Ignore errors
         }
+        
+        // Get user's social connections for requirement checking
+        socialConnections = checkSocialConnections(address);
       }
       
       return NextResponse.json({
@@ -87,6 +165,7 @@ export async function GET(request: NextRequest) {
         userEntry,
         hasViewedResult,
         userTier,
+        socialConnections,
         holderTiers: HOLDER_TIERS,
       });
     }
@@ -159,7 +238,7 @@ export async function POST(request: NextRequest) {
     // Handle different actions
     switch (action) {
       case 'enter': {
-        const { raffleId, discordBonus } = body;
+        const { raffleId, discordBonus, engagementBonus } = body;
         
         if (!walletAddress || !raffleId) {
           return NextResponse.json(
@@ -200,6 +279,23 @@ export async function POST(request: NextRequest) {
           );
         }
         
+        // Check social requirements
+        const socialConnections = checkSocialConnections(walletAddress);
+        
+        if (raffle.require_x && !socialConnections.hasX) {
+          return NextResponse.json(
+            { success: false, error: 'X (Twitter) connection required for this raffle. Please connect your X account in your profile settings.' },
+            { status: 403 }
+          );
+        }
+        
+        if (raffle.require_discord && !socialConnections.hasDiscord) {
+          return NextResponse.json(
+            { success: false, error: 'Discord connection required for this raffle. Please connect your Discord account in your profile settings.' },
+            { status: 403 }
+          );
+        }
+        
         // Verify user owns Star Skrumpeys
         const ownedStars = await checkStarOwnershipBatched(walletAddress);
         if (ownedStars.length === 0) {
@@ -215,6 +311,7 @@ export async function POST(request: NextRequest) {
           walletAddress,
           starCount: ownedStars.length,
           discordBonus,
+          engagementBonus,
         });
         
         if (!entry) {
@@ -231,6 +328,7 @@ export async function POST(request: NextRequest) {
           raffleId,
           tier: tierInfo?.tier,
           entries: entry.entries_count,
+          engagementBonus: entry.engagement_bonus,
         });
         
         return NextResponse.json({
@@ -268,7 +366,10 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        const { name, description, prizeDescription, prizeImageUrl, startTime, endTime, discordBonusEnabled } = body;
+        const { 
+          name, description, prizeDescription, prizeImageUrl, startTime, endTime, 
+          discordBonusEnabled, requireX, requireDiscord, tweetUrl 
+        } = body;
         
         if (!name || !description || !prizeDescription || !endTime) {
           return NextResponse.json(
@@ -290,9 +391,18 @@ export async function POST(request: NextRequest) {
           startTime: startTime ? new Date(startTime) : new Date(),
           endTime: new Date(endTime),
           discordBonusEnabled,
+          requireX,
+          requireDiscord,
+          tweetUrl,
         });
         
-        logger.info('Raffle created', { raffleId: id, name });
+        logger.info('Raffle created', { 
+          raffleId: id, 
+          name,
+          requireX: !!requireX,
+          requireDiscord: !!requireDiscord,
+          hasTweetUrl: !!tweetUrl,
+        });
         
         return NextResponse.json({
           success: true,

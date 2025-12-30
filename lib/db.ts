@@ -2923,6 +2923,9 @@ export interface Raffle {
   winner_drawn_at: string | null;
   winner_draw_seed: string | null;
   discord_bonus_enabled: number;
+  require_x: number;
+  require_discord: number;
+  tweet_url: string | null;
   created_at: string;
 }
 
@@ -2933,6 +2936,7 @@ export interface RaffleEntry {
   tier: 'star_forged' | 'cosmic_warden' | 'star_lord' | 'cosmic_emperor';
   entries_count: number;
   discord_bonus: number;
+  engagement_bonus: number;
   star_count: number;
   entered_at: string;
 }
@@ -2989,6 +2993,9 @@ export function createRaffle(data: {
   startTime: Date;
   endTime: Date;
   discordBonusEnabled?: boolean;
+  requireX?: boolean;
+  requireDiscord?: boolean;
+  tweetUrl?: string;
 }): Raffle {
   const db = getDatabase();
   
@@ -3008,9 +3015,23 @@ export function createRaffle(data: {
       winner_drawn_at DATETIME,
       winner_draw_seed TEXT,
       discord_bonus_enabled INTEGER NOT NULL DEFAULT 0,
+      require_x INTEGER NOT NULL DEFAULT 0,
+      require_discord INTEGER NOT NULL DEFAULT 0,
+      tweet_url TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Add new columns if they don't exist (migration)
+  try {
+    db.exec(`ALTER TABLE raffles ADD COLUMN require_x INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column may already exist */ }
+  try {
+    db.exec(`ALTER TABLE raffles ADD COLUMN require_discord INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column may already exist */ }
+  try {
+    db.exec(`ALTER TABLE raffles ADD COLUMN tweet_url TEXT`);
+  } catch { /* Column may already exist */ }
   
   // Create raffle entries table if it doesn't exist
   db.exec(`
@@ -3021,12 +3042,18 @@ export function createRaffle(data: {
       tier TEXT NOT NULL CHECK (tier IN ('star_forged', 'cosmic_warden', 'star_lord', 'cosmic_emperor')),
       entries_count INTEGER NOT NULL DEFAULT 1,
       discord_bonus INTEGER NOT NULL DEFAULT 0,
+      engagement_bonus INTEGER NOT NULL DEFAULT 0,
       star_count INTEGER NOT NULL DEFAULT 1,
       entered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (raffle_id) REFERENCES raffles(id),
       UNIQUE(raffle_id, wallet_address)
     )
   `);
+  
+  // Add engagement_bonus column if it doesn't exist (migration)
+  try {
+    db.exec(`ALTER TABLE raffle_entries ADD COLUMN engagement_bonus INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column may already exist */ }
   
   // Create raffle result view tracking (for one-time animation display)
   db.exec(`
@@ -3049,8 +3076,8 @@ export function createRaffle(data: {
   `);
   
   const stmt = db.prepare(`
-    INSERT INTO raffles (id, name, description, prize_description, prize_image_url, created_by, start_time, end_time, discord_bonus_enabled)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO raffles (id, name, description, prize_description, prize_image_url, created_by, start_time, end_time, discord_bonus_enabled, require_x, require_discord, tweet_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   stmt.run(
@@ -3062,7 +3089,10 @@ export function createRaffle(data: {
     data.createdBy.toLowerCase(),
     data.startTime.toISOString(),
     data.endTime.toISOString(),
-    data.discordBonusEnabled ? 1 : 0
+    data.discordBonusEnabled ? 1 : 0,
+    data.requireX ? 1 : 0,
+    data.requireDiscord ? 1 : 0,
+    data.tweetUrl || null
   );
   
   return getRaffleById(data.id)!;
@@ -3170,6 +3200,7 @@ export function enterRaffle(data: {
   walletAddress: string;
   starCount: number;
   discordBonus?: boolean;
+  engagementBonus?: boolean;
 }): RaffleEntry | null {
   const db = getDatabase();
   const normalizedAddress = data.walletAddress.toLowerCase();
@@ -3191,21 +3222,29 @@ export function enterRaffle(data: {
     return null; // Not a holder
   }
   
-  // Calculate total entries (base + discord bonus if enabled)
+  // Calculate total entries (base + engagement bonus for Like & RT)
   let totalEntries = tierInfo.entries;
+  // Discord bonus is deprecated, but keep for backwards compatibility
   const discordBonus = data.discordBonus && raffle.discord_bonus_enabled ? 1 : 0;
+  // Engagement bonus: +1 for liking & retweeting the tweet (if tweet_url is set)
+  const engagementBonus = data.engagementBonus && raffle.tweet_url ? 1 : 0;
+  
   if (discordBonus) {
+    totalEntries += 1;
+  }
+  if (engagementBonus) {
     totalEntries += 1;
   }
   
   try {
     const stmt = db.prepare(`
-      INSERT INTO raffle_entries (raffle_id, wallet_address, tier, entries_count, discord_bonus, star_count)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO raffle_entries (raffle_id, wallet_address, tier, entries_count, discord_bonus, engagement_bonus, star_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(raffle_id, wallet_address) DO UPDATE SET
         tier = excluded.tier,
         entries_count = excluded.entries_count,
         discord_bonus = excluded.discord_bonus,
+        engagement_bonus = excluded.engagement_bonus,
         star_count = excluded.star_count
     `);
     
@@ -3215,6 +3254,7 @@ export function enterRaffle(data: {
       tierInfo.tier,
       totalEntries,
       discordBonus,
+      engagementBonus,
       data.starCount
     );
     
@@ -3417,16 +3457,21 @@ export function markRaffleResultViewed(raffleId: string, walletAddress: string):
 }
 
 /**
- * Get all raffles a user has entered
+ * Get all raffles a user has entered (for Raffle History)
  */
-export function getUserRaffleEntries(walletAddress: string): Array<RaffleEntry & { raffle: Raffle }> {
+export function getUserRaffleEntries(walletAddress: string): Array<RaffleEntry & { 
+  raffle: Raffle;
+  won: boolean;
+}> {
   const db = getDatabase();
   
   try {
     const stmt = db.prepare(`
       SELECT e.*, 
-             r.id as raffle_id, r.name as raffle_name, r.status as raffle_status,
-             r.prize_description, r.end_time, r.winner_address
+             r.id as raffle_id, r.name as raffle_name, r.description as raffle_description,
+             r.status as raffle_status, r.prize_description, r.prize_image_url,
+             r.start_time, r.end_time, r.winner_address, r.winner_drawn_at, r.winner_draw_seed,
+             r.discord_bonus_enabled, r.require_x, r.require_discord, r.tweet_url, r.created_at
       FROM raffle_entries e
       JOIN raffles r ON e.raffle_id = r.id
       WHERE e.wallet_address = ?
@@ -3435,23 +3480,141 @@ export function getUserRaffleEntries(walletAddress: string): Array<RaffleEntry &
     
     const results = stmt.all(walletAddress.toLowerCase()) as Array<RaffleEntry & { 
       raffle_name: string; 
+      raffle_description: string;
       raffle_status: string;
       prize_description: string;
+      prize_image_url: string | null;
+      start_time: string;
       end_time: string;
       winner_address: string | null;
+      winner_drawn_at: string | null;
+      winner_draw_seed: string | null;
+      discord_bonus_enabled: number;
+      require_x: number;
+      require_discord: number;
+      tweet_url: string | null;
+      created_at: string;
     }>;
+    
+    const normalizedAddress = walletAddress.toLowerCase();
     
     return results.map(row => ({
       ...row,
+      won: row.winner_address?.toLowerCase() === normalizedAddress,
       raffle: {
         id: row.raffle_id,
         name: row.raffle_name,
+        description: row.raffle_description,
         status: row.raffle_status as RaffleStatus,
         prize_description: row.prize_description,
+        prize_image_url: row.prize_image_url,
+        start_time: row.start_time,
         end_time: row.end_time,
         winner_address: row.winner_address,
+        winner_drawn_at: row.winner_drawn_at,
+        winner_draw_seed: row.winner_draw_seed,
+        discord_bonus_enabled: row.discord_bonus_enabled,
+        require_x: row.require_x || 0,
+        require_discord: row.require_discord || 0,
+        tweet_url: row.tweet_url,
+        created_at: row.created_at,
+        created_by: '', // Not needed for history display
       } as Raffle,
     }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check if a user has connected specific social accounts
+ */
+export function checkSocialConnections(walletAddress: string): {
+  hasDiscord: boolean;
+  hasX: boolean;
+  discord?: { username: string; platform_user_id: string };
+  x?: { username: string; platform_user_id: string };
+} {
+  const db = getDatabase();
+  const normalizedAddress = walletAddress.toLowerCase();
+  
+  try {
+    const stmt = db.prepare(`
+      SELECT platform, username, platform_user_id
+      FROM social_connections
+      WHERE wallet_address = ?
+    `);
+    
+    const connections = stmt.all(normalizedAddress) as Array<{
+      platform: string;
+      username: string;
+      platform_user_id: string;
+    }>;
+    
+    const discord = connections.find(c => c.platform === 'discord');
+    const x = connections.find(c => c.platform === 'x');
+    
+    return {
+      hasDiscord: !!discord,
+      hasX: !!x,
+      discord: discord ? { username: discord.username, platform_user_id: discord.platform_user_id } : undefined,
+      x: x ? { username: x.username, platform_user_id: x.platform_user_id } : undefined,
+    };
+  } catch {
+    return { hasDiscord: false, hasX: false };
+  }
+}
+
+/**
+ * Get raffle entries for CSV export (admin function)
+ */
+export function getRaffleEntriesForExport(raffleId: string): Array<{
+  wallet_address: string;
+  display_name: string | null;
+  tier: string;
+  entries_count: number;
+  star_count: number;
+  engagement_bonus: number;
+  discord_bonus: number;
+  entered_at: string;
+  discord_username: string | null;
+  x_username: string | null;
+}> {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare(`
+      SELECT 
+        e.wallet_address,
+        p.display_name,
+        e.tier,
+        e.entries_count,
+        e.star_count,
+        e.engagement_bonus,
+        e.discord_bonus,
+        e.entered_at,
+        sd.username as discord_username,
+        sx.username as x_username
+      FROM raffle_entries e
+      LEFT JOIN user_profiles p ON e.wallet_address = p.wallet_address
+      LEFT JOIN social_connections sd ON e.wallet_address = sd.wallet_address AND sd.platform = 'discord'
+      LEFT JOIN social_connections sx ON e.wallet_address = sx.wallet_address AND sx.platform = 'x'
+      WHERE e.raffle_id = ?
+      ORDER BY e.entered_at ASC
+    `);
+    
+    return stmt.all(raffleId) as Array<{
+      wallet_address: string;
+      display_name: string | null;
+      tier: string;
+      entries_count: number;
+      star_count: number;
+      engagement_bonus: number;
+      discord_bonus: number;
+      entered_at: string;
+      discord_username: string | null;
+      x_username: string | null;
+    }>;
   } catch {
     return [];
   }
