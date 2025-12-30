@@ -129,6 +129,13 @@ Each constellation has a unique visual appearance in the UI:
 - **Voice Chat** - Real-time voice communication
 - **Online Presence** - See who's in the cosmic realm
 
+### 🎰 Cosmic Raffle
+- **Exclusive Giveaways** - Only Star Skrumpey holders can enter
+- **Tier-Based Entries** - More Stars = more tickets (1-4 entries based on holdings)
+- **Bonus Entries** - Extra tickets for Discord members and social engagement
+- **Verifiable Randomness** - SHA-256 based winner selection with transparent seed
+- **Lottery Animations** - Fun ticket animations when entering raffles
+
 ### 👥 Star Bearers (Members Page)
 - **Holder Leaderboard** - Ranked list of Star Skrumpey holders
 - **Holder Count Chart** - Live chart of unique holder count over time

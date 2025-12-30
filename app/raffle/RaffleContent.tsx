@@ -31,6 +31,7 @@ interface Raffle {
   end_time: string;
   winner_address: string | null;
   winner_drawn_at: string | null;
+  winner_draw_seed: string | null;
   discord_bonus_enabled: number;
   require_x: number;
   require_discord: number;
@@ -323,47 +324,144 @@ function LoseAnimation({ onClose }: { onClose: () => void }) {
   );
 }
 
-// Entry Confirmation Animation
+// Animation configuration constants
+const ENTRY_ANIMATION_DURATION_MS = 4000;
+
+// Entry Confirmation Animation with lottery-style flying tickets
 function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: number; tier: string; raffleName: string; onClose: () => void }) {
   const style = TIER_STYLES[tier] || TIER_STYLES.star_forged;
   
+  // Generate flying tickets based on entry count
+  // Tickets fly outward from center to random positions
+  const [flyingTickets] = useState(() => 
+    Array.from({ length: Math.min(entries * 3, 30) }, (_, i) => {
+      const startX = 50 + (Math.random() - 0.5) * 20; // Start near center
+      const startY = 110; // Start from below
+      const endX = Math.random() * 100;
+      const endY = Math.random() * 40; // End in upper half
+      return {
+        id: i,
+        startX,
+        startY,
+        // Calculate displacement (can be negative for flying left/up)
+        deltaX: endX - startX,
+        deltaY: endY - startY,
+        rotation: Math.random() * 720 - 360,
+        delay: Math.random() * 0.5,
+        duration: 0.8 + Math.random() * 0.4,
+        size: 16 + Math.random() * 16,
+      };
+    })
+  );
+  
+  // Sparkle effects
+  const [sparkles] = useState(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      delay: Math.random() * 2,
+      size: 8 + Math.random() * 12,
+    }))
+  );
+  
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
+    const timer = setTimeout(onClose, ENTRY_ANIMATION_DURATION_MS);
     return () => clearTimeout(timer);
   }, [onClose]);
   
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 animate-fade-in overflow-hidden" onClick={onClose}>
+      {/* Flying tickets animation */}
+      {flyingTickets.map((ticket) => (
+        <div
+          key={ticket.id}
+          className="absolute ticket-fly-animation pointer-events-none"
+          style={{
+            left: `${ticket.startX}%`,
+            top: `${ticket.startY}%`,
+            fontSize: `${ticket.size}px`,
+            '--endX': `${ticket.deltaX}vw`,
+            '--endY': `${ticket.deltaY}vh`,
+            '--rotation': `${ticket.rotation}deg`,
+            animationDelay: `${ticket.delay}s`,
+            animationDuration: `${ticket.duration}s`,
+          } as React.CSSProperties}
+        >
+          🎟️
+        </div>
+      ))}
+      
+      {/* Sparkle effects */}
+      {sparkles.map((sparkle) => (
+        <div
+          key={sparkle.id}
+          className="absolute sparkle-animation pointer-events-none"
+          style={{
+            left: `${sparkle.x}%`,
+            top: `${sparkle.y}%`,
+            fontSize: `${sparkle.size}px`,
+            animationDelay: `${sparkle.delay}s`,
+          }}
+        >
+          ✨
+        </div>
+      ))}
+      
+      {/* Main content card */}
       <div 
-        className="text-center p-8 rounded-xl border-2 animate-scale-in max-w-sm mx-4"
+        className="text-center p-8 rounded-xl border-2 animate-scale-in max-w-sm mx-4 relative z-10"
         style={{ 
           backgroundColor: style.bgColor, 
           borderColor: style.borderColor,
-          boxShadow: style.glow,
+          boxShadow: `${style.glow}, 0 0 60px ${style.borderColor}40`,
         }}
       >
-        <div className="text-6xl mb-4 animate-bounce">🎟️</div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: style.color }}>
+        {/* Animated ticket stack */}
+        <div className="relative h-20 mb-4">
+          <div className="ticket-stack-animation">
+            {Array.from({ length: Math.min(entries, 4) }, (_, i) => (
+              <span 
+                key={i} 
+                className="absolute text-5xl ticket-drop-animation"
+                style={{ 
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  animationDelay: `${i * 0.15}s`,
+                  top: `${i * 4}px`,
+                  opacity: 1 - (i * 0.15),
+                }}
+              >
+                🎟️
+              </span>
+            ))}
+          </div>
+        </div>
+        
+        <h2 className="text-2xl font-bold mb-2 animate-pulse" style={{ color: style.color }}>
           YOU&apos;RE IN!
         </h2>
-        <p className="text-white text-lg mb-2">
-          +{entries} Ticket{entries > 1 ? 's' : ''} Added
-        </p>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <span className="text-3xl font-bold text-white ticket-count-animation">+{entries}</span>
+          <span className="text-white text-lg">Ticket{entries > 1 ? 's' : ''}</span>
+        </div>
         <p className="text-gray-400 text-sm mb-1">
           {TIER_STYLES[tier] ? tier.replace('_', ' ').toUpperCase() : 'STAR FORGED'}
         </p>
         <p className="text-[#ff6ec7] text-xs">
           for &quot;{raffleName}&quot;
         </p>
+        <p className="text-gray-500 text-[10px] mt-4">Click anywhere to continue</p>
       </div>
       
       <style jsx>{`
         @keyframes scale-in {
-          from { transform: scale(0.8); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
+          0% { transform: scale(0); opacity: 0; }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
         }
         .animate-scale-in {
-          animation: scale-in 0.3s ease-out forwards;
+          animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         @keyframes fade-in {
           from { opacity: 0; }
@@ -371,6 +469,47 @@ function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: nu
         }
         .animate-fade-in {
           animation: fade-in 0.2s ease-out forwards;
+        }
+        @keyframes ticket-fly {
+          0% {
+            transform: translate(0, 0) rotate(0deg) scale(0);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          100% {
+            transform: translate(var(--endX), var(--endY)) rotate(var(--rotation)) scale(0.5);
+            opacity: 0;
+          }
+        }
+        .ticket-fly-animation {
+          animation: ticket-fly ease-out forwards;
+        }
+        @keyframes sparkle {
+          0%, 100% { opacity: 0; transform: scale(0); }
+          50% { opacity: 1; transform: scale(1); }
+        }
+        .sparkle-animation {
+          animation: sparkle 1.5s ease-in-out infinite;
+        }
+        @keyframes ticket-drop {
+          0% { transform: translateX(-50%) translateY(-30px) rotate(-10deg); opacity: 0; }
+          60% { transform: translateX(-50%) translateY(5px) rotate(5deg); opacity: 1; }
+          100% { transform: translateX(-50%) translateY(0) rotate(0deg); opacity: 1; }
+        }
+        .ticket-drop-animation {
+          animation: ticket-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes count-pop {
+          0% { transform: scale(0); }
+          50% { transform: scale(1.3); }
+          100% { transform: scale(1); }
+        }
+        .ticket-count-animation {
+          animation: count-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+          transform: scale(0);
         }
       `}</style>
     </div>
@@ -787,6 +926,34 @@ export default function RaffleContent() {
                 That&apos;s YOU! Congratulations! 🎉
               </p>
             )}
+            
+            {/* Verifiable Randomness Section */}
+            {activeRaffle.winner_draw_seed && (
+              <details className="mt-4 text-left">
+                <summary className="cursor-pointer text-[#00ffff] text-[10px] hover:text-[#44ffff] transition-colors">
+                  🔒 VERIFY FAIR SELECTION
+                </summary>
+                <div className="mt-2 bg-black/30 rounded p-3 border border-[#00ffff]/30">
+                  <p className="text-gray-400 text-[9px] mb-2">
+                    Winner was selected using verifiable randomness (SHA-256 hash):
+                  </p>
+                  <div className="bg-black/50 rounded p-2 mb-2">
+                    <p className="text-[#00ffff] text-[8px] font-mono break-all">
+                      {activeRaffle.winner_draw_seed}
+                    </p>
+                  </div>
+                  <p className="text-gray-500 text-[8px]">
+                    ℹ️ This seed combines block hash + raffle ID + timestamp + entry count. 
+                    The first 4 bytes of the SHA-256 hash determine the winning ticket index.
+                  </p>
+                  {activeRaffle.winner_drawn_at && (
+                    <p className="text-gray-600 text-[8px] mt-1">
+                      Drawn: {new Date(activeRaffle.winner_drawn_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </details>
+            )}
           </div>
         )}
         
@@ -891,6 +1058,9 @@ export default function RaffleContent() {
                     >
                       {enteringRaffleId === activeRaffle.id ? 'UPDATING...' : '2. CLAIM +1 ENTRY FOR LIKE & RT'}
                     </button>
+                    <p className="text-gray-500 text-[10px] mt-2 italic">
+                      ℹ️ Honor system - admins may verify engagement
+                    </p>
                   </div>
                 )}
                 
