@@ -1,23 +1,21 @@
 /**
  * NFT Floor Price Aggregator for Star World Order
  * 
- * This module fetches floor prices for Monad NFT collections from
- * Magic Eden and OpenSea marketplaces.
+ * This module provides floor price data for Monad NFT collections.
  * 
  * Features:
- * - Aggregates floor prices from multiple marketplaces
+ * - Manual floor price entry by admins
  * - 15-minute cache TTL for efficiency
  * - SQLite persistence for data durability
- * - Background refresh via cron job
- * - Supports all Monad NFT collections
+ * - Public API for querying floor prices
  * 
- * Data Sources:
- * - Magic Eden: Primary source for Monad collections
- * - OpenSea: Secondary source where available
+ * NOTE: Magic Eden and OpenSea do not provide public APIs for Monad floor prices.
+ * Floor price data must be entered manually by admins or scraped using browser automation.
+ * This module provides the infrastructure for storing and serving that data.
  * 
- * API Rate Limits:
- * - Magic Eden: 180 requests/minute (free tier)
- * - OpenSea: Requires API key for production use
+ * Future improvements:
+ * - Browser automation for scraping marketplace data
+ * - Integration with indexer services when available
  */
 
 import { logger } from './logger';
@@ -26,12 +24,6 @@ import { getDatabase } from './db';
 // ============================================================
 // CONSTANTS & CONFIGURATION
 // ============================================================
-
-// Magic Eden API base URL
-const MAGIC_EDEN_API_BASE = 'https://api-mainnet.magiceden.dev';
-
-// OpenSea API base URL (V2)
-const OPENSEA_API_BASE = 'https://api.opensea.io/api/v2';
 
 // Cache TTL: 15 minutes for floor prices
 const FLOOR_PRICE_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -65,7 +57,7 @@ export interface CollectionFloorPrice {
   volumeTotal: number | null;
   salesCount24h: number | null;
   holdersCount: number | null;
-  source: 'magic_eden' | 'opensea' | 'aggregated';
+  source: 'magic_eden' | 'opensea' | 'aggregated' | 'manual';
   isVerified: boolean;
   updatedAt: string;
 }
@@ -80,53 +72,6 @@ export interface FloorPriceAPIResponse {
     cacheTTLSeconds: number;
   };
   error?: string;
-}
-
-// Magic Eden API response types
-interface MagicEdenCollection {
-  id: string;
-  chain: string;
-  name: string;
-  symbol?: string;
-  image?: string;
-  floorAsk?: {
-    price?: {
-      amount?: {
-        native?: number;
-        usd?: number;
-      };
-    };
-  };
-  onSaleCount?: number;
-  volume?: {
-    '1day'?: number;
-    allTime?: number;
-  };
-  salesCount?: {
-    '1day'?: number;
-  };
-  ownerCount?: number;
-  verification?: string;
-  chainData?: {
-    contract?: string;
-  };
-}
-
-interface MagicEdenTrendingResponse {
-  collections: MagicEdenCollection[];
-}
-
-// OpenSea API response types
-interface OpenSeaCollectionStats {
-  total: {
-    floor_price: number | null;
-    floor_price_symbol: string;
-    volume: number;
-    sales: number;
-    num_owners: number;
-    average_price: number;
-    market_cap: number;
-  };
 }
 
 // ============================================================
@@ -153,7 +98,7 @@ export function initializeFloorPricesTable(): void {
       volume_total REAL,
       sales_count_24h INTEGER,
       holders_count INTEGER,
-      source TEXT NOT NULL CHECK (source IN ('magic_eden', 'opensea', 'aggregated')),
+      source TEXT NOT NULL CHECK (source IN ('magic_eden', 'opensea', 'aggregated', 'manual')),
       is_verified INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -196,7 +141,7 @@ export function getFloorPricesFromDB(): CollectionFloorPrice[] {
       volume_total: number | null;
       sales_count_24h: number | null;
       holders_count: number | null;
-      source: 'magic_eden' | 'opensea' | 'aggregated';
+      source: 'magic_eden' | 'opensea' | 'aggregated' | 'manual';
       is_verified: number;
       updated_at: string;
     }>;
@@ -248,7 +193,7 @@ export function getFloorPriceByContract(contractAddress: string): CollectionFloo
       volume_total: number | null;
       sales_count_24h: number | null;
       holders_count: number | null;
-      source: 'magic_eden' | 'opensea' | 'aggregated';
+      source: 'magic_eden' | 'opensea' | 'aggregated' | 'manual';
       is_verified: number;
       updated_at: string;
     } | undefined;
@@ -425,298 +370,23 @@ export function cleanupOldFloorPrices(): number {
 }
 
 // ============================================================
-// MAGIC EDEN API FUNCTIONS
+// MANUAL DATA ENTRY FUNCTIONS
 // ============================================================
 
 /**
- * Sleep utility for rate limiting
+ * NOTE: Magic Eden and OpenSea do not provide public floor price APIs for Monad.
+ * The following functions are placeholders that return empty data.
+ * Floor prices must be manually entered via the admin panel or through
+ * future browser automation/scraping implementation.
  */
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 /**
- * Fetch trending collections from Magic Eden API
+ * Placeholder for fetching trending collections
+ * Returns empty array since no public API is available
  */
-export async function fetchMagicEdenTrendingCollections(
-  limit: number = 100
-): Promise<CollectionFloorPrice[]> {
-  const collections: CollectionFloorPrice[] = [];
-  
-  try {
-    // Magic Eden v3 RTP API for Monad collections
-    const url = `${MAGIC_EDEN_API_BASE}/v3/rtp/monad/collections/trending?period=1d&limit=${limit}`;
-    
-    logger.debug('FloorPrices: Fetching Magic Eden trending collections', { url });
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'StarWorldOrder/1.0',
-      },
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unable to read response');
-      logger.error('FloorPrices: Magic Eden API error', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText.substring(0, 500),
-      });
-      return collections;
-    }
-    
-    const data: MagicEdenTrendingResponse = await response.json();
-    
-    if (!data.collections || !Array.isArray(data.collections)) {
-      logger.warn('FloorPrices: Invalid Magic Eden response structure');
-      return collections;
-    }
-    
-    for (const item of data.collections) {
-      const contractAddress = item.chainData?.contract || item.id;
-      if (!contractAddress) continue;
-      
-      collections.push({
-        contractAddress: contractAddress.toLowerCase(),
-        name: item.name || 'Unknown Collection',
-        symbol: item.symbol,
-        imageUrl: item.image,
-        floorPriceMON: item.floorAsk?.price?.amount?.native || null,
-        floorPriceUSD: item.floorAsk?.price?.amount?.usd || null,
-        listedCount: item.onSaleCount || 0,
-        volume24h: item.volume?.['1day'] || null,
-        volumeTotal: item.volume?.allTime || null,
-        salesCount24h: item.salesCount?.['1day'] || null,
-        holdersCount: item.ownerCount || null,
-        source: 'magic_eden',
-        isVerified: item.verification === 'VERIFIED',
-        updatedAt: new Date().toISOString(),
-      });
-    }
-    
-    logger.info('FloorPrices: Fetched Magic Eden collections', {
-      count: collections.length,
-    });
-    
-    return collections;
-  } catch (error) {
-    logger.error('FloorPrices: Failed to fetch Magic Eden collections', {
-      error: String(error),
-    });
-    return collections;
-  }
-}
-
-/**
- * Fetch all collections (paginated) from Magic Eden
- */
-export async function fetchMagicEdenAllCollections(
-  maxPages: number = 5
-): Promise<CollectionFloorPrice[]> {
-  const allCollections: CollectionFloorPrice[] = [];
-  let page = 0;
-  const pageSize = 50;
-  
-  while (page < maxPages) {
-    try {
-      const offset = page * pageSize;
-      const url = `${MAGIC_EDEN_API_BASE}/v3/rtp/monad/collections/v7?limit=${pageSize}&offset=${offset}&sortBy=volume&sortDirection=desc`;
-      
-      logger.debug('FloorPrices: Fetching Magic Eden collections page', { page, offset });
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'StarWorldOrder/1.0',
-        },
-      });
-      
-      if (!response.ok) {
-        logger.warn('FloorPrices: Magic Eden page fetch failed', {
-          page,
-          status: response.status,
-        });
-        break;
-      }
-      
-      const data = await response.json();
-      
-      if (!data.collections || data.collections.length === 0) {
-        break;
-      }
-      
-      for (const item of data.collections) {
-        const contractAddress = item.primaryContract || item.id;
-        if (!contractAddress) continue;
-        
-        allCollections.push({
-          contractAddress: contractAddress.toLowerCase(),
-          name: item.name || 'Unknown Collection',
-          symbol: item.symbol,
-          imageUrl: item.image,
-          floorPriceMON: item.floorAsk?.price?.amount?.native || null,
-          floorPriceUSD: item.floorAsk?.price?.amount?.usd || null,
-          listedCount: item.onSaleCount || 0,
-          volume24h: item.volume?.['1day'] || null,
-          volumeTotal: item.volume?.allTime || null,
-          salesCount24h: item.salesCount?.['1day'] || null,
-          holdersCount: item.ownerCount || null,
-          source: 'magic_eden',
-          isVerified: item.openseaVerificationStatus === 'verified',
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      
-      page++;
-      
-      // Rate limit: wait 500ms between pages
-      await sleep(500);
-    } catch (error) {
-      logger.error('FloorPrices: Error fetching Magic Eden page', {
-        page,
-        error: String(error),
-      });
-      break;
-    }
-  }
-  
-  logger.info('FloorPrices: Fetched all Magic Eden collections', {
-    count: allCollections.length,
-    pages: page,
-  });
-  
-  return allCollections;
-}
-
-/**
- * Fetch floor price for a specific collection from Magic Eden
- */
-export async function fetchMagicEdenCollectionFloorPrice(
-  contractAddress: string
-): Promise<CollectionFloorPrice | null> {
-  try {
-    const url = `${MAGIC_EDEN_API_BASE}/v3/rtp/monad/collections/${contractAddress.toLowerCase()}`;
-    
-    logger.debug('FloorPrices: Fetching Magic Eden collection', { contractAddress });
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'StarWorldOrder/1.0',
-      },
-    });
-    
-    if (!response.ok) {
-      logger.warn('FloorPrices: Collection not found on Magic Eden', {
-        contractAddress,
-        status: response.status,
-      });
-      return null;
-    }
-    
-    const data = await response.json();
-    
-    if (!data.collection) {
-      return null;
-    }
-    
-    const item = data.collection;
-    
-    return {
-      contractAddress: contractAddress.toLowerCase(),
-      name: item.name || 'Unknown Collection',
-      symbol: item.symbol,
-      imageUrl: item.image,
-      floorPriceMON: item.floorAsk?.price?.amount?.native || null,
-      floorPriceUSD: item.floorAsk?.price?.amount?.usd || null,
-      listedCount: item.onSaleCount || 0,
-      volume24h: item.volume?.['1day'] || null,
-      volumeTotal: item.volume?.allTime || null,
-      salesCount24h: item.salesCount?.['1day'] || null,
-      holdersCount: item.ownerCount || null,
-      source: 'magic_eden',
-      isVerified: item.openseaVerificationStatus === 'verified',
-      updatedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    logger.error('FloorPrices: Failed to fetch Magic Eden collection', {
-      contractAddress,
-      error: String(error),
-    });
-    return null;
-  }
-}
-
-// ============================================================
-// OPENSEA API FUNCTIONS
-// ============================================================
-
-/**
- * Get OpenSea API key from environment
- */
-function getOpenSeaAPIKey(): string | null {
-  return process.env.OPENSEA_API_KEY || null;
-}
-
-/**
- * Fetch collection stats from OpenSea API
- */
-export async function fetchOpenSeaCollectionStats(
-  collectionSlug: string
-): Promise<Partial<CollectionFloorPrice> | null> {
-  const apiKey = getOpenSeaAPIKey();
-  
-  if (!apiKey) {
-    logger.debug('FloorPrices: OpenSea API key not configured');
-    return null;
-  }
-  
-  try {
-    const url = `${OPENSEA_API_BASE}/collections/${collectionSlug}/stats`;
-    
-    logger.debug('FloorPrices: Fetching OpenSea stats', { collectionSlug });
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'X-API-KEY': apiKey,
-      },
-    });
-    
-    if (!response.ok) {
-      logger.warn('FloorPrices: OpenSea collection not found', {
-        collectionSlug,
-        status: response.status,
-      });
-      return null;
-    }
-    
-    const data: OpenSeaCollectionStats = await response.json();
-    
-    if (!data.total) {
-      return null;
-    }
-    
-    return {
-      floorPriceMON: data.total.floor_price,
-      volume24h: data.total.volume,
-      salesCount24h: data.total.sales,
-      holdersCount: data.total.num_owners,
-      source: 'opensea',
-      updatedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    logger.error('FloorPrices: Failed to fetch OpenSea stats', {
-      collectionSlug,
-      error: String(error),
-    });
-    return null;
-  }
+async function fetchTrendingCollections(): Promise<CollectionFloorPrice[]> {
+  logger.info('FloorPrices: No public API available for floor prices. Use manual entry via admin panel.');
+  return [];
 }
 
 // ============================================================
@@ -790,13 +460,17 @@ export async function getFloorPrice(contractAddress: string): Promise<Collection
 }
 
 /**
- * Refresh all floor prices from Magic Eden
- * This is the main function called by the cron job
+ * Refresh all floor prices
+ * 
+ * NOTE: Since no public API is available for Monad floor prices,
+ * this function now loads data from the database (manually entered by admins)
+ * and updates the in-memory cache.
  */
 export async function refreshAllFloorPrices(): Promise<{
   success: boolean;
   collectionsUpdated: number;
   error?: string;
+  message?: string;
 }> {
   // Prevent concurrent refreshes
   if (floorPriceCache.isRefreshing) {
@@ -816,40 +490,12 @@ export async function refreshAllFloorPrices(): Promise<{
     // Initialize table if needed
     initializeFloorPricesTable();
     
-    // Fetch from Magic Eden (primary source)
-    const trendingCollections = await fetchMagicEdenTrendingCollections(100);
+    // Load manually entered data from database
+    const dbCollections = getFloorPricesFromDB();
     
-    // Also try to get all collections for broader coverage
-    const allCollections = await fetchMagicEdenAllCollections(5);
-    
-    // Merge collections (trending takes precedence)
-    const collectionMap = new Map<string, CollectionFloorPrice>();
-    
-    for (const collection of allCollections) {
-      collectionMap.set(collection.contractAddress, collection);
-    }
-    
-    for (const collection of trendingCollections) {
-      collectionMap.set(collection.contractAddress, collection);
-    }
-    
-    const mergedCollections = Array.from(collectionMap.values());
-    
-    if (mergedCollections.length === 0) {
-      logger.warn('FloorPrices: No collections fetched');
-      return {
-        success: false,
-        collectionsUpdated: 0,
-        error: 'No collections fetched from APIs',
-      };
-    }
-    
-    // Save to database
-    upsertFloorPricesBatch(mergedCollections);
-    
-    // Update in-memory cache
+    // Update in-memory cache from database
     floorPriceCache.data.clear();
-    for (const collection of mergedCollections) {
+    for (const collection of dbCollections) {
       floorPriceCache.data.set(collection.contractAddress, collection);
     }
     floorPriceCache.lastRefresh = Date.now();
@@ -858,12 +504,15 @@ export async function refreshAllFloorPrices(): Promise<{
     cleanupOldFloorPrices();
     
     logger.info('FloorPrices: Refresh complete', {
-      collectionsUpdated: mergedCollections.length,
+      collectionsUpdated: dbCollections.length,
     });
     
     return {
       success: true,
-      collectionsUpdated: mergedCollections.length,
+      collectionsUpdated: dbCollections.length,
+      message: dbCollections.length === 0 
+        ? 'No floor price data available. Floor prices must be manually entered via admin panel.'
+        : `Loaded ${dbCollections.length} collections from database.`,
     };
   } catch (error) {
     logger.error('FloorPrices: Refresh failed', { error: String(error) });
