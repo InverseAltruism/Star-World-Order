@@ -4,18 +4,19 @@
  * This module provides floor price data for Monad NFT collections.
  * 
  * Features:
- * - Manual floor price entry by admins
+ * - Automated floor price scraping from Magic Eden API
+ * - OpenSea API integration (requires OPENSEA_API_KEY env var)
  * - 15-minute cache TTL for efficiency
  * - SQLite persistence for data durability
  * - Public API for querying floor prices
  * 
- * NOTE: Magic Eden and OpenSea do not provide public APIs for Monad floor prices.
- * Floor price data must be entered manually by admins or scraped using browser automation.
- * This module provides the infrastructure for storing and serving that data.
+ * Data Sources:
+ * - Magic Eden API (primary): https://api-mainnet.magiceden.dev/v4/evm-public/collections
+ * - OpenSea API (secondary): https://api.opensea.io/api/v2/collections (requires API key)
  * 
- * Future improvements:
- * - Browser automation for scraping marketplace data
- * - Integration with indexer services when available
+ * Refresh Schedule:
+ * - Recommended: Every 15-30 minutes via cron job
+ * - Call /api/cron/refresh-floor-prices to trigger refresh
  */
 
 import { logger } from './logger';
@@ -462,15 +463,22 @@ export async function getFloorPrice(contractAddress: string): Promise<Collection
 /**
  * Refresh all floor prices
  * 
- * NOTE: Since no public API is available for Monad floor prices,
- * this function now loads data from the database (manually entered by admins)
- * and updates the in-memory cache.
+ * This function scrapes floor prices from Magic Eden and OpenSea APIs,
+ * stores them in the database, and updates the in-memory cache.
+ * 
+ * Data sources:
+ * - Magic Eden API (primary) - Free public API
+ * - OpenSea API (secondary) - Requires API key in OPENSEA_API_KEY env var
  */
 export async function refreshAllFloorPrices(): Promise<{
   success: boolean;
   collectionsUpdated: number;
   error?: string;
   message?: string;
+  sources?: {
+    magicEden: number;
+    openSea: number;
+  };
 }> {
   // Prevent concurrent refreshes
   if (floorPriceCache.isRefreshing) {
@@ -485,12 +493,40 @@ export async function refreshAllFloorPrices(): Promise<{
   floorPriceCache.isRefreshing = true;
   
   try {
-    logger.info('FloorPrices: Starting refresh');
+    logger.info('FloorPrices: Starting refresh with automated scraper');
     
     // Initialize table if needed
     initializeFloorPricesTable();
     
-    // Load manually entered data from database
+    // Import and run the scraper dynamically to avoid circular dependencies
+    const { scrapeAllFloorPrices } = await import('./floorPriceScraper');
+    const scrapeResult = await scrapeAllFloorPrices();
+    
+    if (!scrapeResult.success) {
+      // Scraping failed, fall back to loading existing DB data
+      logger.warn('FloorPrices: Scraping failed, loading existing data from database', {
+        error: scrapeResult.error,
+      });
+      
+      const dbCollections = getFloorPricesFromDB();
+      
+      // Update in-memory cache from database
+      floorPriceCache.data.clear();
+      for (const collection of dbCollections) {
+        floorPriceCache.data.set(collection.contractAddress, collection);
+      }
+      floorPriceCache.lastRefresh = Date.now();
+      
+      return {
+        success: dbCollections.length > 0,
+        collectionsUpdated: dbCollections.length,
+        message: `Scraping failed. Loaded ${dbCollections.length} cached collections from database.`,
+        error: scrapeResult.error,
+        sources: scrapeResult.sources,
+      };
+    }
+    
+    // Scraping succeeded - reload from database into memory cache
     const dbCollections = getFloorPricesFromDB();
     
     // Update in-memory cache from database
@@ -504,15 +540,15 @@ export async function refreshAllFloorPrices(): Promise<{
     cleanupOldFloorPrices();
     
     logger.info('FloorPrices: Refresh complete', {
-      collectionsUpdated: dbCollections.length,
+      collectionsUpdated: scrapeResult.collectionsUpdated,
+      sources: scrapeResult.sources,
     });
     
     return {
       success: true,
-      collectionsUpdated: dbCollections.length,
-      message: dbCollections.length === 0 
-        ? 'No floor price data available. Floor prices must be manually entered via admin panel.'
-        : `Loaded ${dbCollections.length} collections from database.`,
+      collectionsUpdated: scrapeResult.collectionsUpdated,
+      message: `Successfully scraped ${scrapeResult.collectionsUpdated} collections from marketplaces.`,
+      sources: scrapeResult.sources,
     };
   } catch (error) {
     logger.error('FloorPrices: Refresh failed', { error: String(error) });

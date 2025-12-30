@@ -3,23 +3,27 @@
  * 
  * GET /api/cron/refresh-floor-prices - Refresh NFT floor prices from marketplaces
  * 
- * This endpoint should be called every 15 minutes to:
- * 1. Fetch floor prices from Magic Eden API
- * 2. (Future) Fetch floor prices from OpenSea API
- * 3. Store aggregated data in the database
+ * This endpoint should be called every 15-30 minutes to:
+ * 1. Scrape floor prices from Magic Eden API (primary source)
+ * 2. Scrape floor prices from OpenSea API (secondary, if API key configured)
+ * 3. Aggregate and store data in the database
  * 4. Update the in-memory cache
  * 
  * Security: This endpoint validates a CRON_SECRET token to prevent unauthorized access.
  * Set CRON_SECRET environment variable in production.
+ * 
+ * Environment Variables:
+ * - CRON_SECRET: Secret token for authentication (required in production)
+ * - OPENSEA_API_KEY: Optional - enables OpenSea as secondary data source
  * 
  * Usage:
  * - Systemd timer: Call via curl with Authorization header
  * - Vercel cron: Add to vercel.json crons configuration
  * - Manual: curl -H "Authorization: Bearer <CRON_SECRET>" https://your-domain/api/cron/refresh-floor-prices
  * 
- * Recommended cron schedule: Every 15 minutes
- * - Crontab: *​/15 * * * *
- * - Systemd timer: OnUnitActiveSec=15min
+ * Recommended cron schedule: Every 15-30 minutes
+ * - Crontab: 0,15,30,45 * * * * (every 15 min) or 0,30 * * * * (every 30 min)
+ * - Systemd timer: OnUnitActiveSec=15min or OnUnitActiveSec=30min
  */
 
 import { NextResponse } from 'next/server';
@@ -28,6 +32,7 @@ import {
   getCacheStats,
   initializeFloorPricesTable,
 } from '@/lib/floorPrices';
+import { getScraperConfig } from '@/lib/floorPriceScraper';
 import { logger } from '@/lib/logger';
 
 // Minimum time between refreshes (10 minutes)
@@ -64,7 +69,7 @@ function validateCronSecret(request: Request): boolean {
 
 /**
  * GET /api/cron/refresh-floor-prices
- * Refresh floor prices from marketplaces
+ * Refresh floor prices from marketplaces via automated scraping
  */
 export async function GET(request: Request) {
   // Validate cron secret
@@ -77,7 +82,7 @@ export async function GET(request: Request) {
   }
   
   try {
-    logger.info('FloorPrices Cron: Starting refresh');
+    logger.info('FloorPrices Cron: Starting automated floor price refresh');
     
     // Check rate limiting
     const now = Date.now();
@@ -106,7 +111,10 @@ export async function GET(request: Request) {
     // Initialize database table if needed
     initializeFloorPricesTable();
     
-    // Perform the refresh
+    // Get scraper configuration info
+    const scraperConfig = getScraperConfig();
+    
+    // Perform the automated scrape and refresh
     const result = await refreshAllFloorPrices();
     const cacheStats = getCacheStats();
     
@@ -115,22 +123,27 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: result.error || 'Failed to refresh floor prices',
+        message: result.message,
+        scraperConfig,
         cacheStats,
       }, { status: 500 });
     }
     
     logger.info('FloorPrices Cron: Refresh complete', {
       collectionsUpdated: result.collectionsUpdated,
+      sources: result.sources,
     });
     
     return NextResponse.json({
       success: true,
-      message: 'Floor prices refreshed successfully',
+      message: result.message || 'Floor prices refreshed successfully',
       data: {
         collectionsUpdated: result.collectionsUpdated,
+        sources: result.sources,
         timestamp: new Date().toISOString(),
         nextRefreshDue: cacheStats.nextRefreshDue,
       },
+      scraperConfig,
       cacheStats,
     });
   } catch (error) {
