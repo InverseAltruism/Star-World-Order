@@ -126,6 +126,23 @@ export default function Header() {
             />
           </Link>
           <Link 
+            href="/raffle" 
+            className="text-[10px] text-gray-300 hover:text-[#ff6ec7] uppercase tracking-wider relative group flex-shrink-0"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
+          >
+            RAFFLE
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff6ec7] group-hover:w-full" 
+              style={{ 
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
+          </Link>
+          <Link 
             href="/profile" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group flex-shrink-0"
             style={{ 
@@ -211,6 +228,14 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               TREASURY
+            </Link>
+            <Link 
+              href="/raffle" 
+              className="text-base text-white hover:text-[#ff6ec7] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(255, 110, 199, 0.5)' }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              RAFFLE
             </Link>
             <Link 
               href="/profile" 
