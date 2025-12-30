@@ -930,6 +930,83 @@ cleanupOldBackups(keepCount?: number, backupDir?: string): number
 | `/api/messages` | POST | Send a direct message |
 | `/api/messages` | PATCH | Mark messages as read |
 | `/api/messages` | DELETE | Delete a message (sender only) |
+| `/api/floor-prices` | GET | **Public API**: Get floor prices for all Monad NFT collections |
+| `/api/cron/refresh-floor-prices` | GET | Cron endpoint to refresh floor prices (requires `CRON_SECRET`) |
+
+### Floor Prices API (SWO Product)
+
+This is a **public API product** offered by Star World Order that aggregates NFT floor prices from Magic Eden and OpenSea for all Monad collections.
+
+**GET /api/floor-prices**
+
+Query parameters:
+- `contract` (optional): Filter by specific contract address
+- `limit` (optional): Limit results (default: 100, max: 500)
+- `sortBy` (optional): Sort field - `floor_price`, `volume`, `volume_total`, `sales`, `holders`, `listed`, `name` (default: `floor_price`)
+- `sortOrder` (optional): Sort order - `asc`, `desc` (default: `desc`)
+- `verified` (optional): Filter to verified collections only - `true`, `false`
+
+**Example Usage:**
+
+```bash
+# Get all collections sorted by floor price
+curl https://starworldorder.com/api/floor-prices
+
+# Get specific collection by contract
+curl "https://starworldorder.com/api/floor-prices?contract=0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0"
+
+# Get top 10 by 24h volume
+curl "https://starworldorder.com/api/floor-prices?limit=10&sortBy=volume"
+
+# Get verified collections only
+curl "https://starworldorder.com/api/floor-prices?verified=true"
+```
+
+**Response Format:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "collections": [
+      {
+        "contractAddress": "0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0",
+        "name": "Skrumpeys",
+        "symbol": "SKRUMP",
+        "imageUrl": "https://...",
+        "floorPriceMON": 5.25,
+        "floorPriceUSD": 26.25,
+        "listedCount": 142,
+        "volume24h": 1250.5,
+        "volumeTotal": 45000.0,
+        "salesCount24h": 85,
+        "holdersCount": 1200,
+        "source": "magic_eden",
+        "isVerified": true,
+        "updatedAt": "2024-12-30T01:00:00.000Z"
+      }
+    ],
+    "totalCollections": 150,
+    "lastUpdated": "2024-12-30T01:00:00.000Z",
+    "nextUpdate": "2024-12-30T01:15:00.000Z",
+    "cacheTTLSeconds": 900
+  }
+}
+```
+
+**Features:**
+- ✅ **15-minute refresh interval** - Data updated via cron job
+- ✅ **CORS enabled** - Can be called from any domain
+- ✅ **No API key required** - Free public access
+- ✅ **SQLite caching** - Efficient database persistence
+- ✅ **Aggregated data** - Combines Magic Eden + OpenSea
+
+**Cron Setup for Floor Price Refresh:**
+
+```bash
+# Call every 15 minutes
+*/15 * * * * curl -s -H "Authorization: Bearer YOUR_CRON_SECRET" https://starworldorder.com/api/cron/refresh-floor-prices
+```
 
 ### Friends API
 
@@ -1493,6 +1570,7 @@ try {
 | `lib/magiceden.ts` | **Magic Eden API integration for NFT collections (PRIMARY)** |
 | `lib/rpcNftFetcher.ts` | ~~Direct RPC NFT fetcher~~ (DEPRECATED - ERC721Enumerable not supported) |
 | `lib/blockvision.ts` | BlockVision API integration (optional: floor prices only) |
+| `lib/floorPrices.ts` | **NFT Floor Price Aggregator API** - Magic Eden + OpenSea floor prices |
 | `lib/db.ts` | SQLite database operations including treasury NFT cache and global notifications |
 | `lib/logger.ts` | Logging utility for debugging |
 | `lib/contexts/DemoModeContext.tsx` | Demo mode state management |
@@ -1519,6 +1597,8 @@ try {
 | `app/api/notifications/route.ts` | Notification system API endpoints (supports global notifications) |
 | `app/api/friends/route.ts` | Friends system API endpoints |
 | `app/api/messages/route.ts` | Direct messaging API endpoints |
+| `app/api/floor-prices/route.ts` | **Public Floor Prices API** - Monad NFT floor prices |
+| `app/api/cron/refresh-floor-prices/route.ts` | Cron job to refresh floor prices every 15 min |
 
 ---
 
@@ -1561,6 +1641,9 @@ DATABASE_URL=file:./data/swo.db
 BLOCKVISION_API=your-api-key-here
 BLOCKVISION_RPC=https://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
 BLOCKVISION_WEBSOCKET=wss://monad-mainnet.blockvision.org/v1/your-api-key  # Optional
+
+# OpenSea API (optional, for floor prices)
+OPENSEA_API_KEY=your-opensea-api-key  # Optional - enhances floor price data
 ```
 
 **Example**: See `.env.example` in repository root
