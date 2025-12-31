@@ -986,6 +986,133 @@ This ensures:
 - ✅ **Verifiable**: Anyone can verify the hash calculation
 - ✅ **Transparent**: Seed is stored and displayed publicly
 
+**Verification Example:**
+```javascript
+const crypto = require('crypto');
+
+// Given a stored seed like: "0xabc123...-raffle-123456-1735600000000-5"
+const seedString = "blockHash-raffleId-timestamp-entryCount";
+const hashBuffer = crypto.createHash('sha256').update(seedString).digest();
+const hashNumber = hashBuffer.readUInt32BE(0);
+const winnerIndex = hashNumber % totalWeightedEntries;
+// Winner is the entry at winnerIndex in the weighted entry pool
+```
+
+### Auto-Draw Mechanism
+
+Raffles are automatically drawn when their end time passes. This is implemented via **lazy auto-draw** on API requests:
+
+**Implementation** (`app/api/raffle/route.ts`):
+
+```typescript
+// Called at the start of every GET /api/raffle request
+async function autoDrawEndedRaffles(): Promise<void> {
+  // Get raffles that: status='active', end_time <= now, no winner yet
+  const rafflesToDraw = getRafflesNeedingDraw();
+  
+  // Get latest block hash for randomness
+  const block = await client.getBlock({ blockTag: 'latest' });
+  const blockHash = block.hash || `fallback-${Date.now()}`;
+  
+  // Draw each raffle
+  for (const raffle of rafflesToDraw) {
+    drawRaffleWinner(raffle.id, blockHash);
+  }
+}
+```
+
+**When Auto-Draw Runs:**
+- Every time a user visits `/raffle` page (triggers GET request)
+- Every time API fetches raffle data
+- No cron job needed - draws happen on-demand
+
+**Fallback Randomness:**
+If RPC block fetch fails, a fallback seed is used: `fallback-${Date.now()}-${Math.random().toString(36)}`
+
+### Winner Animation System
+
+When a raffle is drawn, participants see a one-time animation:
+
+**Animation Types:**
+| Animation | Shown To | Trigger |
+|-----------|----------|---------|
+| **WinAnimation** | Winner only | First visit to raffle page after draw |
+| **LoseAnimation** | Non-winning participants | First visit to raffle page after draw |
+| **EntryConfirmation** | User who just entered | Immediately after successful entry |
+
+**Animation Flow:**
+1. User visits `/raffle` page
+2. `fetchRaffles()` checks both active AND past raffles
+3. For drawn raffles where user participated:
+   - Check `raffle_result_views` table if user has viewed
+   - If not viewed → show Win or Lose animation
+   - Mark as viewed via `markViewed` API action
+4. Animation only shows once per raffle per user
+
+**Database Table** (`raffle_result_views`):
+```sql
+CREATE TABLE raffle_result_views (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  raffle_id TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(raffle_id, wallet_address)
+);
+```
+
+**Implementation** (`app/raffle/RaffleContent.tsx`):
+- `checkAndShowResultAnimation()` - Helper to check and trigger animation
+- Checks past raffles first (most common case)
+- Checks active raffles as fallback (edge case)
+- Only shows one animation per page load
+
+### Social Requirements
+
+Raffles can optionally require social connections:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `require_x` | INTEGER (0/1) | Require X (Twitter) connection |
+| `require_discord` | INTEGER (0/1) | Require Discord connection |
+| `discord_bonus_enabled` | INTEGER (0/1) | +1 entry for Discord members (deprecated) |
+
+**Checking Requirements** (API side):
+```typescript
+const socialConnections = checkSocialConnections(walletAddress);
+
+if (raffle.require_x && !socialConnections.hasX) {
+  // Block entry
+}
+if (raffle.require_discord && !socialConnections.hasDiscord) {
+  // Block entry
+}
+```
+
+**UI Display:**
+- Requirements section only shows if `require_x === 1` or `require_discord === 1`
+- Green checkmark ✓ if connected, red X if not
+- Link to profile settings to connect accounts
+
+### Engagement Bonus (Like & RT)
+
+Users can earn +1 bonus entry by liking and retweeting the raffle announcement:
+
+**Flow:**
+1. Admin sets `tweet_url` when creating raffle
+2. User clicks tweet link, likes & retweets
+3. User clicks "CLAIM +1 ENTRY FOR LIKE & RT"
+4. Entry is updated with `engagement_bonus = 1`
+
+**Honor System:**
+- Entries are tracked with timestamps
+- Admin can export CSV and manually verify via Twitter
+- Fraudulent claims can be disqualified before winner announcement
+
+**Implementation Files:**
+- `app/raffle/RaffleContent.tsx` - UI for raffle cards and animations
+- `app/api/raffle/route.ts` - API endpoints and auto-draw
+- `lib/db.ts` - Database functions (3500+ lines, raffle section starts ~line 2900)
+
 ---
 
 ## API Endpoints
