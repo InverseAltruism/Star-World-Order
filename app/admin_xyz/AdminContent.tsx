@@ -868,7 +868,7 @@ export default function AdminContent() {
       {/* Action Result Toast */}
       {actionResult && (
         <div 
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg border-2 ${
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg border-2 max-w-sm ${
             actionResult.success 
               ? 'bg-[#44ff88]/20 border-[#44ff88] text-[#44ff88]' 
               : 'bg-[#ff4466]/20 border-[#ff4466] text-[#ff4466]'
@@ -878,7 +878,36 @@ export default function AdminContent() {
         </div>
       )}
 
-      {/* Health Status */}
+      {/* Tab Navigation */}
+      <div className="flex flex-wrap gap-2 mb-6 justify-center">
+        {[
+          { id: 'health' as AdminTab, label: '🏥 Health', color: '#44ff88' },
+          { id: 'notifications' as AdminTab, label: '🔔 Notifications', color: '#9966ff' },
+          { id: 'users' as AdminTab, label: '👥 Users', color: '#00ffff' },
+          { id: 'raffles' as AdminTab, label: '🎰 Raffles', color: '#ff6ec7' },
+          { id: 'database' as AdminTab, label: '🗄️ Database', color: '#ffd700' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+              activeTab === tab.id
+                ? ''
+                : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-gray-500'
+            }`}
+            style={activeTab === tab.id ? { 
+              borderColor: tab.color, 
+              color: tab.color, 
+              backgroundColor: `${tab.color}20` 
+            } : {}}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Health Status - only show when activeTab is 'health' */}
+      {activeTab === 'health' && (
       <div className="pixel-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[#44ff88] text-sm tracking-wider">🏥 SYSTEM HEALTH</h2>
@@ -955,8 +984,10 @@ export default function AdminContent() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Notification Management */}
+      {/* Notification Management - only show when activeTab is 'notifications' */}
+      {activeTab === 'notifications' && (
       <div className="pixel-card p-6 mb-6">
         <h2 className="text-[#9966ff] text-sm tracking-wider mb-4">🔔 NOTIFICATION MANAGEMENT</h2>
         
@@ -1131,8 +1162,10 @@ export default function AdminContent() {
           </button>
         </div>
       </div>
+      )}
 
-      {/* Raffle Management */}
+      {/* Raffle Management - only show when activeTab is 'raffles' */}
+      {activeTab === 'raffles' && (
       <div className="pixel-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[#ff6ec7] text-sm tracking-wider">🎰 RAFFLE MANAGEMENT</h2>
@@ -1470,6 +1503,220 @@ export default function AdminContent() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Users Tab - only show when activeTab is 'users' */}
+      {activeTab === 'users' && (
+        <div className="pixel-card p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[#00ffff] text-sm tracking-wider">👥 USER DATABASE</h2>
+            <button
+              onClick={() => fetchUsers(userSearchQuery)}
+              disabled={isLoadingUsers}
+              className="pixel-btn text-[10px] !px-3 !py-1"
+            >
+              {isLoadingUsers ? '...' : 'REFRESH'}
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="mb-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                placeholder="Search by wallet, display name, or social username..."
+                className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded px-3 py-2 text-xs text-white focus:border-[#00ffff] outline-none"
+                onKeyDown={(e) => e.key === 'Enter' && fetchUsers(userSearchQuery)}
+              />
+              <button
+                onClick={() => fetchUsers(userSearchQuery)}
+                className="pixel-btn text-[10px] !px-4"
+              >
+                🔍
+              </button>
+            </div>
+          </div>
+
+          <p className="text-gray-500 text-[10px] mb-3">Total: {userCount} users</p>
+
+          {/* Users Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[10px]">
+              <thead>
+                <tr className="border-b border-[#2a2a4e]">
+                  <th className="text-left p-2 text-[#ffd700]">Wallet</th>
+                  <th className="text-left p-2 text-[#ffd700]">Display Name</th>
+                  <th className="text-left p-2 text-[#ffd700]">𝕏 Twitter</th>
+                  <th className="text-left p-2 text-[#ffd700]">Discord</th>
+                  <th className="text-center p-2 text-[#ffd700]">Level</th>
+                  <th className="text-center p-2 text-[#ffd700]">XP</th>
+                  <th className="text-left p-2 text-[#ffd700]">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.wallet_address} className="border-b border-[#2a2a4e]/50 hover:bg-[#2a2a4e]/20">
+                    <td className="p-2 font-mono text-gray-300">
+                      {user.wallet_address.slice(0, 6)}...{user.wallet_address.slice(-4)}
+                    </td>
+                    <td className="p-2 text-white">{user.display_name || '-'}</td>
+                    <td className="p-2">
+                      {user.x_username ? (
+                        <a 
+                          href={`https://x.com/${user.x_username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00ffff] hover:underline"
+                        >
+                          @{user.x_username}
+                        </a>
+                      ) : (
+                        <span className="text-gray-600">-</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-[#7289DA]">{user.discord_username || <span className="text-gray-600">-</span>}</td>
+                    <td className="p-2 text-center text-[#9966ff] font-bold">{user.level}</td>
+                    <td className="p-2 text-center text-gray-400">{user.total_xp.toLocaleString()}</td>
+                    <td className="p-2 text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-gray-500">No users found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Database Tab - only show when activeTab is 'database' */}
+      {activeTab === 'database' && (
+        <div className="space-y-6">
+          {/* Database Stats */}
+          <div className="pixel-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[#ffd700] text-sm tracking-wider">📊 DATABASE STATISTICS</h2>
+              <button
+                onClick={fetchDbStats}
+                disabled={isLoadingDbStats}
+                className="pixel-btn text-[10px] !px-3 !py-1"
+              >
+                {isLoadingDbStats ? '...' : 'REFRESH'}
+              </button>
+            </div>
+
+            {dbStats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#00ffff] text-xl font-bold">{dbStats.users}</p>
+                  <p className="text-gray-500 text-[10px]">Users</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#9966ff] text-xl font-bold">{dbStats.notifications}</p>
+                  <p className="text-gray-500 text-[10px]">Notifications</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#44ff88] text-xl font-bold">{dbStats.chatMessages}</p>
+                  <p className="text-gray-500 text-[10px]">Chat Messages</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#ff6ec7] text-xl font-bold">{dbStats.raffles}</p>
+                  <p className="text-gray-500 text-[10px]">Raffles</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#ffd700] text-xl font-bold">{dbStats.raffleEntries}</p>
+                  <p className="text-gray-500 text-[10px]">Raffle Entries</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#00ffff] text-xl font-bold">{dbStats.friends}</p>
+                  <p className="text-gray-500 text-[10px]">Friend Relations</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#9966ff] text-xl font-bold">{dbStats.directMessages}</p>
+                  <p className="text-gray-500 text-[10px]">Direct Messages</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#44ff88] text-xl font-bold">{dbStats.voiceSessions}</p>
+                  <p className="text-gray-500 text-[10px]">Voice Sessions</p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
+                  <p className="text-[#ff6ec7] text-xl font-bold">{dbStats.socialConnections}</p>
+                  <p className="text-gray-500 text-[10px]">Social Connections</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Database Cleanup Tools */}
+          <div className="pixel-card p-6">
+            <h2 className="text-[#ff4466] text-sm tracking-wider mb-4">🧹 DATABASE CLEANUP TOOLS</h2>
+            <p className="text-gray-500 text-[10px] mb-4">
+              ⚠️ These actions permanently delete data. Use with caution!
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+                <h4 className="text-[#44ff88] text-xs mb-2">💬 Chat Messages</h4>
+                <p className="text-gray-500 text-[9px] mb-3">Delete chat messages older than 24 hours</p>
+                <button
+                  onClick={() => runCleanupAction('cleanupChatMessages', { olderThanHours: 24 })}
+                  className="pixel-btn text-[10px] w-full"
+                >
+                  CLEANUP CHAT
+                </button>
+              </div>
+
+              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+                <h4 className="text-[#9966ff] text-xs mb-2">👤 Online Presence</h4>
+                <p className="text-gray-500 text-[9px] mb-3">Delete stale presence records (10+ minutes old)</p>
+                <button
+                  onClick={() => runCleanupAction('cleanupOnlinePresence', { olderThanMinutes: 10 })}
+                  className="pixel-btn text-[10px] w-full"
+                >
+                  CLEANUP PRESENCE
+                </button>
+              </div>
+
+              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+                <h4 className="text-[#00ffff] text-xs mb-2">✉️ Direct Messages</h4>
+                <p className="text-gray-500 text-[9px] mb-3">Delete direct messages older than 90 days</p>
+                <button
+                  onClick={() => runCleanupAction('cleanupDirectMessages', { olderThanDays: 90 })}
+                  className="pixel-btn text-[10px] w-full"
+                >
+                  CLEANUP DMs
+                </button>
+              </div>
+
+              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+                <h4 className="text-[#ffd700] text-xs mb-2">🔔 Notifications</h4>
+                <p className="text-gray-500 text-[9px] mb-3">Delete notifications older than 30 days</p>
+                <button
+                  onClick={cleanupNotifications}
+                  className="pixel-btn text-[10px] w-full"
+                >
+                  CLEANUP NOTIFICATIONS
+                </button>
+              </div>
+
+              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+                <h4 className="text-[#ff6ec7] text-xs mb-2">🎰 Raffle Views</h4>
+                <p className="text-gray-500 text-[9px] mb-3">Delete raffle result view records (30+ days)</p>
+                <button
+                  onClick={() => runCleanupAction('cleanupRaffleResultViews', { olderThanDays: 30 })}
+                  className="pixel-btn text-[10px] w-full"
+                >
+                  CLEANUP RAFFLE VIEWS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="pixel-card p-6">
