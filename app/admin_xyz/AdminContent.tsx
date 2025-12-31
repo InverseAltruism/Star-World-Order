@@ -60,18 +60,52 @@ interface RaffleStats {
   totalTickets: number;
 }
 
+interface UserData {
+  wallet_address: string;
+  display_name: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+  discord_username: string | null;
+  discord_user_id: string | null;
+  x_username: string | null;
+  x_user_id: string | null;
+  total_xp: number;
+  level: number;
+}
+
+interface DatabaseStats {
+  users: number;
+  notifications: number;
+  chatMessages: number;
+  raffles: number;
+  raffleEntries: number;
+  friends: number;
+  directMessages: number;
+  voiceSessions: number;
+  socialConnections: number;
+}
+
+// Admin tab type
+type AdminTab = 'health' | 'notifications' | 'users' | 'raffles' | 'database';
+
 /**
  * Admin Content Component
  * 
  * Provides admin dashboard with:
  * - Site health monitoring
  * - Cache management
- * - Notification management
+ * - Notification management & history
+ * - User database viewer
  * - Raffle management
+ * - Database cleanup tools
  */
 export default function AdminContent() {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
+  
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<AdminTab>('health');
   
   // State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -92,8 +126,25 @@ export default function AdminContent() {
   const [userNotifications, setUserNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   
+  // Notification history state
+  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
+  const [notificationHistoryTotal, setNotificationHistoryTotal] = useState(0);
+  const [isLoadingNotificationHistory, setIsLoadingNotificationHistory] = useState(false);
+  const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
+  
+  // User database state
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [userCount, setUserCount] = useState(0);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  
+  // Database stats state
+  const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
+  const [isLoadingDbStats, setIsLoadingDbStats] = useState(false);
+  
   // Raffle management state
   const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [drawnRaffles, setDrawnRaffles] = useState<Raffle[]>([]);
   const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
   const [raffleName, setRaffleName] = useState('');
   const [raffleDescription, setRaffleDescription] = useState('');
@@ -105,6 +156,7 @@ export default function AdminContent() {
   const [raffleRequireDiscord, setRaffleRequireDiscord] = useState(false);
   const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
+  const [showDrawnRaffles, setShowDrawnRaffles] = useState(false);
   
   // Check if connected wallet is admin
   const isAdminWallet = address?.toLowerCase() === ADMIN_WALLET;
@@ -360,8 +412,188 @@ export default function AdminContent() {
         success: data.success,
         message: data.success ? 'Old notifications cleaned up!' : data.error,
       });
+      // Refresh notification history after cleanup
+      if (data.success) {
+        await fetchNotificationHistory();
+      }
     } catch (error) {
       setActionResult({ success: false, message: 'Failed to cleanup notifications' });
+    }
+  };
+
+  /**
+   * Fetch notification history (all notifications)
+   */
+  const fetchNotificationHistory = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoadingNotificationHistory(true);
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch('/api/admin?action=allNotifications&limit=100', {
+        headers: { 'x-admin-auth': authHeader },
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setAllNotifications(data.notifications || []);
+        setNotificationHistoryTotal(data.totalCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notification history:', error);
+    } finally {
+      setIsLoadingNotificationHistory(false);
+    }
+  }, [isAuthenticated, getAuthHeader]);
+
+  /**
+   * Update an existing notification
+   */
+  const updateNotificationAction = async () => {
+    if (!editingNotification) return;
+    
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': authHeader,
+        },
+        body: JSON.stringify({
+          action: 'updateNotification',
+          notificationId: editingNotification.id,
+          title: editingNotification.title,
+          message: editingNotification.message,
+          type: editingNotification.type,
+          icon: editingNotification.icon,
+          link: editingNotification.link,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setActionResult({ success: true, message: 'Notification updated!' });
+        setEditingNotification(null);
+        await fetchNotificationHistory();
+      } else {
+        setActionResult({ success: false, message: data.error || 'Failed to update notification' });
+      }
+    } catch (error) {
+      setActionResult({ success: false, message: 'Failed to update notification' });
+    }
+  };
+
+  /**
+   * Fetch all users with social connections
+   */
+  const fetchUsers = useCallback(async (search?: string) => {
+    if (!isAuthenticated) return;
+    
+    setIsLoadingUsers(true);
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+      const response = await fetch(`/api/admin?action=users&limit=100${searchParam}`, {
+        headers: { 'x-admin-auth': authHeader },
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setUsers(data.users || []);
+        setUserCount(data.totalCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [isAuthenticated, getAuthHeader]);
+
+  /**
+   * Fetch database statistics
+   */
+  const fetchDbStats = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setIsLoadingDbStats(true);
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch('/api/admin?action=dbStats', {
+        headers: { 'x-admin-auth': authHeader },
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setDbStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Failed to fetch database stats:', error);
+    } finally {
+      setIsLoadingDbStats(false);
+    }
+  }, [isAuthenticated, getAuthHeader]);
+
+  /**
+   * Fetch drawn raffles with winners
+   */
+  const fetchDrawnRaffles = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch('/api/admin?action=drawnRaffles&limit=20', {
+        headers: { 'x-admin-auth': authHeader },
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setDrawnRaffles(data.raffles || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch drawn raffles:', error);
+    }
+  }, [isAuthenticated, getAuthHeader]);
+
+  /**
+   * Cleanup database action
+   */
+  const runCleanupAction = async (action: string, params: Record<string, number> = {}) => {
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': authHeader,
+        },
+        body: JSON.stringify({ action, ...params }),
+      });
+
+      const data = await response.json();
+      setActionResult({
+        success: data.success,
+        message: data.success ? data.message : data.error,
+      });
+      
+      // Refresh stats after cleanup
+      if (data.success) {
+        await fetchDbStats();
+      }
+    } catch (error) {
+      setActionResult({ success: false, message: 'Cleanup action failed' });
     }
   };
 
@@ -517,8 +749,22 @@ export default function AdminContent() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchRaffles();
+      fetchDrawnRaffles();
     }
-  }, [isAuthenticated, fetchRaffles]);
+  }, [isAuthenticated, fetchRaffles, fetchDrawnRaffles]);
+
+  // Fetch data based on active tab
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (activeTab === 'notifications') {
+        fetchNotificationHistory();
+      } else if (activeTab === 'users') {
+        fetchUsers();
+      } else if (activeTab === 'database') {
+        fetchDbStats();
+      }
+    }
+  }, [isAuthenticated, activeTab, fetchNotificationHistory, fetchUsers, fetchDbStats]);
 
   // Clear action result after 5 seconds
   useEffect(() => {
@@ -1027,6 +1273,43 @@ export default function AdminContent() {
           </button>
         </div>
         
+        {/* Drawn Raffles Quick View */}
+        {drawnRaffles.length > 0 && (
+          <div className="mb-6 p-4 bg-[#ffd700]/10 rounded-lg border-2 border-[#ffd700]/30">
+            <h3 className="text-[#ffd700] text-xs mb-3">🏆 RAFFLE WINNERS ({drawnRaffles.length})</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {drawnRaffles.map((raffle) => (
+                <div key={raffle.id} className="flex items-center justify-between p-2 bg-black/30 rounded">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-[10px] font-bold truncate">{raffle.name}</p>
+                    <p className="text-gray-400 text-[9px] truncate">{raffle.prize_description}</p>
+                  </div>
+                  <div className="text-right ml-2">
+                    <p className="text-[#ffd700] text-[10px] font-mono">
+                      {raffle.winner_address?.slice(0, 6)}...{raffle.winner_address?.slice(-4)}
+                    </p>
+                    <p className="text-gray-500 text-[8px]">
+                      {raffle.winner_drawn_at ? new Date(raffle.winner_drawn_at).toLocaleDateString() : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (raffle.winner_address) {
+                        navigator.clipboard.writeText(raffle.winner_address);
+                        setActionResult({ success: true, message: 'Winner address copied!' });
+                      }
+                    }}
+                    className="ml-2 text-[#00ffff] text-xs hover:text-[#44ffff]"
+                    title="Copy winner address"
+                  >
+                    📋
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         {/* Existing Raffles */}
         <div className="space-y-3">
           <h3 className="text-[#ffd700] text-xs">Active & Recent Raffles ({raffles.length})</h3>
@@ -1054,6 +1337,10 @@ export default function AdminContent() {
                     <div>
                       <h4 className="text-white text-sm font-bold">{raffle.name}</h4>
                       <p className="text-gray-400 text-[10px]">{raffle.prize_description}</p>
+                      {/* Show additional info (description) below prize */}
+                      {raffle.description && (
+                        <p className="text-gray-500 text-[9px] mt-1 italic">{raffle.description}</p>
+                      )}
                       {/* Show requirements */}
                       <div className="flex gap-2 mt-1">
                         {raffle.require_x === 1 && (

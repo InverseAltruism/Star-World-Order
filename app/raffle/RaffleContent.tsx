@@ -1122,6 +1122,10 @@ export default function RaffleContent() {
             <div>
               <p className="text-[#ffd700] text-xs mb-1">PRIZE</p>
               <p className="text-white text-sm">{activeRaffle.prize_description}</p>
+              {/* Additional Info (description) - smaller font, below prize */}
+              {activeRaffle.description && (
+                <p className="text-gray-500 text-[10px] mt-2 italic">{activeRaffle.description}</p>
+              )}
             </div>
           </div>
         </div>
@@ -1401,13 +1405,6 @@ export default function RaffleContent() {
                 ))}
               </div>
             </details>
-          </div>
-        )}
-        
-        {/* Description */}
-        {activeRaffle.description && (
-          <div className="mt-4 text-center">
-            <p className="text-gray-500 text-xs">{activeRaffle.description}</p>
           </div>
         )}
       </div>
