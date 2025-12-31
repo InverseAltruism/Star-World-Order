@@ -611,7 +611,46 @@ export default function RaffleContent() {
   const [entryConfirmData, setEntryConfirmData] = useState<{ entries: number; tier: string; raffleName: string } | null>(null);
   const [winAnimationData, setWinAnimationData] = useState<{ raffleName: string; prizeName: string } | null>(null);
   
-  // Fetch ALL active raffles
+  /**
+   * Helper function to check and show win/lose animation for a drawn raffle
+   * Returns true if animation was triggered (to avoid showing multiple animations)
+   */
+  const checkAndShowResultAnimation = async (
+    raffleData: { raffle: Raffle; userEntry: RaffleEntry | null; hasViewedResult: boolean },
+    userAddress: string
+  ): Promise<boolean> => {
+    // Only show animation for drawn raffles the user entered and hasn't viewed yet
+    if (raffleData.raffle.status !== 'drawn' || !raffleData.userEntry || raffleData.hasViewedResult) {
+      return false;
+    }
+    
+    const isWinner = raffleData.raffle.winner_address?.toLowerCase() === userAddress.toLowerCase();
+    
+    if (isWinner) {
+      setWinAnimationData({
+        raffleName: raffleData.raffle.name,
+        prizeName: raffleData.raffle.prize_description,
+      });
+      setShowWinAnimation(true);
+    } else {
+      setShowLoseAnimation(true);
+    }
+    
+    // Mark as viewed so animation only shows once
+    await fetch('/api/raffle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'markViewed',
+        walletAddress: userAddress,
+        raffleId: raffleData.raffle.id,
+      }),
+    });
+    
+    return true;
+  };
+
+  // Fetch ALL active and past raffles
   const fetchRaffles = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -625,10 +664,40 @@ export default function RaffleContent() {
       const activeData = await activeRes.json();
       const pastData = await pastRes.json();
       
+      // Track if we've shown an animation to avoid showing multiple
+      let animationShown = false;
+      
       // Always set past raffles for the History tab
       if (pastData.success) {
         setPastRaffles(pastData.raffles || []);
         setHolderTiers(pastData.holderTiers);
+        
+        // Check past (drawn) raffles for win/lose animation - this is where most
+        // drawn raffles will be since they move from "active" to "past" after auto-draw
+        if (address && pastData.raffles) {
+          for (const raffle of pastData.raffles) {
+            // Only check drawn raffles where user has an entry
+            if (raffle.status === 'drawn' && raffle.userEntry) {
+              // Fetch full details to get hasViewedResult
+              const detailRes = await fetch(`/api/raffle?id=${raffle.id}&address=${address}`);
+              const detailData = await detailRes.json();
+              
+              if (detailData.success && !animationShown) {
+                animationShown = await checkAndShowResultAnimation(
+                  {
+                    raffle: detailData.raffle,
+                    userEntry: detailData.userEntry,
+                    hasViewedResult: detailData.hasViewedResult,
+                  },
+                  address
+                );
+              }
+              
+              // Only show one animation per page load
+              if (animationShown) break;
+            }
+          }
+        }
       }
       
       if (activeData.success && activeData.raffles.length > 0) {
@@ -644,32 +713,16 @@ export default function RaffleContent() {
             }
             
             // Check for winner animation (only show once per drawn raffle)
-            if (detailData.raffle.status === 'drawn' && address && !detailData.hasViewedResult) {
-              const isWinner = detailData.raffle.winner_address?.toLowerCase() === address.toLowerCase();
-              const didEnter = detailData.userEntry !== null;
-              
-              if (didEnter) {
-                if (isWinner) {
-                  setWinAnimationData({
-                    raffleName: detailData.raffle.name,
-                    prizeName: detailData.raffle.prize_description,
-                  });
-                  setShowWinAnimation(true);
-                } else {
-                  setShowLoseAnimation(true);
-                }
-                
-                // Mark as viewed
-                await fetch('/api/raffle', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    action: 'markViewed',
-                    walletAddress: address,
-                    raffleId: raffle.id,
-                  }),
-                });
-              }
+            // Note: This handles edge case where raffle was drawn but still in "active" list briefly
+            if (!animationShown && address) {
+              animationShown = await checkAndShowResultAnimation(
+                {
+                  raffle: detailData.raffle,
+                  userEntry: detailData.userEntry,
+                  hasViewedResult: detailData.hasViewedResult,
+                },
+                address
+              );
             }
             
             return {
@@ -1137,7 +1190,7 @@ export default function RaffleContent() {
         </div>
         
         {/* Social Requirements */}
-        {(activeRaffle.require_x || activeRaffle.require_discord) && (
+        {(activeRaffle.require_x === 1 || activeRaffle.require_discord === 1) && (
           <div className="bg-[#ff4466]/10 border border-[#ff4466]/30 rounded-lg p-3 mb-4">
             <p className="text-[#ff4466] text-[10px] mb-2">⚠️ REQUIREMENTS TO ENTER:</p>
             <div className="flex gap-2 flex-wrap">
