@@ -29,16 +29,17 @@ import { getResilientClient } from '@/lib/rpcClient';
  * Validate the cron secret token
  */
 function validateCronSecret(request: Request): boolean {
-  // In development, allow without token
+  // In development, allow without token but log warning
   if (process.env.NODE_ENV === 'development') {
+    logger.info('Development mode - allowing cron request without authentication');
     return true;
   }
   
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    // If no secret is configured, allow the request (but log warning)
-    logger.warn('CRON_SECRET not configured - allowing unauthenticated cron request');
-    return true;
+    // Fail securely - require authentication in production
+    logger.error('CRON_SECRET not configured - rejecting cron request for security');
+    return false;
   }
   
   const authHeader = request.headers.get('Authorization');

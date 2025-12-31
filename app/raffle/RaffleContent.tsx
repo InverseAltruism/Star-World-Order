@@ -714,7 +714,7 @@ export default function RaffleContent() {
   }, [fetchRaffles]);
   
   // Enter a specific raffle with optional engagement bonus
-  const handleEnterRaffle = async (raffleId: string, raffleName: string, discordBonus = false, engagementBonus = false) => {
+  const handleEnterRaffle = async (raffleId: string, raffleName: string, engagementBonus = false) => {
     if (!address) return;
     
     setEnteringRaffleId(raffleId);
@@ -728,7 +728,6 @@ export default function RaffleContent() {
           action: 'enter',
           walletAddress: address,
           raffleId,
-          discordBonus,
           engagementBonus,
         }),
       });
@@ -811,51 +810,162 @@ export default function RaffleContent() {
           </p>
         </div>
         
-        {/* Tier info */}
-        <div className="pixel-card p-6 mb-6">
-          <h2 className="text-[#9966ff] text-sm tracking-wider mb-4 text-center">🏆 HOLDER TIERS</h2>
-          {tierInfoDisplay}
-          <p className="text-gray-500 text-[10px] text-center mt-4">
-            More Star Skrumpeys = More entries per raffle!
-          </p>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 justify-center mb-6">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+              activeTab === 'active'
+                ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+                : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50'
+            }`}
+          >
+            🎟️ ACTIVE RAFFLES
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+              activeTab === 'history'
+                ? 'bg-[#9966ff]/20 border-[#9966ff] text-[#9966ff]'
+                : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#9966ff]/50'
+            }`}
+          >
+            📜 HISTORY
+          </button>
         </div>
         
-        {/* No raffle message */}
-        <div className="pixel-card p-8 text-center">
-          <div className="text-4xl mb-4">😴</div>
-          <h2 className="text-gray-400 text-lg mb-2">No Active Raffles</h2>
-          <p className="text-gray-500 text-xs mb-6">
-            Check back soon for the next cosmic drawing!
-          </p>
-          
-          {/* Past raffles */}
-          {pastRaffles.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-[#ffd700] text-sm mb-4">PAST RAFFLES</h3>
-              <div className="space-y-3">
-                {pastRaffles.map((raffle) => (
-                  <div 
-                    key={raffle.id}
-                    className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-white text-sm">{raffle.name}</span>
-                      <span className={`text-xs ${raffle.status === 'drawn' ? 'text-[#44ff88]' : 'text-gray-500'}`}>
-                        {raffle.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <p className="text-gray-400 text-[10px]">{raffle.prize_description}</p>
-                    {raffle.winner_address && (
-                      <p className="text-[#ffd700] text-[10px] mt-2">
-                        Winner: {raffle.winner_address.slice(0, 6)}...{raffle.winner_address.slice(-4)}
-                      </p>
-                    )}
-                  </div>
-                ))}
+        {/* Active Tab Content */}
+        {activeTab === 'active' && (
+          <>
+            {/* Tier info */}
+            <div className="pixel-card p-6 mb-6">
+              <h2 className="text-[#9966ff] text-sm tracking-wider mb-4 text-center">🏆 HOLDER TIERS</h2>
+              {tierInfoDisplay}
+              <p className="text-gray-500 text-[10px] text-center mt-4">
+                More Star Skrumpeys = More entries per raffle!
+              </p>
+            </div>
+            
+            {/* No raffle message */}
+            <div className="pixel-card p-8 text-center">
+              <div className="text-4xl mb-4">😴</div>
+              <h2 className="text-gray-400 text-lg mb-2">No Active Raffles</h2>
+              <p className="text-gray-500 text-xs">
+                Check back soon for the next cosmic drawing!
+              </p>
+            </div>
+          </>
+        )}
+        
+        {/* History Tab Content */}
+        {activeTab === 'history' && (
+          <>
+            {/* Verifiable Randomness Explanation */}
+            <div className="pixel-card p-6 mb-6 border-2 border-[#00ffff]/30">
+              <h2 className="text-[#00ffff] text-sm tracking-wider mb-3 text-center">
+                🔐 VERIFIABLE RANDOM SELECTION
+              </h2>
+              <div className="text-gray-400 text-[10px] space-y-2">
+                <p>
+                  Our raffle system uses <span className="text-[#00ffff]">cryptographically verifiable randomness</span> to ensure fair winner selection. Here&apos;s how it works:
+                </p>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
+                  <p className="text-[#ffd700] text-[9px] mb-2">SEED GENERATION:</p>
+                  <p className="font-mono text-[8px] text-gray-500 break-all">
+                    seed = blockHash + raffleId + timestamp + entryCount
+                  </p>
+                </div>
+                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
+                  <p className="text-[#ffd700] text-[9px] mb-2">WINNER SELECTION:</p>
+                  <p className="font-mono text-[8px] text-gray-500">
+                    1. SHA-256 hash of seed string<br/>
+                    2. First 4 bytes → 32-bit number<br/>
+                    3. winnerIndex = number % totalTickets
+                  </p>
+                </div>
+                <p className="text-[#44ff88] text-[9px] mt-2">
+                  ✓ Anyone can verify by reproducing the hash calculation with the published seed!
+                </p>
               </div>
             </div>
-          )}
-        </div>
+            
+            {/* Past Raffles List */}
+            <div className="pixel-card p-6">
+              <h2 className="text-[#9966ff] text-sm tracking-wider mb-4 text-center">
+                📜 PAST RAFFLES
+              </h2>
+              
+              {pastRaffles.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4 opacity-50">📜</div>
+                  <p className="text-gray-500 text-xs">No past raffles yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pastRaffles.map((raffle) => (
+                    <div 
+                      key={raffle.id}
+                      className={`p-4 rounded-lg border-2 ${
+                        raffle.status === 'drawn' 
+                          ? 'bg-[#ffd700]/5 border-[#ffd700]/30' 
+                          : 'bg-[#0a0a15] border-[#2a2a4e]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-white text-sm font-bold">{raffle.name}</h3>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          raffle.status === 'drawn' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
+                          raffle.status === 'ended' ? 'bg-[#9966ff]/20 text-[#9966ff]' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {raffle.status.toUpperCase()}
+                        </span>
+                      </div>
+                      
+                      <p className="text-gray-400 text-[10px] mb-3">{raffle.prize_description}</p>
+                      
+                      {/* Winner Info */}
+                      {raffle.status === 'drawn' && raffle.winner_address && (
+                        <div className="bg-[#ffd700]/10 rounded p-3 mb-3 border border-[#ffd700]/20">
+                          <p className="text-[#ffd700] text-[10px] mb-1">🏆 WINNER</p>
+                          <p className="text-white text-xs font-mono">
+                            {raffle.winner_address.slice(0, 8)}...{raffle.winner_address.slice(-6)}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Verification Seed */}
+                      {raffle.winner_draw_seed && (
+                        <details className="text-left">
+                          <summary className="cursor-pointer text-[#00ffff] text-[9px] hover:text-[#44ffff] transition-colors">
+                            🔒 View Verification Seed
+                          </summary>
+                          <div className="mt-2 bg-black/30 rounded p-2 border border-[#00ffff]/20">
+                            <p className="text-[#00ffff] text-[7px] font-mono break-all">
+                              {raffle.winner_draw_seed}
+                            </p>
+                            {raffle.winner_drawn_at && (
+                              <p className="text-gray-500 text-[8px] mt-1">
+                                Drawn: {new Date(raffle.winner_drawn_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </details>
+                      )}
+                      
+                      {/* Raffle timing */}
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a4e]">
+                        <p className="text-gray-600 text-[8px]">
+                          Ended: {new Date(raffle.end_time).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </>
     );
   }
@@ -1102,7 +1212,7 @@ export default function RaffleContent() {
                       1. Like & Retweet this tweet →
                     </a>
                     <button
-                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, true)}
+                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
                       disabled={enteringRaffleId === activeRaffle.id}
                       className="pixel-btn text-xs w-full"
                     >
@@ -1149,7 +1259,7 @@ export default function RaffleContent() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, false)}
+                      onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false)}
                       disabled={enteringRaffleId === activeRaffle.id}
                       className="pixel-btn pixel-btn-gold text-xs w-full mb-2"
                     >
@@ -1169,7 +1279,7 @@ export default function RaffleContent() {
                           1. Like & Retweet this tweet →
                         </a>
                         <button
-                          onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false, true)}
+                          onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, true)}
                           disabled={enteringRaffleId === activeRaffle.id}
                           className="pixel-btn text-xs w-full"
                         >
