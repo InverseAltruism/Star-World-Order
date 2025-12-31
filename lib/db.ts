@@ -3193,6 +3193,26 @@ export function getPastRaffles(limit: number = 10): Raffle[] {
 }
 
 /**
+ * Get raffles that need to be auto-drawn (active but ended, not yet drawn)
+ */
+export function getRafflesNeedingDraw(): Raffle[] {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare(`
+      SELECT * FROM raffles 
+      WHERE status = 'active' 
+      AND datetime(end_time) <= datetime('now')
+      AND winner_address IS NULL
+      ORDER BY end_time ASC
+    `);
+    return stmt.all() as Raffle[];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Enter a raffle
  */
 export function enterRaffle(data: {
