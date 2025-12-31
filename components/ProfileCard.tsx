@@ -588,9 +588,13 @@ export default function ProfileCard() {
   // Raffle history state
   const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
   const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
+  const [hasViewedRaffleHistory, setHasViewedRaffleHistory] = useState(false);
   
-  // Memoized count of won raffles for badge display
-  const wonRafflesCount = useMemo(() => raffleHistory.filter(r => r.won).length, [raffleHistory]);
+  // Memoized count of won raffles for badge display (only show if user hasn't viewed history)
+  const wonRafflesCount = useMemo(() => {
+    if (hasViewedRaffleHistory) return 0;
+    return raffleHistory.filter(r => r.won).length;
+  }, [raffleHistory, hasViewedRaffleHistory]);
 
   // Close modal handler
   const closeModal = useCallback(() => {
@@ -720,6 +724,13 @@ export default function ProfileCard() {
     }
   }, [address]);
   
+  // Fetch raffle history on mount to show badge in tab navigation
+  useEffect(() => {
+    if (address) {
+      fetchRaffleHistory();
+    }
+  }, [address, fetchRaffleHistory]);
+  
   // Load data when section changes
   useEffect(() => {
     if (!address) return;
@@ -737,6 +748,8 @@ export default function ProfileCard() {
         break;
       case 'raffles':
         fetchRaffleHistory();
+        // Mark as viewed when user clicks on raffles tab - badge will disappear
+        setHasViewedRaffleHistory(true);
         break;
     }
   }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
@@ -2337,18 +2350,12 @@ export default function ProfileCard() {
                     </div>
                     
                     {/* Bonuses */}
-                    {(entry.engagement_bonus > 0 || entry.discord_bonus > 0) && (
+                    {/* Bonuses - only show Like & RT now */}
+                    {entry.engagement_bonus > 0 && (
                       <div className="flex gap-2 mb-2">
-                        {entry.engagement_bonus > 0 && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
-                            +{entry.engagement_bonus} Like & RT
-                          </span>
-                        )}
-                        {entry.discord_bonus > 0 && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-[#5865F2]/20 text-[#7289DA] rounded">
-                            +{entry.discord_bonus} Discord
-                          </span>
-                        )}
+                        <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
+                          +{entry.engagement_bonus} Like & RT
+                        </span>
                       </div>
                     )}
                     
@@ -2360,6 +2367,9 @@ export default function ProfileCard() {
                         </p>
                         <p className="text-gray-500 text-[8px] text-center mt-1">
                           Drawn on {new Date(entry.raffle.winner_drawn_at).toLocaleString()}
+                        </p>
+                        <p className="text-gray-400 text-[8px] text-center mt-2 italic">
+                          Prizes will be sent manually. If we need any info from you, we will reach out.
                         </p>
                       </div>
                     )}

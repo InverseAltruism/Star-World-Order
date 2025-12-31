@@ -27,10 +27,51 @@ import {
   getUserRaffleEntries,
   checkSocialConnections,
   getRaffleEntriesForExport,
+  getRafflesNeedingDraw,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
 import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
+import { getResilientClient } from '@/lib/rpcClient';
+
+/**
+ * Auto-draw any ended raffles that need to be drawn
+ * This ensures winners are drawn even if the cron job hasn't run
+ */
+async function autoDrawEndedRaffles(): Promise<void> {
+  try {
+    const rafflesToDraw = getRafflesNeedingDraw();
+    
+    if (rafflesToDraw.length === 0) return;
+    
+    // Get a block hash for randomness
+    let blockHash: string;
+    try {
+      const client = await getResilientClient();
+      const block = await client.getBlock({ blockTag: 'latest' });
+      blockHash = block.hash || `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    } catch {
+      blockHash = `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    }
+    
+    // Draw each raffle
+    for (const raffle of rafflesToDraw) {
+      const entries = getRaffleEntries(raffle.id);
+      if (entries.length > 0) {
+        const result = drawRaffleWinner(raffle.id, blockHash);
+        if (result.success) {
+          logger.info('Auto-drew raffle winner', {
+            raffleId: raffle.id,
+            raffleName: raffle.name,
+            winner: result.winner?.wallet_address.slice(0, 10) + '...',
+          });
+        }
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to auto-draw raffles', { error: String(error) });
+  }
+}
 
 /**
  * GET /api/raffle
@@ -43,6 +84,9 @@ import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
  */
 export async function GET(request: NextRequest) {
   try {
+    // Auto-draw any ended raffles before fetching
+    await autoDrawEndedRaffles();
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const type = searchParams.get('type') || 'all';
