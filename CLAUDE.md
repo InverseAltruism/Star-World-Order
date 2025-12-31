@@ -903,6 +903,19 @@ hasViewedRaffleResult(raffleId: string, walletAddress: string): boolean
 markRaffleResultViewed(raffleId: string, walletAddress: string): void
 getUserRaffleEntries(walletAddress: string): UserRaffleHistory[]
 calculateHolderTier(starCount: number): HolderTier
+
+// Admin Functions
+getAllUsersWithSocialConnections(options?: { limit?, offset?, search? }): UserWithSocialData[]
+getUserCount(): number
+getAllNotifications(options?: { limit?, offset?, type? }): Notification[]
+getNotificationCount(): number
+updateNotification(notificationId: number, data: { title?, message?, type?, icon?, link? }): Notification | null
+getDatabaseStats(): DatabaseStats
+cleanupChatMessages(olderThanHours?: number): number
+cleanupOnlinePresence(olderThanMinutes?: number): number
+cleanupDirectMessages(olderThanDays?: number): number
+cleanupRaffleResultViews(olderThanDays?: number): number
+getDrawnRaffles(limit?: number): Raffle[]
 ```
 
 ### raffles
@@ -1401,6 +1414,48 @@ Notifications have two statuses:
 Click on a notification to mark it as read, or use "Mark all read" to clear all unread notifications.
 
 **Base URL**: `https://starworldorder.com` (production)
+
+### Admin API
+
+The Admin API provides administrative functions for site management. All endpoints require admin authentication via signed message.
+
+**Authentication:**
+All admin endpoints require the `x-admin-auth` header with format: `address:timestamp:signature`
+
+**GET /api/admin**
+
+Query parameters:
+- `action`: Action to perform
+  - `health` (default): Get system health status and cache statistics
+  - `notifications`: Get notifications for a specific wallet (requires `wallet` param)
+  - `allNotifications`: Get all notification history (params: `limit`, `offset`, `type`)
+  - `users`: Get all users with social connections (params: `limit`, `offset`, `search`)
+  - `dbStats`: Get database statistics
+  - `drawnRaffles`: Get drawn raffles with winners (params: `limit`)
+
+**POST /api/admin**
+
+Actions:
+- `clearCache`: Clear all BlockVision and Treasury caches
+- `createNotification`: Create a notification (body: `walletAddress` or 'GLOBAL', `type`, `title`, `message`, `link?`, `icon?`)
+- `deleteNotification`: Delete a notification (body: `notificationId`)
+- `updateNotification`: Update notification (body: `notificationId`, `title?`, `message?`, `type?`, `icon?`, `link?`)
+- `markAllRead`: Mark all notifications as read (body: `walletAddress`)
+- `cleanupNotifications`: Delete notifications older than 30 days
+- `broadcastNotification`: Send to multiple wallets (body: `walletAddresses[]`, `type`, `title`, `message`)
+- `cleanupChatMessages`: Delete chat messages (body: `olderThanHours`)
+- `cleanupOnlinePresence`: Delete stale presence (body: `olderThanMinutes`)
+- `cleanupDirectMessages`: Delete DMs (body: `olderThanDays`)
+- `cleanupRaffleResultViews`: Delete raffle views (body: `olderThanDays`)
+
+**Database Cleanup Functions:**
+
+| Action | Default | Description |
+|--------|---------|-------------|
+| `cleanupChatMessages` | 24 hours | Deletes chat messages older than specified hours |
+| `cleanupOnlinePresence` | 10 minutes | Deletes stale presence records |
+| `cleanupDirectMessages` | 90 days | Deletes direct messages older than specified days |
+| `cleanupRaffleResultViews` | 30 days | Deletes raffle result view records |
 
 ---
 
@@ -1915,7 +1970,8 @@ try {
 | `app/api/treasury/route.ts` | **Treasury API with Magic Eden NFT fetching and SQLite cache** |
 | `app/members/page.tsx` | Members page with holder analytics |
 | `app/members/MembersContent.tsx` | Members client component with friend requests and messaging from member profiles |
-| `app/admin_xyz/AdminContent.tsx` | Admin dashboard with cache management and global notifications |
+| `app/admin_xyz/AdminContent.tsx` | **Admin Dashboard** with tabbed interface: Health, Notifications (create, history, edit), Users (database viewer), Raffles (create, winners, manage), Database (stats and cleanup tools) |
+| `app/api/admin/route.ts` | **Admin API** - Cache management, notification CRUD, user database, cleanup tools |
 | `app/api/quests/route.ts` | Quest system API endpoints |
 | `app/api/user-xp/route.ts` | User XP API endpoints |
 | `app/api/notifications/route.ts` | Notification system API endpoints (supports global notifications) |

@@ -20,6 +20,17 @@ import {
   markAllNotificationsRead,
   NotificationType,
   cleanupOldNotifications,
+  getAllUsersWithSocialConnections,
+  getUserCount,
+  getAllNotifications,
+  getNotificationCount,
+  updateNotification,
+  getDatabaseStats,
+  cleanupChatMessages,
+  cleanupOnlinePresence,
+  cleanupDirectMessages,
+  cleanupRaffleResultViews,
+  getDrawnRaffles,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -143,6 +154,63 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         notifications,
+      });
+    }
+
+    // Get all notifications (notification history)
+    if (action === 'allNotifications') {
+      const limit = parseInt(searchParams.get('limit') || '100', 10);
+      const offset = parseInt(searchParams.get('offset') || '0', 10);
+      const type = searchParams.get('type') as NotificationType | null;
+      
+      const notifications = getAllNotifications({ 
+        limit, 
+        offset, 
+        type: type || undefined 
+      });
+      const totalCount = getNotificationCount();
+      
+      return NextResponse.json({
+        success: true,
+        notifications,
+        totalCount,
+      });
+    }
+
+    // Get all users with social connections
+    if (action === 'users') {
+      const limit = parseInt(searchParams.get('limit') || '100', 10);
+      const offset = parseInt(searchParams.get('offset') || '0', 10);
+      const search = searchParams.get('search') || undefined;
+      
+      const users = getAllUsersWithSocialConnections({ limit, offset, search });
+      const totalCount = getUserCount();
+      
+      return NextResponse.json({
+        success: true,
+        users,
+        totalCount,
+      });
+    }
+
+    // Get database statistics
+    if (action === 'dbStats') {
+      const stats = getDatabaseStats();
+      
+      return NextResponse.json({
+        success: true,
+        stats,
+      });
+    }
+
+    // Get drawn raffles with winners
+    if (action === 'drawnRaffles') {
+      const limit = parseInt(searchParams.get('limit') || '20', 10);
+      const raffles = getDrawnRaffles(limit);
+      
+      return NextResponse.json({
+        success: true,
+        raffles,
       });
     }
 
@@ -308,6 +376,87 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `Notification sent to ${walletAddresses.length} wallets`,
         notifications,
+      });
+    }
+
+    // Update an existing notification
+    if (action === 'updateNotification') {
+      const { notificationId, title, message, type, icon, link } = body;
+      
+      if (!notificationId) {
+        return NextResponse.json(
+          { success: false, error: 'Notification ID required' },
+          { status: 400 }
+        );
+      }
+
+      const notification = updateNotification(notificationId, {
+        title,
+        message,
+        type,
+        icon,
+        link,
+      });
+
+      if (!notification) {
+        return NextResponse.json(
+          { success: false, error: 'Failed to update notification' },
+          { status: 400 }
+        );
+      }
+
+      logger.info('Admin: Updated notification', { notificationId });
+      return NextResponse.json({
+        success: true,
+        notification,
+      });
+    }
+
+    // Cleanup chat messages
+    if (action === 'cleanupChatMessages') {
+      const { olderThanHours = 24 } = body;
+      const deleted = cleanupChatMessages(olderThanHours);
+      logger.info('Admin: Cleaned up chat messages', { deleted, olderThanHours });
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${deleted} chat messages older than ${olderThanHours} hours`,
+        deleted,
+      });
+    }
+
+    // Cleanup online presence
+    if (action === 'cleanupOnlinePresence') {
+      const { olderThanMinutes = 10 } = body;
+      const deleted = cleanupOnlinePresence(olderThanMinutes);
+      logger.info('Admin: Cleaned up online presence', { deleted, olderThanMinutes });
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${deleted} stale presence records older than ${olderThanMinutes} minutes`,
+        deleted,
+      });
+    }
+
+    // Cleanup direct messages
+    if (action === 'cleanupDirectMessages') {
+      const { olderThanDays = 90 } = body;
+      const deleted = cleanupDirectMessages(olderThanDays);
+      logger.info('Admin: Cleaned up direct messages', { deleted, olderThanDays });
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${deleted} direct messages older than ${olderThanDays} days`,
+        deleted,
+      });
+    }
+
+    // Cleanup raffle result views
+    if (action === 'cleanupRaffleResultViews') {
+      const { olderThanDays = 30 } = body;
+      const deleted = cleanupRaffleResultViews(olderThanDays);
+      logger.info('Admin: Cleaned up raffle result views', { deleted, olderThanDays });
+      return NextResponse.json({
+        success: true,
+        message: `Deleted ${deleted} raffle result views older than ${olderThanDays} days`,
+        deleted,
       });
     }
 
