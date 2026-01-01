@@ -74,6 +74,23 @@ interface UserData {
   level: number;
 }
 
+interface WinnerDetails {
+  wallet_address: string;
+  display_name: string | null;
+  bio: string | null;
+  discord_username: string | null;
+  discord_user_id: string | null;
+  x_username: string | null;
+  x_user_id: string | null;
+  total_xp: number;
+  level: number;
+  created_at: string;
+  // Raffle context
+  raffle_name?: string;
+  raffle_prize?: string;
+  raffle_date?: string | null;
+}
+
 interface DatabaseStats {
   users: number;
   notifications: number;
@@ -157,6 +174,10 @@ export default function AdminContent() {
   const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
   const [showDrawnRaffles, setShowDrawnRaffles] = useState(false);
+  
+  // Winner details modal state
+  const [selectedWinner, setSelectedWinner] = useState<WinnerDetails | null>(null);
+  const [isLoadingWinnerDetails, setIsLoadingWinnerDetails] = useState(false);
   
   // Check if connected wallet is admin
   const isAdminWallet = address?.toLowerCase() === ADMIN_WALLET;
@@ -566,6 +587,55 @@ export default function AdminContent() {
   }, [isAuthenticated, getAuthHeader]);
 
   /**
+   * Fetch winner details for a raffle
+   */
+  const fetchWinnerDetails = async (raffle: Raffle) => {
+    if (!raffle.winner_address) return;
+    
+    setIsLoadingWinnerDetails(true);
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch(`/api/admin?action=winnerDetails&wallet=${raffle.winner_address}`, {
+        headers: { 'x-admin-auth': authHeader },
+      });
+      const data = await response.json();
+      
+      if (data.success && data.winner) {
+        setSelectedWinner({
+          ...data.winner,
+          raffle_name: raffle.name,
+          raffle_prize: raffle.prize_description,
+          raffle_date: raffle.winner_drawn_at,
+        });
+      } else {
+        // Even if no profile exists, still show the wallet address
+        setSelectedWinner({
+          wallet_address: raffle.winner_address,
+          display_name: null,
+          bio: null,
+          discord_username: null,
+          discord_user_id: null,
+          x_username: null,
+          x_user_id: null,
+          total_xp: 0,
+          level: 1,
+          created_at: '',
+          raffle_name: raffle.name,
+          raffle_prize: raffle.prize_description,
+          raffle_date: raffle.winner_drawn_at,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch winner details:', error);
+      setActionResult({ success: false, message: 'Failed to load winner details' });
+    } finally {
+      setIsLoadingWinnerDetails(false);
+    }
+  };
+
+  /**
    * Cleanup database action
    */
   const runCleanupAction = async (action: string, params: Record<string, number> = {}) => {
@@ -875,6 +945,141 @@ export default function AdminContent() {
           }`}
         >
           <p className="text-xs">{actionResult.success ? '✓' : '✗'} {actionResult.message}</p>
+        </div>
+      )}
+
+      {/* Winner Details Modal */}
+      {selectedWinner && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-[#ffd700] text-sm tracking-wider">🏆 WINNER DETAILS</h3>
+              <button
+                onClick={() => setSelectedWinner(null)}
+                className="text-gray-500 hover:text-white text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            {isLoadingWinnerDetails ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-4 animate-spin">⭐</div>
+                <p className="text-gray-500 text-xs">Loading winner details...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Raffle Context */}
+                {selectedWinner.raffle_name && (
+                  <div className="bg-[#ffd700]/10 rounded-lg p-3 border border-[#ffd700]/30">
+                    <p className="text-[#ffd700] text-xs font-bold">{selectedWinner.raffle_name}</p>
+                    <p className="text-gray-400 text-[10px]">Prize: {selectedWinner.raffle_prize}</p>
+                    {selectedWinner.raffle_date && (
+                      <p className="text-gray-500 text-[10px]">
+                        Won: {new Date(selectedWinner.raffle_date).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Full Wallet Address */}
+                <div className="bg-[#1a1a2e] rounded-lg p-3">
+                  <p className="text-gray-500 text-[10px] mb-1">WALLET ADDRESS</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[#00ffff] text-xs font-mono break-all flex-1">
+                      {selectedWinner.wallet_address}
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedWinner.wallet_address);
+                        setActionResult({ success: true, message: 'Address copied!' });
+                      }}
+                      className="text-[#00ffff] hover:text-[#44ffff] text-xs"
+                      title="Copy address"
+                    >
+                      📋
+                    </button>
+                  </div>
+                </div>
+
+                {/* Display Name & Profile */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#1a1a2e] rounded-lg p-3">
+                    <p className="text-gray-500 text-[10px] mb-1">DISPLAY NAME</p>
+                    <p className="text-white text-xs">
+                      {selectedWinner.display_name || <span className="text-gray-600">Not set</span>}
+                    </p>
+                  </div>
+                  <div className="bg-[#1a1a2e] rounded-lg p-3">
+                    <p className="text-gray-500 text-[10px] mb-1">LEVEL</p>
+                    <p className="text-[#ffd700] text-xs">
+                      Level {selectedWinner.level} ({selectedWinner.total_xp} XP)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Social Connections */}
+                <div className="bg-[#1a1a2e] rounded-lg p-3">
+                  <p className="text-gray-500 text-[10px] mb-2">SOCIAL CONNECTIONS</p>
+                  <div className="space-y-2">
+                    {/* X (Twitter) */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-xs">𝕏 X (Twitter)</span>
+                      {selectedWinner.x_username ? (
+                        <a
+                          href={`https://x.com/${selectedWinner.x_username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#00ffff] text-xs hover:underline"
+                        >
+                          @{selectedWinner.x_username} ↗
+                        </a>
+                      ) : (
+                        <span className="text-gray-600 text-xs">Not linked</span>
+                      )}
+                    </div>
+                    {/* Discord */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-xs">💬 Discord</span>
+                      {selectedWinner.discord_username ? (
+                        <span className="text-[#7289da] text-xs">
+                          {selectedWinner.discord_username}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600 text-xs">Not linked</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio */}
+                {selectedWinner.bio && (
+                  <div className="bg-[#1a1a2e] rounded-lg p-3">
+                    <p className="text-gray-500 text-[10px] mb-1">BIO</p>
+                    <p className="text-gray-300 text-xs">{selectedWinner.bio}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <a
+                    href={`https://monadscan.com/address/${selectedWinner.wallet_address}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 pixel-btn text-xs text-center !py-2 !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff]"
+                  >
+                    View on Explorer ↗
+                  </a>
+                  <button
+                    onClick={() => setSelectedWinner(null)}
+                    className="flex-1 pixel-btn text-xs !py-2 !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1310,23 +1515,29 @@ export default function AdminContent() {
         {drawnRaffles.length > 0 && (
           <div className="mb-6 p-4 bg-[#ffd700]/10 rounded-lg border-2 border-[#ffd700]/30">
             <h3 className="text-[#ffd700] text-xs mb-3">🏆 RAFFLE WINNERS ({drawnRaffles.length})</h3>
+            <p className="text-gray-500 text-[9px] mb-2">Click on a winner to see full details</p>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {drawnRaffles.map((raffle) => (
-                <div key={raffle.id} className="flex items-center justify-between p-2 bg-black/30 rounded">
+                <div 
+                  key={raffle.id} 
+                  className="flex items-center justify-between p-2 bg-black/30 rounded hover:bg-black/50 cursor-pointer transition-colors"
+                  onClick={() => fetchWinnerDetails(raffle)}
+                >
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-[10px] font-bold truncate">{raffle.name}</p>
                     <p className="text-gray-400 text-[9px] truncate">{raffle.prize_description}</p>
                   </div>
                   <div className="text-right ml-2">
-                    <p className="text-[#ffd700] text-[10px] font-mono">
-                      {raffle.winner_address?.slice(0, 6)}...{raffle.winner_address?.slice(-4)}
+                    <p className="text-[#ffd700] text-[10px] font-mono hover:text-[#ffea80] transition-colors">
+                      {raffle.winner_address?.slice(0, 6)}...{raffle.winner_address?.slice(-4)} →
                     </p>
                     <p className="text-gray-500 text-[8px]">
                       {raffle.winner_drawn_at ? new Date(raffle.winner_drawn_at).toLocaleDateString() : ''}
                     </p>
                   </div>
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent opening modal when copying
                       if (raffle.winner_address) {
                         navigator.clipboard.writeText(raffle.winner_address);
                         setActionResult({ success: true, message: 'Winner address copied!' });

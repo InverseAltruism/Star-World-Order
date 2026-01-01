@@ -405,6 +405,120 @@ function initializeDatabase(database: Database.Database): void {
       ('gold', '0', 0, '0', '0')
   `);
 
+  // ============================================================
+  // GOVERNANCE TABLES (Web2 Database-backed)
+  // ============================================================
+  
+  // Governance proposals table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS governance_proposals (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      proposer_address TEXT NOT NULL,
+      state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'active', 'defeated', 'succeeded', 'executed', 'cancelled')),
+      for_votes INTEGER NOT NULL DEFAULT 0,
+      against_votes INTEGER NOT NULL DEFAULT 0,
+      quorum INTEGER NOT NULL DEFAULT 10,
+      voting_duration_weeks INTEGER NOT NULL DEFAULT 1,
+      start_time DATETIME,
+      end_time DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      executed_at DATETIME,
+      cancelled_at DATETIME
+    )
+  `);
+
+  // Governance votes table - tracks who voted on what
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS governance_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proposal_id TEXT NOT NULL,
+      voter_address TEXT NOT NULL,
+      support INTEGER NOT NULL,
+      voting_power INTEGER NOT NULL DEFAULT 1,
+      reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(proposal_id, voter_address),
+      FOREIGN KEY (proposal_id) REFERENCES governance_proposals(id)
+    )
+  `);
+
+  // Governance indexes
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_governance_proposals_state ON governance_proposals(state, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_governance_proposals_proposer ON governance_proposals(proposer_address);
+    CREATE INDEX IF NOT EXISTS idx_governance_votes_proposal ON governance_votes(proposal_id);
+    CREATE INDEX IF NOT EXISTS idx_governance_votes_voter ON governance_votes(voter_address);
+  `);
+
+  // ============================================================
+  // FORUM TABLES (Database-backed with likes and edits)
+  // ============================================================
+
+  // Forum threads table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS forum_threads (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      original_content TEXT,
+      author_address TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('general', 'proposals', 'ideas', 'support', 'announcements')),
+      proposal_id TEXT,
+      pinned INTEGER NOT NULL DEFAULT 0,
+      locked INTEGER NOT NULL DEFAULT 0,
+      likes_count INTEGER NOT NULL DEFAULT 0,
+      dislikes_count INTEGER NOT NULL DEFAULT 0,
+      is_edited INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      edited_at DATETIME,
+      FOREIGN KEY (proposal_id) REFERENCES governance_proposals(id)
+    )
+  `);
+
+  // Forum replies table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS forum_replies (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      original_content TEXT,
+      author_address TEXT NOT NULL,
+      likes_count INTEGER NOT NULL DEFAULT 0,
+      dislikes_count INTEGER NOT NULL DEFAULT 0,
+      is_edited INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      edited_at DATETIME,
+      FOREIGN KEY (thread_id) REFERENCES forum_threads(id)
+    )
+  `);
+
+  // Forum likes table - tracks who liked/disliked what
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS forum_likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_address TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      target_type TEXT NOT NULL CHECK (target_type IN ('thread', 'reply')),
+      like_type TEXT NOT NULL CHECK (like_type IN ('like', 'dislike')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_address, target_id, target_type)
+    )
+  `);
+
+  // Forum indexes
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_category ON forum_threads(category, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads(author_address);
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_pinned ON forum_threads(pinned DESC, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_forum_replies_thread ON forum_replies(thread_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_forum_replies_author ON forum_replies(author_address);
+    CREATE INDEX IF NOT EXISTS idx_forum_likes_user ON forum_likes(user_address);
+    CREATE INDEX IF NOT EXISTS idx_forum_likes_target ON forum_likes(target_id, target_type);
+  `);
+
   // Insert default quests if none exist
   insertDefaultQuests(database);
 }
@@ -3978,5 +4092,697 @@ export function getDrawnRaffles(limit: number = 20): Raffle[] {
     return stmt.all(limit) as Raffle[];
   } catch {
     return [];
+  }
+}
+
+/**
+ * Get raffle winner with full user details (admin function)
+ */
+export function getRaffleWinnerDetails(walletAddress: string): {
+  wallet_address: string;
+  display_name: string | null;
+  bio: string | null;
+  discord_username: string | null;
+  discord_user_id: string | null;
+  x_username: string | null;
+  x_user_id: string | null;
+  total_xp: number;
+  level: number;
+  created_at: string;
+} | null {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare(`
+      SELECT 
+        COALESCE(p.wallet_address, ?) as wallet_address,
+        p.display_name,
+        p.bio,
+        sd.username as discord_username,
+        sd.platform_user_id as discord_user_id,
+        sx.username as x_username,
+        sx.platform_user_id as x_user_id,
+        COALESCE(x.total_xp, 0) as total_xp,
+        COALESCE(x.level, 1) as level,
+        COALESCE(p.created_at, datetime('now')) as created_at
+      FROM (SELECT ? as addr) t
+      LEFT JOIN user_profiles p ON p.wallet_address = t.addr
+      LEFT JOIN social_connections sd ON t.addr = sd.wallet_address AND sd.platform = 'discord'
+      LEFT JOIN social_connections sx ON t.addr = sx.wallet_address AND sx.platform = 'x'
+      LEFT JOIN user_xp x ON t.addr = x.wallet_address
+    `);
+    
+    const result = stmt.get(walletAddress.toLowerCase(), walletAddress.toLowerCase());
+    return result as {
+      wallet_address: string;
+      display_name: string | null;
+      bio: string | null;
+      discord_username: string | null;
+      discord_user_id: string | null;
+      x_username: string | null;
+      x_user_id: string | null;
+      total_xp: number;
+      level: number;
+      created_at: string;
+    } | null;
+  } catch (error) {
+    console.error('Error getting raffle winner details:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// Governance System Database Functions (Web2 Style)
+// ============================================================================
+
+export type ProposalStateDB = 'pending' | 'active' | 'defeated' | 'succeeded' | 'executed' | 'cancelled';
+
+export interface GovernanceProposal {
+  id: string;
+  title: string;
+  description: string;
+  proposer_address: string;
+  state: ProposalStateDB;
+  for_votes: number;
+  against_votes: number;
+  quorum: number;
+  voting_duration_weeks: number;
+  start_time: string | null;
+  end_time: string | null;
+  created_at: string;
+  executed_at: string | null;
+  cancelled_at: string | null;
+}
+
+export interface GovernanceVote {
+  id: number;
+  proposal_id: string;
+  voter_address: string;
+  support: number; // 1 = for, 0 = against
+  voting_power: number;
+  reason: string | null;
+  created_at: string;
+}
+
+/**
+ * Create a new governance proposal
+ */
+export function createGovernanceProposal(data: {
+  title: string;
+  description: string;
+  proposerAddress: string;
+  votingDurationWeeks?: number;
+  quorum?: number;
+}): GovernanceProposal {
+  const db = getDatabase();
+  
+  const id = `prop-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const now = new Date();
+  const endTime = new Date(now.getTime() + (data.votingDurationWeeks || 1) * 7 * 24 * 60 * 60 * 1000);
+  
+  const stmt = db.prepare(`
+    INSERT INTO governance_proposals (id, title, description, proposer_address, state, voting_duration_weeks, quorum, start_time, end_time)
+    VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?)
+  `);
+  
+  stmt.run(
+    id,
+    data.title,
+    data.description,
+    data.proposerAddress.toLowerCase(),
+    data.votingDurationWeeks || 1,
+    data.quorum || 10,
+    now.toISOString(),
+    endTime.toISOString()
+  );
+  
+  const getStmt = db.prepare('SELECT * FROM governance_proposals WHERE id = ?');
+  return getStmt.get(id) as GovernanceProposal;
+}
+
+/**
+ * Get all governance proposals
+ */
+export function getGovernanceProposals(options?: {
+  state?: ProposalStateDB;
+  limit?: number;
+  offset?: number;
+}): GovernanceProposal[] {
+  const db = getDatabase();
+  const limit = options?.limit || 100;
+  const offset = options?.offset || 0;
+  
+  try {
+    let query = 'SELECT * FROM governance_proposals';
+    const params: (string | number)[] = [];
+    
+    if (options?.state) {
+      query += ' WHERE state = ?';
+      params.push(options.state);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+    
+    const stmt = db.prepare(query);
+    const proposals = stmt.all(...params) as GovernanceProposal[];
+    
+    // Check if any active proposals have expired and update their state
+    const now = new Date();
+    for (const proposal of proposals) {
+      if (proposal.state === 'active' && proposal.end_time) {
+        const endTime = new Date(proposal.end_time);
+        if (now > endTime) {
+          // Auto-update expired proposals
+          const newState = proposal.for_votes > proposal.against_votes ? 'succeeded' : 'defeated';
+          updateGovernanceProposalState(proposal.id, newState);
+          proposal.state = newState;
+        }
+      }
+    }
+    
+    return proposals;
+  } catch (error) {
+    console.error('Error getting governance proposals:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a single governance proposal by ID
+ */
+export function getGovernanceProposalById(proposalId: string): GovernanceProposal | null {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM governance_proposals WHERE id = ?');
+    const proposal = stmt.get(proposalId) as GovernanceProposal | undefined;
+    
+    if (proposal && proposal.state === 'active' && proposal.end_time) {
+      const now = new Date();
+      const endTime = new Date(proposal.end_time);
+      if (now > endTime) {
+        const newState = proposal.for_votes > proposal.against_votes ? 'succeeded' : 'defeated';
+        updateGovernanceProposalState(proposal.id, newState);
+        proposal.state = newState;
+      }
+    }
+    
+    return proposal || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Update governance proposal state
+ */
+export function updateGovernanceProposalState(proposalId: string, newState: ProposalStateDB): boolean {
+  const db = getDatabase();
+  
+  try {
+    let query = 'UPDATE governance_proposals SET state = ?';
+    const params: (string | null)[] = [newState];
+    
+    if (newState === 'executed') {
+      query += ', executed_at = ?';
+      params.push(new Date().toISOString());
+    } else if (newState === 'cancelled') {
+      query += ', cancelled_at = ?';
+      params.push(new Date().toISOString());
+    }
+    
+    query += ' WHERE id = ?';
+    params.push(proposalId);
+    
+    const stmt = db.prepare(query);
+    const result = stmt.run(...params);
+    return result.changes > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cast a vote on a governance proposal
+ * Returns error if user already voted
+ */
+export function castGovernanceVote(data: {
+  proposalId: string;
+  voterAddress: string;
+  support: boolean;
+  votingPower: number;
+  reason?: string;
+}): { success: boolean; error?: string; vote?: GovernanceVote } {
+  const db = getDatabase();
+  
+  try {
+    // Check if proposal exists and is active
+    const proposal = getGovernanceProposalById(data.proposalId);
+    if (!proposal) {
+      return { success: false, error: 'Proposal not found' };
+    }
+    if (proposal.state !== 'active') {
+      return { success: false, error: 'Proposal is not active for voting' };
+    }
+    
+    // Check if user already voted
+    const checkStmt = db.prepare('SELECT id FROM governance_votes WHERE proposal_id = ? AND voter_address = ?');
+    const existingVote = checkStmt.get(data.proposalId, data.voterAddress.toLowerCase());
+    if (existingVote) {
+      return { success: false, error: 'You have already voted on this proposal' };
+    }
+    
+    // Insert vote
+    const insertStmt = db.prepare(`
+      INSERT INTO governance_votes (proposal_id, voter_address, support, voting_power, reason)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = insertStmt.run(
+      data.proposalId,
+      data.voterAddress.toLowerCase(),
+      data.support ? 1 : 0,
+      data.votingPower,
+      data.reason || null
+    );
+    
+    // Update proposal vote counts
+    const updateStmt = data.support 
+      ? db.prepare('UPDATE governance_proposals SET for_votes = for_votes + ? WHERE id = ?')
+      : db.prepare('UPDATE governance_proposals SET against_votes = against_votes + ? WHERE id = ?');
+    updateStmt.run(data.votingPower, data.proposalId);
+    
+    // Get the inserted vote
+    const getStmt = db.prepare('SELECT * FROM governance_votes WHERE id = ?');
+    const vote = getStmt.get(result.lastInsertRowid) as GovernanceVote;
+    
+    return { success: true, vote };
+  } catch (error) {
+    console.error('Error casting governance vote:', error);
+    return { success: false, error: 'Failed to cast vote' };
+  }
+}
+
+/**
+ * Get votes for a proposal
+ */
+export function getGovernanceVotes(proposalId: string): GovernanceVote[] {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM governance_votes WHERE proposal_id = ? ORDER BY created_at DESC');
+    return stmt.all(proposalId) as GovernanceVote[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Check if user has voted on a proposal
+ */
+export function hasUserVotedOnProposal(proposalId: string, voterAddress: string): boolean {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT id FROM governance_votes WHERE proposal_id = ? AND voter_address = ?');
+    const result = stmt.get(proposalId, voterAddress.toLowerCase());
+    return !!result;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get user's vote on a proposal
+ */
+export function getUserVoteOnProposal(proposalId: string, voterAddress: string): GovernanceVote | null {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM governance_votes WHERE proposal_id = ? AND voter_address = ?');
+    return stmt.get(proposalId, voterAddress.toLowerCase()) as GovernanceVote | null;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// Forum System Database Functions (with likes and edits)
+// ============================================================================
+
+export type ForumCategory = 'general' | 'proposals' | 'ideas' | 'support' | 'announcements';
+
+export interface ForumThreadDB {
+  id: string;
+  title: string;
+  content: string;
+  original_content: string | null;
+  author_address: string;
+  category: ForumCategory;
+  proposal_id: string | null;
+  pinned: number;
+  locked: number;
+  likes_count: number;
+  dislikes_count: number;
+  is_edited: number;
+  created_at: string;
+  updated_at: string;
+  edited_at: string | null;
+}
+
+export interface ForumReplyDB {
+  id: string;
+  thread_id: string;
+  content: string;
+  original_content: string | null;
+  author_address: string;
+  likes_count: number;
+  dislikes_count: number;
+  is_edited: number;
+  created_at: string;
+  edited_at: string | null;
+}
+
+export interface ForumLike {
+  id: number;
+  user_address: string;
+  target_id: string;
+  target_type: 'thread' | 'reply';
+  like_type: 'like' | 'dislike';
+  created_at: string;
+}
+
+/**
+ * Create a new forum thread
+ */
+export function createForumThread(data: {
+  title: string;
+  content: string;
+  authorAddress: string;
+  category: ForumCategory;
+  proposalId?: string;
+}): ForumThreadDB {
+  const db = getDatabase();
+  
+  const id = `thread-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  
+  const stmt = db.prepare(`
+    INSERT INTO forum_threads (id, title, content, author_address, category, proposal_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  
+  stmt.run(
+    id,
+    data.title,
+    data.content,
+    data.authorAddress.toLowerCase(),
+    data.category,
+    data.proposalId || null
+  );
+  
+  const getStmt = db.prepare('SELECT * FROM forum_threads WHERE id = ?');
+  return getStmt.get(id) as ForumThreadDB;
+}
+
+/**
+ * Get all forum threads
+ */
+export function getForumThreads(options?: {
+  category?: ForumCategory;
+  limit?: number;
+  offset?: number;
+}): ForumThreadDB[] {
+  const db = getDatabase();
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
+  
+  try {
+    let query = 'SELECT * FROM forum_threads';
+    const params: (string | number)[] = [];
+    
+    if (options?.category) {
+      query += ' WHERE category = ?';
+      params.push(options.category);
+    }
+    
+    query += ' ORDER BY pinned DESC, updated_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+    
+    const stmt = db.prepare(query);
+    return stmt.all(...params) as ForumThreadDB[];
+  } catch (error) {
+    console.error('Error getting forum threads:', error);
+    return [];
+  }
+}
+
+/**
+ * Get a forum thread by ID with replies
+ */
+export function getForumThreadById(threadId: string): ForumThreadDB | null {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM forum_threads WHERE id = ?');
+    return stmt.get(threadId) as ForumThreadDB | null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get replies for a thread
+ */
+export function getForumReplies(threadId: string): ForumReplyDB[] {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM forum_replies WHERE thread_id = ? ORDER BY created_at ASC');
+    return stmt.all(threadId) as ForumReplyDB[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Add a reply to a thread
+ */
+export function addForumReply(data: {
+  threadId: string;
+  content: string;
+  authorAddress: string;
+}): { success: boolean; error?: string; reply?: ForumReplyDB } {
+  const db = getDatabase();
+  
+  try {
+    // Check if thread exists and is not locked
+    const thread = getForumThreadById(data.threadId);
+    if (!thread) {
+      return { success: false, error: 'Thread not found' };
+    }
+    if (thread.locked) {
+      return { success: false, error: 'Thread is locked' };
+    }
+    
+    const id = `reply-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    
+    const insertStmt = db.prepare(`
+      INSERT INTO forum_replies (id, thread_id, content, author_address)
+      VALUES (?, ?, ?, ?)
+    `);
+    insertStmt.run(id, data.threadId, data.content, data.authorAddress.toLowerCase());
+    
+    // Update thread updated_at
+    const updateStmt = db.prepare('UPDATE forum_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+    updateStmt.run(data.threadId);
+    
+    const getStmt = db.prepare('SELECT * FROM forum_replies WHERE id = ?');
+    const reply = getStmt.get(id) as ForumReplyDB;
+    
+    return { success: true, reply };
+  } catch (error) {
+    console.error('Error adding forum reply:', error);
+    return { success: false, error: 'Failed to add reply' };
+  }
+}
+
+/**
+ * Edit a forum thread (only by author)
+ */
+export function editForumThread(data: {
+  threadId: string;
+  newContent: string;
+  authorAddress: string;
+}): { success: boolean; error?: string; thread?: ForumThreadDB } {
+  const db = getDatabase();
+  
+  try {
+    const thread = getForumThreadById(data.threadId);
+    if (!thread) {
+      return { success: false, error: 'Thread not found' };
+    }
+    if (thread.author_address.toLowerCase() !== data.authorAddress.toLowerCase()) {
+      return { success: false, error: 'Only the author can edit this thread' };
+    }
+    
+    // Store original content if first edit
+    const originalContent = thread.is_edited === 0 ? thread.content : thread.original_content;
+    
+    const stmt = db.prepare(`
+      UPDATE forum_threads 
+      SET content = ?, original_content = ?, is_edited = 1, edited_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(data.newContent, originalContent, data.threadId);
+    
+    const updatedThread = getForumThreadById(data.threadId);
+    return { success: true, thread: updatedThread || undefined };
+  } catch (error) {
+    console.error('Error editing forum thread:', error);
+    return { success: false, error: 'Failed to edit thread' };
+  }
+}
+
+/**
+ * Edit a forum reply (only by author)
+ */
+export function editForumReply(data: {
+  replyId: string;
+  newContent: string;
+  authorAddress: string;
+}): { success: boolean; error?: string; reply?: ForumReplyDB } {
+  const db = getDatabase();
+  
+  try {
+    const getStmt = db.prepare('SELECT * FROM forum_replies WHERE id = ?');
+    const reply = getStmt.get(data.replyId) as ForumReplyDB | undefined;
+    
+    if (!reply) {
+      return { success: false, error: 'Reply not found' };
+    }
+    if (reply.author_address.toLowerCase() !== data.authorAddress.toLowerCase()) {
+      return { success: false, error: 'Only the author can edit this reply' };
+    }
+    
+    // Store original content if first edit
+    const originalContent = reply.is_edited === 0 ? reply.content : reply.original_content;
+    
+    const updateStmt = db.prepare(`
+      UPDATE forum_replies 
+      SET content = ?, original_content = ?, is_edited = 1, edited_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    updateStmt.run(data.newContent, originalContent, data.replyId);
+    
+    const updatedReply = db.prepare('SELECT * FROM forum_replies WHERE id = ?').get(data.replyId) as ForumReplyDB;
+    return { success: true, reply: updatedReply };
+  } catch (error) {
+    console.error('Error editing forum reply:', error);
+    return { success: false, error: 'Failed to edit reply' };
+  }
+}
+
+/**
+ * Like or dislike a thread/reply
+ */
+export function toggleForumLike(data: {
+  userAddress: string;
+  targetId: string;
+  targetType: 'thread' | 'reply';
+  likeType: 'like' | 'dislike';
+}): { success: boolean; action: 'added' | 'removed' | 'changed'; error?: string } {
+  const db = getDatabase();
+  
+  try {
+    // Check if user already has a like/dislike on this target
+    const checkStmt = db.prepare('SELECT * FROM forum_likes WHERE user_address = ? AND target_id = ? AND target_type = ?');
+    const existingLike = checkStmt.get(data.userAddress.toLowerCase(), data.targetId, data.targetType) as ForumLike | undefined;
+    
+    const tableName = data.targetType === 'thread' ? 'forum_threads' : 'forum_replies';
+    
+    if (existingLike) {
+      if (existingLike.like_type === data.likeType) {
+        // Remove existing like/dislike
+        const deleteStmt = db.prepare('DELETE FROM forum_likes WHERE id = ?');
+        deleteStmt.run(existingLike.id);
+        
+        // Decrement count
+        const column = data.likeType === 'like' ? 'likes_count' : 'dislikes_count';
+        const updateStmt = db.prepare(`UPDATE ${tableName} SET ${column} = ${column} - 1 WHERE id = ?`);
+        updateStmt.run(data.targetId);
+        
+        return { success: true, action: 'removed' };
+      } else {
+        // Change from like to dislike or vice versa
+        const updateLikeStmt = db.prepare('UPDATE forum_likes SET like_type = ? WHERE id = ?');
+        updateLikeStmt.run(data.likeType, existingLike.id);
+        
+        // Update counts (decrement old, increment new)
+        const oldColumn = existingLike.like_type === 'like' ? 'likes_count' : 'dislikes_count';
+        const newColumn = data.likeType === 'like' ? 'likes_count' : 'dislikes_count';
+        const updateStmt = db.prepare(`UPDATE ${tableName} SET ${oldColumn} = ${oldColumn} - 1, ${newColumn} = ${newColumn} + 1 WHERE id = ?`);
+        updateStmt.run(data.targetId);
+        
+        return { success: true, action: 'changed' };
+      }
+    } else {
+      // Add new like/dislike
+      const insertStmt = db.prepare(`
+        INSERT INTO forum_likes (user_address, target_id, target_type, like_type)
+        VALUES (?, ?, ?, ?)
+      `);
+      insertStmt.run(data.userAddress.toLowerCase(), data.targetId, data.targetType, data.likeType);
+      
+      // Increment count
+      const column = data.likeType === 'like' ? 'likes_count' : 'dislikes_count';
+      const updateStmt = db.prepare(`UPDATE ${tableName} SET ${column} = ${column} + 1 WHERE id = ?`);
+      updateStmt.run(data.targetId);
+      
+      return { success: true, action: 'added' };
+    }
+  } catch (error) {
+    console.error('Error toggling forum like:', error);
+    return { success: false, action: 'added', error: 'Failed to toggle like' };
+  }
+}
+
+/**
+ * Get user's like status on a target
+ */
+export function getUserLikeStatus(userAddress: string, targetId: string, targetType: 'thread' | 'reply'): ForumLike | null {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('SELECT * FROM forum_likes WHERE user_address = ? AND target_id = ? AND target_type = ?');
+    return stmt.get(userAddress.toLowerCase(), targetId, targetType) as ForumLike | null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get multiple like statuses for a user (for threads list)
+ */
+export function getUserLikeStatuses(userAddress: string, targetIds: string[], targetType: 'thread' | 'reply'): Map<string, ForumLike> {
+  const db = getDatabase();
+  const result = new Map<string, ForumLike>();
+  
+  if (targetIds.length === 0) return result;
+  
+  try {
+    const placeholders = targetIds.map(() => '?').join(',');
+    const stmt = db.prepare(`
+      SELECT * FROM forum_likes 
+      WHERE user_address = ? AND target_type = ? AND target_id IN (${placeholders})
+    `);
+    const likes = stmt.all(userAddress.toLowerCase(), targetType, ...targetIds) as ForumLike[];
+    
+    for (const like of likes) {
+      result.set(like.target_id, like);
+    }
+    
+    return result;
+  } catch {
+    return result;
   }
 }
