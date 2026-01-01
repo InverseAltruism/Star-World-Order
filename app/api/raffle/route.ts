@@ -96,9 +96,21 @@ export async function GET(request: NextRequest) {
     // Handle user raffle history
     if (type === 'history' && address) {
       const entries = getUserRaffleEntries(address);
+      
+      // Add hasViewed flag for each won raffle
+      const entriesWithViewedStatus = entries.map(entry => ({
+        ...entry,
+        // Only check hasViewed for raffles the user won
+        hasViewed: entry.won ? hasViewedRaffleResult(entry.raffle_id, address) : true,
+      }));
+      
+      // Count unviewed won raffles
+      const unviewedWonCount = entriesWithViewedStatus.filter(e => e.won && !e.hasViewed).length;
+      
       return NextResponse.json({
         success: true,
-        entries,
+        entries: entriesWithViewedStatus,
+        unviewedWonCount,
       });
     }
     

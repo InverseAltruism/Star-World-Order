@@ -128,6 +128,7 @@ export interface ForumThread {
   title: string;
   content: string;
   author: string;
+  authorAddress?: string; // Full author address for ownership checks
   createdAt: number;
   updatedAt: number;
   replies: ForumReply[];
@@ -150,6 +151,7 @@ export interface ForumReply {
   threadId: string;
   content: string;
   author: string;
+  authorAddress?: string; // Full author address for ownership checks
   createdAt: number;
   likes: number;
   // Extended fields for database-backed forum

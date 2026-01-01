@@ -107,6 +107,56 @@ interface DatabaseStats {
 type AdminTab = 'health' | 'notifications' | 'users' | 'raffles' | 'database';
 
 /**
+ * Cleanup Card Component with dropdown time period selector
+ */
+function CleanupCard({
+  icon,
+  title,
+  color,
+  options,
+  onCleanup,
+  useDays = false,
+}: {
+  icon: string;
+  title: string;
+  color: string;
+  options: Array<{ label: string; hours?: number; days?: number }>;
+  onCleanup: (value: number) => void;
+  useDays?: boolean;
+}) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  
+  const handleCleanup = () => {
+    const option = options[selectedIndex];
+    const value = useDays ? option.days! : option.hours!;
+    onCleanup(value);
+  };
+  
+  return (
+    <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
+      <h4 className="text-xs mb-2" style={{ color }}>{icon} {title}</h4>
+      <div className="flex gap-2 mb-3">
+        <select
+          value={selectedIndex}
+          onChange={(e) => setSelectedIndex(parseInt(e.target.value))}
+          className="flex-1 bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-[10px] text-white cursor-pointer"
+        >
+          {options.map((opt, idx) => (
+            <option key={idx} value={idx}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
+      <button
+        onClick={handleCleanup}
+        className="pixel-btn text-[10px] w-full"
+      >
+        CLEANUP ({options[selectedIndex].label})
+      </button>
+    </div>
+  );
+}
+
+/**
  * Admin Content Component
  * 
  * Provides admin dashboard with:
@@ -1870,17 +1920,22 @@ export default function AdminContent() {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                <h4 className="text-[#44ff88] text-xs mb-2">💬 Chat Messages</h4>
-                <p className="text-gray-500 text-[9px] mb-3">Delete chat messages older than 24 hours</p>
-                <button
-                  onClick={() => runCleanupAction('cleanupChatMessages', { olderThanHours: 24 })}
-                  className="pixel-btn text-[10px] w-full"
-                >
-                  CLEANUP CHAT
-                </button>
-              </div>
+              {/* Chat Messages Cleanup */}
+              <CleanupCard
+                icon="💬"
+                title="Chat Messages"
+                color="#44ff88"
+                options={[
+                  { label: '1 Day', hours: 24 },
+                  { label: '3 Days', hours: 72 },
+                  { label: '7 Days', hours: 168 },
+                  { label: '14 Days', hours: 336 },
+                  { label: '30 Days', hours: 720 },
+                ]}
+                onCleanup={(hours) => runCleanupAction('cleanupChatMessages', { olderThanHours: hours })}
+              />
 
+              {/* Online Presence Cleanup */}
               <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
                 <h4 className="text-[#9966ff] text-xs mb-2">👤 Online Presence</h4>
                 <p className="text-gray-500 text-[9px] mb-3">Delete stale presence records (10+ minutes old)</p>
@@ -1892,38 +1947,69 @@ export default function AdminContent() {
                 </button>
               </div>
 
-              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                <h4 className="text-[#00ffff] text-xs mb-2">✉️ Direct Messages</h4>
-                <p className="text-gray-500 text-[9px] mb-3">Delete direct messages older than 90 days</p>
-                <button
-                  onClick={() => runCleanupAction('cleanupDirectMessages', { olderThanDays: 90 })}
-                  className="pixel-btn text-[10px] w-full"
-                >
-                  CLEANUP DMs
-                </button>
-              </div>
+              {/* Direct Messages Cleanup */}
+              <CleanupCard
+                icon="✉️"
+                title="Direct Messages"
+                color="#00ffff"
+                options={[
+                  { label: '7 Days', days: 7 },
+                  { label: '14 Days', days: 14 },
+                  { label: '30 Days', days: 30 },
+                  { label: '60 Days', days: 60 },
+                  { label: '90 Days', days: 90 },
+                ]}
+                onCleanup={(days) => runCleanupAction('cleanupDirectMessages', { olderThanDays: days })}
+                useDays
+              />
 
-              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                <h4 className="text-[#ffd700] text-xs mb-2">🔔 Notifications</h4>
-                <p className="text-gray-500 text-[9px] mb-3">Delete notifications older than 30 days</p>
-                <button
-                  onClick={cleanupNotifications}
-                  className="pixel-btn text-[10px] w-full"
-                >
-                  CLEANUP NOTIFICATIONS
-                </button>
-              </div>
+              {/* Notifications Cleanup */}
+              <CleanupCard
+                icon="🔔"
+                title="Notifications"
+                color="#ffd700"
+                options={[
+                  { label: '7 Days', days: 7 },
+                  { label: '14 Days', days: 14 },
+                  { label: '30 Days', days: 30 },
+                  { label: '60 Days', days: 60 },
+                  { label: '90 Days', days: 90 },
+                ]}
+                onCleanup={(days) => runCleanupAction('cleanupNotifications', { olderThanDays: days })}
+                useDays
+              />
 
-              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                <h4 className="text-[#ff6ec7] text-xs mb-2">🎰 Raffle Views</h4>
-                <p className="text-gray-500 text-[9px] mb-3">Delete raffle result view records (30+ days)</p>
-                <button
-                  onClick={() => runCleanupAction('cleanupRaffleResultViews', { olderThanDays: 30 })}
-                  className="pixel-btn text-[10px] w-full"
-                >
-                  CLEANUP RAFFLE VIEWS
-                </button>
-              </div>
+              {/* Raffle Views Cleanup */}
+              <CleanupCard
+                icon="🎰"
+                title="Raffle Views"
+                color="#ff6ec7"
+                options={[
+                  { label: '7 Days', days: 7 },
+                  { label: '14 Days', days: 14 },
+                  { label: '30 Days', days: 30 },
+                  { label: '60 Days', days: 60 },
+                  { label: '90 Days', days: 90 },
+                ]}
+                onCleanup={(days) => runCleanupAction('cleanupRaffleResultViews', { olderThanDays: days })}
+                useDays
+              />
+
+              {/* Forum Content Cleanup */}
+              <CleanupCard
+                icon="💭"
+                title="Forum Threads"
+                color="#9966ff"
+                options={[
+                  { label: '30 Days', days: 30 },
+                  { label: '60 Days', days: 60 },
+                  { label: '90 Days', days: 90 },
+                  { label: '180 Days', days: 180 },
+                  { label: '365 Days', days: 365 },
+                ]}
+                onCleanup={(days) => runCleanupAction('cleanupForumThreads', { olderThanDays: days })}
+                useDays
+              />
             </div>
           </div>
         </div>

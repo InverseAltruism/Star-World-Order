@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AccessGate from '@/components/AccessGate';
+import MembersContent from '@/app/members/MembersContent';
+import TreasuryContent from '@/app/treasury/TreasuryContent';
 import {
   useGovernance,
   ProposalState,
@@ -18,7 +20,7 @@ import {
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
-type TabId = 'governance' | 'forum' | 'staking';
+type TabId = 'governance' | 'forum' | 'members' | 'treasury' | 'staking';
 
 interface Tab {
   id: TabId;
@@ -30,6 +32,8 @@ interface Tab {
 const tabs: Tab[] = [
   { id: 'governance', label: 'GOVERNANCE', icon: '🗳️' },
   { id: 'forum', label: 'STAR COUNCIL', icon: '💬' },
+  { id: 'members', label: 'MEMBERS', icon: '👥' },
+  { id: 'treasury', label: 'TREASURY', icon: '💰' },
   { id: 'staking', label: 'STAKING', icon: '🔒', disabled: true },
 ];
 
@@ -438,6 +442,63 @@ function ForumTab({
   const [editReplyContent, setEditReplyContent] = useState('');
   const [showOriginalThreadId, setShowOriginalThreadId] = useState<string | null>(null);
   const [showOriginalReplyId, setShowOriginalReplyId] = useState<string | null>(null);
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+
+  // Fetch thread details with replies when selecting a thread
+  const fetchThreadDetails = useCallback(async (threadId: string) => {
+    setIsLoadingThread(true);
+    try {
+      const response = await fetch(`/api/forum?action=thread&id=${threadId}`);
+      const data = await response.json();
+      
+      if (data.success && data.thread) {
+        // Convert database format to ForumThread format
+        const thread: ForumThread = {
+          id: data.thread.id,
+          title: data.thread.title,
+          content: data.thread.content,
+          author: truncateAddress(data.thread.author_address),
+          authorAddress: data.thread.author_address,
+          category: data.thread.category as ThreadCategory,
+          pinned: Boolean(data.thread.pinned),
+          locked: Boolean(data.thread.locked),
+          createdAt: new Date(data.thread.created_at).getTime(),
+          updatedAt: new Date(data.thread.updated_at).getTime(),
+          replies: (data.replies || []).map((r: { id: string; thread_id: string; content: string; author_address: string; created_at: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string }) => ({
+            id: r.id,
+            threadId: r.thread_id,
+            content: r.content,
+            author: truncateAddress(r.author_address),
+            authorAddress: r.author_address,
+            createdAt: new Date(r.created_at).getTime(),
+            likes: 0,
+            likesCount: r.likes_count || 0,
+            dislikesCount: r.dislikes_count || 0,
+            isEdited: Boolean(r.is_edited),
+            originalContent: r.original_content,
+          })),
+          proposalId: data.thread.proposal_id,
+          likesCount: data.thread.likes_count || 0,
+          dislikesCount: data.thread.dislikes_count || 0,
+          isEdited: Boolean(data.thread.is_edited),
+          originalContent: data.thread.original_content,
+        };
+        setSelectedThread(thread);
+      }
+    } catch (error) {
+      console.error('Failed to fetch thread details:', error);
+    } finally {
+      setIsLoadingThread(false);
+    }
+  }, []);
+
+  // Handle thread selection - fetch full thread with replies
+  const handleSelectThread = useCallback((thread: ForumThread) => {
+    // First show the thread immediately (with empty replies)
+    setSelectedThread(thread);
+    // Then fetch the full thread with replies
+    fetchThreadDetails(thread.id);
+  }, [fetchThreadDetails]);
 
   const handleCreateThread = async () => {
     setError(null);
@@ -455,7 +516,7 @@ function ForumTab({
   };
 
   const handleReply = async () => {
-    if (!selectedThread) return;
+    if (!selectedThread || !currentUserAddress) return;
     setError(null);
     setIsPending(true);
     
@@ -463,11 +524,12 @@ function ForumTab({
     const originalThread = selectedThread;
     
     // Optimistic update - add reply immediately to UI
-    const optimisticReply = {
+    const optimisticReply: ForumReply = {
       id: `temp-${Date.now()}`,
       threadId: selectedThread.id,
       content: replyContent,
       author: 'You',
+      authorAddress: currentUserAddress,
       likes: 0,
       createdAt: Date.now(),
     };
@@ -482,11 +544,8 @@ function ForumTab({
     
     if (result.success) {
       setReplyContent('');
-      // Refresh the thread from the threads list to get the real data
-      const updatedThread = threads.find(t => t.id === selectedThread.id);
-      if (updatedThread) {
-        setSelectedThread(updatedThread);
-      }
+      // Fetch full thread with replies from API to get the real data
+      await fetchThreadDetails(selectedThread.id);
     } else {
       // Revert optimistic update on error
       setSelectedThread(originalThread);
@@ -502,6 +561,10 @@ function ForumTab({
     if (result.success) {
       setEditingThreadId(null);
       setEditThreadContent('');
+      // Refresh thread to show updated content
+      if (selectedThread) {
+        await fetchThreadDetails(selectedThread.id);
+      }
     } else {
       setError(result.error || 'Failed to edit thread');
     }
@@ -515,6 +578,10 @@ function ForumTab({
     if (result.success) {
       setEditingReplyId(null);
       setEditReplyContent('');
+      // Refresh thread to show updated reply content
+      if (selectedThread) {
+        await fetchThreadDetails(selectedThread.id);
+      }
     } else {
       setError(result.error || 'Failed to edit reply');
     }
@@ -530,8 +597,19 @@ function ForumTab({
     setEditReplyContent(reply.content);
   };
 
-  const isAuthor = (authorAddress: string) => {
-    return currentUserAddress?.toLowerCase() === authorAddress?.toLowerCase();
+  const isAuthor = (authorAddress?: string) => {
+    if (!authorAddress) return false;
+    return currentUserAddress?.toLowerCase() === authorAddress.toLowerCase();
+  };
+
+  // Handle like toggle with optimistic update and refresh
+  const handleToggleLike = async (targetId: string, targetType: 'thread' | 'reply', likeType: 'like' | 'dislike') => {
+    const result = await onToggleLike(targetId, targetType, likeType);
+    if (result.success && selectedThread) {
+      // Refresh thread to get updated like counts
+      await fetchThreadDetails(selectedThread.id);
+    }
+    return result;
   };
 
   // Sort threads: pinned first, then by last activity
@@ -589,7 +667,7 @@ function ForumTab({
             </div>
             <div className="flex items-center gap-2">
               {selectedThread.pinned && <span className="text-[#ffd700]">📌</span>}
-              {isAuthor(selectedThread.author) && !editingThreadId && (
+              {isAuthor(selectedThread.authorAddress) && !editingThreadId && (
                 <button
                   onClick={() => startEditThread(selectedThread)}
                   className="text-gray-500 text-xs hover:text-[#9966ff]"
@@ -642,7 +720,7 @@ function ForumTab({
           {/* Like/Dislike buttons for thread */}
           <div className="flex items-center gap-4 mb-4 border-t border-[#2a2a4e] pt-4">
             <button
-              onClick={() => onToggleLike(selectedThread.id, 'thread', 'like')}
+              onClick={() => handleToggleLike(selectedThread.id, 'thread', 'like')}
               className={`flex items-center gap-1 text-xs px-3 py-1 rounded transition-colors ${
                 threadLikeStatus === 'like' 
                   ? 'bg-[#44ff88]/20 text-[#44ff88]' 
@@ -652,7 +730,7 @@ function ForumTab({
               👍 {selectedThread.likesCount || 0}
             </button>
             <button
-              onClick={() => onToggleLike(selectedThread.id, 'thread', 'dislike')}
+              onClick={() => handleToggleLike(selectedThread.id, 'thread', 'dislike')}
               className={`flex items-center gap-1 text-xs px-3 py-1 rounded transition-colors ${
                 threadLikeStatus === 'dislike' 
                   ? 'bg-[#ff4466]/20 text-[#ff4466]' 
@@ -727,7 +805,7 @@ function ForumTab({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {isAuthor(reply.author) && !editingReplyId && (
+                      {isAuthor(reply.authorAddress) && !editingReplyId && (
                         <button
                           onClick={() => startEditReply(reply)}
                           className="text-gray-500 text-[10px] hover:text-[#9966ff]"
@@ -736,7 +814,7 @@ function ForumTab({
                         </button>
                       )}
                       <button
-                        onClick={() => onToggleLike(reply.id, 'reply', 'like')}
+                        onClick={() => handleToggleLike(reply.id, 'reply', 'like')}
                         className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
                           replyLikeStatus === 'like' ? 'text-[#44ff88]' : 'text-gray-600 hover:text-[#44ff88]'
                         }`}
@@ -744,7 +822,7 @@ function ForumTab({
                         👍 {reply.likesCount ?? reply.likes ?? 0}
                       </button>
                       <button
-                        onClick={() => onToggleLike(reply.id, 'reply', 'dislike')}
+                        onClick={() => handleToggleLike(reply.id, 'reply', 'dislike')}
                         className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
                           replyLikeStatus === 'dislike' ? 'text-[#ff4466]' : 'text-gray-600 hover:text-[#ff4466]'
                         }`}
@@ -875,7 +953,7 @@ function ForumTab({
           return (
             <div 
               key={thread.id} 
-              onClick={() => setSelectedThread(thread)}
+              onClick={() => handleSelectThread(thread)}
               className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
             >
               {thread.pinned && <span className="text-[#ffd700] text-xs">📌</span>}
@@ -1227,6 +1305,114 @@ function StakingTab({
   );
 }
 
+/**
+ * Governance Info Section Component
+ * Replaces the old Demo Mode warning with a clickable info icon
+ */
+function GovernanceInfoSection() {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <>
+      {/* Small info button in corner */}
+      <div className="flex justify-end mb-4 animate-slide-in-up">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#9966ff]/10 border border-[#9966ff]/30 hover:bg-[#9966ff]/20 hover:border-[#9966ff]/50 smooth-transition text-[#9966ff]"
+        >
+          <span className="text-sm">ℹ️</span>
+          <span className="text-[10px] font-bold">HOW IT WORKS</span>
+        </button>
+      </div>
+
+      {/* Info Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
+                ⚡ HOW GOVERNANCE WORKS
+              </h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-500 hover:text-white text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-4 text-sm">
+              {/* Overview */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#00ffff] text-xs mb-2 font-bold">🌟 OVERVIEW</h4>
+                <p className="text-gray-300 text-xs leading-relaxed">
+                  Star World Order uses a Web2-powered governance system that provides 
+                  transparent, fair voting while keeping costs low for our community. 
+                  All votes and proposals are stored securely in our database with 
+                  cryptographic verification.
+                </p>
+              </div>
+
+              {/* Voting Power */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#44ff88] text-xs mb-2 font-bold">⚖️ VOTING POWER</h4>
+                <ul className="text-gray-300 text-xs space-y-1">
+                  <li>• <span className="text-[#9966ff]">1 Star Skrumpey NFT</span> = 1 base vote</li>
+                  <li>• <span className="text-[#ffd700]">STAR tokens</span> from staking add voting weight</li>
+                  <li>• Formula: <span className="text-[#00ffff]">√(STAR) + NFT Count</span></li>
+                  <li>• This ensures late joiners can still compete!</li>
+                </ul>
+              </div>
+
+              {/* Security */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#ff6ec7] text-xs mb-2 font-bold">🔒 SECURITY</h4>
+                <ul className="text-gray-300 text-xs space-y-1">
+                  <li>• All votes are tied to your wallet address</li>
+                  <li>• NFT ownership is verified on-chain via Monad</li>
+                  <li>• One vote per wallet per proposal</li>
+                  <li>• Vote history is permanently recorded</li>
+                  <li>• Proposals require quorum to pass</li>
+                </ul>
+              </div>
+
+              {/* How to Participate */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#ffd700] text-xs mb-2 font-bold">📝 HOW TO PARTICIPATE</h4>
+                <ol className="text-gray-300 text-xs space-y-1 list-decimal list-inside">
+                  <li>Hold at least 1 Star Skrumpey NFT</li>
+                  <li>Connect your wallet</li>
+                  <li>Create proposals or vote on existing ones</li>
+                  <li>Stake NFTs to earn STAR and boost voting power</li>
+                  <li>Discuss in Star Council forum</li>
+                </ol>
+              </div>
+
+              {/* Why Web2 */}
+              <div className="bg-[#9966ff]/10 rounded-lg p-4 border border-[#9966ff]/30">
+                <h4 className="text-[#9966ff] text-xs mb-2 font-bold">💡 WHY WEB2 VOTING?</h4>
+                <p className="text-gray-300 text-xs leading-relaxed">
+                  On-chain voting requires gas fees for every vote, making it expensive 
+                  for community participation. Our Web2 system verifies NFT ownership 
+                  on-chain but stores votes off-chain, giving you the best of both worlds: 
+                  <span className="text-[#44ff88]"> verified ownership + free voting!</span>
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowModal(false)}
+              className="w-full pixel-btn pixel-btn-gold text-xs mt-4"
+            >
+              GOT IT! ✨
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function DAOContent() {
   const [activeTab, setActiveTab] = useState<TabId>('governance');
   
@@ -1278,19 +1464,9 @@ export default function DAOContent() {
         title="DAO ACCESS LOCKED"
         message="Only Star Skrumpey holders may participate in The Order's governance."
       >
-        {/* Demo Mode Notice */}
+        {/* Governance Info Section - clickable icon that shows info modal */}
         {!isGovernanceDeployed && (
-          <div className="pixel-card p-3 mb-6 bg-[#ffd700]/10 border-2 border-[#ffd700]/30 animate-slide-in-up">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">⚠️</span>
-              <div>
-                <p className="text-[#ffd700] text-[9px] font-bold">DEMO MODE</p>
-                <p className="text-gray-400 text-[10px]">
-                  Governance contracts not deployed. Data is stored locally for demonstration.
-                </p>
-              </div>
-            </div>
-          </div>
+          <GovernanceInfoSection />
         )}
 
         {/* Tab Navigation */}
@@ -1318,7 +1494,7 @@ export default function DAOContent() {
         </div>
 
         {/* Tab Content */}
-        <div className="max-w-3xl mx-auto">
+        <div className={activeTab === 'members' || activeTab === 'treasury' ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}>
           {activeTab === 'governance' && (
             <GovernanceTab
               proposals={proposals}
@@ -1342,6 +1518,16 @@ export default function DAOContent() {
               votingPower={votingPower}
               isLoading={isLoadingThreads}
             />
+          )}
+          {activeTab === 'members' && (
+            <div className="animate-slide-in-up">
+              <MembersContent />
+            </div>
+          )}
+          {activeTab === 'treasury' && (
+            <div className="animate-slide-in-up">
+              <TreasuryContent />
+            </div>
           )}
           {activeTab === 'staking' && (
             <StakingTab
