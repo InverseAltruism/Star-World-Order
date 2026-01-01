@@ -1865,6 +1865,192 @@ The SQLite backup includes all user data:
 
 ---
 
+## Database Environments
+
+Star World Order uses a dual database setup for production and testing environments:
+
+| Environment | Database Path | Used By |
+|-------------|---------------|---------|
+| **PROD** | `/opt/swo/data/swo.db` | `main` branch (port 3080) |
+| **Test** | `/opt/swo/data/swo-test.db` | `dev` branch (port 3081) |
+
+### Environment Configuration
+
+Each environment has its own `.env.local` file with the appropriate database path:
+
+**PROD Environment** (`/opt/star_world_order/PROD/Star-World-Order/.env.local`):
+```bash
+DATABASE_URL=file:/opt/swo/data/swo.db
+```
+
+**DEV Environment** (`/opt/star_world_order/DEV/Star-World-Order/.env.local`):
+```bash
+DATABASE_URL=file:/opt/swo/data/swo-test.db
+```
+
+This separation ensures:
+- ✅ **Production data protection** - Testing doesn't affect live data
+- ✅ **Realistic testing** - Test DB populated with production data snapshots
+- ✅ **Safe development** - Developers can experiment without risk
+
+---
+
+## Database Sync (PROD → Test)
+
+The test database is periodically synchronized from production to keep test data realistic.
+
+### Sync Script
+
+**Location**: `/opt/swo/scripts/sync-prod-to-test.sh`
+
+```bash
+#!/bin/bash
+PROD_DB="/opt/swo/data/swo.db"
+TEST_DB="/opt/swo/data/swo-test.db"
+
+sqlite3 "$PROD_DB" ".backup '$TEST_DB'"
+echo "$(date): Synced PROD to Test DB" >> /opt/swo/logs/db-sync.log
+```
+
+### Sync Schedule
+
+| Schedule | Description |
+|----------|-------------|
+| **Automated** | Every Sunday at 3:00 AM |
+| **Cron Schedule** | `0 3 * * 0` |
+| **Manual Trigger** | `/opt/swo/scripts/sync-prod-to-test.sh` |
+
+### Sync Operations
+
+**Manual Sync**:
+```bash
+# Run the sync script manually
+/opt/swo/scripts/sync-prod-to-test.sh
+
+# View sync log
+cat /opt/swo/logs/db-sync.log
+
+# View recent syncs
+tail -20 /opt/swo/logs/db-sync.log
+```
+
+**What Gets Synced**:
+- All user data (profiles, XP, quests)
+- Chat and message history
+- Social connections
+- NFT holdings cache
+- All database tables
+
+**Important**: The sync overwrites the entire test database with production data.
+
+---
+
+## Cron Jobs
+
+Star World Order uses several automated cron jobs for maintenance and data refresh:
+
+| Schedule | Command | Description |
+|----------|---------|-------------|
+| `*/30 * * * *` | `/opt/star_world_order/health-check.sh` | Health check every 30 minutes |
+| `0 3 * * *` | `/opt/swo/backup-db.sh` | Daily database backup at 3:00 AM |
+| `0 3 * * 0` | `/opt/swo/scripts/sync-prod-to-test.sh` | Weekly PROD→Test sync (Sundays at 3:00 AM) |
+
+### Cron Management
+
+**View Current Crontab**:
+```bash
+crontab -l
+```
+
+**Edit Crontab**:
+```bash
+crontab -e
+```
+
+**Example Crontab Configuration**:
+```bash
+# Star World Order Automation
+# Health check every 30 minutes
+*/30 * * * * /opt/star_world_order/health-check.sh
+
+# Daily database backup at 3 AM
+0 3 * * * /opt/swo/backup-db.sh
+
+# Weekly production to test database sync (Sundays at 3 AM)
+0 3 * * 0 /opt/swo/scripts/sync-prod-to-test.sh
+```
+
+### Cron Logs
+
+Each script logs to its respective log file:
+
+| Script | Log Location |
+|--------|-------------|
+| Health Check | `/opt/star_world_order/logs/health.log` |
+| Database Backup | `/opt/swo/logs/backup.log` |
+| Database Sync | `/opt/swo/logs/db-sync.log` |
+
+**View Logs**:
+```bash
+# Health check log
+tail -f /opt/star_world_order/logs/health.log
+
+# Backup log
+tail -f /opt/swo/logs/backup.log
+
+# Sync log
+tail -f /opt/swo/logs/db-sync.log
+```
+
+---
+
+## Server Directory Structure
+
+The complete server directory structure for Star World Order:
+
+```
+/opt/star_world_order/
+├── DEV/                    # dev branch (port 3081)
+│   ├── Star-World-Order/   # git repository
+│   └── node_modules/
+├── PROD/                   # main branch (port 3080)
+│   ├── Star-World-Order/   # git repository
+│   └── node_modules/
+├── deploy-dev.sh           # DEV deployment script
+├── deploy-prod.sh          # PROD deployment script
+├── health-check.sh         # Health check script
+└── logs/
+    ├── dev.log
+    ├── prod.log
+    └── health.log
+
+/opt/swo/
+├── data/
+│   ├── swo.db              # PROD database (shared, backed up daily)
+│   └── swo-test.db         # Test database (for DEV environment)
+├── backups/                # Daily database backups
+│   ├── swo-backup-2024-01-01T03-00-00-000Z.db
+│   └── ...
+├── scripts/
+│   └── sync-prod-to-test.sh  # PROD→Test database sync script
+├── logs/
+│   ├── backup.log          # Database backup log
+│   └── db-sync.log         # Database sync log
+└── backup-db.sh            # Daily backup script
+```
+
+### Key Locations
+
+| Path | Purpose |
+|------|---------|
+| `/opt/star_world_order/` | Application deployment directory |
+| `/opt/swo/data/` | Database storage (shared between environments) |
+| `/opt/swo/backups/` | Daily database backups |
+| `/opt/swo/scripts/` | Automation and maintenance scripts |
+| `/opt/swo/logs/` | Database operation logs |
+
+---
+
 ## RPC Optimization Strategy
 
 Star World Order uses a multi-tier resilience strategy for RPC calls to avoid rate limiting and ensure reliability:
