@@ -553,8 +553,8 @@ function ForumTab({
   // Thread View
   if (selectedThread) {
     const threadLikeStatus = getUserLikeStatus(selectedThread.id, 'thread');
-    const threadIsEdited = (selectedThread as unknown as { isEdited?: boolean; originalContent?: string }).isEdited;
-    const threadOriginalContent = (selectedThread as unknown as { originalContent?: string }).originalContent;
+    const threadIsEdited = selectedThread.isEdited;
+    const threadOriginalContent = selectedThread.originalContent;
     
     return (
       <div className="space-y-4 animate-slide-in-up">
@@ -649,7 +649,7 @@ function ForumTab({
                   : 'bg-[#1a1a2e] text-gray-500 hover:text-[#44ff88]'
               }`}
             >
-              👍 {(selectedThread as unknown as { likesCount?: number }).likesCount || 0}
+              👍 {selectedThread.likesCount || 0}
             </button>
             <button
               onClick={() => onToggleLike(selectedThread.id, 'thread', 'dislike')}
@@ -659,7 +659,7 @@ function ForumTab({
                   : 'bg-[#1a1a2e] text-gray-500 hover:text-[#ff4466]'
               }`}
             >
-              👎 {(selectedThread as unknown as { dislikesCount?: number }).dislikesCount || 0}
+              👎 {selectedThread.dislikesCount || 0}
             </button>
           </div>
           
@@ -668,8 +668,8 @@ function ForumTab({
             <h4 className="text-[#9966ff] text-sm">REPLIES ({selectedThread.replies.length})</h4>
             {selectedThread.replies.map((reply) => {
               const replyLikeStatus = getUserLikeStatus(reply.id, 'reply');
-              const replyIsEdited = (reply as unknown as { isEdited?: boolean; originalContent?: string }).isEdited;
-              const replyOriginalContent = (reply as unknown as { originalContent?: string }).originalContent;
+              const replyIsEdited = reply.isEdited;
+              const replyOriginalContent = reply.originalContent;
               
               return (
                 <div key={reply.id} className="bg-[#1a1a2e] rounded-lg p-3">
@@ -741,7 +741,7 @@ function ForumTab({
                           replyLikeStatus === 'like' ? 'text-[#44ff88]' : 'text-gray-600 hover:text-[#44ff88]'
                         }`}
                       >
-                        👍 {(reply as unknown as { likesCount?: number }).likesCount || reply.likes || 0}
+                        👍 {reply.likesCount ?? reply.likes ?? 0}
                       </button>
                       <button
                         onClick={() => onToggleLike(reply.id, 'reply', 'dislike')}
@@ -749,7 +749,7 @@ function ForumTab({
                           replyLikeStatus === 'dislike' ? 'text-[#ff4466]' : 'text-gray-600 hover:text-[#ff4466]'
                         }`}
                       >
-                        👎 {(reply as unknown as { dislikesCount?: number }).dislikesCount || 0}
+                        👎 {reply.dislikesCount ?? 0}
                       </button>
                     </div>
                   </div>

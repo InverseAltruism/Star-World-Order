@@ -135,6 +135,11 @@ export interface ForumThread {
   locked: boolean;
   category: ThreadCategory;
   proposalId?: string; // Link to governance proposal if applicable
+  // Extended fields for database-backed forum
+  likesCount?: number;
+  dislikesCount?: number;
+  isEdited?: boolean;
+  originalContent?: string;
 }
 
 /**
@@ -147,6 +152,11 @@ export interface ForumReply {
   author: string;
   createdAt: number;
   likes: number;
+  // Extended fields for database-backed forum
+  likesCount?: number;
+  dislikesCount?: number;
+  isEdited?: boolean;
+  originalContent?: string;
 }
 
 /**
