@@ -161,6 +161,7 @@ interface RaffleHistoryEntry {
   star_count: number;
   entered_at: string;
   won: boolean;
+  hasViewed?: boolean; // Whether user has viewed this raffle result
   raffle: {
     id: string;
     name: string;
@@ -588,14 +589,8 @@ export default function ProfileCard() {
   // Raffle history state
   const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
   const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
-  const [hasViewedRaffleHistory, setHasViewedRaffleHistory] = useState(false);
+  const [unviewedWonCount, setUnviewedWonCount] = useState(0); // Count of unviewed won raffles from API
   
-  // Memoized count of won raffles for badge display (only show if user hasn't viewed history)
-  const wonRafflesCount = useMemo(() => {
-    if (hasViewedRaffleHistory) return 0;
-    return raffleHistory.filter(r => r.won).length;
-  }, [raffleHistory, hasViewedRaffleHistory]);
-
   // Close modal handler
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
@@ -716,6 +711,7 @@ export default function ProfileCard() {
       
       if (data.success) {
         setRaffleHistory(data.entries || []);
+        setUnviewedWonCount(data.unviewedWonCount || 0);
       }
     } catch (error) {
       console.error('Failed to fetch raffle history:', error);
@@ -723,6 +719,33 @@ export default function ProfileCard() {
       setIsLoadingRaffles(false);
     }
   }, [address]);
+
+  // Mark all won raffles as viewed
+  const markRafflesAsViewed = useCallback(async () => {
+    if (!address) return;
+    
+    // Mark each unviewed won raffle as viewed
+    const unviewedWonRaffles = raffleHistory.filter(r => r.won && !r.hasViewed);
+    
+    for (const entry of unviewedWonRaffles) {
+      try {
+        await fetch('/api/raffle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'markViewed',
+            walletAddress: address,
+            raffleId: entry.raffle_id,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to mark raffle as viewed:', error);
+      }
+    }
+    
+    // Reset the count locally after marking
+    setUnviewedWonCount(0);
+  }, [address, raffleHistory]);
   
   // Fetch raffle history on mount to show badge in tab navigation
   useEffect(() => {
@@ -748,11 +771,11 @@ export default function ProfileCard() {
         break;
       case 'raffles':
         fetchRaffleHistory();
-        // Mark as viewed when user clicks on raffles tab - badge will disappear
-        setHasViewedRaffleHistory(true);
+        // Mark won raffles as viewed when user clicks on raffles tab
+        markRafflesAsViewed();
         break;
     }
-  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
+  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory, markRafflesAsViewed]);
   
   // Load chat when selected
   useEffect(() => {
@@ -1293,11 +1316,11 @@ export default function ProfileCard() {
             raffles: 'Raffles'
           };
           
-          // Show badge for pending friend requests or won raffles (wonRafflesCount is memoized above)
+          // Show badge for pending friend requests or unviewed won raffles
           const badge = section === 'friends' && pendingRequests.length > 0 
             ? pendingRequests.length 
-            : section === 'raffles' && wonRafflesCount > 0 
-            ? wonRafflesCount 
+            : section === 'raffles' && unviewedWonCount > 0 
+            ? unviewedWonCount 
             : null;
           
           return (

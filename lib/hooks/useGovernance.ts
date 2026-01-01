@@ -197,6 +197,7 @@ export function useGovernance(): UseGovernanceResult {
             title: t.title,
             content: t.content,
             author: truncateAddress(t.author_address),
+            authorAddress: t.author_address, // Store full address for ownership checks
             category: t.category as ThreadCategory,
             pinned: Boolean(t.pinned),
             locked: Boolean(t.locked),
@@ -471,11 +472,33 @@ export function useGovernance(): UseGovernanceResult {
       return { success: false, error: 'Reply content is required' };
     }
     
-    const result = addReply(threadId, content.trim(), truncateAddress(address));
-    if (result.success) {
-      loadThreads();
+    try {
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reply',
+          threadId,
+          content: content.trim(),
+          authorAddress: address,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadThreads();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to add reply' };
+    } catch (error) {
+      console.error('Failed to add reply:', error);
+      // Fallback to localStorage
+      const result = addReply(threadId, content.trim(), truncateAddress(address));
+      if (result.success) {
+        loadThreads();
+      }
+      return result;
     }
-    return result;
   }, [address, isConnected, votingPower, loadThreads]);
   
   // Get threads by category
