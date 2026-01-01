@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AccessGate from '@/components/AccessGate';
+import MembersContent from '@/app/members/MembersContent';
+import TreasuryContent from '@/app/treasury/TreasuryContent';
 import {
   useGovernance,
   ProposalState,
@@ -18,7 +20,7 @@ import {
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
-type TabId = 'governance' | 'forum' | 'staking';
+type TabId = 'governance' | 'forum' | 'members' | 'treasury' | 'staking';
 
 interface Tab {
   id: TabId;
@@ -30,6 +32,8 @@ interface Tab {
 const tabs: Tab[] = [
   { id: 'governance', label: 'GOVERNANCE', icon: '🗳️' },
   { id: 'forum', label: 'STAR COUNCIL', icon: '💬' },
+  { id: 'members', label: 'MEMBERS', icon: '👥' },
+  { id: 'treasury', label: 'TREASURY', icon: '💰' },
   { id: 'staking', label: 'STAKING', icon: '🔒', disabled: true },
 ];
 
@@ -1490,7 +1494,7 @@ export default function DAOContent() {
         </div>
 
         {/* Tab Content */}
-        <div className="max-w-3xl mx-auto">
+        <div className={activeTab === 'members' || activeTab === 'treasury' ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}>
           {activeTab === 'governance' && (
             <GovernanceTab
               proposals={proposals}
@@ -1514,6 +1518,16 @@ export default function DAOContent() {
               votingPower={votingPower}
               isLoading={isLoadingThreads}
             />
+          )}
+          {activeTab === 'members' && (
+            <div className="animate-slide-in-up">
+              <MembersContent />
+            </div>
+          )}
+          {activeTab === 'treasury' && (
+            <div className="animate-slide-in-up">
+              <TreasuryContent />
+            </div>
           )}
           {activeTab === 'staking' && (
             <StakingTab

@@ -75,16 +75,16 @@ export default function Header() {
             </Link>
           )}
           <Link 
-            href="/members" 
-            className="text-[10px] text-gray-300 hover:text-[#00ffff] uppercase tracking-wider relative group flex-shrink-0"
+            href="/gallery" 
+            className="text-[10px] text-gray-300 hover:text-[#9966ff] uppercase tracking-wider relative group flex-shrink-0"
             style={{ 
               transition: 'color 0.3s ease',
               willChange: 'color'
             }}
           >
-            MEMBERS
+            GALLERY
             <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#00ffff] group-hover:w-full" 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#9966ff] group-hover:w-full" 
               style={{ 
                 transition: 'width 0.3s ease',
                 willChange: 'width'
@@ -100,23 +100,6 @@ export default function Header() {
             }}
           >
             HANGOUT
-            <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full" 
-              style={{ 
-                transition: 'width 0.3s ease',
-                willChange: 'width'
-              }}
-            />
-          </Link>
-          <Link 
-            href="/treasury" 
-            className="text-[10px] text-gray-300 hover:text-[#44ff88] uppercase tracking-wider relative group flex-shrink-0"
-            style={{ 
-              transition: 'color 0.3s ease',
-              willChange: 'color'
-            }}
-          >
-            TREASURY
             <span 
               className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#44ff88] group-hover:w-full" 
               style={{ 
@@ -206,12 +189,12 @@ export default function Header() {
               </Link>
             )}
             <Link 
-              href="/members" 
-              className="text-base text-white hover:text-[#00ffff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
-              style={{ textShadow: '0 0 10px rgba(0, 255, 255, 0.5)' }}
+              href="/gallery" 
+              className="text-base text-white hover:text-[#9966ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(153, 102, 255, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
-              MEMBERS
+              GALLERY
             </Link>
             <Link 
               href="/hangout" 
@@ -220,14 +203,6 @@ export default function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               HANGOUT
-            </Link>
-            <Link 
-              href="/treasury" 
-              className="text-base text-white hover:text-[#44ff88] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
-              style={{ textShadow: '0 0 10px rgba(68, 255, 136, 0.5)' }}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              TREASURY
             </Link>
             <Link 
               href="/raffle" 
