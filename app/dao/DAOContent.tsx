@@ -516,7 +516,7 @@ function ForumTab({
   };
 
   const handleReply = async () => {
-    if (!selectedThread) return;
+    if (!selectedThread || !currentUserAddress) return;
     setError(null);
     setIsPending(true);
     

@@ -300,17 +300,26 @@ export default function GalleryContent() {
   const fetchMetadata = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch all metadata in batches
+      // Fetch all metadata in batches concurrently
       const batchSize = 100;
-      const allData: StarSkrumpeyData[] = [];
+      const batches: number[][] = [];
       
       for (let i = 0; i < STAR_SKRUMPEY_IDS.length; i += batchSize) {
-        const batchIds = STAR_SKRUMPEY_IDS.slice(i, i + batchSize);
-        const response = await fetch(`/api/metadata?tokenIds=${batchIds.join(',')}`);
-        const data = await response.json();
-        
-        if (data.success && data.metadata) {
-          const parsed = data.metadata.map((m: Record<string, unknown>) => ({
+        batches.push(STAR_SKRUMPEY_IDS.slice(i, i + batchSize));
+      }
+      
+      // Fetch all batches concurrently
+      const results = await Promise.allSettled(
+        batches.map(batchIds =>
+          fetch(`/api/metadata?tokenIds=${batchIds.join(',')}`).then(res => res.json())
+        )
+      );
+      
+      const allData: StarSkrumpeyData[] = [];
+      
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.success && result.value.metadata) {
+          const parsed = result.value.metadata.map((m: Record<string, unknown>) => ({
             tokenId: m.tokenId as number,
             name: m.name as string || `Star Skrumpey #${m.tokenId}`,
             constellation: m.constellation as string || STAR_CONSTELLATION_MAP[m.tokenId as number] || 'Unknown',

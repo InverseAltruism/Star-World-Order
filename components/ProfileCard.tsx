@@ -727,9 +727,12 @@ export default function ProfileCard() {
     // Mark each unviewed won raffle as viewed
     const unviewedWonRaffles = raffleHistory.filter(r => r.won && !r.hasViewed);
     
-    for (const entry of unviewedWonRaffles) {
-      try {
-        await fetch('/api/raffle', {
+    if (unviewedWonRaffles.length === 0) return;
+    
+    // Use Promise.allSettled to make concurrent requests
+    await Promise.allSettled(
+      unviewedWonRaffles.map(entry =>
+        fetch('/api/raffle', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -737,11 +740,9 @@ export default function ProfileCard() {
             walletAddress: address,
             raffleId: entry.raffle_id,
           }),
-        });
-      } catch (error) {
-        console.error('Failed to mark raffle as viewed:', error);
-      }
-    }
+        })
+      )
+    );
     
     // Reset the count locally after marking
     setUnviewedWonCount(0);
