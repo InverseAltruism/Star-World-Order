@@ -54,26 +54,24 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-2 md:gap-3">
-          {/* DAO link - hidden on PROD, shown on DEV */}
-          {!isProduction && (
-            <Link 
-              href="/dao" 
-              className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group flex-shrink-0"
+          {/* DAO link - always visible */}
+          <Link 
+            href="/dao" 
+            className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider relative group flex-shrink-0"
+            style={{ 
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
+          >
+            DAO
+            <span 
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
               style={{ 
-                transition: 'color 0.3s ease',
-                willChange: 'color'
+                transition: 'width 0.3s ease',
+                willChange: 'width'
               }}
-            >
-              DAO
-              <span 
-                className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ffd700] group-hover:w-full" 
-                style={{ 
-                  transition: 'width 0.3s ease',
-                  willChange: 'width'
-                }}
-              />
-            </Link>
-          )}
+            />
+          </Link>
           <Link 
             href="/gallery" 
             className="text-[10px] text-gray-300 hover:text-[#9966ff] uppercase tracking-wider relative group flex-shrink-0"
@@ -177,17 +175,15 @@ export default function Header() {
           <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" />
           
           <nav className="flex flex-col items-center gap-6 p-8 pb-safe relative">
-            {/* DAO link - hidden on PROD, shown on DEV */}
-            {!isProduction && (
-              <Link 
-                href="/dao" 
-                className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
-                style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                DAO
-              </Link>
-            )}
+            {/* DAO link - always visible */}
+            <Link 
+              href="/dao" 
+              className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              DAO
+            </Link>
             <Link 
               href="/gallery" 
               className="text-base text-white hover:text-[#9966ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
