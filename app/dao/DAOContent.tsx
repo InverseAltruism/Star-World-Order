@@ -14,6 +14,7 @@ import {
   formatMON,
   Proposal,
   ForumThread,
+  ForumReply,
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
@@ -23,12 +24,13 @@ interface Tab {
   id: TabId;
   label: string;
   icon: string;
+  disabled?: boolean;
 }
 
 const tabs: Tab[] = [
   { id: 'governance', label: 'GOVERNANCE', icon: '🗳️' },
   { id: 'forum', label: 'STAR COUNCIL', icon: '💬' },
-  { id: 'staking', label: 'STAKING', icon: '🔒' },
+  { id: 'staking', label: 'STAKING', icon: '🔒', disabled: true },
 ];
 
 /**
@@ -42,21 +44,23 @@ function CreateProposalModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (title: string, description: string) => Promise<{ success: boolean; error?: string }>;
+  onCreate: (title: string, description: string, votingDurationWeeks: number) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [votingDuration, setVotingDuration] = useState<number>(1);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
     setError(null);
-    const result = await onCreate(title, description);
+    const result = await onCreate(title, description, votingDuration);
     if (result.success) {
       setTitle('');
       setDescription('');
+      setVotingDuration(1);
       onClose();
     } else {
       setError(result.error || 'Failed to create proposal');
@@ -91,6 +95,20 @@ function CreateProposalModal({
               rows={6}
               className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
             />
+          </div>
+
+          <div>
+            <label className="text-[#9966ff] text-xs block mb-2">VOTING DURATION</label>
+            <select
+              value={votingDuration}
+              onChange={(e) => setVotingDuration(parseInt(e.target.value, 10))}
+              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition cursor-pointer"
+            >
+              <option value={1}>1 Week</option>
+              <option value={2}>2 Weeks</option>
+              <option value={3}>3 Weeks</option>
+              <option value={4}>4 Weeks</option>
+            </select>
           </div>
           
           {error && (
@@ -223,7 +241,7 @@ function GovernanceTab({
   isLoading,
 }: {
   proposals: Proposal[];
-  onCreateProposal: (title: string, description: string) => Promise<{ success: boolean; error?: string }>;
+  onCreateProposal: (title: string, description: string, votingDurationWeeks: number) => Promise<{ success: boolean; error?: string }>;
   onVote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
   hasVoted: (proposalId: string) => boolean;
   votingPower: number;
@@ -233,9 +251,9 @@ function GovernanceTab({
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [isPending, setIsPending] = useState(false);
 
-  const handleCreate = async (title: string, description: string) => {
+  const handleCreate = async (title: string, description: string, votingDurationWeeks: number) => {
     setIsPending(true);
-    const result = await onCreateProposal(title, description);
+    const result = await onCreateProposal(title, description, votingDurationWeeks);
     setIsPending(false);
     return result;
   };
@@ -385,12 +403,22 @@ function ForumTab({
   threads,
   onCreateThread,
   onReply,
+  onEditThread,
+  onEditReply,
+  onToggleLike,
+  getUserLikeStatus,
+  currentUserAddress,
   votingPower,
   isLoading,
 }: {
   threads: ForumThread[];
   onCreateThread: (title: string, content: string, category: ThreadCategory) => Promise<{ success: boolean; error?: string }>;
   onReply: (threadId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  onEditThread: (threadId: string, newContent: string) => Promise<{ success: boolean; error?: string }>;
+  onEditReply: (replyId: string, newContent: string) => Promise<{ success: boolean; error?: string }>;
+  onToggleLike: (targetId: string, targetType: 'thread' | 'reply', likeType: 'like' | 'dislike') => Promise<{ success: boolean; action?: string }>;
+  getUserLikeStatus: (targetId: string, targetType: 'thread' | 'reply') => 'like' | 'dislike' | null;
+  currentUserAddress?: string;
   votingPower: number;
   isLoading: boolean;
 }) {
@@ -402,6 +430,14 @@ function ForumTab({
   const [replyContent, setReplyContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  
+  // Edit states
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editThreadContent, setEditThreadContent] = useState('');
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyContent, setEditReplyContent] = useState('');
+  const [showOriginalThreadId, setShowOriginalThreadId] = useState<string | null>(null);
+  const [showOriginalReplyId, setShowOriginalReplyId] = useState<string | null>(null);
 
   const handleCreateThread = async () => {
     setError(null);
@@ -458,6 +494,46 @@ function ForumTab({
     }
   };
 
+  const handleEditThread = async () => {
+    if (!editingThreadId) return;
+    setIsPending(true);
+    const result = await onEditThread(editingThreadId, editThreadContent);
+    setIsPending(false);
+    if (result.success) {
+      setEditingThreadId(null);
+      setEditThreadContent('');
+    } else {
+      setError(result.error || 'Failed to edit thread');
+    }
+  };
+
+  const handleEditReply = async () => {
+    if (!editingReplyId) return;
+    setIsPending(true);
+    const result = await onEditReply(editingReplyId, editReplyContent);
+    setIsPending(false);
+    if (result.success) {
+      setEditingReplyId(null);
+      setEditReplyContent('');
+    } else {
+      setError(result.error || 'Failed to edit reply');
+    }
+  };
+
+  const startEditThread = (thread: ForumThread) => {
+    setEditingThreadId(thread.id);
+    setEditThreadContent(thread.content);
+  };
+
+  const startEditReply = (reply: ForumReply) => {
+    setEditingReplyId(reply.id);
+    setEditReplyContent(reply.content);
+  };
+
+  const isAuthor = (authorAddress: string) => {
+    return currentUserAddress?.toLowerCase() === authorAddress?.toLowerCase();
+  };
+
   // Sort threads: pinned first, then by last activity
   const sortedThreads = [...threads].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
@@ -476,6 +552,10 @@ function ForumTab({
 
   // Thread View
   if (selectedThread) {
+    const threadLikeStatus = getUserLikeStatus(selectedThread.id, 'thread');
+    const threadIsEdited = (selectedThread as unknown as { isEdited?: boolean; originalContent?: string }).isEdited;
+    const threadOriginalContent = (selectedThread as unknown as { originalContent?: string }).originalContent;
+    
     return (
       <div className="space-y-4 animate-slide-in-up">
         <button 
@@ -487,34 +567,195 @@ function ForumTab({
         
         <div className="pixel-card p-4">
           <div className="flex items-start justify-between mb-4">
-            <div>
+            <div className="flex-1">
               <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(selectedThread.category)}</span>
               <h3 className="text-[#ffd700] text-lg font-bold">{selectedThread.title}</h3>
-              <p className="text-gray-500 text-xs">
-                by {selectedThread.author} • {formatRelativeTime(selectedThread.createdAt)}
-              </p>
+              <div className="flex items-center gap-2 text-gray-500 text-xs">
+                <span>by {selectedThread.author}</span>
+                <span>•</span>
+                <span>{formatRelativeTime(selectedThread.createdAt)}</span>
+                {threadIsEdited && (
+                  <>
+                    <span>•</span>
+                    <span 
+                      className="text-gray-600 italic cursor-pointer hover:text-[#9966ff]"
+                      onClick={() => setShowOriginalThreadId(showOriginalThreadId === selectedThread.id ? null : selectedThread.id)}
+                    >
+                      *edited {showOriginalThreadId === selectedThread.id ? '(hide original)' : '(view original)'}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            {selectedThread.pinned && <span className="text-[#ffd700]">📌</span>}
+            <div className="flex items-center gap-2">
+              {selectedThread.pinned && <span className="text-[#ffd700]">📌</span>}
+              {isAuthor(selectedThread.author) && !editingThreadId && (
+                <button
+                  onClick={() => startEditThread(selectedThread)}
+                  className="text-gray-500 text-xs hover:text-[#9966ff]"
+                >
+                  ✏️ Edit
+                </button>
+              )}
+            </div>
           </div>
           
-          <div className="bg-[#0a0a15] rounded-lg p-4 mb-4">
-            <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{selectedThread.content}</p>
+          {/* Show original content if toggled */}
+          {showOriginalThreadId === selectedThread.id && threadOriginalContent && (
+            <div className="bg-[#ff4466]/10 rounded-lg p-4 mb-4 border border-[#ff4466]/30">
+              <p className="text-gray-500 text-[10px] mb-2">ORIGINAL VERSION</p>
+              <p className="text-gray-400 text-sm whitespace-pre-wrap leading-relaxed">{threadOriginalContent}</p>
+            </div>
+          )}
+          
+          {/* Thread content (editable) */}
+          {editingThreadId === selectedThread.id ? (
+            <div className="space-y-3 mb-4">
+              <textarea
+                value={editThreadContent}
+                onChange={(e) => setEditThreadContent(e.target.value)}
+                rows={6}
+                className="w-full bg-[#0a0a15] border-2 border-[#ffd700] rounded-lg px-4 py-3 text-white text-sm focus:outline-none resize-none"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEditThread}
+                  disabled={isPending}
+                  className="pixel-btn pixel-btn-gold text-[10px] !py-1 !px-3"
+                >
+                  {isPending ? 'SAVING...' : 'SAVE'}
+                </button>
+                <button
+                  onClick={() => { setEditingThreadId(null); setEditThreadContent(''); }}
+                  className="pixel-btn text-[10px] !py-1 !px-3 !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]"
+                >
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#0a0a15] rounded-lg p-4 mb-4">
+              <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">{selectedThread.content}</p>
+            </div>
+          )}
+          
+          {/* Like/Dislike buttons for thread */}
+          <div className="flex items-center gap-4 mb-4 border-t border-[#2a2a4e] pt-4">
+            <button
+              onClick={() => onToggleLike(selectedThread.id, 'thread', 'like')}
+              className={`flex items-center gap-1 text-xs px-3 py-1 rounded transition-colors ${
+                threadLikeStatus === 'like' 
+                  ? 'bg-[#44ff88]/20 text-[#44ff88]' 
+                  : 'bg-[#1a1a2e] text-gray-500 hover:text-[#44ff88]'
+              }`}
+            >
+              👍 {(selectedThread as unknown as { likesCount?: number }).likesCount || 0}
+            </button>
+            <button
+              onClick={() => onToggleLike(selectedThread.id, 'thread', 'dislike')}
+              className={`flex items-center gap-1 text-xs px-3 py-1 rounded transition-colors ${
+                threadLikeStatus === 'dislike' 
+                  ? 'bg-[#ff4466]/20 text-[#ff4466]' 
+                  : 'bg-[#1a1a2e] text-gray-500 hover:text-[#ff4466]'
+              }`}
+            >
+              👎 {(selectedThread as unknown as { dislikesCount?: number }).dislikesCount || 0}
+            </button>
           </div>
           
           {/* Replies */}
           <div className="space-y-3 mb-4">
             <h4 className="text-[#9966ff] text-sm">REPLIES ({selectedThread.replies.length})</h4>
-            {selectedThread.replies.map((reply) => (
-              <div key={reply.id} className="bg-[#1a1a2e] rounded-lg p-3">
-                <p className="text-gray-300 text-sm leading-relaxed">{reply.content}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-gray-500 text-xs">
-                    {reply.author} • {formatRelativeTime(reply.createdAt)}
-                  </span>
-                  <span className="text-gray-600 text-xs">{reply.likes > 0 ? `❤️ ${reply.likes}` : ''}</span>
+            {selectedThread.replies.map((reply) => {
+              const replyLikeStatus = getUserLikeStatus(reply.id, 'reply');
+              const replyIsEdited = (reply as unknown as { isEdited?: boolean; originalContent?: string }).isEdited;
+              const replyOriginalContent = (reply as unknown as { originalContent?: string }).originalContent;
+              
+              return (
+                <div key={reply.id} className="bg-[#1a1a2e] rounded-lg p-3">
+                  {/* Show original reply if toggled */}
+                  {showOriginalReplyId === reply.id && replyOriginalContent && (
+                    <div className="bg-[#ff4466]/10 rounded-lg p-3 mb-3 border border-[#ff4466]/30">
+                      <p className="text-gray-500 text-[10px] mb-1">ORIGINAL VERSION</p>
+                      <p className="text-gray-400 text-sm leading-relaxed">{replyOriginalContent}</p>
+                    </div>
+                  )}
+                  
+                  {editingReplyId === reply.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={editReplyContent}
+                        onChange={(e) => setEditReplyContent(e.target.value)}
+                        rows={3}
+                        className="w-full bg-[#0a0a15] border-2 border-[#ffd700] rounded-lg px-3 py-2 text-white text-sm focus:outline-none resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleEditReply}
+                          disabled={isPending}
+                          className="pixel-btn pixel-btn-gold text-[10px] !py-1 !px-3"
+                        >
+                          {isPending ? 'SAVING...' : 'SAVE'}
+                        </button>
+                        <button
+                          onClick={() => { setEditingReplyId(null); setEditReplyContent(''); }}
+                          className="pixel-btn text-[10px] !py-1 !px-3 !bg-[#0a0a15] !border-[#2a2a4e]"
+                        >
+                          CANCEL
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-300 text-sm leading-relaxed">{reply.content}</p>
+                  )}
+                  
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2 text-gray-500 text-xs">
+                      <span>{reply.author}</span>
+                      <span>•</span>
+                      <span>{formatRelativeTime(reply.createdAt)}</span>
+                      {replyIsEdited && (
+                        <>
+                          <span>•</span>
+                          <span 
+                            className="text-gray-600 italic cursor-pointer hover:text-[#9966ff]"
+                            onClick={() => setShowOriginalReplyId(showOriginalReplyId === reply.id ? null : reply.id)}
+                          >
+                            *edited
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isAuthor(reply.author) && !editingReplyId && (
+                        <button
+                          onClick={() => startEditReply(reply)}
+                          className="text-gray-500 text-[10px] hover:text-[#9966ff]"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onToggleLike(reply.id, 'reply', 'like')}
+                        className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                          replyLikeStatus === 'like' ? 'text-[#44ff88]' : 'text-gray-600 hover:text-[#44ff88]'
+                        }`}
+                      >
+                        👍 {(reply as unknown as { likesCount?: number }).likesCount || reply.likes || 0}
+                      </button>
+                      <button
+                        onClick={() => onToggleLike(reply.id, 'reply', 'dislike')}
+                        className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                          replyLikeStatus === 'dislike' ? 'text-[#ff4466]' : 'text-gray-600 hover:text-[#ff4466]'
+                        }`}
+                      >
+                        👎 {(reply as unknown as { dislikesCount?: number }).dislikesCount || 0}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* Reply Form */}
@@ -1007,6 +1248,11 @@ export default function DAOContent() {
     unstakeNFT,
     isGovernanceDeployed,
     isStakingDeployed,
+    editThread,
+    editReply,
+    toggleLike,
+    getUserLikeStatus,
+    address,
   } = useGovernance();
   
   // Get available tokens from DAO access (would come from useDAOAccess in real implementation)
@@ -1052,16 +1298,21 @@ export default function DAOContent() {
           {tabs.map((tab, index) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pixel-btn text-xs !px-4 !py-2 smooth-transition hover-lift ${
-                activeTab === tab.id 
-                  ? 'pixel-btn-gold' 
-                  : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
+              onClick={() => !tab.disabled && setActiveTab(tab.id)}
+              disabled={tab.disabled}
+              className={`pixel-btn text-xs !px-4 !py-2 smooth-transition ${
+                tab.disabled 
+                  ? '!opacity-50 !cursor-not-allowed !bg-[#1a1a2e] !border-[#2a2a3e_#1a1a2e_#1a1a2e_#2a2a3e]'
+                  : activeTab === tab.id 
+                    ? 'pixel-btn-gold hover-lift' 
+                    : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] hover-lift'
               }`}
               style={{ animationDelay: `${0.1 + index * 0.1}s` }}
+              title={tab.disabled ? 'Coming Soon' : undefined}
             >
               <span className="mr-1">{tab.icon}</span>
               {tab.label}
+              {tab.disabled && <span className="ml-1 text-[8px]">(Soon)</span>}
             </button>
           ))}
         </div>
@@ -1083,6 +1334,11 @@ export default function DAOContent() {
               threads={threads}
               onCreateThread={createNewThread}
               onReply={replyToThread}
+              onEditThread={editThread}
+              onEditReply={editReply}
+              onToggleLike={toggleLike}
+              getUserLikeStatus={getUserLikeStatus}
+              currentUserAddress={address}
               votingPower={votingPower}
               isLoading={isLoadingThreads}
             />

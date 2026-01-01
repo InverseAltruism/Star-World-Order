@@ -44,13 +44,28 @@ import {
   generateId,
 } from '@/lib/governance';
 
+// Extended types for database-backed features
+export interface ExtendedForumThread extends ForumThread {
+  likesCount?: number;
+  dislikesCount?: number;
+  isEdited?: boolean;
+  originalContent?: string;
+}
+
+export interface ExtendedForumReply extends ForumReply {
+  likesCount?: number;
+  dislikesCount?: number;
+  isEdited?: boolean;
+  originalContent?: string;
+}
+
 export interface UseGovernanceResult {
   // Proposals
   proposals: Proposal[];
   activeProposals: Proposal[];
   pastProposals: Proposal[];
   isLoadingProposals: boolean;
-  createNewProposal: (title: string, description: string) => Promise<{ success: boolean; error?: string; proposal?: Proposal }>;
+  createNewProposal: (title: string, description: string, votingDurationWeeks?: number) => Promise<{ success: boolean; error?: string; proposal?: Proposal }>;
   
   // Voting
   vote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
@@ -64,6 +79,13 @@ export interface UseGovernanceResult {
   createNewThread: (title: string, content: string, category: ThreadCategory, proposalId?: string) => Promise<{ success: boolean; error?: string; thread?: ForumThread }>;
   replyToThread: (threadId: string, content: string) => Promise<{ success: boolean; error?: string }>;
   getThreadsByCategory: (category: ThreadCategory) => ForumThread[];
+  
+  // Forum editing & likes (new)
+  editThread: (threadId: string, newContent: string) => Promise<{ success: boolean; error?: string }>;
+  editReply: (replyId: string, newContent: string) => Promise<{ success: boolean; error?: string }>;
+  toggleLike: (targetId: string, targetType: 'thread' | 'reply', likeType: 'like' | 'dislike') => Promise<{ success: boolean; action?: string }>;
+  getUserLikeStatus: (targetId: string, targetType: 'thread' | 'reply') => 'like' | 'dislike' | null;
+  likeStatuses: Map<string, 'like' | 'dislike'>;
   
   // Staking
   stakingSummary: UserStakingSummary | null;
@@ -93,6 +115,7 @@ export interface UseGovernanceResult {
  * - Voting on proposals
  * - Managing forum threads
  * - Staking NFTs
+ * - Forum likes and editing
  */
 export function useGovernance(): UseGovernanceResult {
   const { address, isConnected } = useAccount();
@@ -105,33 +128,99 @@ export function useGovernance(): UseGovernanceResult {
   const [isLoadingThreads, setIsLoadingThreads] = useState(false);
   const [isLoadingStaking, setIsLoadingStaking] = useState(false);
   
+  // Like statuses for forum items
+  const [likeStatuses, setLikeStatuses] = useState<Map<string, 'like' | 'dislike'>>(new Map());
+  
+  // Use database API or fallback to localStorage
+  const useDatabase = true; // Flag to enable database-backed features
+  
   const isGovernanceDeployed = isGovernanceConfigured();
   const isStakingDeployed = isStakingConfigured();
   
   // User's voting power (number of Star Skrumpeys)
   const votingPower = starSkrumpeys.length;
   
-  // Load proposals
-  const loadProposals = useCallback(() => {
+  // Load proposals from API or localStorage
+  const loadProposals = useCallback(async () => {
     setIsLoadingProposals(true);
     try {
-      const stored = getStoredProposals();
-      setProposals(stored);
+      if (useDatabase) {
+        const response = await fetch('/api/governance?action=proposals');
+        const data = await response.json();
+        if (data.success && data.proposals) {
+          // Convert database format to Proposal format
+          const convertedProposals: Proposal[] = data.proposals.map((p: { id: string; title: string; description: string; proposer_address: string; state: string; for_votes: number; against_votes: number; voting_duration_weeks: number; end_time: string | null; start_time: string | null; created_at: string; executed_at: string | null; cancelled_at: string | null }) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            proposer: p.proposer_address,
+            state: p.state as ProposalState,
+            forVotes: p.for_votes,
+            againstVotes: p.against_votes,
+            startBlock: 0,
+            endBlock: 0,
+            createdAt: new Date(p.created_at).getTime(),
+            executedAt: p.executed_at ? new Date(p.executed_at).getTime() : undefined,
+            cancelledAt: p.cancelled_at ? new Date(p.cancelled_at).getTime() : undefined,
+            // Extended properties for UI
+            votingDurationWeeks: p.voting_duration_weeks,
+            endTime: p.end_time,
+            startTime: p.start_time,
+          }));
+          setProposals(convertedProposals);
+        }
+      } else {
+        const stored = getStoredProposals();
+        setProposals(stored);
+      }
     } catch (error) {
       console.error('Failed to load proposals:', error);
+      // Fallback to localStorage
+      const stored = getStoredProposals();
+      setProposals(stored);
     } finally {
       setIsLoadingProposals(false);
     }
   }, []);
   
-  // Load forum threads
-  const loadThreads = useCallback(() => {
+  // Load forum threads from API or localStorage
+  const loadThreads = useCallback(async () => {
     setIsLoadingThreads(true);
     try {
-      const stored = getStoredThreads();
-      setThreads(stored);
+      if (useDatabase) {
+        const response = await fetch('/api/forum?action=threads');
+        const data = await response.json();
+        if (data.success && data.threads) {
+          // Convert database format to ForumThread format
+          const convertedThreads: ForumThread[] = data.threads.map((t: { id: string; title: string; content: string; author_address: string; category: string; pinned: number; locked: number; created_at: string; updated_at: string; proposal_id?: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string }) => ({
+            id: t.id,
+            title: t.title,
+            content: t.content,
+            author: truncateAddress(t.author_address),
+            category: t.category as ThreadCategory,
+            pinned: Boolean(t.pinned),
+            locked: Boolean(t.locked),
+            createdAt: new Date(t.created_at).getTime(),
+            updatedAt: new Date(t.updated_at).getTime(),
+            replies: [],
+            proposalId: t.proposal_id,
+            // Extended properties
+            likesCount: t.likes_count || 0,
+            dislikesCount: t.dislikes_count || 0,
+            isEdited: Boolean(t.is_edited),
+            originalContent: t.original_content,
+          }));
+          setThreads(convertedThreads);
+        }
+      } else {
+        const stored = getStoredThreads();
+        setThreads(stored);
+      }
     } catch (error) {
       console.error('Failed to load threads:', error);
+      // Fallback to localStorage
+      const stored = getStoredThreads();
+      setThreads(stored);
     } finally {
       setIsLoadingThreads(false);
     }
@@ -209,6 +298,52 @@ export function useGovernance(): UseGovernanceResult {
     }
   }, [address, isConnected, votingPower, loadProposals]);
   
+  // Create new proposal (with voting duration)
+  const createNewProposalWithDuration = useCallback(async (
+    title: string,
+    description: string,
+    votingDurationWeeks: number = 1
+  ): Promise<{ success: boolean; error?: string; proposal?: Proposal }> => {
+    if (!address || !isConnected) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+    
+    if (votingPower === 0) {
+      return { success: false, error: 'You need at least 1 Star Skrumpey to create proposals' };
+    }
+    
+    if (!title.trim() || !description.trim()) {
+      return { success: false, error: 'Title and description are required' };
+    }
+    
+    try {
+      const response = await fetch('/api/governance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createProposal',
+          title: title.trim(),
+          description: description.trim(),
+          proposerAddress: address,
+          votingDurationWeeks,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadProposals();
+        return { success: true, proposal: data.proposal };
+      }
+      return { success: false, error: data.error || 'Failed to create proposal' };
+    } catch (error) {
+      console.error('Failed to create proposal:', error);
+      // Fallback to localStorage version
+      const proposal = createProposal(title.trim(), description.trim(), address);
+      loadProposals();
+      return { success: true, proposal };
+    }
+  }, [address, isConnected, votingPower, loadProposals]);
+  
   // Vote on proposal
   const vote = useCallback(async (
     proposalId: string,
@@ -223,11 +358,35 @@ export function useGovernance(): UseGovernanceResult {
       return { success: false, error: 'You need at least 1 Star Skrumpey to vote' };
     }
     
-    const result = castVote(proposalId, address, support, votingPower, reason);
-    if (result.success) {
-      loadProposals();
+    try {
+      const response = await fetch('/api/governance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'vote',
+          proposalId,
+          voterAddress: address,
+          support,
+          votingPower,
+          reason,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadProposals();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to cast vote' };
+    } catch (error) {
+      console.error('Failed to vote:', error);
+      // Fallback to localStorage
+      const result = castVote(proposalId, address, support, votingPower, reason);
+      if (result.success) {
+        loadProposals();
+      }
+      return result;
     }
-    return result;
   }, [address, isConnected, votingPower, loadProposals]);
   
   // Check if user has voted
@@ -237,7 +396,7 @@ export function useGovernance(): UseGovernanceResult {
   }, [address]);
   
   // Get user's vote on proposal
-  const getUserVoteOnProposal = useCallback((proposalId: string): Vote | undefined => {
+  const getUserVoteOnProposalFn = useCallback((proposalId: string): Vote | undefined => {
     if (!address) return undefined;
     return getUserVote(proposalId, address);
   }, [address]);
@@ -267,12 +426,31 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createThread',
+          title: title.trim(),
+          content: content.trim(),
+          authorAddress: address,
+          category,
+          proposalId,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadThreads();
+        return { success: true, thread: data.thread };
+      }
+      return { success: false, error: data.error || 'Failed to create thread' };
+    } catch (error) {
+      console.error('Failed to create thread:', error);
+      // Fallback to localStorage
       const thread = createThread(title.trim(), content.trim(), truncateAddress(address), category, proposalId);
       loadThreads();
       return { success: true, thread };
-    } catch (error) {
-      console.error('Failed to create thread:', error);
-      return { success: false, error: 'Failed to create thread' };
     }
   }, [address, isConnected, votingPower, loadThreads]);
   
@@ -344,6 +522,130 @@ export function useGovernance(): UseGovernanceResult {
     return result;
   }, [address, isConnected, loadStakingSummary]);
   
+  // Edit a forum thread
+  const editThread = useCallback(async (
+    threadId: string,
+    newContent: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!address || !isConnected) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+    
+    if (!newContent.trim()) {
+      return { success: false, error: 'Content is required' };
+    }
+    
+    try {
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'editThread',
+          threadId,
+          newContent: newContent.trim(),
+          authorAddress: address,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadThreads();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to edit thread' };
+    } catch (error) {
+      console.error('Failed to edit thread:', error);
+      return { success: false, error: 'Failed to edit thread' };
+    }
+  }, [address, isConnected, loadThreads]);
+  
+  // Edit a forum reply
+  const editReply = useCallback(async (
+    replyId: string,
+    newContent: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!address || !isConnected) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+    
+    if (!newContent.trim()) {
+      return { success: false, error: 'Content is required' };
+    }
+    
+    try {
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'editReply',
+          replyId,
+          newContent: newContent.trim(),
+          authorAddress: address,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadThreads();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to edit reply' };
+    } catch (error) {
+      console.error('Failed to edit reply:', error);
+      return { success: false, error: 'Failed to edit reply' };
+    }
+  }, [address, isConnected, loadThreads]);
+  
+  // Toggle like/dislike on thread or reply
+  const toggleLike = useCallback(async (
+    targetId: string,
+    targetType: 'thread' | 'reply',
+    likeType: 'like' | 'dislike'
+  ): Promise<{ success: boolean; action?: string }> => {
+    if (!address || !isConnected) {
+      return { success: false };
+    }
+    
+    try {
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggleLike',
+          userAddress: address,
+          targetId,
+          targetType,
+          likeType,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Update local like status
+        setLikeStatuses(prev => {
+          const next = new Map(prev);
+          if (data.action === 'removed') {
+            next.delete(targetId);
+          } else {
+            next.set(targetId, likeType);
+          }
+          return next;
+        });
+        loadThreads();
+        return { success: true, action: data.action };
+      }
+      return { success: false };
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      return { success: false };
+    }
+  }, [address, isConnected, loadThreads]);
+  
+  // Get user's like status on a target
+  const getUserLikeStatusFn = useCallback((targetId: string, targetType: 'thread' | 'reply'): 'like' | 'dislike' | null => {
+    return likeStatuses.get(targetId) || null;
+  }, [likeStatuses]);
+  
   // Refresh all data
   const refresh = useCallback(() => {
     loadProposals();
@@ -357,12 +659,12 @@ export function useGovernance(): UseGovernanceResult {
     activeProposals,
     pastProposals,
     isLoadingProposals: isLoadingProposals || isDAOLoading,
-    createNewProposal,
+    createNewProposal: createNewProposalWithDuration,
     
     // Voting
     vote,
     hasVoted: checkHasVoted,
-    getUserVoteOnProposal,
+    getUserVoteOnProposal: getUserVoteOnProposalFn,
     getVotesForProposal,
     
     // Forum
@@ -371,6 +673,13 @@ export function useGovernance(): UseGovernanceResult {
     createNewThread,
     replyToThread,
     getThreadsByCategory: getThreadsByCategoryFn,
+    
+    // Forum editing & likes (new)
+    editThread,
+    editReply,
+    toggleLike,
+    getUserLikeStatus: getUserLikeStatusFn,
+    likeStatuses,
     
     // Staking
     stakingSummary,

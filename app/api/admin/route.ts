@@ -31,6 +31,7 @@ import {
   cleanupDirectMessages,
   cleanupRaffleResultViews,
   getDrawnRaffles,
+  getRaffleWinnerDetails,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -211,6 +212,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         raffles,
+      });
+    }
+
+    // Get raffle winner details (full user info)
+    if (action === 'winnerDetails') {
+      const walletAddress = searchParams.get('wallet');
+      if (!walletAddress) {
+        return NextResponse.json(
+          { success: false, error: 'Wallet address required' },
+          { status: 400 }
+        );
+      }
+
+      const winnerDetails = getRaffleWinnerDetails(walletAddress);
+      return NextResponse.json({
+        success: true,
+        winner: winnerDetails,
       });
     }
 
