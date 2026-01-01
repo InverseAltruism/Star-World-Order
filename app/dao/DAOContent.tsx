@@ -303,12 +303,15 @@ function GovernanceTab({
           <h3 className="text-[#ffd700] text-xs tracking-wider animate-glow-pulse">GOVERNANCE</h3>
           <p className="text-gray-500 text-[10px]">Your voting power: {votingPower} ⭐</p>
         </div>
-        <button 
-          onClick={() => setShowCreateModal(true)}
-          className="pixel-btn pixel-btn-gold text-xs !px-3 !py-2 smooth-transition hover-lift"
-        >
-          + NEW PROPOSAL
-        </button>
+        <div className="flex items-center gap-2">
+          <GovernanceInfoButton />
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="pixel-btn pixel-btn-gold text-xs !px-3 !py-2 smooth-transition hover-lift"
+          >
+            + NEW PROPOSAL
+          </button>
+        </div>
       </div>
 
       {/* Proposals List */}
@@ -1306,24 +1309,22 @@ function StakingTab({
 }
 
 /**
- * Governance Info Section Component
- * Replaces the old Demo Mode warning with a clickable info icon
+ * Governance Info Button Component
+ * Shows a "HOW IT WORKS" button that opens an info modal
  */
-function GovernanceInfoSection() {
+function GovernanceInfoButton() {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <>
-      {/* Small info button in corner */}
-      <div className="flex justify-end mb-4 animate-slide-in-up">
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#9966ff]/10 border border-[#9966ff]/30 hover:bg-[#9966ff]/20 hover:border-[#9966ff]/50 smooth-transition text-[#9966ff]"
-        >
-          <span className="text-sm">ℹ️</span>
-          <span className="text-[10px] font-bold">HOW IT WORKS</span>
-        </button>
-      </div>
+      {/* Info button */}
+      <button
+        onClick={() => setShowModal(true)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#9966ff]/10 border border-[#9966ff]/30 hover:bg-[#9966ff]/20 hover:border-[#9966ff]/50 smooth-transition text-[#9966ff]"
+      >
+        <span className="text-sm">ℹ️</span>
+        <span className="text-[10px] font-bold">HOW IT WORKS</span>
+      </button>
 
       {/* Info Modal */}
       {showModal && (
@@ -1432,7 +1433,6 @@ export default function DAOContent() {
     stakeNFT,
     requestUnstakeNFT,
     unstakeNFT,
-    isGovernanceDeployed,
     isStakingDeployed,
     editThread,
     editReply,
@@ -1464,11 +1464,6 @@ export default function DAOContent() {
         title="DAO ACCESS LOCKED"
         message="Only Star Skrumpey holders may participate in The Order's governance."
       >
-        {/* Governance Info Section - clickable icon that shows info modal */}
-        {!isGovernanceDeployed && (
-          <GovernanceInfoSection />
-        )}
-
         {/* Tab Navigation */}
         <div className="flex flex-wrap justify-center gap-2 mb-8 animate-slide-in-up animate-delay-1">
           {tabs.map((tab, index) => (

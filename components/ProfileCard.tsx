@@ -1863,7 +1863,7 @@ export default function ProfileCard() {
                     {nft.name}
                   </p>
                   <p className="text-[10px] sm:text-xs truncate">
-                    <span className="gradient-text" style={{backgroundImage:  getVariantGradient(nft.starVariant)}}>
+                    <span style={getVariantTextStyle(nft.starVariant)}>
                       {nft.rarity}
                     </span>
                   </p>

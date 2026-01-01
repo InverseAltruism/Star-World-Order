@@ -1,13 +1,18 @@
-'use client';
+import Header from '@/components/Header';
+import GalleryContent from './GalleryContent';
 
-import dynamic from 'next/dynamic';
-
-const GalleryContent = dynamic(() => import('./GalleryContent'), { ssr: false });
+export const metadata = {
+  title: 'Gallery | Star World Order',
+  description: 'Browse the complete collection of 333 Star Skrumpey NFTs and explore their unique constellation traits.',
+};
 
 export default function GalleryPage() {
   return (
-    <main className="min-h-screen p-4 sm:p-8 pt-24">
-      <GalleryContent />
-    </main>
+    <div className="min-h-screen">
+      <Header />
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <GalleryContent />
+      </main>
+    </div>
   );
 }
