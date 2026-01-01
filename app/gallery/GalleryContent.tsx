@@ -63,6 +63,18 @@ interface StarSkrumpeyData {
 }
 
 /**
+ * Helper function to extract attribute value from IPFS metadata
+ */
+function getAttributeValue(attributes: unknown, traitType: string): string | undefined {
+  if (!attributes || !Array.isArray(attributes)) return undefined;
+  const attr = attributes.find(
+    (a: { trait_type?: string; value?: string }) => 
+      a.trait_type?.toLowerCase() === traitType.toLowerCase()
+  );
+  return attr?.value;
+}
+
+/**
  * Detail Modal Component - Shows full NFT details
  */
 function DetailModal({
@@ -196,14 +208,24 @@ function DetailModal({
         {/* Token ID and links */}
         <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-[#2a2a4e] pt-4">
           <span>Token ID: #{nft.tokenId}</span>
-          <a
-            href={`https://monadscan.com/token/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0?a=${nft.tokenId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#00ffff] hover:text-[#44ffff]"
-          >
-            View on Explorer ↗
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href={`https://magiceden.io/item-details/monad/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0/${nft.tokenId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#ff6ec7] hover:text-[#ff99d0]"
+            >
+              View on ME ↗
+            </a>
+            <a
+              href={`https://monadscan.com/token/0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0?a=${nft.tokenId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#00ffff] hover:text-[#44ffff]"
+            >
+              View on Explorer ↗
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -301,7 +323,7 @@ export default function GalleryContent() {
     setIsLoading(true);
     try {
       // Fetch all metadata in batches concurrently
-      const batchSize = 100;
+      const batchSize = 50; // API limit
       const batches: number[][] = [];
       
       for (let i = 0; i < STAR_SKRUMPEY_IDS.length; i += batchSize) {
@@ -319,16 +341,18 @@ export default function GalleryContent() {
       
       for (const result of results) {
         if (result.status === 'fulfilled' && result.value.success && result.value.metadata) {
-          const parsed = result.value.metadata.map((m: Record<string, unknown>) => ({
+          // The API returns metadata as an object keyed by tokenId, not an array
+          const metadataObj = result.value.metadata as Record<string, Record<string, unknown>>;
+          const parsed = Object.values(metadataObj).map((m) => ({
             tokenId: m.tokenId as number,
             name: m.name as string || `Star Skrumpey #${m.tokenId}`,
             constellation: m.constellation as string || STAR_CONSTELLATION_MAP[m.tokenId as number] || 'Unknown',
-            imageUrl: m.image_url as string || '',
-            aura: m.aura as string,
-            background: m.background as string,
-            eyes: m.eyes as string,
-            form: m.form as string,
-            mood: m.mood as string,
+            imageUrl: m.image as string || getSkrumpeyImageUrl(m.tokenId as number, false),
+            aura: getAttributeValue(m.attributes, 'aura'),
+            background: getAttributeValue(m.attributes, 'background'),
+            eyes: getAttributeValue(m.attributes, 'eyes'),
+            form: getAttributeValue(m.attributes, 'form'),
+            mood: getAttributeValue(m.attributes, 'mood'),
           }));
           allData.push(...parsed);
         }
