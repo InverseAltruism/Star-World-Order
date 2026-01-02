@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
+import { truncateAddress } from '@/lib/governance';
 
 /**
  * User profile data interface
@@ -35,14 +36,6 @@ const ACHIEVEMENTS = [
  * Friend status type
  */
 type FriendStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked' | 'loading';
-
-/**
- * Truncate address for display
- */
-function truncateAddress(address: string): string {
-  if (!address) return '';
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
 
 /**
  * Get level title based on Star count
@@ -98,17 +91,18 @@ export default function UserProfileModal({
     
     setIsLoading(true);
     try {
-      // Fetch profile data
-      const profileRes = await fetch(`/api/profile?address=${userAddress}`);
-      const profileData = await profileRes.json();
+      // Fetch all data in parallel
+      const [profileRes, socialRes, xpRes] = await Promise.all([
+        fetch(`/api/profile?address=${userAddress}`),
+        fetch(`/api/social-connections?address=${userAddress}`),
+        fetch(`/api/user-xp?address=${userAddress}`),
+      ]);
       
-      // Fetch social connections
-      const socialRes = await fetch(`/api/social-connections?address=${userAddress}`);
-      const socialData = await socialRes.json();
-      
-      // Fetch XP data
-      const xpRes = await fetch(`/api/user-xp?address=${userAddress}`);
-      const xpData = await xpRes.json();
+      const [profileData, socialData, xpData] = await Promise.all([
+        profileRes.json(),
+        socialRes.json(),
+        xpRes.json(),
+      ]);
       
       setProfile({
         address: userAddress,

@@ -2,14 +2,7 @@
 
 import React, { useState } from 'react';
 import UserProfileModal from './UserProfileModal';
-
-/**
- * Truncate address for display
- */
-function truncateAddress(address: string): string {
-  if (!address) return '';
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
+import { truncateAddress } from '@/lib/governance';
 
 interface ClickableUsernameProps {
   address: string;
