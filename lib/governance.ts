@@ -98,6 +98,7 @@ export interface Proposal {
   title: string;
   description: string;
   proposer: string;
+  proposerDisplayName?: string | null; // Display name if set
   state: ProposalState;
   forVotes: number;
   againstVotes: number;
@@ -114,6 +115,7 @@ export interface Proposal {
 export interface Vote {
   proposalId: string;
   voter: string;
+  voterDisplayName?: string | null; // Display name if set
   support: boolean;
   weight: number;
   reason?: string;
@@ -129,9 +131,11 @@ export interface ForumThread {
   content: string;
   author: string;
   authorAddress?: string; // Full author address for ownership checks
+  authorDisplayName?: string | null; // Display name if set
   createdAt: number;
   updatedAt: number;
   replies: ForumReply[];
+  replyCount?: number; // Reply count from DB - use this instead of replies.length in thread list
   pinned: boolean;
   locked: boolean;
   category: ThreadCategory;
@@ -152,6 +156,7 @@ export interface ForumReply {
   content: string;
   author: string;
   authorAddress?: string; // Full author address for ownership checks
+  authorDisplayName?: string | null; // Display name if set
   createdAt: number;
   likes: number;
   // Extended fields for database-backed forum

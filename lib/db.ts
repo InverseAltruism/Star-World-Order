@@ -4162,6 +4162,7 @@ export interface GovernanceProposal {
   title: string;
   description: string;
   proposer_address: string;
+  proposer_display_name?: string | null;
   state: ProposalStateDB;
   for_votes: number;
   against_votes: number;
@@ -4178,6 +4179,7 @@ export interface GovernanceVote {
   id: number;
   proposal_id: string;
   voter_address: string;
+  voter_display_name?: string | null;
   support: number; // 1 = for, 0 = against
   voting_power: number;
   reason: string | null;
@@ -4233,15 +4235,21 @@ export function getGovernanceProposals(options?: {
   const offset = options?.offset || 0;
   
   try {
-    let query = 'SELECT * FROM governance_proposals';
+    let query = `
+      SELECT 
+        gp.*,
+        p.display_name as proposer_display_name
+      FROM governance_proposals gp
+      LEFT JOIN user_profiles p ON LOWER(gp.proposer_address) = LOWER(p.wallet_address)
+    `;
     const params: (string | number)[] = [];
     
     if (options?.state) {
-      query += ' WHERE state = ?';
+      query += ' WHERE gp.state = ?';
       params.push(options.state);
     }
     
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY gp.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
     
     const stmt = db.prepare(query);
@@ -4275,7 +4283,14 @@ export function getGovernanceProposalById(proposalId: string): GovernanceProposa
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare('SELECT * FROM governance_proposals WHERE id = ?');
+    const stmt = db.prepare(`
+      SELECT 
+        gp.*,
+        p.display_name as proposer_display_name
+      FROM governance_proposals gp
+      LEFT JOIN user_profiles p ON LOWER(gp.proposer_address) = LOWER(p.wallet_address)
+      WHERE gp.id = ?
+    `);
     const proposal = stmt.get(proposalId) as GovernanceProposal | undefined;
     
     if (proposal && proposal.state === 'active' && proposal.end_time) {
@@ -4390,7 +4405,15 @@ export function getGovernanceVotes(proposalId: string): GovernanceVote[] {
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare('SELECT * FROM governance_votes WHERE proposal_id = ? ORDER BY created_at DESC');
+    const stmt = db.prepare(`
+      SELECT 
+        gv.*,
+        p.display_name as voter_display_name
+      FROM governance_votes gv
+      LEFT JOIN user_profiles p ON LOWER(gv.voter_address) = LOWER(p.wallet_address)
+      WHERE gv.proposal_id = ? 
+      ORDER BY gv.created_at DESC
+    `);
     return stmt.all(proposalId) as GovernanceVote[];
   } catch {
     return [];
@@ -4438,6 +4461,7 @@ export interface ForumThreadDB {
   content: string;
   original_content: string | null;
   author_address: string;
+  author_display_name?: string | null;
   category: ForumCategory;
   proposal_id: string | null;
   pinned: number;
@@ -4445,6 +4469,7 @@ export interface ForumThreadDB {
   likes_count: number;
   dislikes_count: number;
   is_edited: number;
+  reply_count?: number;
   created_at: string;
   updated_at: string;
   edited_at: string | null;
@@ -4456,6 +4481,7 @@ export interface ForumReplyDB {
   content: string;
   original_content: string | null;
   author_address: string;
+  author_display_name?: string | null;
   likes_count: number;
   dislikes_count: number;
   is_edited: number;
@@ -4517,15 +4543,22 @@ export function getForumThreads(options?: {
   const offset = options?.offset || 0;
   
   try {
-    let query = 'SELECT * FROM forum_threads';
+    let query = `
+      SELECT 
+        t.*,
+        p.display_name as author_display_name,
+        (SELECT COUNT(*) FROM forum_replies WHERE thread_id = t.id) as reply_count
+      FROM forum_threads t
+      LEFT JOIN user_profiles p ON LOWER(t.author_address) = LOWER(p.wallet_address)
+    `;
     const params: (string | number)[] = [];
     
     if (options?.category) {
-      query += ' WHERE category = ?';
+      query += ' WHERE t.category = ?';
       params.push(options.category);
     }
     
-    query += ' ORDER BY pinned DESC, updated_at DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY t.pinned DESC, t.updated_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
     
     const stmt = db.prepare(query);
@@ -4543,7 +4576,14 @@ export function getForumThreadById(threadId: string): ForumThreadDB | null {
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare('SELECT * FROM forum_threads WHERE id = ?');
+    const stmt = db.prepare(`
+      SELECT 
+        t.*,
+        p.display_name as author_display_name
+      FROM forum_threads t
+      LEFT JOIN user_profiles p ON LOWER(t.author_address) = LOWER(p.wallet_address)
+      WHERE t.id = ?
+    `);
     return stmt.get(threadId) as ForumThreadDB | null;
   } catch {
     return null;
@@ -4557,7 +4597,15 @@ export function getForumReplies(threadId: string): ForumReplyDB[] {
   const db = getDatabase();
   
   try {
-    const stmt = db.prepare('SELECT * FROM forum_replies WHERE thread_id = ? ORDER BY created_at ASC');
+    const stmt = db.prepare(`
+      SELECT 
+        r.*,
+        p.display_name as author_display_name
+      FROM forum_replies r
+      LEFT JOIN user_profiles p ON LOWER(r.author_address) = LOWER(p.wallet_address)
+      WHERE r.thread_id = ? 
+      ORDER BY r.created_at ASC
+    `);
     return stmt.all(threadId) as ForumReplyDB[];
   } catch {
     return [];
