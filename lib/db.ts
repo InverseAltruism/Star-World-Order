@@ -1003,7 +1003,7 @@ export function updateUserProfile(
   data: {
     displayName?: string;
     bio?: string;
-    avatarUrl?: string;
+    avatarTokenId?: number | null;
     displayedBadges?: string[];
   }
 ): UserProfile {
@@ -1011,6 +1011,11 @@ export function updateUserProfile(
   
   // Convert displayedBadges array to JSON string for storage
   const badgesJson = data.displayedBadges ? JSON.stringify(data.displayedBadges) : null;
+  
+  // Store avatar token ID as string in avatar_url field
+  const avatarValue = data.avatarTokenId !== undefined 
+    ? (data.avatarTokenId !== null ? String(data.avatarTokenId) : null) 
+    : undefined;
   
   const updateStmt = db.prepare(`
     INSERT INTO user_profiles (wallet_address, display_name, bio, avatar_url, displayed_badges)
@@ -1027,11 +1032,11 @@ export function updateUserProfile(
     walletAddress.toLowerCase(),
     data.displayName || null,
     data.bio || null,
-    data.avatarUrl || null,
+    avatarValue !== undefined ? avatarValue : null,
     badgesJson,
     data.displayName || null,
     data.bio || null,
-    data.avatarUrl || null,
+    avatarValue !== undefined ? avatarValue : null,
     badgesJson
   );
   

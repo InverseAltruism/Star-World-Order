@@ -2,11 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { isProdMode } from '@/lib/config';
 
 export default function Hero() {
   const router = useRouter();
-  const isProduction = isProdMode();
 
   // Pre-generated star positions for consistent rendering (avoid hydration mismatches)
   const starPositions = [
@@ -116,22 +114,12 @@ export default function Hero() {
         
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-8 sm:mb-12 animate-slide-in-up animate-delay-3 px-4">
-          {isProduction ? (
-            <button 
-              disabled
-              className="pixel-btn pixel-btn-gold smooth-transition opacity-50 cursor-not-allowed text-[10px] sm:text-xs"
-              title="Locked in production"
-            >
-              🔒 ENTER THE ORDER 🔒
-            </button>
-          ) : (
-            <button 
-              onClick={handleEnterTheOrder}
-              className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[10px] sm:text-xs"
-            >
-              ⭐ ENTER THE ORDER ⭐
-            </button>
-          )}
+          <button 
+            onClick={handleEnterTheOrder}
+            className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[10px] sm:text-xs"
+          >
+            ⭐ ENTER THE ORDER ⭐
+          </button>
           <button 
             onClick={handleDiscoverMore}
             className="pixel-btn smooth-transition hover-lift text-[10px] sm:text-xs"

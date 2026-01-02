@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { truncateAddress } from '@/lib/governance';
+import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 
 /**
  * User profile data interface
@@ -104,11 +105,20 @@ export default function UserProfileModal({
         xpRes.json(),
       ]);
       
+      // Parse avatar token ID from avatar_url field (stored as string number)
+      let avatarTokenId: number | undefined;
+      if (profileData.profile?.avatar_url) {
+        const parsed = parseInt(profileData.profile.avatar_url, 10);
+        if (!isNaN(parsed)) {
+          avatarTokenId = parsed;
+        }
+      }
+      
       setProfile({
         address: userAddress,
         displayName: profileData.profile?.display_name,
         bio: profileData.profile?.bio,
-        avatarTokenId: profileData.profile?.avatar_token_id,
+        avatarTokenId: avatarTokenId,
         displayedBadges: profileData.profile?.displayed_badges ? JSON.parse(profileData.profile.displayed_badges) : [],
         discordUsername: socialData.connections?.find((c: { platform: string; platform_username?: string }) => c.platform === 'discord')?.platform_username,
         xUsername: socialData.connections?.find((c: { platform: string; platform_username?: string }) => c.platform === 'x')?.platform_username,
