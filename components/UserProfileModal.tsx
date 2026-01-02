@@ -6,6 +6,43 @@ import { truncateAddress } from '@/lib/governance';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 
 /**
+ * Profile Avatar Image Component with fallback handling
+ * Shows the user's Star Skrumpey NFT or a fallback frog emoji
+ */
+function ProfileAvatarImage({ tokenId }: { tokenId: number }) {
+  const [imageError, setImageError] = useState(false);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      // Try GIF on first error (for galaxy background NFTs)
+      setUseGif(true);
+    } else {
+      // Show placeholder after trying both extensions
+      setImageError(true);
+    }
+  };
+
+  if (imageError) {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#9966ff] to-[#ffd700] flex items-center justify-center text-3xl">
+        🐸
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={`Skrumpey #${tokenId}`}
+      className="w-full h-full object-cover"
+      onError={handleImageError}
+    />
+  );
+}
+
+/**
  * User profile data interface
  */
 interface UserProfileData {
@@ -248,7 +285,7 @@ export default function UserProfileModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -276,10 +313,16 @@ export default function UserProfileModal({
           <>
             {/* Avatar Section */}
             <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-lg overflow-hidden border-2 border-[#ffd700] bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30 flex items-center justify-center text-4xl"
+              <div className="w-20 h-20 mx-auto mb-4 rounded-lg overflow-hidden border-2 border-[#ffd700] bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30"
                 style={{ boxShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
               >
-                🐸
+                {profile?.avatarTokenId ? (
+                  <ProfileAvatarImage tokenId={profile.avatarTokenId} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl">
+                    🐸
+                  </div>
+                )}
               </div>
               
               <h2 className="text-[#ffd700] text-lg font-bold mb-1 animate-glow-pulse">
