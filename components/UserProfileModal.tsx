@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { truncateAddress } from '@/lib/governance';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
@@ -8,11 +8,16 @@ import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 /**
  * Profile Avatar Image Component with fallback handling
  * Shows the user's Star Skrumpey NFT or a fallback frog emoji
+ * @param tokenId - The Star Skrumpey NFT token ID to display
  */
-function ProfileAvatarImage({ tokenId }: { tokenId: number }) {
+function ProfileAvatarImage({ tokenId }: { tokenId: number }): React.JSX.Element {
+  // Track if the image failed to load
   const [imageError, setImageError] = useState(false);
+  // Try GIF format as fallback for galaxy background NFTs that may not have PNG
   const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+  
+  // Memoize image URL to avoid recalculating on every render
+  const imageUrl = useMemo(() => getSkrumpeyImageUrl(tokenId, useGif), [tokenId, useGif]);
 
   const handleImageError = () => {
     if (!useGif) {
