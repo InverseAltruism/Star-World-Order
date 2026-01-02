@@ -1,6 +1,252 @@
 # CLAUDE.md - Star World Order Technical Reference
 
-This file contains comprehensive technical information for AI agents and developers working on the Star World Order codebase.
+> **For AI Agents**: This file is optimized for Claude and other AI coding assistants. Start with the Quick Reference section for common tasks, then consult detailed sections as needed.
+
+---
+
+## 🚀 Quick Reference for AI Agents
+
+### Essential Commands
+
+```bash
+# Development
+npm run dev              # Start dev server (port 3000)
+npm run build            # Build for production
+npm run start            # Start production server
+
+# Validation (RUN BEFORE COMMITTING)
+npm run type-check       # TypeScript validation
+npm run lint             # ESLint checks
+
+# Database
+npm run db:init          # Initialize SQLite database
+npm run db:fetch-metadata # Fetch NFT metadata to DB
+
+# Contracts
+npm run compile          # Compile Solidity contracts
+
+# Testing
+npm run test:network     # Test Monad RPC connection
+```
+
+### Critical File Locations
+
+| Purpose | File(s) |
+|---------|---------|
+| **Environment config** | `lib/config.ts` |
+| **Database operations** | `lib/db.ts` |
+| **Star Skrumpey logic** | `lib/starSkrumpey.ts` |
+| **RPC client with fallback** | `lib/rpcClient.ts` |
+| **Wagmi/chain config** | `lib/wagmi.ts` |
+| **API routes** | `app/api/*/route.ts` |
+| **React components** | `components/*.tsx` |
+| **Page components** | `app/*/page.tsx` |
+| **Environment variables** | `.env.example` (template) |
+
+### PR Workflow
+
+⚠️ **All PRs must target `dev` branch, NOT `main`.**
+
+```bash
+git checkout dev
+git checkout -b feature/your-feature
+# Make changes
+npm run type-check && npm run lint && npm run build
+# Commit and push your feature branch
+```
+
+### When Modifying Code
+
+1. **Always run validation**: `npm run type-check && npm run lint`
+2. **Test build**: `npm run build`
+3. **Use existing patterns**: Check similar files for conventions
+4. **Preserve existing tests**: Don't remove working test infrastructure
+
+---
+
+## 🔧 Common Task Patterns
+
+### Adding a New API Endpoint
+
+1. Create file at `app/api/{endpoint}/route.ts`
+2. Export async functions: `GET`, `POST`, `PATCH`, `DELETE`
+3. Use `NextRequest` and return `NextResponse.json()`
+
+```typescript
+// app/api/example/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const param = searchParams.get('param');
+  
+  return NextResponse.json({ success: true, data: param });
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  // Process body
+  return NextResponse.json({ success: true });
+}
+```
+
+### Adding a New Database Table
+
+1. Add schema in `lib/db.ts` initialization section
+2. Add CRUD functions in `lib/db.ts`
+3. Create indexes for frequently queried columns
+
+```typescript
+// In lib/db.ts - Add to initDatabase() function
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet_address TEXT NOT NULL,
+    activity_type TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_activity_wallet ON user_activity(wallet_address);
+`);
+```
+
+### Adding a New React Component
+
+1. Create file in `components/` directory
+2. Use TypeScript functional components
+3. Use Tailwind CSS for styling
+4. Follow synthwave color scheme
+
+```typescript
+// components/NewComponent.tsx
+'use client';
+
+interface NewComponentProps {
+  title: string;
+  onAction?: () => void;
+}
+
+export default function NewComponent({ title, onAction }: NewComponentProps) {
+  return (
+    <div className="bg-black/80 border border-[#00f7ff]/30 rounded-lg p-4">
+      <h2 className="text-[#00f7ff] font-['Press_Start_2P'] text-sm">{title}</h2>
+      {onAction && (
+        <button 
+          onClick={onAction}
+          className="mt-2 px-4 py-2 bg-[#00f7ff]/20 hover:bg-[#00f7ff]/30 
+                     border border-[#00f7ff] text-[#00f7ff] rounded"
+        >
+          Action
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+### Working with Web3/Blockchain
+
+Use Wagmi hooks for blockchain interactions:
+
+```typescript
+import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+
+// Read from contract
+const { data, isLoading } = useReadContract({
+  address: CONTRACT_ADDRESS,
+  abi: CONTRACT_ABI,
+  functionName: 'balanceOf',
+  args: [userAddress],
+});
+
+// Write to contract
+const { writeContract } = useWriteContract();
+writeContract({
+  address: CONTRACT_ADDRESS,
+  abi: CONTRACT_ABI,
+  functionName: 'transfer',
+  args: [recipient, amount],
+});
+```
+
+---
+
+## ⚠️ Anti-Patterns to Avoid
+
+### ❌ DON'T: Fetch NFT metadata from IPFS directly
+```typescript
+// ❌ WRONG - Slow and unreliable
+const metadata = await fetch(`https://ipfs.io/ipfs/bafybei.../${tokenId}`);
+```
+
+### ✅ DO: Use database batch lookup
+```typescript
+// ✅ CORRECT - Fast O(1) lookup
+import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
+const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
+```
+
+### ❌ DON'T: Make sequential RPC calls
+```typescript
+// ❌ WRONG - Rate limiting risk
+for (const id of tokenIds) {
+  await client.readContract({ functionName: 'ownerOf', args: [id] });
+}
+```
+
+### ✅ DO: Use multicall batching
+```typescript
+// ✅ CORRECT - Single batched call
+import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
+const ownedStars = await checkStarOwnershipBatched(address);
+```
+
+### ❌ DON'T: Hardcode RPC endpoints
+```typescript
+// ❌ WRONG - No fallback
+const client = createPublicClient({ transport: http('https://rpc.monad.xyz') });
+```
+
+### ✅ DO: Use resilient RPC client
+```typescript
+// ✅ CORRECT - Has fallback and retry logic
+import { getResilientClient } from '@/lib/rpcClient';
+const client = getResilientClient();
+```
+
+---
+
+## 🎨 Styling Conventions
+
+### Color Palette (Synthwave Theme)
+
+```css
+/* Primary colors - use these in Tailwind */
+--neon-cyan: #00f7ff      /* text-[#00f7ff], border-[#00f7ff] */
+--neon-magenta: #ff00ff   /* text-[#ff00ff] */
+--neon-gold: #ffd700      /* text-[#ffd700] */
+--deep-purple: #1a0033    /* bg-[#1a0033] */
+--dark-navy: #0a0015      /* bg-[#0a0015] */
+```
+
+### Typography
+
+- **Headings**: `font-['Press_Start_2P']` (retro pixel font)
+- **Body text**: Default system font stack
+- **Sizes**: Use Tailwind's `text-xs`, `text-sm`, `text-base`, etc.
+
+### Component Styling Pattern
+
+```tsx
+// Standard card/panel styling
+<div className="bg-black/80 backdrop-blur-md border border-[#00f7ff]/30 rounded-lg p-4 shadow-[0_0_15px_rgba(0,247,255,0.3)]">
+  {/* content */}
+</div>
+
+// Neon glow button
+<button className="px-4 py-2 bg-[#00f7ff]/20 hover:bg-[#00f7ff]/30 border border-[#00f7ff] text-[#00f7ff] rounded transition-all hover:shadow-[0_0_10px_#00f7ff]">
+  Button Text
+</button>
+```
 
 ---
 
@@ -8,10 +254,12 @@ This file contains comprehensive technical information for AI agents and develop
 
 **Star World Order (SWO)** is a Sub-DAO for Star Skrumpey holders on Monad blockchain.
 
-- **Website**: https://starworldorder.com
-- **Twitter**: https://x.com/StrWorldOrder
-- **Parent Project**: https://x.com/skrumpeys
-- **Repository**: https://github.com/InverseAltruism/Star-World-Order
+| Property | Value |
+|----------|-------|
+| **Website** | https://starworldorder.com |
+| **Twitter** | https://x.com/StrWorldOrder |
+| **Parent Project** | https://x.com/skrumpeys |
+| **Repository** | https://github.com/InverseAltruism/Star-World-Order |
 
 Star World Order is an exclusive DAO realm for holders of Skrumpey NFTs with the Star constellation trait. It features a retro N64-inspired UI with synthwave aesthetics, DAO governance, OTC marketplace, NFT staking, and a community hangout hub.
 
@@ -2817,8 +3065,146 @@ ISC License - See LICENSE file for details
 
 ---
 
-**Last Updated**: December 30, 2024
+## 📋 AI Agent Task Checklist
+
+Use this checklist when working on tasks:
+
+### Before Starting
+- [ ] Read relevant sections of this CLAUDE.md
+- [ ] Understand the file structure (`app/`, `lib/`, `components/`)
+- [ ] Check existing patterns in similar files
+- [ ] Review `.env.example` for required environment variables
+
+### During Development
+- [ ] Use TypeScript with proper types
+- [ ] Follow Tailwind CSS conventions (synthwave theme)
+- [ ] Use existing utility functions from `lib/`
+- [ ] Add error handling for async operations
+- [ ] Use Wagmi hooks for blockchain interactions
+
+### Before Committing
+- [ ] Run `npm run type-check` (must pass)
+- [ ] Run `npm run lint` (must pass)
+- [ ] Run `npm run build` (must succeed)
+- [ ] Test changes manually if applicable
+- [ ] Update documentation if adding new features
+
+### PR Guidelines
+- [ ] Target the `dev` branch (NOT `main`)
+- [ ] Write clear commit messages
+- [ ] Describe changes in PR description
+
+---
+
+## 🗂️ Directory Structure Quick Reference
+
+```
+Star-World-Order/
+├── app/                    # Next.js App Router pages
+│   ├── api/               # API route handlers
+│   │   ├── admin/         # Admin API
+│   │   ├── chat/          # Chat API
+│   │   ├── friends/       # Friends API
+│   │   ├── messages/      # DM API
+│   │   ├── notifications/ # Notifications API
+│   │   ├── profile/       # Profile API
+│   │   ├── quests/        # Quest system API
+│   │   ├── raffle/        # Raffle system API
+│   │   ├── treasury/      # Treasury API
+│   │   └── user-xp/       # XP system API
+│   ├── admin_xyz/         # Admin dashboard page
+│   ├── dao/               # DAO governance page
+│   ├── gallery/           # NFT gallery page
+│   ├── hangout/           # Hangout hub page
+│   ├── marketplace/       # OTC marketplace page
+│   ├── members/           # Members list page
+│   ├── profile/           # Profile page
+│   ├── raffle/            # Raffle page
+│   ├── treasury/          # Treasury page
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Home page
+│   └── providers.tsx      # React context providers
+│
+├── components/            # React components
+│   ├── AccessGate.tsx     # Access control wrapper
+│   ├── Header.tsx         # Navigation header
+│   ├── ProfileCard.tsx    # User profile card
+│   ├── WalletConnect.tsx  # Wallet connection
+│   └── ...
+│
+├── lib/                   # Utility libraries
+│   ├── config.ts          # Environment detection
+│   ├── db.ts              # SQLite database (3500+ lines)
+│   ├── starSkrumpey.ts    # Star NFT verification
+│   ├── rpcClient.ts       # RPC with fallback
+│   ├── wagmi.ts           # Chain configuration
+│   ├── magiceden.ts       # Magic Eden API
+│   ├── blockvision.ts     # BlockVision API
+│   ├── contexts/          # React contexts
+│   └── hooks/             # Custom React hooks
+│
+├── contracts/             # Solidity smart contracts
+│   ├── StarSkrumpeyMarketplace.sol
+│   ├── StarSkrumpeyStaking.sol
+│   └── StarWorldOrderGovernor.sol
+│
+├── scripts/               # Build/utility scripts
+│   ├── compile-contracts.js
+│   ├── init-db.sql
+│   └── test-connection.js
+│
+├── docs/                  # Additional documentation
+├── public/                # Static assets
+├── data/                  # SQLite database storage
+└── [config files]         # package.json, tsconfig, etc.
+```
+
+---
+
+## 🔍 Finding Information in This File
+
+This document is organized by topic. Use these section headers to navigate:
+
+| Need to... | Go to Section |
+|------------|---------------|
+| Run common commands | "🚀 Quick Reference for AI Agents" |
+| Add new API endpoint | "🔧 Common Task Patterns" |
+| Add database table | "🔧 Common Task Patterns" |
+| Add React component | "🔧 Common Task Patterns" |
+| Style with Tailwind | "🎨 Styling Conventions" |
+| Avoid common mistakes | "⚠️ Anti-Patterns to Avoid" |
+| Understand database schema | "Database Schema (SQLite)" |
+| Work with API endpoints | "API Endpoints" |
+| Deploy changes | "Deployment Commands" |
+| Debug issues | "Troubleshooting" |
+
+---
+
+**Last Updated**: January 2, 2025
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order
 
-**For AI Agents**: This file contains complete technical documentation for the Star World Order codebase. Use it as a reference when making changes, debugging issues, or implementing new features.
+---
+
+## 📝 Notes for AI Agents
+
+### Context Management
+- This file is large (~3000 lines). Focus on relevant sections for your task.
+- The Quick Reference section contains the most commonly needed information.
+- Database schema details are in the "Database Schema (SQLite)" section.
+- API endpoint documentation is in the "API Endpoints" section.
+
+### Key Patterns to Remember
+1. **Always use `dev` branch** for PRs
+2. **Use database for NFT metadata** instead of IPFS
+3. **Use multicall for RPC** to avoid rate limiting
+4. **Use resilient RPC client** from `lib/rpcClient.ts`
+5. **Follow synthwave theme** for UI components
+
+### When Stuck
+- Check similar existing files for patterns
+- Review the anti-patterns section
+- Look at `lib/db.ts` for database operations
+- Check `lib/starSkrumpey.ts` for NFT-related operations
+- Review API routes in `app/api/` for endpoint patterns
