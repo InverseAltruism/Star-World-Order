@@ -145,7 +145,8 @@ The SWO Discord bot automatically assigns holder tier roles based on Star Skrump
 | **Location** | `/opt/star_world_order/SWO_bot/` |
 | **Process Manager** | pm2 (process name: `swo-bot`) |
 | **Sync Interval** | Every 5 minutes |
-| **Technology** | TypeScript, discord.js, viem (with multicall), better-sqlite3 |
+| **Technology** | TypeScript, discord.js v14, viem (with multicall), better-sqlite3 |
+| **Bot Name** | SWO Role bot#5472 |
 
 ### Holder Tier Roles
 
@@ -164,11 +165,11 @@ The bot supports the following slash commands:
 
 | Command | Description |
 |---------|-------------|
-| `/verify` | Check wallet holdings &amp; force role update |
-| `/status` | View current verification status |
-| `/tiers` | Display tier requirements |
-| `/link <wallet>` | Link wallet via MON transfer verification |
-| `/unlink` | Unlink wallet from Discord |
+| `/verify` | Force a verification check on your wallet. Use this if you just linked your wallet or bought a Star and want your role updated immediately instead of waiting for the 5-minute auto-sync. |
+| `/status` | View your current verification status including your linked wallet address, how many Stars you hold, and your current tier. |
+| `/tiers` | Display all holder tier requirements and see what roles are available based on Star count. |
+| `/link <wallet>` | Link your wallet directly through Discord. Enter your wallet address, send 1 MON to the verification address shown, then click "Verify Transaction". No website needed. |
+| `/unlink` | Disconnect your wallet from Discord and remove your holder roles. Use this if you want to link a different wallet. |
 
 ### Environment Variables
 
@@ -217,6 +218,21 @@ Bot checks blockchain for matching transaction
 If found: Wallet linked to social_connections table + roles assigned
 ```
 
+### `/link` Command Security Features
+
+The wallet verification system implements multiple security measures:
+
+| Security Feature | Description |
+|------------------|-------------|
+| **Timestamp Validation** | Only accepts transactions that occurred AFTER the verification request was initiated (prevents replay attacks) |
+| **Exact Wallet Match** | Transaction must be FROM the exact wallet the user is trying to verify |
+| **One-to-One Mapping** | Each wallet can only be linked to one Discord account |
+| **One Discord Per Wallet** | Each Discord account can only have one wallet linked |
+| **10-Minute Session Timeout** | Verification sessions expire after 10 minutes |
+| **Ephemeral Responses** | All bot responses are private to the user (only they can see verification instructions) |
+| **SQL Injection Protection** | All database queries use parameterized statements |
+| **In-Memory Session Storage** | Pending verifications stored in Map, automatically cleaned up on timeout or completion |
+
 ### How It Works
 
 1. **Discord Connection Lookup**: Reads Discord-connected wallets from the `social_connections` table (where `platform='discord'`)
@@ -237,6 +253,24 @@ Count Stars owned by wallet
 Assign appropriate tier role (remove old tier roles first)
 ```
 
+### Automatic Role Sync
+
+The bot automatically syncs holder roles without manual intervention:
+
+**Sync Process:**
+- **Frequency**: Every 5 minutes (configurable via `SYNC_INTERVAL_MS`)
+- **On-Chain Verification**: Checks Star Skrumpey ownership via multicall in real-time
+- **Automatic Updates**: Roles update when users buy or sell Stars
+- **Role Removal**: If a user sells their Stars, they lose their holder role on the next sync cycle
+- **Force Sync**: Users can use `/verify` to force an immediate role update without waiting
+
+**How Sync Works:**
+1. Bot queries `social_connections` table for all Discord-linked wallets
+2. For each wallet, uses multicall to check ownership of all 333 Star token IDs
+3. Calculates appropriate tier based on Star count
+4. Updates Discord roles (removes old tier, assigns new tier, or removes all if no Stars)
+5. Logs all role changes with emoji indicators
+
 ### wallet_verifications Table
 
 Tracks pending and confirmed wallet verifications via `/link`:
@@ -256,6 +290,47 @@ CREATE TABLE IF NOT EXISTS wallet_verifications (
 ```
 
 **Implementation Details**: See `docs/DISCORD_BOT_WALLET_VERIFICATION.md`
+
+### PM2 Startup Command
+
+The bot is started with pm2 using the following command:
+
+```bash
+pm2 start /usr/bin/bash \
+  --name swo-bot \
+  --cwd /opt/star_world_order/SWO_bot \
+  -- -lc 'export NODE_OPTIONS="--unhandled-rejections=strict"; npx ts-node index.ts'
+```
+
+**Configuration Details:**
+- **Process Name**: `swo-bot` (use with `pm2 restart swo-bot`, `pm2 logs swo-bot`, etc.)
+- **Working Directory**: `/opt/star_world_order/SWO_bot/`
+- **Runtime**: TypeScript via ts-node (no compilation needed)
+- **Error Handling**: `--unhandled-rejections=strict` ensures all promise rejections are caught
+- **Shell**: Bash with login shell configuration (`-lc`)
+
+### Bot Architecture Overview
+
+The bot is structured with the following key components:
+
+**In-Memory Storage:**
+- `Map<string, PendingVerification>` - Tracks active `/link` sessions
+- Maps Discord user ID to verification data (wallet, timestamp, expected amount)
+- Automatically cleaned up after 10-minute timeout or successful verification
+
+**Database Tables:**
+| Table | Access | Purpose |
+|-------|--------|---------|
+| `social_connections` | Read/Write | Stores Discord ↔ Wallet links (same as website OAuth) |
+| `wallet_verifications` | Write | Audit log of all verification attempts |
+| `user_profiles` | Read (Optional) | Enhanced logging with display names |
+
+**Blockchain Interaction:**
+- Uses viem `multicall` for efficient batch ownership checks
+- Single RPC call checks all 333 Star token IDs per wallet
+- ~150ms per wallet on Monad RPC
+- Checks last 100 blocks for verification transactions
+- Validates transaction sender, recipient, amount, and timestamp
 
 ### PM2 Commands
 
@@ -317,6 +392,61 @@ The bot uses the same list of 333 Star Skrumpey token IDs as the main applicatio
 - **Source File**: `constellation_token_ids.csv` or `constellation_token_ids.txt`
 - **Application Reference**: `lib/starSkrumpey.ts` - `STAR_SKRUMPEY_IDS` constant
 - **Total Count**: 333 tokens
+
+### Bot Troubleshooting
+
+Common issues and solutions when working with the Discord bot:
+
+**"Transaction Not Found" Error:**
+- **Symptom**: User clicks "Verify Transaction" but bot can't find the transfer
+- **Solutions**:
+  - Wait for transaction to confirm on blockchain (check on monadscan.com)
+  - Ensure sending FROM the correct wallet (not TO it)
+  - Ensure sending TO the verification address (check VERIFICATION_ADDRESS in .env.bot)
+  - Transaction must be within last 100 blocks (~5-10 minutes on Monad)
+  - Transaction must occur AFTER starting verification (prevents replay attacks)
+
+**"Configuration Error" Message:**
+- **Symptom**: Bot shows "Configuration Error" when user runs `/link`
+- **Solution**: Check that `VERIFICATION_ADDRESS` is set in `.env.bot` file
+
+**Roles Not Updating:**
+- **Symptom**: User has Stars but doesn't get holder role
+- **Solutions**:
+  - Check bot has "Manage Roles" permission in Discord server settings
+  - Check bot's role is ABOVE holder tier roles in server role hierarchy
+  - Verify role IDs in `.env.bot` match Discord server role IDs
+  - Check bot logs: `pm2 logs swo-bot` for errors
+
+**Database Errors:**
+- **Symptom**: Bot crashes with SQLite errors
+- **Solutions**:
+  - Check bot has write permissions on `DB_PATH` directory
+  - Check database file isn't locked by another process
+  - Check disk space on server (`df -h`)
+  - Try restarting bot: `pm2 restart swo-bot`
+
+**Commands Not Showing in Discord:**
+- **Symptom**: Slash commands don't appear when user types `/`
+- **Solutions**:
+  - Wait 5-10 minutes for Discord to sync commands globally
+  - Check `DISCORD_CLIENT_ID` is correct in `.env.bot`
+  - Check `DISCORD_GUILD_ID` matches your Discord server
+  - Restart bot to re-register commands: `pm2 restart swo-bot`
+  - Check bot logs for command registration errors
+
+**RPC Rate Limiting:**
+- **Symptom**: Bot logs show RPC errors or timeouts
+- **Solutions**:
+  - Switch to alternative Monad RPC endpoint in `MONAD_RPC`
+  - Increase `SYNC_INTERVAL_MS` to reduce request frequency
+  - Check Monad RPC status at status.monad.xyz
+
+### Implementation Reference
+
+For detailed implementation guide and complete code examples, see:
+- **Full Documentation**: `docs/DISCORD_BOT_WALLET_VERIFICATION.md`
+- **Bot Source Code**: `/opt/star_world_order/SWO_bot/index.ts` (on server, outside repository)
 
 ---
 
