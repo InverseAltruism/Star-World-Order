@@ -32,6 +32,7 @@ Star World Order is an exclusive DAO realm for holders of Skrumpey NFTs with the
 | **Contract Library** | OpenZeppelin | 5.x |
 | **Database** | SQLite | (better-sqlite3) |
 | **Blockchain** | Monad | Chain ID: 143 |
+| **Discord Bot** | discord.js | TypeScript + Viem |
 | **Font** | Press Start 2P | Retro Pixel Font |
 
 ---
@@ -130,6 +131,142 @@ swo-logs            # View live PROD logs
 swo-status          # Check service status
 swo-restart         # Restart PROD service
 ```
+
+---
+
+## Discord Role Verification Bot
+
+The SWO Discord bot automatically assigns holder tier roles based on Star Skrumpey NFT ownership on Monad blockchain.
+
+### Bot Overview
+
+| Property | Value |
+|----------|-------|
+| **Location** | `/opt/star_world_order/SWO_bot/` |
+| **Process Manager** | pm2 (process name: `swo-bot`) |
+| **Sync Interval** | Every 5 minutes |
+| **Technology** | TypeScript, discord.js, viem (with multicall), better-sqlite3 |
+
+### Holder Tier Roles
+
+The bot assigns Discord roles based on the number of Star Skrumpey NFTs owned:
+
+| Role | Requirement | Discord Role ID Env Var |
+|------|-------------|------------------------|
+| 👑 COSMIC EMPEROR | 10+ Stars | `COSMIC_EMPEROR_ROLE_ID` |
+| ⚔️ STAR LORD | 5-9 Stars | `STAR_LORD_ROLE_ID` |
+| 🛡️ COSMIC WARDEN | 2-4 Stars | `COSMIC_WARDEN_ROLE_ID` |
+| ⭐ STAR FORGED | 1 Star | `STAR_FORGED_ROLE_ID` |
+
+### Slash Commands
+
+The bot supports the following slash commands:
+
+| Command | Description |
+|---------|-------------|
+| `/verify` | Check wallet holdings &amp; force role update |
+| `/status` | View current verification status |
+| `/tiers` | Display tier requirements |
+
+### Environment Variables
+
+Configuration is stored in `.env.bot` file:
+
+```bash
+# Discord Bot Configuration
+DISCORD_BOT_TOKEN=your-bot-token-here
+DISCORD_GUILD_ID=your-guild-id-here
+
+# Discord Role IDs
+COSMIC_EMPEROR_ROLE_ID=role-id-for-cosmic-emperor
+STAR_LORD_ROLE_ID=role-id-for-star-lord
+COSMIC_WARDEN_ROLE_ID=role-id-for-cosmic-warden
+STAR_FORGED_ROLE_ID=role-id-for-star-forged
+
+# Database and RPC
+DB_PATH=/opt/swo/data/swo.db
+MONAD_RPC=https://rpc.monad.xyz
+```
+
+### How It Works
+
+1. **Discord Connection Lookup**: Reads Discord-connected wallets from the `social_connections` table (where `platform='discord'`)
+2. **NFT Ownership Check**: Uses viem multicall to check ownership of all 333 Star Skrumpey token IDs in a single RPC call (~150ms per wallet)
+3. **Role Assignment**: Assigns the appropriate tier role based on Star count
+4. **Role Cleanup**: Automatically removes old tier roles when assigning new ones (prevents users from having multiple tier roles)
+5. **Periodic Sync**: Runs every 5 minutes to keep roles up-to-date
+
+**Example Flow**:
+```
+User connects Discord → Wallet stored in social_connections table
+↓
+Bot queries multicall for all 333 Star token IDs
+↓
+Count Stars owned by wallet
+↓
+Assign appropriate tier role (remove old tier roles first)
+```
+
+### PM2 Commands
+
+Manage the Discord bot using pm2:
+
+```bash
+# Check bot status
+pm2 status
+
+# View real-time logs
+pm2 logs swo-bot
+
+# Restart the bot
+pm2 restart swo-bot
+
+# Stop the bot
+pm2 stop swo-bot
+
+# Start the bot (if stopped)
+pm2 start swo-bot
+
+# View detailed info
+pm2 info swo-bot
+```
+
+### RPC Usage
+
+The bot is optimized to minimize RPC usage:
+
+- **Per Sync Cycle**: ~1 multicall request per Discord-connected wallet
+- **Example with 12 wallets**: 12 RPC requests every 5 minutes
+- **Daily Total**: ~3,456 requests/day (12 wallets × 12 syncs/hour × 24 hours)
+- **Well within limits**: Public Monad RPC can handle this easily
+
+**Why Multicall?**
+- Instead of 333 separate RPC calls per wallet (checking each Star token individually)
+- Uses a single batched multicall to check all 333 tokens at once
+- Reduces RPC usage by ~99.7%
+
+### Database Dependencies
+
+The bot integrates with the main SWO database:
+
+| Table | Usage |
+|-------|-------|
+| `social_connections` | Reads Discord user IDs linked to wallet addresses (where `platform='discord'`) |
+| `user_profiles` | (Optional) Can read display names for enhanced logging |
+
+**SQL Query Example**:
+```sql
+SELECT wallet_address, platform_user_id, platform_username 
+FROM social_connections 
+WHERE platform = 'discord';
+```
+
+### Star Skrumpey Token IDs
+
+The bot uses the same list of 333 Star Skrumpey token IDs as the main application:
+- **Source File**: `constellation_token_ids.csv` or `constellation_token_ids.txt`
+- **Application Reference**: `lib/starSkrumpey.ts` - `STAR_SKRUMPEY_IDS` constant
+- **Total Count**: 333 tokens
 
 ---
 
@@ -2016,6 +2153,13 @@ The complete server directory structure for Star World Order:
 ├── PROD/                   # main branch (port 3080)
 │   ├── Star-World-Order/   # git repository
 │   └── node_modules/
+├── SWO_bot/                # Discord Role Verification Bot
+│   ├── index.ts            # Main bot code
+│   ├── .env.bot            # Bot configuration
+│   ├── package.json
+│   └── node_modules/
+├── constellation_token_ids.csv  # Source of truth for Star IDs
+├── constellation_token_ids.txt  # Source of truth for Star IDs (text format)
 ├── deploy-dev.sh           # DEV deployment script
 ├── deploy-prod.sh          # PROD deployment script
 ├── health-check.sh         # Health check script
