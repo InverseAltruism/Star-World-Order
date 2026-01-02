@@ -149,11 +149,12 @@ export function useGovernance(): UseGovernanceResult {
         const data = await response.json();
         if (data.success && data.proposals) {
           // Convert database format to Proposal format
-          const convertedProposals: Proposal[] = data.proposals.map((p: { id: string; title: string; description: string; proposer_address: string; state: string; for_votes: number; against_votes: number; voting_duration_weeks: number; end_time: string | null; start_time: string | null; created_at: string; executed_at: string | null; cancelled_at: string | null }) => ({
+          const convertedProposals: Proposal[] = data.proposals.map((p: { id: string; title: string; description: string; proposer_address: string; proposer_display_name?: string | null; state: string; for_votes: number; against_votes: number; voting_duration_weeks: number; end_time: string | null; start_time: string | null; created_at: string; executed_at: string | null; cancelled_at: string | null }) => ({
             id: p.id,
             title: p.title,
             description: p.description,
             proposer: p.proposer_address,
+            proposerDisplayName: p.proposer_display_name,
             state: p.state as ProposalState,
             forVotes: p.for_votes,
             againstVotes: p.against_votes,
@@ -192,18 +193,20 @@ export function useGovernance(): UseGovernanceResult {
         const data = await response.json();
         if (data.success && data.threads) {
           // Convert database format to ForumThread format
-          const convertedThreads: ForumThread[] = data.threads.map((t: { id: string; title: string; content: string; author_address: string; category: string; pinned: number; locked: number; created_at: string; updated_at: string; proposal_id?: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string }) => ({
+          const convertedThreads: ForumThread[] = data.threads.map((t: { id: string; title: string; content: string; author_address: string; author_display_name?: string | null; category: string; pinned: number; locked: number; created_at: string; updated_at: string; proposal_id?: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string; reply_count?: number }) => ({
             id: t.id,
             title: t.title,
             content: t.content,
-            author: truncateAddress(t.author_address),
+            author: t.author_display_name || truncateAddress(t.author_address),
             authorAddress: t.author_address, // Store full address for ownership checks
+            authorDisplayName: t.author_display_name,
             category: t.category as ThreadCategory,
             pinned: Boolean(t.pinned),
             locked: Boolean(t.locked),
             createdAt: new Date(t.created_at).getTime(),
             updatedAt: new Date(t.updated_at).getTime(),
             replies: [],
+            replyCount: t.reply_count || 0, // Use reply_count from DB
             proposalId: t.proposal_id,
             // Extended properties
             likesCount: t.likes_count || 0,

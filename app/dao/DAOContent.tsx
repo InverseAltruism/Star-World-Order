@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AccessGate from '@/components/AccessGate';
 import MembersContent from '@/app/members/MembersContent';
 import TreasuryContent from '@/app/treasury/TreasuryContent';
+import ClickableUsername from '@/components/ClickableUsername';
 import {
   useGovernance,
   ProposalState,
@@ -234,6 +235,177 @@ function VoteModal({
 }
 
 /**
+ * Vote info for voters modal
+ */
+interface VoteInfo {
+  id: number;
+  proposal_id: string;
+  voter_address: string;
+  voter_display_name?: string | null;
+  support: number;
+  voting_power: number;
+  reason: string | null;
+  created_at: string;
+}
+
+/**
+ * Voters Modal - Shows who voted and their reasons
+ */
+function VotersModal({
+  isOpen,
+  proposalId,
+  proposalTitle,
+  onClose,
+}: {
+  isOpen: boolean;
+  proposalId: string;
+  proposalTitle: string;
+  onClose: () => void;
+}) {
+  const [votes, setVotes] = useState<VoteInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'for' | 'against'>('all');
+
+  useEffect(() => {
+    if (!isOpen || !proposalId) return;
+    
+    const fetchVotes = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/governance?action=votes&id=${proposalId}`);
+        const data = await response.json();
+        if (data.success) {
+          setVotes(data.votes || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch votes:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchVotes();
+  }, [isOpen, proposalId]);
+
+  if (!isOpen) return null;
+
+  const filteredVotes = votes.filter(vote => {
+    if (filter === 'all') return true;
+    if (filter === 'for') return vote.support === 1;
+    if (filter === 'against') return vote.support === 0;
+    return true;
+  });
+
+  const forVotes = votes.filter(v => v.support === 1);
+  const againstVotes = votes.filter(v => v.support === 0);
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
+              🗳️ VOTERS
+            </h3>
+            <p className="text-gray-500 text-xs mt-1 line-clamp-1">{proposalTitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-white text-xl"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Vote Summary */}
+        <div className="flex gap-4 mb-4 text-xs">
+          <div className="flex items-center gap-2 text-[#44ff88]">
+            <span>✓ FOR:</span>
+            <span className="font-bold">{forVotes.length}</span>
+            <span className="text-gray-500">({forVotes.reduce((sum, v) => sum + v.voting_power, 0)} votes)</span>
+          </div>
+          <div className="flex items-center gap-2 text-[#ff4466]">
+            <span>✕ AGAINST:</span>
+            <span className="font-bold">{againstVotes.length}</span>
+            <span className="text-gray-500">({againstVotes.reduce((sum, v) => sum + v.voting_power, 0)} votes)</span>
+          </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 mb-4">
+          {(['all', 'for', 'against'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1 text-xs rounded-lg ${
+                filter === f
+                  ? 'bg-[#ffd700]/20 text-[#ffd700] border border-[#ffd700]/50'
+                  : 'bg-[#1a1a2e] text-gray-500 hover:text-white'
+              }`}
+            >
+              {f.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Voters List */}
+        <div className="flex-1 overflow-y-auto space-y-2 scrollbar-pixel">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-3xl animate-spin">⭐</div>
+            </div>
+          ) : filteredVotes.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 text-xs">No votes yet</p>
+            </div>
+          ) : (
+            filteredVotes.map(vote => (
+              <div 
+                key={vote.id} 
+                className={`p-3 rounded-lg border ${
+                  vote.support === 1 
+                    ? 'bg-[#44ff88]/10 border-[#44ff88]/30' 
+                    : 'bg-[#ff4466]/10 border-[#ff4466]/30'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className={vote.support === 1 ? 'text-[#44ff88]' : 'text-[#ff4466]'}>
+                      {vote.support === 1 ? '✓ FOR' : '✕ AGAINST'}
+                    </span>
+                    <ClickableUsername 
+                      address={vote.voter_address} 
+                      displayName={vote.voter_display_name} 
+                      className="text-xs font-bold"
+                    />
+                  </div>
+                  <span className="text-gray-500 text-xs">
+                    {vote.voting_power} vote{vote.voting_power > 1 ? 's' : ''}
+                  </span>
+                </div>
+                {vote.reason && (
+                  <p className="text-gray-400 text-xs mt-1 italic">&quot;{vote.reason}&quot;</p>
+                )}
+                <p className="text-gray-600 text-[10px] mt-1">
+                  {formatRelativeTime(new Date(vote.created_at).getTime())}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]"
+        >
+          CLOSE
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Governance Tab Component
  */
 function GovernanceTab({
@@ -253,6 +425,7 @@ function GovernanceTab({
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [viewVotersProposal, setViewVotersProposal] = useState<Proposal | null>(null);
   const [isPending, setIsPending] = useState(false);
 
   const handleCreate = async (title: string, description: string, votingDurationWeeks: number) => {
@@ -295,6 +468,14 @@ function GovernanceTab({
         onClose={() => setSelectedProposal(null)}
         onVote={handleVote}
         isPending={isPending}
+      />
+
+      {/* Voters Modal */}
+      <VotersModal
+        isOpen={viewVotersProposal !== null}
+        proposalId={viewVotersProposal?.id || ''}
+        proposalTitle={viewVotersProposal?.title || ''}
+        onClose={() => setViewVotersProposal(null)}
       />
 
       {/* Header */}
@@ -340,7 +521,11 @@ function GovernanceTab({
                       {proposal.description.slice(0, 100)}...
                     </p>
                     <p className="text-gray-600 text-[10px] mt-1">
-                      Proposed by {truncateAddress(proposal.proposer)} • {formatRelativeTime(proposal.createdAt)}
+                      Proposed by <ClickableUsername 
+                        address={proposal.proposer} 
+                        displayName={proposal.proposerDisplayName} 
+                        className="text-[10px]"
+                      /> • {formatRelativeTime(proposal.createdAt)}
                     </p>
                   </div>
                   <span 
@@ -372,9 +557,13 @@ function GovernanceTab({
                       />
                     </div>
                   </div>
-                  <span className="text-gray-500 text-[10px]">
+                  <button
+                    onClick={() => setViewVotersProposal(proposal)}
+                    className="text-[#9966ff] text-[10px] hover:text-[#ffd700] hover:underline smooth-transition cursor-pointer"
+                    title="Click to view voters"
+                  >
                     {proposal.forVotes + proposal.againstVotes} votes
-                  </span>
+                  </button>
                 </div>
 
                 {/* Vote Buttons */}
@@ -460,19 +649,21 @@ function ForumTab({
           id: data.thread.id,
           title: data.thread.title,
           content: data.thread.content,
-          author: truncateAddress(data.thread.author_address),
+          author: data.thread.author_display_name || truncateAddress(data.thread.author_address),
           authorAddress: data.thread.author_address,
+          authorDisplayName: data.thread.author_display_name,
           category: data.thread.category as ThreadCategory,
           pinned: Boolean(data.thread.pinned),
           locked: Boolean(data.thread.locked),
           createdAt: new Date(data.thread.created_at).getTime(),
           updatedAt: new Date(data.thread.updated_at).getTime(),
-          replies: (data.replies || []).map((r: { id: string; thread_id: string; content: string; author_address: string; created_at: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string }) => ({
+          replies: (data.replies || []).map((r: { id: string; thread_id: string; content: string; author_address: string; author_display_name?: string | null; created_at: string; likes_count?: number; dislikes_count?: number; is_edited?: number; original_content?: string }) => ({
             id: r.id,
             threadId: r.thread_id,
             content: r.content,
-            author: truncateAddress(r.author_address),
+            author: r.author_display_name || truncateAddress(r.author_address),
             authorAddress: r.author_address,
+            authorDisplayName: r.author_display_name,
             createdAt: new Date(r.created_at).getTime(),
             likes: 0,
             likesCount: r.likes_count || 0,
@@ -652,7 +843,11 @@ function ForumTab({
               <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(selectedThread.category)}</span>
               <h3 className="text-[#ffd700] text-lg font-bold">{selectedThread.title}</h3>
               <div className="flex items-center gap-2 text-gray-500 text-xs">
-                <span>by {selectedThread.author}</span>
+                <span>by <ClickableUsername 
+                  address={selectedThread.authorAddress || ''} 
+                  displayName={selectedThread.author} 
+                  className="text-xs"
+                /></span>
                 <span>•</span>
                 <span>{formatRelativeTime(selectedThread.createdAt)}</span>
                 {threadIsEdited && (
@@ -792,7 +987,11 @@ function ForumTab({
                   
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2 text-gray-500 text-xs">
-                      <span>{reply.author}</span>
+                      <ClickableUsername 
+                        address={reply.authorAddress || ''} 
+                        displayName={reply.author} 
+                        className="text-xs"
+                      />
                       <span>•</span>
                       <span>{formatRelativeTime(reply.createdAt)}</span>
                       {replyIsEdited && (
@@ -969,8 +1168,12 @@ function ForumTab({
                   {thread.title}
                 </h4>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>by {thread.author}</span>
-                  <span>{thread.replies.length} replies</span>
+                  <span>by <ClickableUsername 
+                    address={thread.authorAddress || ''} 
+                    displayName={thread.author} 
+                    className="text-xs"
+                  /></span>
+                  <span>{thread.replyCount ?? thread.replies.length} replies</span>
                   <span>{formatRelativeTime(thread.updatedAt)}</span>
                 </div>
               </div>
@@ -1329,8 +1532,8 @@ function GovernanceInfoButton() {
       {/* Info Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
                 ⚡ HOW GOVERNANCE WORKS
               </h3>
@@ -1342,7 +1545,7 @@ function GovernanceInfoButton() {
               </button>
             </div>
             
-            <div className="space-y-4 text-sm">
+            <div className="flex-1 overflow-y-auto scrollbar-pixel space-y-4 text-sm">
               {/* Overview */}
               <div className="bg-[#0a0a15] rounded-lg p-4">
                 <h4 className="text-[#00ffff] text-xs mb-2 font-bold">🌟 OVERVIEW</h4>
@@ -1403,7 +1606,7 @@ function GovernanceInfoButton() {
 
             <button
               onClick={() => setShowModal(false)}
-              className="w-full pixel-btn pixel-btn-gold text-xs mt-4"
+              className="w-full pixel-btn pixel-btn-gold text-xs mt-4 flex-shrink-0"
             >
               GOT IT! ✨
             </button>
