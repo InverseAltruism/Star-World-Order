@@ -167,6 +167,8 @@ The bot supports the following slash commands:
 | `/verify` | Check wallet holdings &amp; force role update |
 | `/status` | View current verification status |
 | `/tiers` | Display tier requirements |
+| `/link <wallet>` | Link wallet via MON transfer verification |
+| `/unlink` | Unlink wallet from Discord |
 
 ### Environment Variables
 
@@ -176,6 +178,7 @@ Configuration is stored in `.env.bot` file:
 # Discord Bot Configuration
 DISCORD_BOT_TOKEN=your-bot-token-here
 DISCORD_GUILD_ID=your-guild-id-here
+DISCORD_CLIENT_ID=your-client-id-here
 
 # Discord Role IDs
 COSMIC_EMPEROR_ROLE_ID=role-id-for-cosmic-emperor
@@ -186,6 +189,32 @@ STAR_FORGED_ROLE_ID=role-id-for-star-forged
 # Database and RPC
 DB_PATH=/opt/swo/data/swo.db
 MONAD_RPC=https://rpc.monad.xyz
+
+# Wallet Verification via MON Transfer
+VERIFICATION_ADDRESS=0xYourVerificationAddress
+VERIFICATION_AMOUNT=1
+```
+
+### Wallet Verification Methods
+
+Users can link their wallet to Discord in two ways:
+
+1. **Website OAuth** (existing): Connect Discord at https://starworldorder.com/profile
+2. **Discord `/link` command** (new): Verify wallet ownership by sending MON
+
+**`/link` Command Flow:**
+```
+User runs /link 0xTheirWallet
+↓
+Bot shows verification address and amount (1 MON)
+↓
+User sends MON from their wallet to verification address
+↓
+User clicks "Verify Transaction" button
+↓
+Bot checks blockchain for matching transaction
+↓
+If found: Wallet linked to social_connections table + roles assigned
 ```
 
 ### How It Works
@@ -195,6 +224,7 @@ MONAD_RPC=https://rpc.monad.xyz
 3. **Role Assignment**: Assigns the appropriate tier role based on Star count
 4. **Role Cleanup**: Automatically removes old tier roles when assigning new ones (prevents users from having multiple tier roles)
 5. **Periodic Sync**: Runs every 5 minutes to keep roles up-to-date
+6. **Role Removal**: If a user sells their Star Skrumpeys, the next sync cycle removes their holder role
 
 **Example Flow**:
 ```
@@ -206,6 +236,26 @@ Count Stars owned by wallet
 ↓
 Assign appropriate tier role (remove old tier roles first)
 ```
+
+### wallet_verifications Table
+
+Tracks pending and confirmed wallet verifications via `/link`:
+
+```sql
+CREATE TABLE IF NOT EXISTS wallet_verifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  discord_user_id TEXT NOT NULL,
+  discord_username TEXT NOT NULL,
+  wallet_address TEXT NOT NULL,
+  verification_amount TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'expired', 'cancelled')),
+  tx_hash TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  confirmed_at DATETIME
+);
+```
+
+**Implementation Details**: See `docs/DISCORD_BOT_WALLET_VERIFICATION.md`
 
 ### PM2 Commands
 
