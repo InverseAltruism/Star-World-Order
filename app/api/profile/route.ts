@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, displayName, bio, avatarUrl, displayedBadges, isDemoMode } = body;
+    const { walletAddress, displayName, bio, avatarTokenId, displayedBadges, isDemoMode } = body;
     
     if (!walletAddress) {
       return NextResponse.json(
@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Validate avatar token ID
+    if (avatarTokenId !== undefined && avatarTokenId !== null && typeof avatarTokenId !== 'number') {
+      return NextResponse.json(
+        { success: false, error: 'Avatar token ID must be a number' },
+        { status: 400 }
+      );
+    }
+    
     // Validate displayed badges (max 3)
     if (displayedBadges && Array.isArray(displayedBadges)) {
       if (displayedBadges.length > 3) {
@@ -95,7 +103,7 @@ export async function POST(request: NextRequest) {
     const profile = updateUserProfile(walletAddress, {
       displayName: displayName?.trim(),
       bio: bio?.trim(),
-      avatarUrl,
+      avatarTokenId: avatarTokenId,
       displayedBadges: displayedBadges || undefined,
     });
     

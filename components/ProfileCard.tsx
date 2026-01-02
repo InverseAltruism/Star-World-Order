@@ -541,6 +541,40 @@ function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolea
 }
 
 /**
+ * Avatar Picker Image Component - Simplified image for avatar selection modal
+ */
+function AvatarPickerImage({ tokenId }: { tokenId: number }) {
+  const [imageError, setImageError] = useState(false);
+  const [useGif, setUseGif] = useState(false);
+  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
+
+  const handleImageError = () => {
+    if (!useGif) {
+      setUseGif(true);
+    } else {
+      setImageError(true);
+    }
+  };
+
+  if (imageError) {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-[#9966ff] to-[#ffd700] flex items-center justify-center text-2xl">
+        🐸
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={`Skrumpey #${tokenId}`}
+      className="w-full h-full object-cover"
+      onError={handleImageError}
+    />
+  );
+}
+
+/**
  * Profile Card Component
  * Displays user's Skrumpey NFTs in a retro pixel art style
  * Star Skrumpeys are highlighted with special effects
@@ -559,6 +593,11 @@ export default function ProfileCard() {
   const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
   const [isEditingBadges, setIsEditingBadges] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+  
+  // Avatar selection state
+  const [avatarTokenId, setAvatarTokenId] = useState<number | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   
   // Tab navigation state - includes all sections
   const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'quests' | 'raffles'>('settings');
@@ -950,6 +989,13 @@ export default function ProfileCard() {
           if (data.success && data.profile) {
             setDisplayName(data.profile.display_name || '');
             setBio(data.profile.bio || '');
+            // Load avatar token ID from avatar_url field (stored as string number)
+            if (data.profile.avatar_url) {
+              const tokenId = parseInt(data.profile.avatar_url, 10);
+              if (!isNaN(tokenId)) {
+                setAvatarTokenId(tokenId);
+              }
+            }
             // Load displayed badges from database
             if (data.profile.displayed_badges) {
               try {
@@ -1008,6 +1054,50 @@ export default function ProfileCard() {
       setIsSavingProfile(false);
     }
   };
+
+  // Save avatar selection
+  const handleSaveAvatar = async (tokenId: number) => {
+    if (!address || isDemoMode) return;
+    
+    setIsSavingAvatar(true);
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: address,
+          avatarTokenId: tokenId,
+          isDemoMode: false,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setAvatarTokenId(tokenId);
+        setShowAvatarPicker(false);
+      }
+    } catch (error) {
+      console.error('Failed to save avatar:', error);
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  // Get the token ID to display as avatar
+  // Priority: 1) User selected avatar, 2) First Star Skrumpey
+  const displayAvatarTokenId = useMemo(() => {
+    // If user has selected an avatar, use it
+    if (avatarTokenId !== null) {
+      // Verify they still own this token
+      const stillOwns = starSkrumpeys.some(s => s.tokenId === avatarTokenId);
+      if (stillOwns) {
+        return avatarTokenId;
+      }
+    }
+    // Fallback to first Star Skrumpey
+    return starSkrumpeys.length > 0 ? starSkrumpeys[0].tokenId : null;
+  }, [avatarTokenId, starSkrumpeys]);
 
   // Convert owned tokens to display format
   // Priority: 1) Fetched IPFS metadata (most accurate), 2) Token data from context, 3) Static constellation map (fallback)
@@ -1225,14 +1315,24 @@ export default function ProfileCard() {
         )}
         
         <div className="flex items-center gap-3 sm:gap-4 mb-4">
-          {/* Avatar - Use first Star Skrumpey as profile picture */}
-          <div className="relative">
-            {starSkrumpeys.length > 0 ? (
-              <ProfileAvatar tokenId={starSkrumpeys[0].tokenId} />
+          {/* Avatar - Use selected Star Skrumpey as profile picture */}
+          <div className="relative group">
+            {displayAvatarTokenId ? (
+              <ProfileAvatar tokenId={displayAvatarTokenId} />
             ) : (
               <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
                 🐸
               </div>
+            )}
+            {/* Edit Avatar Button - Only show if user has Star Skrumpeys */}
+            {starSkrumpeys.length > 0 && !isDemoMode && (
+              <button
+                onClick={() => setShowAvatarPicker(true)}
+                className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#1a1a2e] border-2 border-[#ffd700] rounded-full flex items-center justify-center text-sm hover:bg-[#2a2a4e] transition-all shadow-lg opacity-0 group-hover:opacity-100 focus:opacity-100"
+                title="Change avatar"
+              >
+                ✏️
+              </button>
             )}
           </div>
           
@@ -2421,6 +2521,91 @@ export default function ProfileCard() {
             </div>
           )}
         </>
+      )}
+
+      {/* Avatar Picker Modal */}
+      {showAvatarPicker && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setShowAvatarPicker(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          
+          {/* Modal Content */}
+          <div 
+            className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowAvatarPicker(false)}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
+            >
+              ✕
+            </button>
+
+            <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 text-center animate-glow-pulse">
+              ✦ SELECT PROFILE PICTURE ✦
+            </h3>
+            
+            <p className="text-gray-400 text-[10px] text-center mb-4">
+              Choose a Star Skrumpey to display as your avatar
+            </p>
+
+            {/* Star Skrumpeys Grid */}
+            <div className="flex-1 overflow-y-auto scrollbar-pixel">
+              <div className="grid grid-cols-3 gap-3">
+                {starSkrumpeys.map((star) => {
+                  const isSelected = displayAvatarTokenId === star.tokenId;
+                  const constellation = tokenMetadata[star.tokenId]?.constellation || star.starVariant;
+                  
+                  return (
+                    <button
+                      key={star.tokenId}
+                      onClick={() => handleSaveAvatar(star.tokenId)}
+                      disabled={isSavingAvatar}
+                      className={`relative p-2 rounded-lg border-2 transition-all disabled:opacity-50 ${
+                        isSelected
+                          ? 'border-[#ffd700] bg-[#ffd700]/20 shadow-[0_0_15px_rgba(255,215,0,0.4)]'
+                          : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#9966ff] hover:bg-[#2a2a4e]'
+                      }`}
+                    >
+                      {/* Selected Indicator */}
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-[#ffd700] rounded-full flex items-center justify-center text-[10px] text-black font-bold">
+                          ✓
+                        </div>
+                      )}
+                      
+                      {/* NFT Image */}
+                      <div className="w-full aspect-square rounded overflow-hidden mb-2">
+                        <AvatarPickerImage tokenId={star.tokenId} />
+                      </div>
+                      
+                      {/* Token Info */}
+                      <p className="text-[9px] text-center text-gray-300 truncate">
+                        #{star.tokenId}
+                      </p>
+                      {constellation && (
+                        <p className="text-[8px] text-center text-[#9966ff] uppercase truncate">
+                          {constellation}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {starSkrumpeys.length === 0 && (
+              <div className="text-center py-8">
+                <span className="text-4xl mb-2 block">🐸</span>
+                <p className="text-gray-500 text-xs">No Star Skrumpeys found</p>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Skrumpey Inspect Modal */}
