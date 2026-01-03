@@ -59,6 +59,27 @@ export interface ExtendedForumReply extends ForumReply {
   originalContent?: string;
 }
 
+/**
+ * Database proposal format from API
+ */
+interface DatabaseProposal {
+  id: string;
+  title: string;
+  description: string;
+  proposer_address: string;
+  proposer_display_name?: string | null;
+  state: string;
+  for_votes: number;
+  against_votes: number;
+  voting_duration_weeks: number;
+  end_time: string | null;
+  start_time: string | null;
+  created_at: string;
+  executed_at: string | null;
+  cancelled_at: string | null;
+  quorum?: number;
+}
+
 export interface UseGovernanceResult {
   // Proposals
   proposals: Proposal[];
@@ -149,7 +170,7 @@ export function useGovernance(): UseGovernanceResult {
         const data = await response.json();
         if (data.success && data.proposals) {
           // Convert database format to Proposal format
-          const convertedProposals: Proposal[] = data.proposals.map((p: { id: string; title: string; description: string; proposer_address: string; proposer_display_name?: string | null; state: string; for_votes: number; against_votes: number; voting_duration_weeks: number; end_time: string | null; start_time: string | null; created_at: string; executed_at: string | null; cancelled_at: string | null }) => ({
+          const convertedProposals: Proposal[] = data.proposals.map((p: DatabaseProposal) => ({
             id: p.id,
             title: p.title,
             description: p.description,
@@ -167,6 +188,7 @@ export function useGovernance(): UseGovernanceResult {
             votingDurationWeeks: p.voting_duration_weeks,
             endTime: p.end_time,
             startTime: p.start_time,
+            quorum: p.quorum,
           }));
           setProposals(convertedProposals);
         }
