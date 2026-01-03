@@ -78,6 +78,7 @@ interface ExtendedProposal extends Proposal {
   endTime?: string | null;
   startTime?: string | null;
   votingDurationWeeks?: number;
+  quorum?: number;
 }
 
 /**
@@ -684,6 +685,21 @@ function GovernanceTab({
                         style={{ width: `${(proposal.againstVotes / totalVotes) * 100}%` }} 
                       />
                     </div>
+                    {/* Quorum indicator */}
+                    {extendedProposal.quorum && (
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-gray-600 text-[9px]">
+                          Quorum: {proposal.forVotes + proposal.againstVotes}/{extendedProposal.quorum}
+                        </span>
+                        {(proposal.forVotes + proposal.againstVotes) >= extendedProposal.quorum ? (
+                          <span className="text-[#44ff88] text-[9px]">✓ Reached</span>
+                        ) : (
+                          <span className="text-gray-500 text-[9px]">
+                            {extendedProposal.quorum - (proposal.forVotes + proposal.againstVotes)} more needed
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={() => setViewVotersProposal(proposal)}
