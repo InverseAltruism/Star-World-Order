@@ -39,6 +39,48 @@ const tabs: Tab[] = [
 ];
 
 /**
+ * Format time remaining for a proposal vote
+ * Returns a human-readable string like "2d 5h 30m" or "ENDED"
+ */
+function formatVoteTimeRemaining(endTime: string | null | undefined): { text: string; isUrgent: boolean; isEnded: boolean } {
+  if (!endTime) {
+    return { text: 'No end time', isUrgent: false, isEnded: false };
+  }
+  
+  const end = new Date(endTime).getTime();
+  const now = Date.now();
+  const diff = end - now;
+  
+  if (diff <= 0) {
+    return { text: 'ENDED', isUrgent: false, isEnded: true };
+  }
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  // Urgent if less than 24 hours
+  const isUrgent = diff < 24 * 60 * 60 * 1000;
+  
+  if (days > 0) {
+    return { text: `${days}d ${hours}h`, isUrgent, isEnded: false };
+  }
+  if (hours > 0) {
+    return { text: `${hours}h ${minutes}m`, isUrgent, isEnded: false };
+  }
+  return { text: `${minutes}m`, isUrgent, isEnded: false };
+}
+
+/**
+ * Extended Proposal type that includes database fields
+ */
+interface ExtendedProposal extends Proposal {
+  endTime?: string | null;
+  startTime?: string | null;
+  votingDurationWeeks?: number;
+}
+
+/**
  * Create Proposal Modal
  */
 function CreateProposalModal({
@@ -427,6 +469,27 @@ function GovernanceTab({
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [viewVotersProposal, setViewVotersProposal] = useState<Proposal | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [govSubTab, setGovSubTab] = useState<'active' | 'history'>('active');
+  const [, setTimeUpdate] = useState(0); // Force re-render for countdown
+
+  // Update countdown every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeUpdate(prev => prev + 1);
+    }, 60000); // Update every minute
+    return () => clearInterval(timer);
+  }, []);
+
+  // Filter proposals by status
+  const activeProposals = proposals.filter(
+    p => p.state === ProposalState.Active || p.state === ProposalState.Pending
+  );
+  const historyProposals = proposals.filter(
+    p => p.state === ProposalState.Defeated || 
+         p.state === ProposalState.Succeeded || 
+         p.state === ProposalState.Executed ||
+         p.state === ProposalState.Cancelled
+  ).sort((a, b) => b.createdAt - a.createdAt); // Most recent first
 
   const handleCreate = async (title: string, description: string, votingDurationWeeks: number) => {
     setIsPending(true);
@@ -450,6 +513,25 @@ function GovernanceTab({
       </div>
     );
   }
+
+  // Helper to get pass/fail result for a proposal
+  const getProposalResult = (proposal: Proposal): { passed: boolean; reason: string } => {
+    if (proposal.state === ProposalState.Succeeded || proposal.state === ProposalState.Executed) {
+      return { passed: true, reason: 'Passed' };
+    }
+    if (proposal.state === ProposalState.Defeated) {
+      if (proposal.forVotes < proposal.againstVotes) {
+        return { passed: false, reason: 'More votes against' };
+      }
+      return { passed: false, reason: 'Did not reach quorum' };
+    }
+    if (proposal.state === ProposalState.Cancelled) {
+      return { passed: false, reason: 'Cancelled by proposer' };
+    }
+    return { passed: false, reason: 'Unknown' };
+  };
+
+  const displayProposals = govSubTab === 'active' ? activeProposals : historyProposals;
 
   return (
     <div className="space-y-6">
@@ -495,20 +577,54 @@ function GovernanceTab({
         </div>
       </div>
 
+      {/* Active/History Sub-tabs */}
+      <div className="flex gap-2 animate-slide-in-up animate-delay-1">
+        <button
+          onClick={() => setGovSubTab('active')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+            govSubTab === 'active'
+              ? 'bg-[#44ff88]/20 border-[#44ff88] text-[#44ff88]'
+              : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#44ff88]/50'
+          }`}
+        >
+          🗳️ ACTIVE ({activeProposals.length})
+        </button>
+        <button
+          onClick={() => setGovSubTab('history')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+            govSubTab === 'history'
+              ? 'bg-[#9966ff]/20 border-[#9966ff] text-[#9966ff]'
+              : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#9966ff]/50'
+          }`}
+        >
+          📜 HISTORY ({historyProposals.length})
+        </button>
+      </div>
+
       {/* Proposals List */}
-      {proposals.length === 0 ? (
+      {displayProposals.length === 0 ? (
         <div className="pixel-card p-8 text-center animate-slide-in-up">
-          <div className="text-4xl mb-4 animate-pixel-float">📜</div>
-          <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">NO PROPOSALS YET</h3>
-          <p className="text-gray-500 text-xs">Be the first to create a proposal for The Order!</p>
+          <div className="text-4xl mb-4 animate-pixel-float">{govSubTab === 'active' ? '📜' : '📁'}</div>
+          <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">
+            {govSubTab === 'active' ? 'NO ACTIVE PROPOSALS' : 'NO PAST PROPOSALS'}
+          </h3>
+          <p className="text-gray-500 text-xs">
+            {govSubTab === 'active' 
+              ? 'Be the first to create a proposal for The Order!' 
+              : 'Completed proposals will appear here.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {proposals.map((proposal, index) => {
+          {displayProposals.map((proposal, index) => {
             const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
             const totalVotes = proposal.forVotes + proposal.againstVotes || 1;
             const hasUserVoted = hasVoted(proposal.id);
             const isActive = proposal.state === ProposalState.Active;
+            const isPending = proposal.state === ProposalState.Pending;
+            const extendedProposal = proposal as ExtendedProposal;
+            const timeInfo = formatVoteTimeRemaining(extendedProposal.endTime);
+            const result = govSubTab === 'history' ? getProposalResult(proposal) : null;
             
             return (
               <div key={proposal.id} className={`pixel-card p-4 smooth-transition animate-slide-in-up ${delayClass}`}>
@@ -528,15 +644,27 @@ function GovernanceTab({
                       /> • {formatRelativeTime(proposal.createdAt)}
                     </p>
                   </div>
-                  <span 
-                    className="text-[10px] px-2 py-1 rounded"
-                    style={{ 
-                      backgroundColor: `${getProposalStateColor(proposal.state)}20`,
-                      color: getProposalStateColor(proposal.state)
-                    }}
-                  >
-                    {getProposalStateLabel(proposal.state).toUpperCase()}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span 
+                      className="text-[10px] px-2 py-1 rounded"
+                      style={{ 
+                        backgroundColor: `${getProposalStateColor(proposal.state)}20`,
+                        color: getProposalStateColor(proposal.state)
+                      }}
+                    >
+                      {getProposalStateLabel(proposal.state).toUpperCase()}
+                    </span>
+                    {/* Time Remaining for Active Proposals */}
+                    {(isActive || isPending) && extendedProposal.endTime && (
+                      <div className={`text-[9px] px-2 py-0.5 rounded ${
+                        timeInfo.isUrgent 
+                          ? 'bg-[#ff4466]/20 text-[#ff4466] animate-pulse' 
+                          : 'bg-[#0a0a15] text-[#ffd700]'
+                      }`}>
+                        ⏱️ {timeInfo.text}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Voting Progress */}
@@ -566,8 +694,29 @@ function GovernanceTab({
                   </button>
                 </div>
 
-                {/* Vote Buttons */}
-                {isActive && !hasUserVoted && (
+                {/* History: Pass/Fail Result */}
+                {govSubTab === 'history' && result && (
+                  <div className={`mt-3 p-2 rounded-lg flex items-center gap-2 ${
+                    result.passed 
+                      ? 'bg-[#44ff88]/10 border border-[#44ff88]/30' 
+                      : 'bg-[#ff4466]/10 border border-[#ff4466]/30'
+                  }`}>
+                    <span className={`text-lg ${result.passed ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
+                      {result.passed ? '✓' : '✗'}
+                    </span>
+                    <div>
+                      <span className={`text-xs font-bold ${result.passed ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
+                        {result.passed ? 'PASSED' : 'FAILED'}
+                      </span>
+                      <span className="text-gray-500 text-[10px] ml-2">
+                        {result.reason}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vote Buttons (only for active tab) */}
+                {govSubTab === 'active' && isActive && !hasUserVoted && (
                   <div className="flex gap-2 mt-3">
                     <button 
                       onClick={() => setSelectedProposal(proposal)}
@@ -578,7 +727,7 @@ function GovernanceTab({
                   </div>
                 )}
                 
-                {isActive && hasUserVoted && (
+                {govSubTab === 'active' && isActive && hasUserVoted && (
                   <div className="mt-3 text-center">
                     <span className="text-[#44ff88] text-xs">✓ You have voted on this proposal</span>
                   </div>

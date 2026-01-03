@@ -740,7 +740,8 @@ export default function ProfileCard() {
   }, [address]);
   
   // Fetch raffle history
-  const fetchRaffleHistory = useCallback(async () => {
+  // markAsViewed: when true, also marks won raffles as viewed after fetching
+  const fetchRaffleHistory = useCallback(async (markAsViewed = false) => {
     if (!address) return;
     
     setIsLoadingRaffles(true);
@@ -749,8 +750,33 @@ export default function ProfileCard() {
       const data = await response.json();
       
       if (data.success) {
-        setRaffleHistory(data.entries || []);
+        const entries = data.entries || [];
+        setRaffleHistory(entries);
         setUnviewedWonCount(data.unviewedWonCount || 0);
+        
+        // Mark won raffles as viewed if requested (when user clicks on raffles tab)
+        if (markAsViewed) {
+          const unviewedWonRaffles = entries.filter((r: RaffleHistoryEntry) => r.won && !r.hasViewed);
+          if (unviewedWonRaffles.length > 0) {
+            // Mark asynchronously without blocking
+            Promise.allSettled(
+              unviewedWonRaffles.map((entry: RaffleHistoryEntry) =>
+                fetch('/api/raffle', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'markViewed',
+                    walletAddress: address,
+                    raffleId: entry.raffle_id,
+                  }),
+                })
+              )
+            ).then(() => {
+              // Reset the count locally after marking
+              setUnviewedWonCount(0);
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to fetch raffle history:', error);
@@ -758,39 +784,11 @@ export default function ProfileCard() {
       setIsLoadingRaffles(false);
     }
   }, [address]);
-
-  // Mark all won raffles as viewed
-  const markRafflesAsViewed = useCallback(async () => {
-    if (!address) return;
-    
-    // Mark each unviewed won raffle as viewed
-    const unviewedWonRaffles = raffleHistory.filter(r => r.won && !r.hasViewed);
-    
-    if (unviewedWonRaffles.length === 0) return;
-    
-    // Use Promise.allSettled to make concurrent requests
-    await Promise.allSettled(
-      unviewedWonRaffles.map(entry =>
-        fetch('/api/raffle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'markViewed',
-            walletAddress: address,
-            raffleId: entry.raffle_id,
-          }),
-        })
-      )
-    );
-    
-    // Reset the count locally after marking
-    setUnviewedWonCount(0);
-  }, [address, raffleHistory]);
   
   // Fetch raffle history on mount to show badge in tab navigation
   useEffect(() => {
     if (address) {
-      fetchRaffleHistory();
+      fetchRaffleHistory(false); // Don't mark as viewed on initial mount
     }
   }, [address, fetchRaffleHistory]);
   
@@ -810,12 +808,11 @@ export default function ProfileCard() {
         fetchAllNotifications();
         break;
       case 'raffles':
-        fetchRaffleHistory();
-        // Mark won raffles as viewed when user clicks on raffles tab
-        markRafflesAsViewed();
+        // Fetch raffle history and mark as viewed when user clicks on raffles tab
+        fetchRaffleHistory(true);
         break;
     }
-  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory, markRafflesAsViewed]);
+  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
   
   // Load chat when selected
   useEffect(() => {
