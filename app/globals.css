@@ -1585,7 +1585,122 @@ body::before {
 }
 
 /* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
+
+/* Small mobile (320px-480px) */
+@media (max-width: 480px) {
+  /* Aggressively reduce zoom scale for small screens */
+  .swo-scene.zoomed {
+    transform: scale(2.2) translateY(8%);
+  }
+
+  /* Make entire gaming setup much smaller on small mobile */
+  .swo-gaming-setup {
+    transform: scale(0.55);
+    padding-top: 5vh;
+  }
+
+  .swo-loading-screen {
+    padding: env(safe-area-inset-top, 10px) 0 env(safe-area-inset-bottom, 0);
+  }
+
+  .swo-tv-body {
+    width: 180px;
+    height: 130px;
+    padding: 10px;
+  }
+
+  .swo-tv-screen {
+    height: 90px;
+  }
+
+  .swo-n64-top {
+    width: 100px;
+    height: 18px;
+  }
+
+  .swo-n64-slot {
+    width: 45px;
+    height: 12px;
+  }
+
+  .swo-n64-body {
+    width: 120px;
+    height: 32px;
+    padding: 0 10px;
+  }
+
+  .swo-cartridge {
+    width: 50px;
+    height: 38px;
+  }
+
+  .swo-cartridge-star {
+    font-size: 10px;
+  }
+
+  .swo-cartridge-text {
+    font-size: 4px;
+  }
+
+  .swo-desk {
+    width: 220px;
+  }
+
+  .swo-desk-front {
+    height: 45px;
+  }
+
+  .swo-poster {
+    width: 70px;
+    height: 45px;
+    display: none; /* Hide posters on small mobile */
+  }
+
+  .swo-rug {
+    width: 260px;
+    height: 80px;
+    bottom: 5px;
+  }
+
+  .swo-controller {
+    display: none; /* Hide controller on very small screens */
+  }
+
+  .swo-window, .swo-wall-poster, .swo-desk-lamp, .swo-snacks {
+    display: none; /* Hide ambient decorations on small mobile */
+  }
+
+  .swo-skip-btn {
+    font-size: 7px;
+    padding: 4px 8px;
+    bottom: 10px;
+    right: 10px;
+  }
+
+  .swo-instructions {
+    bottom: 50px;
+  }
+
+  .swo-instructions p {
+    font-size: 6px;
+  }
+
+  .swo-loading-title {
+    font-size: 4px;
+    letter-spacing: 0.2px;
+  }
+
+  .swo-loading-subtitle {
+    font-size: 2.5px;
+  }
+
+  .swo-loading-bar {
+    width: 55px;
+  }
+}
+
+/* Standard mobile (481px-768px) */
+@media (min-width: 481px) and (max-width: 768px) {
   /* Reduce zoom scale to prevent cutoff on mobile */
   .swo-scene.zoomed {
     transform: scale(2.8) translateY(12%);
@@ -1593,9 +1708,9 @@ body::before {
 
   /* Make entire gaming setup smaller on mobile to prevent overflow */
   .swo-gaming-setup {
-    transform: scale(0.75);
+    transform: scale(0.70);
     /* Move setup down slightly to prevent top cutoff on mobile */
-    padding-top: 10vh;
+    padding-top: 8vh;
   }
 
   /* Loading screen adjustments for mobile viewports */
@@ -1687,6 +1802,44 @@ body::before {
 
   .swo-loading-bar {
     width: 70px;
+  }
+}
+
+/* Mobile general fixes (both small and standard mobile) */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll on mobile */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Better touch targets */
+  button, a, [role="button"] {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  
+  /* Pixel card adjustments for mobile */
+  .pixel-card {
+    margin: 0 2px;
+    border-width: 3px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.6);
+  }
+  
+  .pixel-card:hover {
+    transform: none; /* Disable hover lift on mobile for better touch experience */
+  }
+  
+  /* Reduce pixel-btn size for mobile */
+  .pixel-btn {
+    font-size: 10px;
+    padding: 10px 18px;
+    border-width: 3px;
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+  }
+  
+  /* Fix font sizes for mobile readability */
+  .pixel-glow-gold, .pixel-glow-purple {
+    text-shadow: 0 0 6px var(--pixel-gold), 0 0 12px var(--pixel-gold);
   }
 }
 
@@ -2146,6 +2299,15 @@ a,
   background: var(--pixel-purple);
   color: white;
   text-shadow: none;
+}
+
+/* Scrollbar hide utility - for horizontal scroll on mobile */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
 }
 
 /* Pixel art scrollbar */

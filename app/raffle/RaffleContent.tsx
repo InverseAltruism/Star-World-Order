@@ -1045,29 +1045,29 @@ export default function RaffleContent() {
       )}
       
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="text-5xl mb-4">🎰</div>
-        <h1 className="text-[#ffd700] text-2xl tracking-wider mb-2">COSMIC RAFFLE</h1>
-        <p className="text-gray-400 text-xs">
+      <div className="text-center mb-6 sm:mb-8">
+        <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎰</div>
+        <h1 className="text-[#ffd700] text-xl sm:text-2xl tracking-wider mb-2">COSMIC RAFFLE</h1>
+        <p className="text-gray-400 text-[10px] sm:text-xs">
           Exclusive prizes for Star Skrumpey holders
         </p>
       </div>
       
-      {/* Tab Navigation */}
-      <div className="flex gap-2 justify-center mb-6">
+      {/* Tab Navigation - More compact on mobile */}
+      <div className="flex gap-2 justify-center mb-4 sm:mb-6 px-2">
         <button
           onClick={() => setActiveTab('active')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+          className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold border-2 transition-all ${
             activeTab === 'active'
               ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
               : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50'
           }`}
         >
-          🎟️ ACTIVE RAFFLES {activeRaffles.length > 0 && `(${activeRaffles.length})`}
+          🎟️ <span className="hidden xs:inline">ACTIVE </span>RAFFLES {activeRaffles.length > 0 && `(${activeRaffles.length})`}
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+          className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-xs font-bold border-2 transition-all ${
             activeTab === 'history'
               ? 'bg-[#9966ff]/20 border-[#9966ff] text-[#9966ff]'
               : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#9966ff]/50'
@@ -1088,11 +1088,11 @@ export default function RaffleContent() {
       {activeRaffles.map((raffleData) => {
         const activeRaffle = raffleData.raffle;
         return (
-      <div key={activeRaffle.id} className="pixel-card p-6 mb-6">
+      <div key={activeRaffle.id} className="pixel-card p-4 sm:p-6 mb-4 sm:mb-6">
         {/* Raffle Name & Status */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[#ffd700] text-lg">{activeRaffle.name}</h2>
-          <span className={`px-3 py-1 rounded text-xs font-bold ${
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-[#ffd700] text-base sm:text-lg truncate pr-2">{activeRaffle.name}</h2>
+          <span className={`px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold flex-shrink-0 ${
             activeRaffle.status === 'active' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
             activeRaffle.status === 'drawn' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
             'bg-gray-500/20 text-gray-400'
@@ -1102,10 +1102,10 @@ export default function RaffleContent() {
         </div>
         
         {/* Prize Display */}
-        <div className="bg-[#0a0a15] rounded-lg p-4 mb-4 border border-[#ffd700]/30">
-          <div className="flex items-start gap-4">
+        <div className="bg-[#0a0a15] rounded-lg p-3 sm:p-4 mb-3 sm:mb-4 border border-[#ffd700]/30">
+          <div className="flex items-start gap-3 sm:gap-4">
             {activeRaffle.prize_image_url ? (
-              <div className="relative w-20 h-20 flex-shrink-0">
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
                 <Image
                   src={activeRaffle.prize_image_url}
                   alt="Prize"
@@ -1115,16 +1115,16 @@ export default function RaffleContent() {
                 />
               </div>
             ) : (
-              <div className="w-20 h-20 flex-shrink-0 bg-[#1a1a2e] rounded-lg flex items-center justify-center text-3xl">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-[#1a1a2e] rounded-lg flex items-center justify-center text-2xl sm:text-3xl">
                 🎁
               </div>
             )}
-            <div>
-              <p className="text-[#ffd700] text-xs mb-1">PRIZE</p>
-              <p className="text-white text-sm">{activeRaffle.prize_description}</p>
+            <div className="min-w-0">
+              <p className="text-[#ffd700] text-[10px] sm:text-xs mb-1">PRIZE</p>
+              <p className="text-white text-xs sm:text-sm">{activeRaffle.prize_description}</p>
               {/* Additional Info (description) - smaller font, below prize */}
               {activeRaffle.description && (
-                <p className="text-gray-500 text-[10px] mt-2 italic">{activeRaffle.description}</p>
+                <p className="text-gray-500 text-[9px] sm:text-[10px] mt-2 italic line-clamp-2">{activeRaffle.description}</p>
               )}
             </div>
           </div>

@@ -1832,28 +1832,31 @@ export default function DAOContent() {
         title="DAO ACCESS LOCKED"
         message="Only Star Skrumpey holders may participate in The Order's governance."
       >
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8 animate-slide-in-up animate-delay-1">
-          {tabs.map((tab, index) => (
-            <button
-              key={tab.id}
-              onClick={() => !tab.disabled && setActiveTab(tab.id)}
-              disabled={tab.disabled}
-              className={`pixel-btn text-xs !px-4 !py-2 smooth-transition ${
-                tab.disabled 
-                  ? '!opacity-50 !cursor-not-allowed !bg-[#1a1a2e] !border-[#2a2a3e_#1a1a2e_#1a1a2e_#2a2a3e]'
-                  : activeTab === tab.id 
-                    ? 'pixel-btn-gold hover-lift' 
-                    : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] hover-lift'
-              }`}
-              style={{ animationDelay: `${0.1 + index * 0.1}s` }}
-              title={tab.disabled ? 'Coming Soon' : undefined}
-            >
-              <span className="mr-1">{tab.icon}</span>
-              {tab.label}
-              {tab.disabled && <span className="ml-1 text-[8px]">(Soon)</span>}
-            </button>
-          ))}
+        {/* Tab Navigation - Scrollable on mobile */}
+        <div className="mb-6 sm:mb-8 animate-slide-in-up animate-delay-1">
+          <div className="flex justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 px-1 sm:px-0 -mx-2 sm:mx-0 scrollbar-hide">
+            {tabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                disabled={tab.disabled}
+                className={`pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-4 !py-1.5 sm:!py-2 smooth-transition flex-shrink-0 whitespace-nowrap ${
+                  tab.disabled 
+                    ? '!opacity-50 !cursor-not-allowed !bg-[#1a1a2e] !border-[#2a2a3e_#1a1a2e_#1a1a2e_#2a2a3e]'
+                    : activeTab === tab.id 
+                      ? 'pixel-btn-gold' 
+                      : '!bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e]'
+                }`}
+                style={{ animationDelay: `${0.1 + index * 0.1}s` }}
+                title={tab.disabled ? 'Coming Soon' : undefined}
+              >
+                <span className="mr-0.5 sm:mr-1">{tab.icon}</span>
+                <span className="hidden xs:inline">{tab.label}</span>
+                <span className="xs:hidden">{tab.label.slice(0, 3)}</span>
+                {tab.disabled && <span className="ml-0.5 sm:ml-1 text-[6px] sm:text-[8px]">⏳</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab Content */}

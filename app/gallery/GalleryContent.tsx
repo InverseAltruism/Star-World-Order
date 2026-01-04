@@ -117,22 +117,22 @@ function DetailModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="pixel-card p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto max-h-[90vh]"
+        className="pixel-card p-4 sm:p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto max-h-[95vh] sm:max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-[#ffd700] text-lg tracking-wider">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-[#ffd700] text-sm sm:text-lg tracking-wider truncate">
               {nft.name || `Star Skrumpey #${nft.tokenId}`}
             </h3>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-1">
               <span 
-                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                className="px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-bold uppercase"
                 style={{ 
                   backgroundColor: `${getVariantColor(nft.constellation)}20`,
                   color: getVariantColor(nft.constellation),
@@ -141,7 +141,7 @@ function DetailModal({
                 {nft.constellation || 'Unknown'}
               </span>
               <span 
-                className="px-2 py-0.5 rounded text-[10px] font-bold"
+                className="px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-bold"
                 style={{ 
                   backgroundColor: `${rarity.color}20`,
                   color: rarity.color,
@@ -153,17 +153,17 @@ function DetailModal({
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-white text-2xl"
+            className="text-gray-500 hover:text-white text-xl sm:text-2xl ml-2 flex-shrink-0"
           >
             ×
           </button>
         </div>
 
         {/* Image */}
-        <div className="relative aspect-square rounded-lg overflow-hidden mb-4 bg-[#0a0a15]">
+        <div className="relative aspect-square rounded-lg overflow-hidden mb-3 sm:mb-4 bg-[#0a0a15]">
           {!imageLoaded && (
             <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a15]">
-              <div className="text-4xl animate-spin">⭐</div>
+              <div className="text-3xl sm:text-4xl animate-spin">⭐</div>
             </div>
           )}
           <Image
@@ -186,15 +186,15 @@ function DetailModal({
         </div>
 
         {/* Traits Grid */}
-        <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
           {traits.map((trait) => (
             <div 
               key={trait.name}
-              className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]"
+              className="bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e]"
             >
-              <p className="text-gray-500 text-[10px] uppercase mb-1">{trait.name}</p>
+              <p className="text-gray-500 text-[8px] sm:text-[10px] uppercase mb-0.5 sm:mb-1">{trait.name}</p>
               <p 
-                className="text-sm font-bold capitalize"
+                className="text-xs sm:text-sm font-bold capitalize truncate"
                 style={{ 
                   color: trait.name === 'Constellation' ? getVariantColor(trait.value) : '#fff' 
                 }}
@@ -206,7 +206,7 @@ function DetailModal({
         </div>
 
         {/* Token ID and links */}
-        <div className="flex items-center justify-between text-[10px] text-gray-500 border-t border-[#2a2a4e] pt-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[9px] sm:text-[10px] text-gray-500 border-t border-[#2a2a4e] pt-3 sm:pt-4 gap-2">
           <span>Token ID: #{nft.tokenId}</span>
           <div className="flex items-center gap-3">
             <a
@@ -223,7 +223,7 @@ function DetailModal({
               rel="noopener noreferrer"
               className="text-[#00ffff] hover:text-[#44ffff]"
             >
-              View on Explorer ↗
+              Explorer ↗
             </a>
           </div>
         </div>
@@ -471,8 +471,8 @@ export default function GalleryContent() {
       </div>
 
       {/* Stats Bar */}
-      <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-1">
-        <div className="flex flex-wrap justify-center gap-4">
+      <div className="pixel-card p-3 sm:p-4 mb-4 sm:mb-6 animate-slide-in-up animate-delay-1">
+        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-4">
           {STAR_TRAIT_VARIANTS.map((variant) => {
             const count = constellationStats[variant] || 0;
             const isSelected = selectedConstellation === variant;
@@ -480,9 +480,9 @@ export default function GalleryContent() {
               <button
                 key={variant}
                 onClick={() => setSelectedConstellation(isSelected ? 'all' : variant)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all ${
                   isSelected 
-                    ? 'scale-110' 
+                    ? 'scale-105 sm:scale-110' 
                     : 'hover:scale-105 opacity-70 hover:opacity-100'
                 }`}
                 style={{ 
@@ -492,12 +492,12 @@ export default function GalleryContent() {
                 }}
               >
                 <span 
-                  className="text-xs font-bold capitalize"
+                  className="text-[9px] sm:text-xs font-bold capitalize"
                   style={{ color: getVariantColor(variant) }}
                 >
                   {variant}
                 </span>
-                <span className="text-gray-500 text-[10px]">
+                <span className="text-gray-500 text-[8px] sm:text-[10px] hidden xs:inline">
                   ({count})
                 </span>
               </button>
@@ -507,10 +507,10 @@ export default function GalleryContent() {
       </div>
 
       {/* Filters */}
-      <div className="pixel-card p-4 mb-6 animate-slide-in-up animate-delay-2">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className="pixel-card p-3 sm:p-4 mb-4 sm:mb-6 animate-slide-in-up animate-delay-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
           {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 sm:min-w-[200px]">
             <input
               type="text"
               value={searchQuery}
@@ -520,41 +520,48 @@ export default function GalleryContent() {
             />
           </div>
 
-          {/* Sort */}
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500 text-xs">Sort:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'id' | 'constellation')}
-              className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-xs text-white cursor-pointer"
-            >
-              <option value="id">Token ID</option>
-              <option value="constellation">Constellation</option>
-            </select>
+          {/* Sort and Clear - Row on mobile */}
+          <div className="flex items-center justify-between sm:justify-start gap-3 sm:gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500 text-xs">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'id' | 'constellation')}
+                className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-2 sm:px-3 py-2 text-xs text-white cursor-pointer"
+              >
+                <option value="id">Token ID</option>
+                <option value="constellation">Constellation</option>
+              </select>
+            </div>
+
+            {/* Clear filters */}
+            {(selectedConstellation !== 'all' || searchQuery) && (
+              <button
+                onClick={() => {
+                  setSelectedConstellation('all');
+                  setSearchQuery('');
+                }}
+                className="text-[#ff4466] text-xs hover:text-[#ff6688] whitespace-nowrap"
+              >
+                ✕ Clear
+              </button>
+            )}
+
+            {/* Results count */}
+            <span className="text-gray-500 text-xs hidden sm:inline">
+              {filteredNFTs.length} results
+            </span>
           </div>
-
-          {/* Clear filters */}
-          {(selectedConstellation !== 'all' || searchQuery) && (
-            <button
-              onClick={() => {
-                setSelectedConstellation('all');
-                setSearchQuery('');
-              }}
-              className="text-[#ff4466] text-xs hover:text-[#ff6688]"
-            >
-              ✕ Clear
-            </button>
-          )}
-
-          {/* Results count */}
-          <span className="text-gray-500 text-xs">
-            {filteredNFTs.length} results
+          
+          {/* Results count - mobile only */}
+          <span className="text-gray-500 text-xs text-center sm:hidden">
+            {filteredNFTs.length} results found
           </span>
         </div>
       </div>
 
-      {/* NFT Grid */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3 mb-6 animate-slide-in-up animate-delay-3">
+      {/* NFT Grid - More responsive columns */}
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-3 mb-6 animate-slide-in-up animate-delay-3 px-1 sm:px-0">
         {paginatedNFTs.map((nft, index) => (
           <div 
             key={nft.tokenId}
@@ -580,13 +587,13 @@ export default function GalleryContent() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 mb-8 px-2">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="pixel-btn text-xs !px-3 !py-1 disabled:opacity-50"
+            className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-1 disabled:opacity-50"
           >
-            ← PREV
+            ←
           </button>
           
           <div className="flex items-center gap-1">
@@ -606,7 +613,7 @@ export default function GalleryContent() {
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[10px] sm:text-xs font-bold transition-all ${
                     currentPage === pageNum
                       ? 'bg-[#ffd700]/20 text-[#ffd700] border-2 border-[#ffd700]'
                       : 'bg-[#1a1a2e] text-gray-400 border-2 border-[#2a2a4e] hover:border-[#ffd700]/50'
@@ -621,9 +628,9 @@ export default function GalleryContent() {
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="pixel-btn text-xs !px-3 !py-1 disabled:opacity-50"
+            className="pixel-btn text-[10px] sm:text-xs !px-2 sm:!px-3 !py-1 disabled:opacity-50"
           >
-            NEXT →
+            →
           </button>
         </div>
       )}

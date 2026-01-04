@@ -168,17 +168,17 @@ export default function Header() {
 
         {/* Mobile Navigation Menu - z-index must be above body::after (9997) and body::before (9998) overlays */}
         <div 
-          className={`md:hidden fixed left-0 right-0 top-[61px] h-[calc(100vh-61px)] z-[9999] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          className={`md:hidden fixed left-0 right-0 top-[60px] h-[calc(100vh-60px)] z-[9999] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           style={{ backgroundColor: '#0d0d1a' }}
         >
           {/* Neon border effect for visibility */}
           <div className="absolute inset-0 border-t-4 border-[#9966ff] pointer-events-none" />
           
-          <nav className="flex flex-col items-center gap-6 p-8 pb-safe relative">
+          <nav className="flex flex-col items-center gap-4 p-6 pb-safe relative">
             {/* DAO link - always visible */}
             <Link 
               href="/dao" 
-              className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              className="text-sm text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -186,7 +186,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/gallery" 
-              className="text-base text-white hover:text-[#9966ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              className="text-sm text-white hover:text-[#9966ff] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(153, 102, 255, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -194,7 +194,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/hangout" 
-              className="text-base text-white hover:text-[#44ff88] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              className="text-sm text-white hover:text-[#44ff88] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(68, 255, 136, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -202,7 +202,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/raffle" 
-              className="text-base text-white hover:text-[#ff6ec7] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              className="text-sm text-white hover:text-[#ff6ec7] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(255, 110, 199, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -210,7 +210,7 @@ export default function Header() {
             </Link>
             <Link 
               href="/profile" 
-              className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+              className="text-sm text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -220,19 +220,19 @@ export default function Header() {
             {!isProduction && (
               <Link 
                 href="/marketplace" 
-                className="text-base text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2"
+                className="text-sm text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
                 style={{ textShadow: '0 0 10px rgba(255, 0, 255, 0.5)' }}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 EXCHANGE
               </Link>
             )}
-            <div className="flex flex-col items-center gap-4 pt-6 border-t-2 border-[#9966ff] w-full max-w-xs" style={{ boxShadow: '0 -2px 15px rgba(153, 102, 255, 0.2)' }}>
+            <div className="flex flex-col items-center gap-3 pt-4 border-t-2 border-[#9966ff] w-full max-w-xs" style={{ boxShadow: '0 -2px 15px rgba(153, 102, 255, 0.2)' }}>
               <a 
                 href="https://docs.google.com/forms/d/e/1FAIpQLSc9n6RI4pVW4REBiw2FG2EFiJydNwshS6KgxcAXWEu00IAp3A/viewform?usp=dialog"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-base text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-110 py-2 flex items-center gap-2"
+                className="text-sm text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 flex items-center gap-2"
                 style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}
                 onClick={() => setMobileMenuOpen(false)}
               >
