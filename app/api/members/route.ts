@@ -45,6 +45,7 @@ export interface MemberData {
   level: number;
   lastSeen?: string;
   displayedBadges?: string[];
+  avatarTokenId?: number; // User's selected avatar token ID from profile
 }
 
 /**
@@ -178,6 +179,16 @@ export async function GET() {
         }
       }
       
+      // Get avatar token ID from profile (stored in avatar_url field as string number)
+      let avatarTokenId: number | undefined;
+      if (profile?.avatar_url) {
+        const parsed = parseInt(profile.avatar_url, 10);
+        if (!isNaN(parsed) && tokenIds.includes(parsed)) {
+          // Only use if user still owns this token
+          avatarTokenId = parsed;
+        }
+      }
+      
       members.push({
         address,
         tokenIds: tokenIds.sort((a, b) => a - b),
@@ -188,6 +199,7 @@ export async function GET() {
         level,
         lastSeen: profile?.updated_at,
         displayedBadges,
+        avatarTokenId,
       });
     }
     

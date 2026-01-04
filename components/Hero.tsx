@@ -73,95 +73,95 @@ export default function Hero() {
         ))}
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-4 py-16 text-center">
-        {/* Main pixel art star logo with neon glow */}
-        <div className="mb-8 relative animate-slide-in-up">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 sm:py-16 text-center">
+        {/* Main pixel art star logo with neon glow - Smaller on mobile */}
+        <div className="mb-4 sm:mb-8 relative animate-slide-in-up">
           <div className="inline-block animate-pixel-float">
             <Image 
               src="/SWO_Star.png"
               alt="Star World Order Star"
               width={128}
               height={128}
-              className="w-24 h-24 md:w-32 md:h-32 mx-auto hover-lift cursor-pointer"
+              className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 mx-auto hover-lift cursor-pointer"
               style={{
                 filter: 'drop-shadow(0 0 40px #ffd700) drop-shadow(0 0 80px rgba(255, 215, 0, 0.5))',
                 transition: 'all 0.3s ease',
               }}
             />
           </div>
-          {/* Decorative corner stars */}
-          <span className="absolute top-0 left-1/4 text-[#9966ff] text-xs animate-pixel-pulse" style={{ animationDelay: '0.2s' }}>✦</span>
-          <span className="absolute top-0 right-1/4 text-[#ffd700] text-xs animate-pixel-pulse" style={{ animationDelay: '0.5s' }}>✦</span>
+          {/* Decorative corner stars - hidden on very small screens */}
+          <span className="absolute top-0 left-1/4 text-[#9966ff] text-xs animate-pixel-pulse hidden sm:inline" style={{ animationDelay: '0.2s' }}>✦</span>
+          <span className="absolute top-0 right-1/4 text-[#ffd700] text-xs animate-pixel-pulse hidden sm:inline" style={{ animationDelay: '0.5s' }}>✦</span>
         </div>
 
-        {/* Title with pixel styling and enhanced visibility */}
+        {/* Title with pixel styling and enhanced visibility - Smaller on mobile */}
         <h1 
-          className="text-lg sm:text-xl md:text-3xl lg:text-4xl mb-6 sm:mb-8 tracking-wider animate-slide-in-up animate-delay-1 glitch-text text-pixel-gold px-2"
+          className="text-base sm:text-xl md:text-3xl lg:text-4xl mb-3 sm:mb-8 tracking-wider animate-slide-in-up animate-delay-1 glitch-text text-pixel-gold px-2"
           data-text="STAR WORLD ORDER"
         >
           STAR WORLD ORDER
         </h1>
         
-        {/* Description with better contrast */}
-        <div className="animate-slide-in-up animate-delay-2 mb-6 sm:mb-8 px-4">
-          <p className="text-[#ffd700] text-xs sm:text-sm md:text-base mb-2" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.8)' }}>
+        {/* Description with better contrast - Tighter on mobile */}
+        <div className="animate-slide-in-up animate-delay-2 mb-4 sm:mb-8 px-4">
+          <p className="text-[#ffd700] text-[10px] sm:text-sm md:text-base mb-1 sm:mb-2" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.8)' }}>
             ✦ The Order is forming ✦
           </p>
-          <p className="text-[#c4a0ff] text-[10px] sm:text-xs md:text-sm max-w-xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8)' }}>
+          <p className="text-[#c4a0ff] text-[9px] sm:text-xs md:text-sm max-w-xl mx-auto leading-relaxed" style={{ textShadow: '1px 1px 0 rgba(0,0,0,0.8)' }}>
             A DAO for Skrumpeys with the Constellation trait
           </p>
         </div>
         
-        {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mb-8 sm:mb-12 animate-slide-in-up animate-delay-3 px-4">
+        {/* Action buttons - Tighter spacing on mobile */}
+        <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-4 sm:mb-12 animate-slide-in-up animate-delay-3 px-4">
           <button 
             onClick={handleEnterTheOrder}
-            className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[10px] sm:text-xs"
+            className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[9px] sm:text-xs"
           >
             ⭐ ENTER THE ORDER ⭐
           </button>
           <button 
             onClick={handleDiscoverMore}
-            className="pixel-btn smooth-transition hover-lift text-[10px] sm:text-xs"
+            className="pixel-btn smooth-transition hover-lift text-[9px] sm:text-xs"
           >
             ▼ DISCOVER MORE
           </button>
         </div>
 
-        {/* Pixel art showcase */}
-        <div className="pixel-card p-4 sm:p-6 md:p-8 max-w-md mx-4 sm:mx-auto animate-slide-in-up animate-delay-4">
+        {/* Pixel art showcase - Smaller on mobile */}
+        <div className="pixel-card p-3 sm:p-6 md:p-8 max-w-md mx-4 sm:mx-auto animate-slide-in-up animate-delay-4">
           {/* Decorative header */}
-          <div className="flex items-center justify-center gap-2 mb-3 sm:mb-4 text-[8px] text-[#9966ff] tracking-widest">
+          <div className="flex items-center justify-center gap-2 mb-2 sm:mb-4 text-[8px] text-[#9966ff] tracking-widest">
             <span>◆</span>
             <span>FEATURED</span>
             <span>◆</span>
           </div>
           
-          <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-2 sm:mb-4">
             <Image 
               src="/purple_skrumpey.png"
               alt="Purple Skrumpey frog mascot"
               width={128}
               height={128}
-              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              className="w-12 h-12 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0s', filter: 'drop-shadow(0 0 10px rgba(68, 255, 136, 0.5))' }}
             />
-            <span className="text-2xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
+            <span className="text-xl sm:text-3xl md:text-5xl text-[#ffd700] animate-pixel-pulse" style={{ textShadow: '0 0 20px #ffd700' }}>+</span>
             <Image 
               src="/str_mon2.png"
               alt="Star Monad icon"
               width={128}
               height={128}
-              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
+              className="w-12 h-12 sm:w-20 sm:h-20 md:w-24 md:h-24 animate-pixel-float hover-lift cursor-pointer smooth-transition"
               style={{ animationDelay: '0.5s', filter: 'drop-shadow(0 0 10px rgba(255, 215, 0, 0.5))' }}
             />
           </div>
           
-          <div className="border-t-2 border-[#3a3a5e] pt-3 sm:pt-4">
-            <p className="text-[#ffd700] text-xs sm:text-sm tracking-wide mb-1" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
+          <div className="border-t-2 border-[#3a3a5e] pt-2 sm:pt-4">
+            <p className="text-[#ffd700] text-[10px] sm:text-sm tracking-wide mb-0.5 sm:mb-1" style={{ textShadow: '0 0 10px rgba(255, 215, 0, 0.5)' }}>
               ★ STAR SKRUMPEY ★
             </p>
-            <p className="text-gray-400 text-[10px] sm:text-xs">
+            <p className="text-gray-400 text-[9px] sm:text-xs">
               Skrumpeys with the Constellation trait
             </p>
           </div>

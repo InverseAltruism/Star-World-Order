@@ -86,18 +86,29 @@ export function useStarPoints(): UseStarPointsResult {
   // Track previous NFT data to avoid redundant updates
   const prevNFTDataRef = useRef<string>('');
   
-  // Helper function to fetch display name from profile (DRY principle)
-  const fetchDisplayName = useCallback(async (walletAddress: string): Promise<string | undefined> => {
+  // Helper function to fetch profile data (display name and avatar) from profile (DRY principle)
+  const fetchProfileData = useCallback(async (walletAddress: string): Promise<{ displayName?: string; avatarTokenId?: number }> => {
     try {
       const profileResponse = await fetch(`/api/profile?address=${walletAddress}`);
       const profileData = await profileResponse.json();
-      if (profileData.success && profileData.profile?.display_name) {
-        return profileData.profile.display_name;
+      if (profileData.success && profileData.profile) {
+        const result: { displayName?: string; avatarTokenId?: number } = {};
+        if (profileData.profile.display_name) {
+          result.displayName = profileData.profile.display_name;
+        }
+        // avatar_url stores the token ID as a string
+        if (profileData.profile.avatar_url) {
+          const tokenId = parseInt(profileData.profile.avatar_url, 10);
+          if (!isNaN(tokenId)) {
+            result.avatarTokenId = tokenId;
+          }
+        }
+        return result;
       }
     } catch (e) {
       console.error('Failed to fetch profile for presence:', e);
     }
-    return undefined;
+    return {};
   }, []);
   
   // Load balance data
@@ -190,8 +201,14 @@ export function useStarPoints(): UseStarPointsResult {
     if (!address || !isConnected) return;
     
     const sendInitialPresence = async () => {
-      // Fetch display name from profile first (Issue 5 fix)
-      const displayName = await fetchDisplayName(address);
+      // Fetch profile data (display name and avatar) from profile
+      const { displayName, avatarTokenId } = await fetchProfileData(address);
+      // Fallback to first Star Skrumpey if no avatar selected
+      const firstStar = starSkrumpeys[0];
+      // Validate avatarTokenId is still owned by user, otherwise use first star
+      const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+      const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+      const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
         await fetch('/api/presence', {
@@ -200,6 +217,8 @@ export function useStarPoints(): UseStarPointsResult {
           body: JSON.stringify({
             walletAddress: address,
             displayName,
+            nftTokenId,
+            starVariant: firstStar?.starVariant,
             status: 'online',
           }),
         });
@@ -208,24 +227,28 @@ export function useStarPoints(): UseStarPointsResult {
         console.error('Failed to send initial presence:', error);
         // Fallback to localStorage
         updateOnlinePresence(address, {
+          nftTokenId,
           status: 'online',
         });
       }
     };
     
     sendInitialPresence();
-  }, [address, isConnected, loadOnlineUsers, fetchDisplayName]);
+  }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchProfileData]);
   
   // Update online presence with NFT data when available and periodically
   useEffect(() => {
     if (!address || !isConnected) return;
     
-    // Get the first star skrumpey for avatar
-    const firstStar = starSkrumpeys[0];
-    
     const updatePresenceOnServer = async () => {
-      // Fetch display name from profile (Issue 5 fix)
-      const displayName = await fetchDisplayName(address);
+      // Fetch profile data (display name and avatar) from profile
+      const { displayName, avatarTokenId } = await fetchProfileData(address);
+      // Fallback to first Star Skrumpey if no avatar selected
+      const firstStar = starSkrumpeys[0];
+      // Validate avatarTokenId is still owned by user, otherwise use first star
+      const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+      const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+      const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
         await fetch('/api/presence', {
@@ -234,7 +257,7 @@ export function useStarPoints(): UseStarPointsResult {
           body: JSON.stringify({
             walletAddress: address,
             displayName,
-            nftTokenId: firstStar?.tokenId,
+            nftTokenId,
             starVariant: firstStar?.starVariant,
             status: 'online',
           }),
@@ -244,7 +267,7 @@ export function useStarPoints(): UseStarPointsResult {
         console.error('Failed to update presence:', error);
         // Fallback to localStorage
         updateOnlinePresence(address, {
-          nftTokenId: firstStar?.tokenId,
+          nftTokenId,
           starVariant: firstStar?.starVariant,
           status: 'online',
         });
@@ -286,7 +309,7 @@ export function useStarPoints(): UseStarPointsResult {
         }
       }
     };
-  }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
+  }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchProfileData]);
   
   // Calculate voting power
   const votingPower = useMemo(() => {
@@ -358,10 +381,14 @@ export function useStarPoints(): UseStarPointsResult {
   const updatePresence = useCallback(async (status: 'online' | 'away' | 'busy') => {
     if (!address) return;
     
-    // Fetch display name from profile (Issue 5 fix)
-    const displayName = await fetchDisplayName(address);
+    // Fetch profile data (display name and avatar) from profile
+    const { displayName, avatarTokenId } = await fetchProfileData(address);
     
     const firstStar = starSkrumpeys[0];
+    // Validate avatarTokenId is still owned by user, otherwise use first star
+    const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+    const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+    const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
     try {
       await fetch('/api/presence', {
         method: 'POST',
@@ -369,7 +396,7 @@ export function useStarPoints(): UseStarPointsResult {
         body: JSON.stringify({
           walletAddress: address,
           displayName,
-          nftTokenId: firstStar?.tokenId,
+          nftTokenId,
           starVariant: firstStar?.starVariant,
           status,
         }),
@@ -379,12 +406,12 @@ export function useStarPoints(): UseStarPointsResult {
       console.error('Failed to update presence:', error);
       // Fallback to localStorage
       updateOnlinePresence(address, {
-        nftTokenId: firstStar?.tokenId,
+        nftTokenId,
         starVariant: firstStar?.starVariant,
         status,
       });
     }
-  }, [address, starSkrumpeys, loadOnlineUsers, fetchDisplayName]);
+  }, [address, starSkrumpeys, loadOnlineUsers, fetchProfileData]);
   
   // Refresh all data
   const refresh = useCallback(() => {

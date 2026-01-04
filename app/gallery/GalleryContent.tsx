@@ -121,11 +121,19 @@ function DetailModal({
       onClick={onClose}
     >
       <div 
-        className="pixel-card p-4 sm:p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto max-h-[95vh] sm:max-h-[90vh]"
+        className="pixel-card p-4 sm:p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto max-h-[90vh] sm:max-h-[90vh] relative"
         onClick={e => e.stopPropagation()}
       >
+        {/* Fixed Close Button - Always visible */}
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] bg-[#1a1a2e]/80 z-10 text-lg sm:text-xl"
+        >
+          ×
+        </button>
+        
         {/* Header */}
-        <div className="flex items-start justify-between mb-3 sm:mb-4">
+        <div className="flex items-start justify-between mb-3 sm:mb-4 pr-8">
           <div className="flex-1 min-w-0">
             <h3 className="text-[#ffd700] text-sm sm:text-lg tracking-wider truncate">
               {nft.name || `Star Skrumpey #${nft.tokenId}`}
@@ -151,12 +159,6 @@ function DetailModal({
               </span>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-white text-xl sm:text-2xl ml-2 flex-shrink-0"
-          >
-            ×
-          </button>
         </div>
 
         {/* Image */}

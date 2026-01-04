@@ -26,6 +26,7 @@ interface MemberData {
   level: number;
   lastSeen?: string;
   displayedBadges?: string[];
+  avatarTokenId?: number; // User's selected avatar token ID from profile
 }
 
 /**
@@ -291,7 +292,8 @@ function MemberCard({
   rank: number;
   onClick: () => void;
 }) {
-  const primaryTokenId = member.tokenIds[0];
+  // Use avatar from profile if set, otherwise fall back to first token
+  const primaryTokenId = member.avatarTokenId || member.tokenIds[0];
   const primaryVariant = member.starVariants[0];
   const levelTitle = getLevelTitle(member.count);
   
