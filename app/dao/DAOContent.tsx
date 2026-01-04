@@ -21,6 +21,9 @@ import {
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
+// Default minimum voters for quorum (used when not specified in proposal)
+const DEFAULT_MIN_VOTERS = 10;
+
 type TabId = 'governance' | 'forum' | 'members' | 'treasury' | 'staking';
 
 interface Tab {
@@ -681,7 +684,7 @@ function GovernanceTab({
             const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
             const extendedProposal = proposal as ExtendedProposal;
             const abstainVotes = extendedProposal.abstainVotes || 0;
-            const totalVotes = proposal.forVotes + proposal.againstVotes + abstainVotes || 1;
+            const totalVotes = (proposal.forVotes + proposal.againstVotes + abstainVotes) || 1;
             const hasUserVoted = hasVoted(proposal.id);
             const isActive = proposal.state === ProposalState.Active;
             const isPending = proposal.state === ProposalState.Pending;
@@ -772,13 +775,13 @@ function GovernanceTab({
                     {(extendedProposal.minVoters || extendedProposal.uniqueVoterCount !== undefined) && (
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-gray-600 text-[9px]">
-                          Voters: {extendedProposal.uniqueVoterCount || 0}/{extendedProposal.minVoters || 10}
+                          Voters: {extendedProposal.uniqueVoterCount || 0}/{extendedProposal.minVoters || DEFAULT_MIN_VOTERS}
                         </span>
-                        {(extendedProposal.uniqueVoterCount || 0) >= (extendedProposal.minVoters || 10) ? (
+                        {(extendedProposal.uniqueVoterCount || 0) >= (extendedProposal.minVoters || DEFAULT_MIN_VOTERS) ? (
                           <span className="text-[#44ff88] text-[9px]">✓ Quorum reached</span>
                         ) : (
                           <span className="text-gray-500 text-[9px]">
-                            {(extendedProposal.minVoters || 10) - (extendedProposal.uniqueVoterCount || 0)} more voters needed
+                            {(extendedProposal.minVoters || DEFAULT_MIN_VOTERS) - (extendedProposal.uniqueVoterCount || 0)} more voters needed
                           </span>
                         )}
                       </div>
@@ -1820,7 +1823,7 @@ function GovernanceInfoButton() {
               <div className="bg-[#0a0a15] rounded-lg p-4">
                 <h4 className="text-[#ff6ec7] text-xs mb-2 font-bold">📊 QUORUM REQUIREMENTS</h4>
                 <ul className="text-gray-300 text-xs space-y-1">
-                  <li>• <span className="text-[#9966ff]">Minimum 10 unique voters</span> required</li>
+                  <li>• <span className="text-[#9966ff]">Minimum {DEFAULT_MIN_VOTERS} unique voters</span> required</li>
                   <li>• <span className="text-[#44ff88]">60% YES</span> votes needed to pass</li>
                   <li>• Maximum <span className="text-[#ffd700]">30% ABSTAIN</span> votes allowed</li>
                   <li>• Proposers can cancel within first 48 hours</li>
