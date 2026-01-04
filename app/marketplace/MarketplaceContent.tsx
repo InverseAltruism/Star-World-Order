@@ -689,8 +689,8 @@ function TransactionModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="pixel-card p-6 max-w-sm w-full text-center animate-slide-in-up">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+      <div className="pixel-card p-6 max-w-sm w-full text-center animate-slide-in-up overscroll-contain">
         <div className={`text-4xl mb-4 ${status === 'pending' ? 'animate-spin' : 'animate-pixel-float'}`}>
           {status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳'}
         </div>

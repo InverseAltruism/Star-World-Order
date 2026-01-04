@@ -137,8 +137,8 @@ function CreateProposalModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
           CREATE NEW PROPOSAL
         </h3>
@@ -258,8 +258,8 @@ function VoteModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up overscroll-contain">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
           🗳️ CAST YOUR VOTE
         </h3>
@@ -402,8 +402,8 @@ function VotersModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col overscroll-contain">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
@@ -1322,8 +1322,8 @@ function ForumTab({
     <div className="space-y-6">
       {/* Create Thread Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y">
             <h3 className="text-[#ffd700] text-sm tracking-wider mb-4">✦ NEW THREAD ✦</h3>
             
             <div className="space-y-4">
@@ -1782,8 +1782,8 @@ function GovernanceInfoButton() {
 
       {/* Info Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
+          <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[80vh] flex flex-col overscroll-contain">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <h3 className="text-[#ffd700] text-sm tracking-wider animate-glow-pulse">
                 ⚡ HOW GOVERNANCE WORKS
@@ -1958,8 +1958,9 @@ export default function DAOContent() {
                 title={tab.disabled ? 'Coming Soon' : undefined}
               >
                 <span className="mr-0.5 sm:mr-1">{tab.icon}</span>
-                <span className="hidden xs:inline">{tab.label}</span>
-                <span className="xs:hidden">{tab.label.slice(0, 3)}</span>
+                {/* Short label on mobile, full label on sm+ screens */}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.slice(0, 3)}</span>
                 {tab.disabled && <span className="ml-0.5 sm:ml-1 text-[6px] sm:text-[8px]">⏳</span>}
               </button>
             ))}

@@ -90,10 +90,10 @@ export default function DemoMode({ className }: DemoModeProps) {
 
       {/* Demo Mode Modal - Rendered via Portal */}
       {typeof document !== 'undefined' && showModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4 overflow-hidden">
           <div
             ref={modalRef}
-            className="pixel-card p-4 sm:p-6 max-w-md w-full animate-slide-in-up relative max-h-[90vh] overflow-y-auto"
+            className="pixel-card p-4 sm:p-6 max-w-md w-full animate-slide-in-up relative max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
           >
             {/* Header */}
             <div className="mb-6 text-center">

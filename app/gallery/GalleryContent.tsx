@@ -117,11 +117,11 @@ function DetailModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in overflow-hidden"
       onClick={onClose}
     >
       <div 
-        className="pixel-card p-4 sm:p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto max-h-[90vh] sm:max-h-[90vh] relative"
+        className="pixel-card p-4 sm:p-6 max-w-lg w-full animate-slide-in-up overflow-y-auto overscroll-contain touch-pan-y max-h-[90vh] sm:max-h-[90vh] relative"
         onClick={e => e.stopPropagation()}
       >
         {/* Fixed Close Button - Always visible */}

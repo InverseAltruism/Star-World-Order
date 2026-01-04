@@ -338,15 +338,15 @@ function SkrumpeyInspectModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-slide-in-up"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-slide-in-up overflow-hidden"
       onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* Modal Content - Scrollable on mobile */}
+      {/* Modal Content - Scrollable on mobile with overscroll containment */}
       <div 
-        className="relative z-10 w-full max-w-md pixel-card p-4 sm:p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto"
+        className="relative z-10 w-full max-w-md pixel-card p-4 sm:p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button - Always visible with background */}
@@ -1393,7 +1393,7 @@ export default function ProfileCard() {
 
       {/* Section Tab Navigation */}
       {/* Section Tab Navigation - Mobile optimized */}
-      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap animate-slide-in-up px-2 sm:px-0">
+      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap animate-slide-in-up px-2 sm:px-0 mt-2 sm:mt-0">
         {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests', 'raffles'] as const).map((section) => {
           const isActive = activeSection === section;
           const icons: Record<string, string> = { 
@@ -2146,15 +2146,15 @@ export default function ProfileCard() {
       {/* Achievement Detail Modal */}
       {selectedAchievement && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-hidden"
           onClick={() => setSelectedAchievement(null)}
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           
-          {/* Modal Content */}
+          {/* Modal Content - with overscroll containment */}
           <div 
-            className="relative z-10 w-full max-w-xs pixel-card p-6 animate-slide-in-up text-center"
+            className="relative z-10 w-full max-w-xs pixel-card p-6 animate-slide-in-up text-center overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -2535,15 +2535,15 @@ export default function ProfileCard() {
       {/* Avatar Picker Modal */}
       {showAvatarPicker && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-hidden"
           onClick={() => setShowAvatarPicker(false)}
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           
-          {/* Modal Content */}
+          {/* Modal Content - with overscroll containment to prevent background scroll on mobile */}
           <div 
-            className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up max-h-[80vh] flex flex-col"
+            className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up max-h-[80vh] flex flex-col overscroll-contain touch-pan-y"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
