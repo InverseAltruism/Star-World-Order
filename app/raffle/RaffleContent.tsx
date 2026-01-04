@@ -171,7 +171,7 @@ function WinAnimation({ raffleName, prizeName, onClose }: { raffleName?: string;
   }, []);
   
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90" onClick={onClose}>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 overflow-hidden" onClick={onClose}>
       {/* Flying stars - using CSS custom properties for animation */}
       {stars.map((star) => (
         <div
@@ -269,7 +269,7 @@ function LoseAnimation({ onClose }: { onClose: () => void }) {
   );
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90" onClick={onClose}>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 overflow-hidden" onClick={onClose}>
       {/* Falling stars (sad) */}
       <div className="absolute inset-0 overflow-hidden">
         {fallingStars.map((star) => (

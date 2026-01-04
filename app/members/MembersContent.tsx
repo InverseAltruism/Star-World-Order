@@ -424,7 +424,8 @@ function MemberDetailModal({
   const [isLoadingFriendStatus, setIsLoadingFriendStatus] = useState(false);
   const [isSendingRequest, setIsSendingRequest] = useState(false);
   
-  const primaryTokenId = member.tokenIds[0];
+  // Use avatar from profile if set, otherwise fall back to first token
+  const primaryTokenId = member.avatarTokenId || member.tokenIds[0];
   const imageUrl = primaryTokenId ? getSkrumpeyImageUrl(primaryTokenId) : null;
   const levelTitle = getLevelTitle(member.count);
   
@@ -527,15 +528,15 @@ function MemberDetailModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-hidden"
       onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* Modal */}
+      {/* Modal - with overscroll containment to prevent background scroll on mobile */}
       <div 
-        className="relative z-10 w-full max-w-lg pixel-card p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto scrollbar-pixel"
+        className="relative z-10 w-full max-w-lg pixel-card p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y scrollbar-pixel"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}

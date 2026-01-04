@@ -290,15 +290,15 @@ export default function UserProfileModal({
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in overflow-hidden"
       onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* Modal */}
+      {/* Modal - with overscroll containment to prevent background scroll on mobile */}
       <div 
-        className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up"
+        className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
