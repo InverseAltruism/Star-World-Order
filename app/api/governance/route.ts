@@ -4,7 +4,9 @@
  * Web2-style governance system with database-backed proposals and votes.
  * Provides endpoints for:
  * - Creating proposals
- * - Voting on proposals
+ * - Voting on proposals (Yes/No/Abstain)
+ * - Changing votes (24-hour window)
+ * - Canceling proposals (proposer only, 48-hour lockout)
  * - Getting proposal data
  * - Checking vote status
  */
@@ -15,11 +17,16 @@ import {
   getGovernanceProposals,
   getGovernanceProposalById,
   castGovernanceVote,
+  changeGovernanceVote,
+  canChangeVote,
+  cancelGovernanceProposal,
+  canProposerCancelProposal,
   getGovernanceVotes,
   hasUserVotedOnProposal,
   getUserVoteOnProposal,
   updateGovernanceProposalState,
   ProposalStateDB,
+  ProposalCategory,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -28,10 +35,11 @@ import { logger } from '@/lib/logger';
  * 
  * Get governance proposals and votes
  * Query params:
- * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote'
- * - id: proposal ID (for proposal, votes, hasVoted, userVote)
+ * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote' | 'canChangeVote' | 'canCancel'
+ * - id: proposal ID (for proposal, votes, hasVoted, userVote, canChangeVote, canCancel)
  * - state: filter by proposal state
- * - address: voter address (for hasVoted, userVote)
+ * - category: filter by proposal category
+ * - address: voter address (for hasVoted, userVote) or proposer address (for canCancel)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -39,6 +47,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'proposals';
     const proposalId = searchParams.get('id');
     const state = searchParams.get('state') as ProposalStateDB | null;
+    const category = searchParams.get('category') as ProposalCategory | null;
     const address = searchParams.get('address');
     const limit = parseInt(searchParams.get('limit') || '100', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
@@ -51,9 +60,14 @@ export async function GET(request: NextRequest) {
         offset,
       });
       
+      // Filter by category if provided (client-side filtering for now)
+      const filteredProposals = category 
+        ? proposals.filter(p => p.category === category)
+        : proposals;
+      
       return NextResponse.json({
         success: true,
-        proposals,
+        proposals: filteredProposals,
       });
     }
 
@@ -128,6 +142,38 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Check if vote can be changed
+    if (action === 'canChangeVote') {
+      if (!proposalId) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal ID required' },
+          { status: 400 }
+        );
+      }
+
+      const result = canChangeVote(proposalId);
+      return NextResponse.json({
+        success: true,
+        ...result,
+      });
+    }
+
+    // Check if proposer can cancel
+    if (action === 'canCancel') {
+      if (!proposalId || !address) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal ID and address required' },
+          { status: 400 }
+        );
+      }
+
+      const result = canProposerCancelProposal(proposalId, address);
+      return NextResponse.json({
+        success: true,
+        ...result,
+      });
+    }
+
     return NextResponse.json(
       { success: false, error: 'Unknown action' },
       { status: 400 }
@@ -146,9 +192,11 @@ export async function GET(request: NextRequest) {
  * 
  * Create proposals and cast votes
  * Body:
- * - action: 'createProposal' | 'vote' | 'updateState'
- * - For createProposal: title, description, proposerAddress, votingDurationWeeks (1-4)
- * - For vote: proposalId, voterAddress, support (boolean), votingPower, reason (optional)
+ * - action: 'createProposal' | 'vote' | 'changeVote' | 'cancelProposal' | 'updateState'
+ * - For createProposal: title, description, proposerAddress, votingDurationWeeks (1-4), category (optional)
+ * - For vote: proposalId, voterAddress, support (0=No, 1=Yes, 2=Abstain), votingPower, reason (optional)
+ * - For changeVote: proposalId, voterAddress, newSupport (0/1/2), reason (optional)
+ * - For cancelProposal: proposalId, userAddress
  * - For updateState: proposalId, newState (admin only)
  */
 export async function POST(request: NextRequest) {
@@ -158,7 +206,7 @@ export async function POST(request: NextRequest) {
 
     // Create a new proposal
     if (action === 'createProposal') {
-      const { title, description, proposerAddress, votingDurationWeeks, quorum } = body;
+      const { title, description, proposerAddress, votingDurationWeeks, quorum, category } = body;
 
       if (!title || !description || !proposerAddress) {
         return NextResponse.json(
@@ -176,15 +224,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Validate category if provided
+      const validCategories = ['treasury', 'community', 'technical', 'governance', 'general'];
+      if (category && !validCategories.includes(category)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid category' },
+          { status: 400 }
+        );
+      }
+
       const proposal = createGovernanceProposal({
         title,
         description,
         proposerAddress,
         votingDurationWeeks: duration,
         quorum: quorum || 10,
+        category: category || 'general',
       });
 
-      logger.info('Governance: Proposal created', { proposalId: proposal.id, title });
+      logger.info('Governance: Proposal created', { proposalId: proposal.id, title, category: proposal.category });
       return NextResponse.json({
         success: true,
         proposal,
@@ -202,10 +260,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Validate support value (0=No, 1=Yes, 2=Abstain)
+      const supportValue = typeof support === 'boolean' ? (support ? 1 : 0) : parseInt(support, 10);
+      if (![0, 1, 2].includes(supportValue)) {
+        return NextResponse.json(
+          { success: false, error: 'Support must be 0 (No), 1 (Yes), or 2 (Abstain)' },
+          { status: 400 }
+        );
+      }
+
       const result = castGovernanceVote({
         proposalId,
         voterAddress,
-        support: Boolean(support),
+        support: supportValue,
         votingPower: parseInt(votingPower, 10) || 1,
         reason,
       });
@@ -217,10 +284,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const supportLabel = supportValue === 1 ? 'Yes' : supportValue === 0 ? 'No' : 'Abstain';
       logger.info('Governance: Vote cast', { 
         proposalId, 
         voterAddress: voterAddress.slice(0, 10) + '...', 
-        support 
+        support: supportLabel 
       });
       return NextResponse.json({
         success: true,
@@ -228,9 +296,86 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Change a vote
+    if (action === 'changeVote') {
+      const { proposalId, voterAddress, newSupport, reason } = body;
+
+      if (!proposalId || !voterAddress || newSupport === undefined) {
+        return NextResponse.json(
+          { success: false, error: 'ProposalId, voterAddress, and newSupport are required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate support value
+      const supportValue = parseInt(newSupport, 10);
+      if (![0, 1, 2].includes(supportValue)) {
+        return NextResponse.json(
+          { success: false, error: 'NewSupport must be 0 (No), 1 (Yes), or 2 (Abstain)' },
+          { status: 400 }
+        );
+      }
+
+      const result = changeGovernanceVote({
+        proposalId,
+        voterAddress,
+        newSupport: supportValue,
+        votingPower: 1, // Not used in change, kept for consistency
+        reason,
+      });
+
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 400 }
+        );
+      }
+
+      const supportLabel = supportValue === 1 ? 'Yes' : supportValue === 0 ? 'No' : 'Abstain';
+      logger.info('Governance: Vote changed', { 
+        proposalId, 
+        voterAddress: voterAddress.slice(0, 10) + '...', 
+        newSupport: supportLabel 
+      });
+      return NextResponse.json({
+        success: true,
+        vote: result.vote,
+      });
+    }
+
+    // Cancel a proposal
+    if (action === 'cancelProposal') {
+      const { proposalId, userAddress } = body;
+
+      if (!proposalId || !userAddress) {
+        return NextResponse.json(
+          { success: false, error: 'ProposalId and userAddress are required' },
+          { status: 400 }
+        );
+      }
+
+      const result = cancelGovernanceProposal(proposalId, userAddress);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 400 }
+        );
+      }
+
+      logger.info('Governance: Proposal cancelled', { 
+        proposalId, 
+        userAddress: userAddress.slice(0, 10) + '...' 
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Proposal cancelled successfully',
+      });
+    }
+
     // Update proposal state (could be admin-only in production)
     if (action === 'updateState') {
-      const { proposalId, newState } = body;
+      const { proposalId, newState, defeatReason } = body;
 
       if (!proposalId || !newState) {
         return NextResponse.json(
@@ -247,7 +392,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const updated = updateGovernanceProposalState(proposalId, newState);
+      const updated = updateGovernanceProposalState(proposalId, newState, defeatReason);
       if (!updated) {
         return NextResponse.json(
           { success: false, error: 'Failed to update proposal state' },
@@ -255,7 +400,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      logger.info('Governance: Proposal state updated', { proposalId, newState });
+      logger.info('Governance: Proposal state updated', { proposalId, newState, defeatReason });
       return NextResponse.json({
         success: true,
         message: 'State updated',
