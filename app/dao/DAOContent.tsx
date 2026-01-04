@@ -21,6 +21,9 @@ import {
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 
+// Default minimum voters for quorum (used when not specified in proposal)
+const DEFAULT_MIN_VOTERS = 10;
+
 type TabId = 'governance' | 'forum' | 'members' | 'treasury' | 'staking';
 
 interface Tab {
@@ -79,10 +82,26 @@ interface ExtendedProposal extends Proposal {
   startTime?: string | null;
   votingDurationWeeks?: number;
   quorum?: number;
+  abstainVotes?: number;
+  uniqueVoterCount?: number;
+  minVoters?: number;
+  category?: string;
+  defeatReason?: string | null;
 }
 
 /**
- * Create Proposal Modal
+ * Proposal categories with icons
+ */
+const PROPOSAL_CATEGORIES = [
+  { value: 'general', label: '📋 General', description: 'Anything else' },
+  { value: 'treasury', label: '💰 Treasury', description: 'Fund allocation requests' },
+  { value: 'community', label: '🎉 Community', description: 'Events, partnerships, contests' },
+  { value: 'technical', label: '⚙️ Technical', description: 'Contract/site changes' },
+  { value: 'governance', label: '📜 Governance', description: 'Rule changes (quorum, voting periods)' },
+];
+
+/**
+ * Create Proposal Modal with category support
  */
 function CreateProposalModal({
   isOpen,
@@ -92,23 +111,25 @@ function CreateProposalModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (title: string, description: string, votingDurationWeeks: number) => Promise<{ success: boolean; error?: string }>;
+  onCreate: (title: string, description: string, votingDurationWeeks: number, category?: string) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [votingDuration, setVotingDuration] = useState<number>(1);
+  const [category, setCategory] = useState<string>('general');
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
     setError(null);
-    const result = await onCreate(title, description, votingDuration);
+    const result = await onCreate(title, description, votingDuration, category);
     if (result.success) {
       setTitle('');
       setDescription('');
       setVotingDuration(1);
+      setCategory('general');
       onClose();
     } else {
       setError(result.error || 'Failed to create proposal');
@@ -117,7 +138,7 @@ function CreateProposalModal({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up max-h-[90vh] overflow-y-auto">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
           CREATE NEW PROPOSAL
         </h3>
@@ -132,6 +153,19 @@ function CreateProposalModal({
               placeholder="Enter a short, descriptive title..."
               className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition"
             />
+          </div>
+
+          <div>
+            <label className="text-[#9966ff] text-xs block mb-2">CATEGORY</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition cursor-pointer"
+            >
+              {PROPOSAL_CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
+              ))}
+            </select>
           </div>
           
           <div>
@@ -189,6 +223,11 @@ function CreateProposalModal({
 /**
  * Vote Modal
  */
+/**
+ * Support type for three-way voting
+ */
+type VoteSupport = 'yes' | 'no' | 'abstain' | number;
+
 function VoteModal({
   isOpen,
   proposal,
@@ -199,7 +238,7 @@ function VoteModal({
   isOpen: boolean;
   proposal: Proposal | null;
   onClose: () => void;
-  onVote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  onVote: (proposalId: string, support: VoteSupport, reason?: string) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 }) {
   const [reason, setReason] = useState('');
@@ -207,7 +246,7 @@ function VoteModal({
 
   if (!isOpen || !proposal) return null;
 
-  const handleVote = async (support: boolean) => {
+  const handleVote = async (support: VoteSupport) => {
     setError(null);
     const result = await onVote(proposal.id, support, reason || undefined);
     if (result.success) {
@@ -248,20 +287,28 @@ function VoteModal({
             </div>
           )}
           
-          <div className="flex gap-3">
+          {/* Three-way voting buttons */}
+          <div className="flex gap-2">
             <button
-              onClick={() => handleVote(true)}
+              onClick={() => handleVote('yes')}
               disabled={isPending}
               className="flex-1 pixel-btn text-xs !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
             >
-              {isPending ? '...' : '✓ VOTE FOR'}
+              {isPending ? '...' : '✓ YES'}
             </button>
             <button
-              onClick={() => handleVote(false)}
+              onClick={() => handleVote('no')}
               disabled={isPending}
               className="flex-1 pixel-btn text-xs !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
             >
-              {isPending ? '...' : '✕ VOTE AGAINST'}
+              {isPending ? '...' : '✕ NO'}
+            </button>
+            <button
+              onClick={() => handleVote('abstain')}
+              disabled={isPending}
+              className="flex-1 pixel-btn text-xs !bg-[#ffd700] !border-[#ffee44_#ccaa00_#ccaa00_#ffee44] smooth-transition hover-lift disabled:opacity-50 text-black"
+            >
+              {isPending ? '...' : '◯ ABSTAIN'}
             </button>
           </div>
           
@@ -292,7 +339,7 @@ interface VoteInfo {
 }
 
 /**
- * Voters Modal - Shows who voted and their reasons
+ * Voters Modal - Shows who voted and their reasons (supports three-way voting)
  */
 function VotersModal({
   isOpen,
@@ -307,7 +354,7 @@ function VotersModal({
 }) {
   const [votes, setVotes] = useState<VoteInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'for' | 'against'>('all');
+  const [filter, setFilter] = useState<'all' | 'for' | 'against' | 'abstain'>('all');
 
   useEffect(() => {
     if (!isOpen || !proposalId) return;
@@ -336,11 +383,23 @@ function VotersModal({
     if (filter === 'all') return true;
     if (filter === 'for') return vote.support === 1;
     if (filter === 'against') return vote.support === 0;
+    if (filter === 'abstain') return vote.support === 2;
     return true;
   });
 
   const forVotes = votes.filter(v => v.support === 1);
   const againstVotes = votes.filter(v => v.support === 0);
+  const abstainVotes = votes.filter(v => v.support === 2);
+
+  // Helper to get vote display info
+  const getVoteDisplay = (support: number) => {
+    switch (support) {
+      case 1: return { label: '✓ YES', color: 'text-[#44ff88]', bg: 'bg-[#44ff88]/10 border-[#44ff88]/30' };
+      case 0: return { label: '✕ NO', color: 'text-[#ff4466]', bg: 'bg-[#ff4466]/10 border-[#ff4466]/30' };
+      case 2: return { label: '◯ ABSTAIN', color: 'text-[#ffd700]', bg: 'bg-[#ffd700]/10 border-[#ffd700]/30' };
+      default: return { label: 'UNKNOWN', color: 'text-gray-500', bg: 'bg-gray-500/10 border-gray-500/30' };
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -360,23 +419,28 @@ function VotersModal({
           </button>
         </div>
 
-        {/* Vote Summary */}
-        <div className="flex gap-4 mb-4 text-xs">
-          <div className="flex items-center gap-2 text-[#44ff88]">
-            <span>✓ FOR:</span>
+        {/* Vote Summary - Now includes abstain */}
+        <div className="flex flex-wrap gap-3 mb-4 text-xs">
+          <div className="flex items-center gap-1 text-[#44ff88]">
+            <span>✓ YES:</span>
             <span className="font-bold">{forVotes.length}</span>
-            <span className="text-gray-500">({forVotes.reduce((sum, v) => sum + v.voting_power, 0)} votes)</span>
+            <span className="text-gray-500">({forVotes.reduce((sum, v) => sum + v.voting_power, 0)})</span>
           </div>
-          <div className="flex items-center gap-2 text-[#ff4466]">
-            <span>✕ AGAINST:</span>
+          <div className="flex items-center gap-1 text-[#ff4466]">
+            <span>✕ NO:</span>
             <span className="font-bold">{againstVotes.length}</span>
-            <span className="text-gray-500">({againstVotes.reduce((sum, v) => sum + v.voting_power, 0)} votes)</span>
+            <span className="text-gray-500">({againstVotes.reduce((sum, v) => sum + v.voting_power, 0)})</span>
+          </div>
+          <div className="flex items-center gap-1 text-[#ffd700]">
+            <span>◯ ABSTAIN:</span>
+            <span className="font-bold">{abstainVotes.length}</span>
+            <span className="text-gray-500">({abstainVotes.reduce((sum, v) => sum + v.voting_power, 0)})</span>
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-4">
-          {(['all', 'for', 'against'] as const).map(f => (
+        {/* Filter Tabs - Now includes abstain */}
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {(['all', 'for', 'against', 'abstain'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -386,7 +450,7 @@ function VotersModal({
                   : 'bg-[#1a1a2e] text-gray-500 hover:text-white'
               }`}
             >
-              {f.toUpperCase()}
+              {f === 'for' ? 'YES' : f.toUpperCase()}
             </button>
           ))}
         </div>
@@ -402,38 +466,37 @@ function VotersModal({
               <p className="text-gray-500 text-xs">No votes yet</p>
             </div>
           ) : (
-            filteredVotes.map(vote => (
-              <div 
-                key={vote.id} 
-                className={`p-3 rounded-lg border ${
-                  vote.support === 1 
-                    ? 'bg-[#44ff88]/10 border-[#44ff88]/30' 
-                    : 'bg-[#ff4466]/10 border-[#ff4466]/30'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className={vote.support === 1 ? 'text-[#44ff88]' : 'text-[#ff4466]'}>
-                      {vote.support === 1 ? '✓ FOR' : '✕ AGAINST'}
+            filteredVotes.map(vote => {
+              const display = getVoteDisplay(vote.support);
+              return (
+                <div 
+                  key={vote.id} 
+                  className={`p-3 rounded-lg border ${display.bg}`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={display.color}>
+                        {display.label}
+                      </span>
+                      <ClickableUsername 
+                        address={vote.voter_address} 
+                        displayName={vote.voter_display_name} 
+                        className="text-xs font-bold"
+                      />
+                    </div>
+                    <span className="text-gray-500 text-xs">
+                      {vote.voting_power} vote{vote.voting_power > 1 ? 's' : ''}
                     </span>
-                    <ClickableUsername 
-                      address={vote.voter_address} 
-                      displayName={vote.voter_display_name} 
-                      className="text-xs font-bold"
-                    />
                   </div>
-                  <span className="text-gray-500 text-xs">
-                    {vote.voting_power} vote{vote.voting_power > 1 ? 's' : ''}
-                  </span>
+                  {vote.reason && (
+                    <p className="text-gray-400 text-xs mt-1 italic">&quot;{vote.reason}&quot;</p>
+                  )}
+                  <p className="text-gray-600 text-[10px] mt-1">
+                    {formatRelativeTime(new Date(vote.created_at).getTime())}
+                  </p>
                 </div>
-                {vote.reason && (
-                  <p className="text-gray-400 text-xs mt-1 italic">&quot;{vote.reason}&quot;</p>
-                )}
-                <p className="text-gray-600 text-[10px] mt-1">
-                  {formatRelativeTime(new Date(vote.created_at).getTime())}
-                </p>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -460,8 +523,8 @@ function GovernanceTab({
   isLoading,
 }: {
   proposals: Proposal[];
-  onCreateProposal: (title: string, description: string, votingDurationWeeks: number) => Promise<{ success: boolean; error?: string }>;
-  onVote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  onCreateProposal: (title: string, description: string, votingDurationWeeks: number, category?: string) => Promise<{ success: boolean; error?: string }>;
+  onVote: (proposalId: string, support: VoteSupport, reason?: string) => Promise<{ success: boolean; error?: string }>;
   hasVoted: (proposalId: string) => boolean;
   votingPower: number;
   isLoading: boolean;
@@ -492,14 +555,14 @@ function GovernanceTab({
          p.state === ProposalState.Cancelled
   ).sort((a, b) => b.createdAt - a.createdAt); // Most recent first
 
-  const handleCreate = async (title: string, description: string, votingDurationWeeks: number) => {
+  const handleCreate = async (title: string, description: string, votingDurationWeeks: number, category?: string) => {
     setIsPending(true);
-    const result = await onCreateProposal(title, description, votingDurationWeeks);
+    const result = await onCreateProposal(title, description, votingDurationWeeks, category);
     setIsPending(false);
     return result;
   };
 
-  const handleVote = async (proposalId: string, support: boolean, reason?: string) => {
+  const handleVote = async (proposalId: string, support: VoteSupport, reason?: string) => {
     setIsPending(true);
     const result = await onVote(proposalId, support, reason);
     setIsPending(false);
@@ -619,18 +682,36 @@ function GovernanceTab({
         <div className="space-y-4">
           {displayProposals.map((proposal, index) => {
             const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
-            const totalVotes = proposal.forVotes + proposal.againstVotes || 1;
+            const extendedProposal = proposal as ExtendedProposal;
+            const abstainVotes = extendedProposal.abstainVotes || 0;
+            const totalVotes = (proposal.forVotes + proposal.againstVotes + abstainVotes) || 1;
             const hasUserVoted = hasVoted(proposal.id);
             const isActive = proposal.state === ProposalState.Active;
             const isPending = proposal.state === ProposalState.Pending;
-            const extendedProposal = proposal as ExtendedProposal;
             const timeInfo = formatVoteTimeRemaining(extendedProposal.endTime);
             const result = govSubTab === 'history' ? getProposalResult(proposal) : null;
+            
+            // Category badge helper
+            const getCategoryIcon = (cat: string | undefined) => {
+              switch (cat) {
+                case 'treasury': return '💰';
+                case 'community': return '🎉';
+                case 'technical': return '⚙️';
+                case 'governance': return '📜';
+                default: return '📋';
+              }
+            };
             
             return (
               <div key={proposal.id} className={`pixel-card p-4 smooth-transition animate-slide-in-up ${delayClass}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
+                    {/* Category badge */}
+                    {extendedProposal.category && (
+                      <span className="text-[9px] px-2 py-0.5 rounded bg-[#9966ff]/20 text-[#9966ff] mb-1 inline-block">
+                        {getCategoryIcon(extendedProposal.category)} {extendedProposal.category.toUpperCase()}
+                      </span>
+                    )}
                     <h4 className="text-gray-200 text-[10px] font-bold mb-1">
                       {proposal.title}
                     </h4>
@@ -668,12 +749,13 @@ function GovernanceTab({
                   </div>
                 </div>
 
-                {/* Voting Progress */}
+                {/* Voting Progress - 3-bar chart including abstain */}
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
                     <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-[#44ff88]">FOR: {proposal.forVotes}</span>
-                      <span className="text-[#ff4466]">AGAINST: {proposal.againstVotes}</span>
+                      <span className="text-[#44ff88]">YES: {proposal.forVotes}</span>
+                      <span className="text-[#ffd700]">ABSTAIN: {abstainVotes}</span>
+                      <span className="text-[#ff4466]">NO: {proposal.againstVotes}</span>
                     </div>
                     <div className="h-2 bg-[#1a1a2e] rounded overflow-hidden flex">
                       <div 
@@ -681,21 +763,25 @@ function GovernanceTab({
                         style={{ width: `${(proposal.forVotes / totalVotes) * 100}%` }} 
                       />
                       <div 
+                        className="h-full bg-[#ffd700] smooth-transition" 
+                        style={{ width: `${(abstainVotes / totalVotes) * 100}%` }} 
+                      />
+                      <div 
                         className="h-full bg-[#ff4466] smooth-transition" 
                         style={{ width: `${(proposal.againstVotes / totalVotes) * 100}%` }} 
                       />
                     </div>
-                    {/* Quorum indicator */}
-                    {extendedProposal.quorum && (
+                    {/* Unique voters / Quorum indicator */}
+                    {(extendedProposal.minVoters || extendedProposal.uniqueVoterCount !== undefined) && (
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-gray-600 text-[9px]">
-                          Quorum: {proposal.forVotes + proposal.againstVotes}/{extendedProposal.quorum}
+                          Voters: {extendedProposal.uniqueVoterCount || 0}/{extendedProposal.minVoters || DEFAULT_MIN_VOTERS}
                         </span>
-                        {(proposal.forVotes + proposal.againstVotes) >= extendedProposal.quorum ? (
-                          <span className="text-[#44ff88] text-[9px]">✓ Reached</span>
+                        {(extendedProposal.uniqueVoterCount || 0) >= (extendedProposal.minVoters || DEFAULT_MIN_VOTERS) ? (
+                          <span className="text-[#44ff88] text-[9px]">✓ Quorum reached</span>
                         ) : (
                           <span className="text-gray-500 text-[9px]">
-                            {extendedProposal.quorum - (proposal.forVotes + proposal.againstVotes)} more needed
+                            {(extendedProposal.minVoters || DEFAULT_MIN_VOTERS) - (extendedProposal.uniqueVoterCount || 0)} more voters needed
                           </span>
                         )}
                       </div>
@@ -706,11 +792,11 @@ function GovernanceTab({
                     className="text-[#9966ff] text-[10px] hover:text-[#ffd700] hover:underline smooth-transition cursor-pointer"
                     title="Click to view voters"
                   >
-                    {proposal.forVotes + proposal.againstVotes} votes
+                    {totalVotes} votes
                   </button>
                 </div>
 
-                {/* History: Pass/Fail Result */}
+                {/* History: Pass/Fail Result with defeat reason */}
                 {govSubTab === 'history' && result && (
                   <div className={`mt-3 p-2 rounded-lg flex items-center gap-2 ${
                     result.passed 
@@ -725,7 +811,7 @@ function GovernanceTab({
                         {result.passed ? 'PASSED' : 'FAILED'}
                       </span>
                       <span className="text-gray-500 text-[10px] ml-2">
-                        {result.reason}
+                        {extendedProposal.defeatReason || result.reason}
                       </span>
                     </div>
                   </div>
@@ -1722,6 +1808,28 @@ function GovernanceInfoButton() {
                 </p>
               </div>
 
+              {/* Three-Way Voting */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#ffd700] text-xs mb-2 font-bold">🗳️ THREE-WAY VOTING</h4>
+                <ul className="text-gray-300 text-xs space-y-1">
+                  <li>• <span className="text-[#44ff88]">YES</span> - Vote in favor of the proposal</li>
+                  <li>• <span className="text-[#ff4466]">NO</span> - Vote against the proposal</li>
+                  <li>• <span className="text-[#ffd700]">ABSTAIN</span> - Counted for quorum but neutral</li>
+                  <li>• You can <span className="text-[#00ffff]">change your vote</span> within 24 hours</li>
+                </ul>
+              </div>
+
+              {/* Quorum Requirements */}
+              <div className="bg-[#0a0a15] rounded-lg p-4">
+                <h4 className="text-[#ff6ec7] text-xs mb-2 font-bold">📊 QUORUM REQUIREMENTS</h4>
+                <ul className="text-gray-300 text-xs space-y-1">
+                  <li>• <span className="text-[#9966ff]">Minimum {DEFAULT_MIN_VOTERS} unique voters</span> required</li>
+                  <li>• <span className="text-[#44ff88]">60% YES</span> votes needed to pass</li>
+                  <li>• Maximum <span className="text-[#ffd700]">30% ABSTAIN</span> votes allowed</li>
+                  <li>• Proposers can cancel within first 48 hours</li>
+                </ul>
+              </div>
+
               {/* Voting Power */}
               <div className="bg-[#0a0a15] rounded-lg p-4">
                 <h4 className="text-[#44ff88] text-xs mb-2 font-bold">⚖️ VOTING POWER</h4>
@@ -1741,20 +1849,19 @@ function GovernanceInfoButton() {
                   <li>• NFT ownership is verified on-chain via Monad</li>
                   <li>• One vote per wallet per proposal</li>
                   <li>• Vote history is permanently recorded</li>
-                  <li>• Proposals require quorum to pass</li>
                 </ul>
               </div>
 
-              {/* How to Participate */}
+              {/* Categories */}
               <div className="bg-[#0a0a15] rounded-lg p-4">
-                <h4 className="text-[#ffd700] text-xs mb-2 font-bold">📝 HOW TO PARTICIPATE</h4>
-                <ol className="text-gray-300 text-xs space-y-1 list-decimal list-inside">
-                  <li>Hold at least 1 Star Skrumpey NFT</li>
-                  <li>Connect your wallet</li>
-                  <li>Create proposals or vote on existing ones</li>
-                  <li>Stake NFTs to earn STAR and boost voting power</li>
-                  <li>Discuss in Star Council forum</li>
-                </ol>
+                <h4 className="text-[#9966ff] text-xs mb-2 font-bold">📂 PROPOSAL CATEGORIES</h4>
+                <ul className="text-gray-300 text-xs space-y-1">
+                  <li>• 💰 <span className="text-[#ffd700]">Treasury</span> - Fund allocation</li>
+                  <li>• 🎉 <span className="text-[#ff6ec7]">Community</span> - Events & partnerships</li>
+                  <li>• ⚙️ <span className="text-[#00ffff]">Technical</span> - Contract/site changes</li>
+                  <li>• 📜 <span className="text-[#9966ff]">Governance</span> - Rule changes</li>
+                  <li>• 📋 <span className="text-gray-400">General</span> - Everything else</li>
+                </ul>
               </div>
 
               {/* Why Web2 */}
