@@ -338,21 +338,21 @@ function SkrumpeyInspectModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-slide-in-up"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 animate-slide-in-up"
       onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* Modal Content */}
+      {/* Modal Content - Scrollable on mobile */}
       <div 
-        className="relative z-10 w-full max-w-md pixel-card p-6 animate-slide-in-up"
+        className="relative z-10 w-full max-w-md pixel-card p-4 sm:p-6 animate-slide-in-up max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
+        {/* Close Button - Always visible with background */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] bg-[#1a1a2e]/80 smooth-transition z-10"
           title="Close (ESC)"
         >
           ✕
@@ -360,20 +360,20 @@ function SkrumpeyInspectModal({
 
         {/* Star Badge */}
         {skrumpey.hasStar && (
-          <div className="absolute -top-3 -right-3 text-3xl animate-pixel-pulse animate-star-rotate z-20">
+          <div className="absolute top-0 right-8 sm:-top-3 sm:-right-3 text-2xl sm:text-3xl animate-pixel-pulse animate-star-rotate z-20">
             ⭐
           </div>
         )}
 
-        {/* Large NFT Image */}
-        <div className={`w-full aspect-square rounded-lg mb-4 overflow-hidden relative ${
+        {/* Large NFT Image - Smaller on mobile */}
+        <div className={`w-full max-w-[280px] sm:max-w-none mx-auto aspect-square rounded-lg mb-3 sm:mb-4 overflow-hidden relative ${
           skrumpey.hasStar 
             ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30 border-2 border-[#ffd700] shadow-[0_0_30px_rgba(255,215,0,0.4)]' 
             : 'bg-[#0a0a15] border-2 border-[#2a2a4e]'
         }`}>
           {/* Placeholder */}
           {(!imageLoaded || imageError) && (
-            <div className="absolute inset-0 flex items-center justify-center text-8xl">
+            <div className="absolute inset-0 flex items-center justify-center text-6xl sm:text-8xl">
               <span className="animate-pixel-float">🐸</span>
             </div>
           )}
@@ -393,21 +393,21 @@ function SkrumpeyInspectModal({
         </div>
 
         {/* NFT Details */}
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {/* Name and ID */}
           <div className="text-center">
-            <h3 className={`text-xl font-bold tracking-wide mb-1 ${
+            <h3 className={`text-lg sm:text-xl font-bold tracking-wide mb-1 ${
               skrumpey.hasStar ? 'text-[#ffd700] animate-glow-pulse' : 'text-white'
             }`}>
               {skrumpey.name}
             </h3>
-            <p className="text-gray-500 text-xs">Token ID: #{skrumpey.id}</p>
+            <p className="text-gray-500 text-[10px] sm:text-xs">Token ID: #{skrumpey.id}</p>
           </div>
 
           {/* Rarity / Star Variant */}
           <div className="flex justify-center">
             <div 
-              className={`px-4 py-2 rounded-lg text-sm font-bold border-2 ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border-2 ${
                 skrumpey.hasStar 
                   ? 'border-[#ffd700] bg-[#ffd700]/20' 
                   : 'border-[#2a2a4e] bg-[#1a1a2e]'
@@ -420,9 +420,9 @@ function SkrumpeyInspectModal({
 
           {/* Star Info */}
           {skrumpey.hasStar && (
-            <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
-              <p className="text-[#ffd700] text-xs text-center mb-2">✦ STAR SKRUMPEY ✦</p>
-              <p className="text-gray-400 text-[10px] text-center leading-relaxed">
+            <div className="bg-[#0a0a15] rounded-lg p-2 sm:p-3 border border-[#2a2a4e]">
+              <p className="text-[#ffd700] text-[10px] sm:text-xs text-center mb-1 sm:mb-2">✦ STAR SKRUMPEY ✦</p>
+              <p className="text-gray-400 text-[9px] sm:text-[10px] text-center leading-relaxed">
                 This Skrumpey holds the power of the {skrumpey.starVariant?.toUpperCase() || 'UNKNOWN'} constellation, 
                 granting exclusive access to the Star World Order DAO.
               </p>
@@ -432,16 +432,16 @@ function SkrumpeyInspectModal({
           {/* Stats Placeholder */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#2a2a4e]">
             <div className="text-center">
-              <p className="text-[#9966ff] text-sm">LVL</p>
-              <p className="text-white text-xs">1</p>
+              <p className="text-[#9966ff] text-xs sm:text-sm">LVL</p>
+              <p className="text-white text-[10px] sm:text-xs">1</p>
             </div>
             <div className="text-center border-x border-[#2a2a4e]">
-              <p className="text-[#44ff88] text-sm">XP</p>
-              <p className="text-white text-xs">0</p>
+              <p className="text-[#44ff88] text-xs sm:text-sm">XP</p>
+              <p className="text-white text-[10px] sm:text-xs">0</p>
             </div>
             <div className="text-center">
-              <p className="text-[#ff6ec7] text-sm">RANK</p>
-              <p className="text-white text-xs">—</p>
+              <p className="text-[#ff6ec7] text-xs sm:text-sm">RANK</p>
+              <p className="text-white text-[10px] sm:text-xs">—</p>
             </div>
           </div>
         </div>
@@ -1392,7 +1392,8 @@ export default function ProfileCard() {
       </div>
 
       {/* Section Tab Navigation */}
-      <div className="flex gap-2 justify-center flex-wrap animate-slide-in-up">
+      {/* Section Tab Navigation - Mobile optimized */}
+      <div className="flex gap-1 sm:gap-2 justify-center flex-wrap animate-slide-in-up px-2 sm:px-0">
         {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests', 'raffles'] as const).map((section) => {
           const isActive = activeSection === section;
           const icons: Record<string, string> = { 
@@ -1413,6 +1414,16 @@ export default function ProfileCard() {
             quests: 'Quests',
             raffles: 'Raffles'
           };
+          // Short labels for small screens
+          const shortLabels: Record<string, string> = { 
+            settings: 'Set', 
+            friends: 'Frds',
+            messages: 'Msgs',
+            collection: 'NFTs', 
+            achievements: 'Achv', 
+            quests: 'Qst',
+            raffles: 'Raff'
+          };
           
           // Show badge for pending friend requests or unviewed won raffles
           const badge = section === 'friends' && pendingRequests.length > 0 
@@ -1425,15 +1436,16 @@ export default function ProfileCard() {
             <button
               key={section}
               onClick={() => setActiveSection(section)}
-              className={`px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-bold border-2 smooth-transition relative ${
+              className={`px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg text-[9px] sm:text-xs font-bold border-2 smooth-transition relative whitespace-nowrap ${
                 isActive
                   ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
                   : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50 hover:text-[#ffd700]/70'
               }`}
             >
-              {icons[section]} {labels[section]}
+              <span className="sm:hidden">{icons[section]} {shortLabels[section]}</span>
+              <span className="hidden sm:inline">{icons[section]} {labels[section]}</span>
               {badge && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[9px] font-bold text-white bg-[#ff4466] rounded-full px-1">
+                <span className="absolute -top-1 -right-1 min-w-[14px] sm:min-w-[16px] h-[14px] sm:h-[16px] flex items-center justify-center text-[8px] sm:text-[9px] font-bold text-white bg-[#ff4466] rounded-full px-0.5 sm:px-1">
                   {badge}
                 </span>
               )}

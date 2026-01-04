@@ -489,6 +489,9 @@ function Chat({
   const [inputValue, setInputValue] = useState('');
   const [displayName, setDisplayName] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true); // Track if we should auto-scroll
+  const userSentMessageRef = useRef(false); // Track if user just sent a message
   
   // Load user display name once when address changes
   useEffect(() => {
@@ -511,6 +514,19 @@ function Chat({
     
     fetchDisplayName();
   }, [address]);
+  
+  // Check if user is near bottom of scroll (within 100px)
+  const isNearBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 100;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  }, []);
+  
+  // Handle scroll to update shouldAutoScroll
+  const handleScroll = useCallback(() => {
+    shouldAutoScrollRef.current = isNearBottom();
+  }, [isNearBottom]);
   
   // Load messages from server API
   const loadMessages = useCallback(async () => {
@@ -543,9 +559,13 @@ function Chat({
     return () => clearInterval(interval);
   }, [loadMessages]);
   
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom only when user sends a message OR when near bottom already
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll if user just sent a message or is near the bottom
+    if (userSentMessageRef.current || shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      userSentMessageRef.current = false;
+    }
   }, [messages]);
   
   // Send message to server API
@@ -554,6 +574,9 @@ function Chat({
     
     const isEmote = inputValue.startsWith('/me ');
     const messageText = isEmote ? inputValue.slice(4) : inputValue;
+    
+    // Mark that user sent a message - should scroll to show their message
+    userSentMessageRef.current = true;
     
     try {
       const response = await fetch('/api/chat', {
@@ -632,7 +655,11 @@ function Chat({
       </div>
       
       {/* Messages Area */}
-      <div className="flex-1 bg-[#0a0a15] rounded-lg p-3 mb-4 overflow-y-auto min-h-[300px] max-h-[400px] border-2 border-[#2a2a4e] scrollbar-pixel">
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 bg-[#0a0a15] rounded-lg p-3 mb-4 overflow-y-auto min-h-[300px] max-h-[400px] border-2 border-[#2a2a4e] scrollbar-pixel"
+      >
         {messages.length === 0 ? (
           <div className="text-center py-8">
             <span className="text-4xl block mb-2 animate-pixel-float">💬</span>
