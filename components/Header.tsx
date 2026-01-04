@@ -168,7 +168,7 @@ export default function Header() {
 
         {/* Mobile Navigation Menu - z-index must be above body::after (9997) and body::before (9998) overlays */}
         <div 
-          className={`md:hidden fixed left-0 right-0 top-[57px] h-[calc(100vh-57px)] z-[9999] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          className={`md:hidden fixed left-0 right-0 top-[60px] h-[calc(100vh-60px)] z-[9999] transition-all duration-300 overflow-y-auto ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           style={{ backgroundColor: '#0d0d1a' }}
         >
           {/* Neon border effect for visibility */}
