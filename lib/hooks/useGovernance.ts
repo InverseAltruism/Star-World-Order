@@ -71,6 +71,14 @@ interface DatabaseProposal {
   state: string;
   for_votes: number;
   against_votes: number;
+  abstain_votes: number;
+  unique_voter_count: number;
+  min_voters: number;
+  yes_threshold_percent: number;
+  max_abstain_percent: number;
+  category: string;
+  forum_thread_id: string | null;
+  defeat_reason: string | null;
   voting_duration_weeks: number;
   end_time: string | null;
   start_time: string | null;
@@ -86,13 +94,19 @@ export interface UseGovernanceResult {
   activeProposals: Proposal[];
   pastProposals: Proposal[];
   isLoadingProposals: boolean;
-  createNewProposal: (title: string, description: string, votingDurationWeeks?: number) => Promise<{ success: boolean; error?: string; proposal?: Proposal }>;
+  createNewProposal: (title: string, description: string, votingDurationWeeks?: number, category?: string) => Promise<{ success: boolean; error?: string; proposal?: Proposal }>;
   
-  // Voting
-  vote: (proposalId: string, support: boolean, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  // Voting (enhanced with three-way voting)
+  vote: (proposalId: string, support: 'yes' | 'no' | 'abstain' | number, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  changeVote: (proposalId: string, newSupport: 'yes' | 'no' | 'abstain' | number, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  canChangeVote: (proposalId: string) => Promise<{ allowed: boolean; reason?: string; hoursRemaining?: number }>;
   hasVoted: (proposalId: string) => boolean;
   getUserVoteOnProposal: (proposalId: string) => Vote | undefined;
   getVotesForProposal: (proposalId: string) => Vote[];
+  
+  // Proposal management
+  cancelProposal: (proposalId: string) => Promise<{ success: boolean; error?: string }>;
+  canCancelProposal: (proposalId: string) => Promise<{ allowed: boolean; reason?: string; hoursUntilLockout?: number }>;
   
   // Forum
   threads: ForumThread[];
@@ -324,11 +338,12 @@ export function useGovernance(): UseGovernanceResult {
     }
   }, [address, isConnected, votingPower, loadProposals]);
   
-  // Create new proposal (with voting duration)
+  // Create new proposal (with voting duration and category)
   const createNewProposalWithDuration = useCallback(async (
     title: string,
     description: string,
-    votingDurationWeeks: number = 1
+    votingDurationWeeks: number = 1,
+    category: string = 'general'
   ): Promise<{ success: boolean; error?: string; proposal?: Proposal }> => {
     if (!address || !isConnected) {
       return { success: false, error: 'Wallet not connected' };
@@ -352,6 +367,7 @@ export function useGovernance(): UseGovernanceResult {
           description: description.trim(),
           proposerAddress: address,
           votingDurationWeeks,
+          category,
         }),
       });
       
@@ -370,10 +386,10 @@ export function useGovernance(): UseGovernanceResult {
     }
   }, [address, isConnected, votingPower, loadProposals]);
   
-  // Vote on proposal
+  // Vote on proposal (enhanced with three-way voting)
   const vote = useCallback(async (
     proposalId: string,
-    support: boolean,
+    support: 'yes' | 'no' | 'abstain' | number,
     reason?: string
   ): Promise<{ success: boolean; error?: string }> => {
     if (!address || !isConnected) {
@@ -384,6 +400,14 @@ export function useGovernance(): UseGovernanceResult {
       return { success: false, error: 'You need at least 1 Star Skrumpey to vote' };
     }
     
+    // Convert string support to number
+    let supportValue: number;
+    if (typeof support === 'string') {
+      supportValue = support === 'yes' ? 1 : support === 'no' ? 0 : 2;
+    } else {
+      supportValue = support;
+    }
+    
     try {
       const response = await fetch('/api/governance', {
         method: 'POST',
@@ -392,7 +416,7 @@ export function useGovernance(): UseGovernanceResult {
           action: 'vote',
           proposalId,
           voterAddress: address,
-          support,
+          support: supportValue,
           votingPower,
           reason,
         }),
@@ -406,14 +430,134 @@ export function useGovernance(): UseGovernanceResult {
       return { success: false, error: data.error || 'Failed to cast vote' };
     } catch (error) {
       console.error('Failed to vote:', error);
-      // Fallback to localStorage
-      const result = castVote(proposalId, address, support, votingPower, reason);
+      // Fallback to localStorage (with backward compatibility)
+      const result = castVote(proposalId, address, supportValue === 1, votingPower, reason);
       if (result.success) {
         loadProposals();
       }
       return result;
     }
   }, [address, isConnected, votingPower, loadProposals]);
+  
+  // Change vote (new)
+  const changeVote = useCallback(async (
+    proposalId: string,
+    newSupport: 'yes' | 'no' | 'abstain' | number,
+    reason?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!address || !isConnected) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+    
+    // Convert string support to number
+    let supportValue: number;
+    if (typeof newSupport === 'string') {
+      supportValue = newSupport === 'yes' ? 1 : newSupport === 'no' ? 0 : 2;
+    } else {
+      supportValue = newSupport;
+    }
+    
+    try {
+      const response = await fetch('/api/governance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'changeVote',
+          proposalId,
+          voterAddress: address,
+          newSupport: supportValue,
+          reason,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadProposals();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to change vote' };
+    } catch (error) {
+      console.error('Failed to change vote:', error);
+      return { success: false, error: 'Failed to change vote' };
+    }
+  }, [address, isConnected, loadProposals]);
+  
+  // Check if vote can be changed (new)
+  const checkCanChangeVote = useCallback(async (
+    proposalId: string
+  ): Promise<{ allowed: boolean; reason?: string; hoursRemaining?: number }> => {
+    try {
+      const response = await fetch(`/api/governance?action=canChangeVote&id=${proposalId}`);
+      const data = await response.json();
+      if (data.success) {
+        return {
+          allowed: data.allowed,
+          reason: data.reason,
+          hoursRemaining: data.hoursRemaining,
+        };
+      }
+      return { allowed: false, reason: 'Failed to check vote change eligibility' };
+    } catch (error) {
+      console.error('Failed to check vote change:', error);
+      return { allowed: false, reason: 'Error checking vote change eligibility' };
+    }
+  }, []);
+  
+  // Cancel proposal (new)
+  const cancelProposal = useCallback(async (
+    proposalId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!address || !isConnected) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+    
+    try {
+      const response = await fetch('/api/governance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancelProposal',
+          proposalId,
+          userAddress: address,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        loadProposals();
+        return { success: true };
+      }
+      return { success: false, error: data.error || 'Failed to cancel proposal' };
+    } catch (error) {
+      console.error('Failed to cancel proposal:', error);
+      return { success: false, error: 'Failed to cancel proposal' };
+    }
+  }, [address, isConnected, loadProposals]);
+  
+  // Check if proposal can be cancelled (new)
+  const checkCanCancelProposal = useCallback(async (
+    proposalId: string
+  ): Promise<{ allowed: boolean; reason?: string; hoursUntilLockout?: number }> => {
+    if (!address) {
+      return { allowed: false, reason: 'Wallet not connected' };
+    }
+    
+    try {
+      const response = await fetch(`/api/governance?action=canCancel&id=${proposalId}&address=${address}`);
+      const data = await response.json();
+      if (data.success) {
+        return {
+          allowed: data.allowed,
+          reason: data.reason,
+          hoursUntilLockout: data.hoursUntilLockout,
+        };
+      }
+      return { allowed: false, reason: 'Failed to check cancellation eligibility' };
+    } catch (error) {
+      console.error('Failed to check cancellation:', error);
+      return { allowed: false, reason: 'Error checking cancellation eligibility' };
+    }
+  }, [address]);
   
   // Check if user has voted
   const checkHasVoted = useCallback((proposalId: string): boolean => {
@@ -709,11 +853,17 @@ export function useGovernance(): UseGovernanceResult {
     isLoadingProposals: isLoadingProposals || isDAOLoading,
     createNewProposal: createNewProposalWithDuration,
     
-    // Voting
+    // Voting (enhanced with three-way voting)
     vote,
+    changeVote,
+    canChangeVote: checkCanChangeVote,
     hasVoted: checkHasVoted,
     getUserVoteOnProposal: getUserVoteOnProposalFn,
     getVotesForProposal,
+    
+    // Proposal management
+    cancelProposal,
+    canCancelProposal: checkCanCancelProposal,
     
     // Forum
     threads,
