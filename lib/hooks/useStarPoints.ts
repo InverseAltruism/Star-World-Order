@@ -205,7 +205,10 @@ export function useStarPoints(): UseStarPointsResult {
       const { displayName, avatarTokenId } = await fetchProfileData(address);
       // Fallback to first Star Skrumpey if no avatar selected
       const firstStar = starSkrumpeys[0];
-      const nftTokenId = avatarTokenId || firstStar?.tokenId;
+      // Validate avatarTokenId is still owned by user, otherwise use first star
+      const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+      const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+      const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
         await fetch('/api/presence', {
@@ -242,7 +245,10 @@ export function useStarPoints(): UseStarPointsResult {
       const { displayName, avatarTokenId } = await fetchProfileData(address);
       // Fallback to first Star Skrumpey if no avatar selected
       const firstStar = starSkrumpeys[0];
-      const nftTokenId = avatarTokenId || firstStar?.tokenId;
+      // Validate avatarTokenId is still owned by user, otherwise use first star
+      const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+      const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+      const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
         await fetch('/api/presence', {
@@ -379,7 +385,10 @@ export function useStarPoints(): UseStarPointsResult {
     const { displayName, avatarTokenId } = await fetchProfileData(address);
     
     const firstStar = starSkrumpeys[0];
-    const nftTokenId = avatarTokenId || firstStar?.tokenId;
+    // Validate avatarTokenId is still owned by user, otherwise use first star
+    const ownedTokenIds = starSkrumpeys.map(s => s.tokenId);
+    const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
+    const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
     try {
       await fetch('/api/presence', {
         method: 'POST',

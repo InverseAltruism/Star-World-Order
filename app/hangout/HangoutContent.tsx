@@ -515,12 +515,14 @@ function Chat({
     fetchDisplayName();
   }, [address]);
   
-  // Check if user is near bottom of scroll (within 100px)
+  // Scroll threshold for auto-scroll behavior (in pixels)
+  const SCROLL_THRESHOLD = 100;
+  
+  // Check if user is near bottom of scroll
   const isNearBottom = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return true;
-    const threshold = 100;
-    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < SCROLL_THRESHOLD;
   }, []);
   
   // Handle scroll to update shouldAutoScroll
