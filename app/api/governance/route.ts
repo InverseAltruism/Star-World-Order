@@ -30,6 +30,8 @@ import {
   ProposalCategory,
   issueGovernanceNonce,
   expireOldGovernanceNonces,
+  createForumThread,
+  linkForumThreadToProposal,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
@@ -346,6 +348,33 @@ export async function POST(request: NextRequest) {
         quorum: quorum || 10,
         category: category || 'general',
       });
+
+      // Automatically create a forum thread in the 'governance' category for discussion
+      try {
+        const forumThreadContent = `## 📜 Governance Proposal Discussion\n\n**Proposal:** ${title}\n\n**Category:** ${(category || 'general').toUpperCase()}\n\n**Voting Period:** ${duration} week${duration > 1 ? 's' : ''}\n\n---\n\n### Description\n\n${description}\n\n---\n\n*This discussion thread was automatically created for the governance proposal. Please discuss the proposal here before casting your vote.*`;
+        
+        const forumThread = createForumThread({
+          title: `[VOTE] ${title}`,
+          content: forumThreadContent,
+          authorAddress: proposerAddress,
+          category: 'governance',
+          proposalId: proposal.id,
+        });
+        
+        // Link the forum thread to the proposal
+        linkForumThreadToProposal(proposal.id, forumThread.id);
+        
+        logger.info('Governance: Forum thread created for proposal', { 
+          proposalId: proposal.id, 
+          forumThreadId: forumThread.id 
+        });
+      } catch (forumError) {
+        // Log the error but don't fail the proposal creation
+        logger.error('Governance: Failed to create forum thread for proposal', { 
+          proposalId: proposal.id, 
+          error: String(forumError) 
+        });
+      }
 
       logger.info('Governance: Proposal created', { proposalId: proposal.id, title, category: proposal.category });
       return NextResponse.json({
