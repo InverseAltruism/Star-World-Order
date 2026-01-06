@@ -448,10 +448,28 @@ function initializeDatabase(database: Database.Database): void {
       reason TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      signature TEXT,
+      signature_message TEXT,
+      signature_timestamp INTEGER,
+      signature_nonce TEXT,
       UNIQUE(proposal_id, voter_address),
       FOREIGN KEY (proposal_id) REFERENCES governance_proposals(id)
     )
   `);
+
+  // Add signature columns if they don't exist (migration for existing databases)
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature TEXT`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_message TEXT`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_timestamp INTEGER`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_nonce TEXT`);
+  } catch { /* Column already exists */ }
 
   // Governance indexes
   database.exec(`
@@ -4440,6 +4458,9 @@ export function updateGovernanceProposalState(
 /**
  * Cast a vote on a governance proposal
  * Returns error if user already voted
+ * 
+ * Optionally includes cryptographic signature for vote verification.
+ * Message signing (EIP-191) is COMPLETELY SAFE - it cannot move assets.
  */
 export function castGovernanceVote(data: {
   proposalId: string;
@@ -4447,6 +4468,13 @@ export function castGovernanceVote(data: {
   support: number | boolean; // 0/1/2 or false/true (backward compat)
   votingPower: number;
   reason?: string;
+  // Cryptographic signature data (optional but recommended for verifiability)
+  signature?: string;
+  signatureData?: {
+    message: string;
+    timestamp: number;
+    nonce: string;
+  };
 }): { success: boolean; error?: string; vote?: GovernanceVote } {
   const db = getDatabase();
   
@@ -4480,17 +4508,24 @@ export function castGovernanceVote(data: {
       return { success: false, error: 'Invalid support value. Must be 0 (No), 1 (Yes), or 2 (Abstain)' };
     }
     
-    // Insert vote
+    // Insert vote with optional signature data
     const insertStmt = db.prepare(`
-      INSERT INTO governance_votes (proposal_id, voter_address, support, voting_power, reason)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO governance_votes (
+        proposal_id, voter_address, support, voting_power, reason,
+        signature, signature_message, signature_timestamp, signature_nonce
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = insertStmt.run(
       data.proposalId,
       data.voterAddress.toLowerCase(),
       supportValue,
       data.votingPower,
-      data.reason || null
+      data.reason || null,
+      data.signature || null,
+      data.signatureData?.message || null,
+      data.signatureData?.timestamp || null,
+      data.signatureData?.nonce || null
     );
     
     // Update proposal vote counts and unique voter count

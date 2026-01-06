@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSignMessage, useAccount } from 'wagmi';
 import AccessGate from '@/components/AccessGate';
 import MembersContent from '@/app/members/MembersContent';
 import TreasuryContent from '@/app/treasury/TreasuryContent';
@@ -20,6 +21,10 @@ import {
   ForumReply,
 } from '@/lib/hooks/useGovernance';
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
+import {
+  createVoteSignatureRequest,
+  SIGNATURE_SAFETY_EXPLANATION,
+} from '@/lib/voteSignature';
 
 // Default minimum voters for quorum (used when not specified in proposal)
 const DEFAULT_MIN_VOTERS = 10;
@@ -283,30 +288,94 @@ function VoteModal({
   isOpen: boolean;
   proposal: Proposal | null;
   onClose: () => void;
-  onVote: (proposalId: string, support: VoteSupport, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  onVote: (proposalId: string, support: VoteSupport, reason?: string, signature?: string, signatureData?: { message: string; timestamp: number; nonce: string }) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showSafetyInfo, setShowSafetyInfo] = useState(false);
+  const [pendingVote, setPendingVote] = useState<VoteSupport | null>(null);
+  const [voteStep, setVoteStep] = useState<'choice' | 'signing'>('choice');
+  
+  const { signMessageAsync, isPending: isSigningPending } = useSignMessage();
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setReason('');
+      setError(null);
+      setShowSafetyInfo(false);
+      setPendingVote(null);
+      setVoteStep('choice');
+    }
+  }, [isOpen]);
 
   if (!isOpen || !proposal) return null;
 
-  const handleVote = async (support: VoteSupport) => {
+  const handleVoteClick = (support: VoteSupport) => {
+    setPendingVote(support);
+    setVoteStep('signing');
     setError(null);
-    const result = await onVote(proposal.id, support, reason || undefined);
-    if (result.success) {
-      setReason('');
-      onClose();
-    } else {
-      setError(result.error || 'Failed to cast vote');
+  };
+
+  const handleConfirmVote = async () => {
+    if (!pendingVote) return;
+    
+    setError(null);
+    
+    try {
+      // Create the message to sign
+      const signatureRequest = createVoteSignatureRequest(
+        proposal.id,
+        pendingVote,
+        proposal.title
+      );
+      
+      // Request signature from wallet
+      const signature = await signMessageAsync({
+        message: signatureRequest.message,
+      });
+      
+      // Submit vote with signature
+      const result = await onVote(
+        proposal.id,
+        pendingVote,
+        reason || undefined,
+        signature,
+        signatureRequest
+      );
+      
+      if (result.success) {
+        setReason('');
+        setPendingVote(null);
+        setVoteStep('choice');
+        onClose();
+      } else {
+        setError(result.error || 'Failed to cast vote');
+        setVoteStep('choice');
+      }
+    } catch (err) {
+      // User rejected the signature or other error
+      if ((err as Error).message?.includes('User rejected')) {
+        setError('Signature cancelled. Your vote was not recorded.');
+      } else {
+        setError('Failed to sign vote. Please try again.');
+      }
+      setVoteStep('choice');
     }
+  };
+
+  const handleBack = () => {
+    setVoteStep('choice');
+    setPendingVote(null);
+    setError(null);
   };
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in overflow-hidden">
-      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up overscroll-contain">
+      <div className="pixel-card p-6 max-w-lg w-full animate-slide-in-up overscroll-contain max-h-[90vh] overflow-y-auto">
         <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 animate-glow-pulse">
-          🗳️ CAST YOUR VOTE
+          🗳️ {voteStep === 'choice' ? 'CAST YOUR VOTE' : 'CONFIRM YOUR VOTE'}
         </h3>
         
         <div className="mb-4">
@@ -314,56 +383,136 @@ function VoteModal({
           <p className="text-gray-500 text-xs">{proposal.description.slice(0, 200)}...</p>
         </div>
         
-        <div className="space-y-4">
-          <div>
-            <label className="text-[#9966ff] text-xs block mb-2">REASON (OPTIONAL)</label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain your vote (optional)..."
-              rows={3}
-              className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
-            />
-          </div>
-          
-          {error && (
-            <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
-              ⚠️ {error}
+        {voteStep === 'choice' ? (
+          // Step 1: Vote Choice
+          <div className="space-y-4">
+            <div>
+              <label className="text-[#9966ff] text-xs block mb-2">REASON (OPTIONAL)</label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Explain your vote (optional)..."
+                rows={3}
+                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-4 py-3 text-white text-[10px] focus:border-[#ffd700] focus:outline-none smooth-transition resize-none"
+              />
             </div>
-          )}
-          
-          {/* Three-way voting buttons */}
-          <div className="flex gap-2">
+            
+            {error && (
+              <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
+                ⚠️ {error}
+              </div>
+            )}
+            
+            {/* Three-way voting buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleVoteClick('yes')}
+                disabled={isPending || isSigningPending}
+                className="flex-1 pixel-btn text-xs !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+              >
+                ✓ YES
+              </button>
+              <button
+                onClick={() => handleVoteClick('no')}
+                disabled={isPending || isSigningPending}
+                className="flex-1 pixel-btn text-xs !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
+              >
+                ✕ NO
+              </button>
+              <button
+                onClick={() => handleVoteClick('abstain')}
+                disabled={isPending || isSigningPending}
+                className="flex-1 pixel-btn text-xs !bg-[#ffd700] !border-[#ffee44_#ccaa00_#ccaa00_#ffee44] smooth-transition hover-lift disabled:opacity-50 text-black"
+              >
+                ◯ ABSTAIN
+              </button>
+            </div>
+            
             <button
-              onClick={() => handleVote('yes')}
-              disabled={isPending}
-              className="flex-1 pixel-btn text-xs !bg-[#44ff88] !border-[#66ffaa_#22aa44_#22aa44_#66ffaa] smooth-transition hover-lift disabled:opacity-50"
+              onClick={onClose}
+              className="w-full pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
             >
-              {isPending ? '...' : '✓ YES'}
-            </button>
-            <button
-              onClick={() => handleVote('no')}
-              disabled={isPending}
-              className="flex-1 pixel-btn text-xs !bg-[#ff4466] !border-[#ff6688_#aa2244_#aa2244_#ff6688] smooth-transition hover-lift disabled:opacity-50"
-            >
-              {isPending ? '...' : '✕ NO'}
-            </button>
-            <button
-              onClick={() => handleVote('abstain')}
-              disabled={isPending}
-              className="flex-1 pixel-btn text-xs !bg-[#ffd700] !border-[#ffee44_#ccaa00_#ccaa00_#ffee44] smooth-transition hover-lift disabled:opacity-50 text-black"
-            >
-              {isPending ? '...' : '◯ ABSTAIN'}
+              CANCEL
             </button>
           </div>
-          
-          <button
-            onClick={onClose}
-            className="w-full pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift"
-          >
-            CANCEL
-          </button>
-        </div>
+        ) : (
+          // Step 2: Signature Confirmation
+          <div className="space-y-4">
+            {/* Vote summary */}
+            <div className="bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg p-4">
+              <div className="text-center mb-3">
+                <span className="text-gray-400 text-xs">Your vote:</span>
+                <div className={`text-2xl font-bold mt-1 ${
+                  pendingVote === 'yes' ? 'text-[#44ff88]' : 
+                  pendingVote === 'no' ? 'text-[#ff4466]' : 
+                  'text-[#ffd700]'
+                }`}>
+                  {pendingVote === 'yes' ? '✓ YES' : pendingVote === 'no' ? '✕ NO' : '◯ ABSTAIN'}
+                </div>
+              </div>
+            </div>
+            
+            {/* Safety Notice - Always visible */}
+            <div className="bg-[#44ff88]/10 border border-[#44ff88]/30 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <span className="text-[#44ff88] text-lg">✅</span>
+                <div>
+                  <p className="text-[#44ff88] text-xs font-bold mb-1">
+                    MESSAGE SIGNATURE - YOUR ASSETS ARE SAFE
+                  </p>
+                  <p className="text-gray-400 text-[10px]">
+                    {SIGNATURE_SAFETY_EXPLANATION.short.replace('✅ ', '')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Expandable details */}
+            <button
+              onClick={() => setShowSafetyInfo(!showSafetyInfo)}
+              className="w-full text-[#9966ff] text-[10px] hover:text-[#ffd700] transition-colors flex items-center justify-center gap-1"
+            >
+              {showSafetyInfo ? '▼' : '▶'} {showSafetyInfo ? 'Hide' : 'Learn more about'} signature safety
+            </button>
+            
+            {showSafetyInfo && (
+              <div className="bg-[#0a0a15] border border-[#2a2a4e] rounded-lg p-3">
+                <pre className="text-gray-400 text-[9px] whitespace-pre-wrap font-sans leading-relaxed">
+                  {SIGNATURE_SAFETY_EXPLANATION.detailed}
+                </pre>
+              </div>
+            )}
+            
+            {error && (
+              <div className="text-[#ff4466] text-xs bg-[#ff4466]/10 px-3 py-2 rounded">
+                ⚠️ {error}
+              </div>
+            )}
+            
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={handleBack}
+                disabled={isPending || isSigningPending}
+                className="flex-1 pixel-btn text-xs !bg-[#1a1a2e] !border-[#3a3a5e_#1a1a2e_#1a1a2e_#3a3a5e] smooth-transition hover-lift disabled:opacity-50"
+              >
+                ← BACK
+              </button>
+              <button
+                onClick={handleConfirmVote}
+                disabled={isPending || isSigningPending}
+                className="flex-1 pixel-btn text-xs !bg-[#9966ff] !border-[#bb99ff_#5533aa_#5533aa_#bb99ff] smooth-transition hover-lift disabled:opacity-50"
+              >
+                {isPending || isSigningPending ? '⏳ SIGNING...' : '✍️ SIGN & VOTE'}
+              </button>
+            </div>
+            
+            <p className="text-gray-600 text-[9px] text-center">
+              Your wallet will prompt you to sign a message.
+              This is NOT a transaction and costs no gas.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

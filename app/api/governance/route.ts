@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
 
     // Cast a vote
     if (action === 'vote') {
-      const { proposalId, voterAddress, support, votingPower, reason } = body;
+      const { proposalId, voterAddress, support, votingPower, reason, signature, signatureData } = body;
 
       if (!proposalId || !voterAddress || support === undefined) {
         return NextResponse.json(
@@ -333,6 +333,9 @@ export async function POST(request: NextRequest) {
         support: supportValue,
         votingPower: parseInt(votingPower, 10) || 1,
         reason,
+        // Include cryptographic signature for vote verification
+        signature,
+        signatureData,
       });
 
       if (!result.success) {
