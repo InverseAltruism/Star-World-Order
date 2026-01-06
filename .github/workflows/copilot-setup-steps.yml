@@ -1,7 +1,7 @@
 name: Copilot Setup Steps
 
-# This workflow configures the environment for GitHub Copilot coding agent
-# It installs dependencies and sets up the development environment
+# This workflow configures the development environment for GitHub Copilot coding agent.
+# It installs all dependencies and validates the codebase is ready for development.
 
 on: workflow_dispatch
 
@@ -11,6 +11,8 @@ permissions:
 jobs:
   copilot-setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,8 +29,39 @@ jobs:
       - name: Setup database directory
         run: mkdir -p data
 
+      - name: Verify project structure
+        run: |
+          echo "📁 Verifying project structure..."
+          test -d "app" && echo "✅ app/ directory exists"
+          test -d "components" && echo "✅ components/ directory exists"
+          test -d "lib" && echo "✅ lib/ directory exists"
+          test -d "contracts" && echo "✅ contracts/ directory exists"
+          test -f "CLAUDE.md" && echo "✅ CLAUDE.md exists"
+          test -f "tsconfig.json" && echo "✅ tsconfig.json exists"
+          test -f "tailwind.config.ts" && echo "✅ tailwind.config.ts exists"
+
       - name: Run type checking
         run: npm run type-check
 
       - name: Run linting
         run: npm run lint
+
+      - name: Verify build
+        run: npm run build
+
+      - name: Display environment info
+        run: |
+          echo "📋 Environment Information:"
+          echo "Node.js version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "TypeScript version: $(npx tsc --version)"
+          echo "Next.js version: $(npx next --version)"
+          echo ""
+          echo "🚀 Copilot environment is ready!"
+          echo ""
+          echo "📚 Key Documentation Files:"
+          echo "  - CLAUDE.md: Comprehensive technical reference"
+          echo "  - .github/copilot-instructions.md: Agent instructions"
+          echo "  - CONTRIBUTING.md: Contribution guidelines"
+          echo ""
+          echo "⚠️  Remember: All PRs must target the 'dev' branch!"
