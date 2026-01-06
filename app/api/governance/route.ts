@@ -9,6 +9,7 @@
  * - Canceling proposals (proposer only, 48-hour lockout)
  * - Getting proposal data
  * - Checking vote status
+ * - Issuing nonces for secure vote signing
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,19 +28,22 @@ import {
   updateGovernanceProposalState,
   ProposalStateDB,
   ProposalCategory,
+  issueGovernanceNonce,
+  expireOldGovernanceNonces,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { reconstructVoteMessage, verifyVoteSignature } from '@/lib/voteSignature';
 
 /**
  * GET /api/governance
  * 
  * Get governance proposals and votes
  * Query params:
- * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote' | 'canChangeVote' | 'canCancel' | 'snapshotStatus' | 'verifySnapshot'
- * - id: proposal ID (for proposal, votes, hasVoted, userVote, canChangeVote, canCancel, verifySnapshot)
+ * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote' | 'canChangeVote' | 'canCancel' | 'snapshotStatus' | 'verifySnapshot' | 'nonce'
+ * - id: proposal ID (for proposal, votes, hasVoted, userVote, canChangeVote, canCancel, verifySnapshot, nonce)
  * - state: filter by proposal state
  * - category: filter by proposal category
- * - address: voter address (for hasVoted, userVote) or proposer address (for canCancel)
+ * - address: voter address (for hasVoted, userVote, nonce) or proposer address (for canCancel)
  * - snapshotId: Snapshot proposal ID for verification (optional, defaults to id)
  */
 export async function GET(request: NextRequest) {
@@ -232,6 +236,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Issue a nonce for vote signing
+    if (action === 'nonce') {
+      if (!proposalId || !address) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal ID and address required' },
+          { status: 400 }
+        );
+      }
+
+      // Check if proposal exists
+      const proposal = getGovernanceProposalById(proposalId);
+      if (!proposal) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal not found' },
+          { status: 404 }
+        );
+      }
+
+      // Clean up expired nonces periodically
+      expireOldGovernanceNonces();
+
+      // Issue a new nonce
+      const nonce = issueGovernanceNonce(proposalId, address);
+
+      return NextResponse.json({
+        success: true,
+        nonce: nonce.nonce,
+        issuedAt: nonce.issued_at,
+        expiresAt: nonce.expires_at,
+        snapshotBlock: proposal.snapshot_block,
+      });
+    }
+
     return NextResponse.json(
       { success: false, error: 'Unknown action' },
       { status: 400 }
@@ -291,7 +328,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const proposal = createGovernanceProposal({
+      const proposal = await createGovernanceProposal({
         title,
         description,
         proposerAddress,
@@ -309,7 +346,7 @@ export async function POST(request: NextRequest) {
 
     // Cast a vote
     if (action === 'vote') {
-      const { proposalId, voterAddress, support, votingPower, reason, signature, signatureData } = body;
+      const { proposalId, voterAddress, support, votingPower, reason, signature, nonce } = body;
 
       if (!proposalId || !voterAddress || support === undefined) {
         return NextResponse.json(
@@ -327,15 +364,74 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Get the proposal
+      const proposal = getGovernanceProposalById(proposalId);
+      if (!proposal) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal not found' },
+          { status: 404 }
+        );
+      }
+
+      // CRITICAL SECURITY: Server-side signature verification
+      if (signature && nonce) {
+        // Import nonce validation
+        const { consumeGovernanceNonce } = await import('@/lib/db');
+        
+        // 1. Validate and consume the nonce
+        const nonceRecord = consumeGovernanceNonce(nonce, proposalId, voterAddress);
+        if (!nonceRecord) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid or expired nonce. Please request a new nonce and try again.' },
+            { status: 400 }
+          );
+        }
+
+        // 2. Reconstruct the message server-side (NEVER trust client message)
+        const serverMessage = reconstructVoteMessage(
+          proposalId,
+          supportValue,
+          nonce,
+          proposal.snapshot_block || 0,
+          proposal.title,
+          143, // Monad chain ID
+          'starworldorder.com'
+        );
+
+        // 3. Verify the signature against the reconstructed message
+        const isValidSignature = await verifyVoteSignature(
+          voterAddress,
+          serverMessage,
+          signature as `0x${string}`
+        );
+
+        if (!isValidSignature) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid signature. Signature verification failed.' },
+            { status: 400 }
+          );
+        }
+
+        // Signature is valid, proceed with vote
+        logger.info('Governance: Valid signature verified', { 
+          proposalId, 
+          voterAddress: voterAddress.slice(0, 10) + '...' 
+        });
+      }
+
       const result = castGovernanceVote({
         proposalId,
         voterAddress,
         support: supportValue,
         votingPower: parseInt(votingPower, 10) || 1,
         reason,
-        // Include cryptographic signature for vote verification
+        // Store signature for verification (nonce is already consumed)
         signature,
-        signatureData,
+        signatureData: signature && nonce ? {
+          message: 'server-reconstructed', // Placeholder - actual message is reconstructed on verification
+          timestamp: Date.now(),
+          nonce,
+        } : undefined,
       });
 
       if (!result.success) {
