@@ -107,6 +107,7 @@ export interface Proposal {
   createdAt: number;
   executedAt?: number;
   cancelledAt?: number;
+  forumThreadId?: string | null; // Link to discussion forum thread
 }
 
 /**

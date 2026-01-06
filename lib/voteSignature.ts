@@ -144,13 +144,16 @@ export function validateChoice(choice: unknown): choice is VoteChoiceNumber {
 
 /**
  * Proposal ID regex patterns
- * Accepts: SWO-XXX format or UUID format
+ * Accepts: 
+ * - SWO-XXX format (e.g., SWO-001, SWO-123)
+ * - UUID format (e.g., 550e8400-e29b-41d4-a716-446655440000)
+ * - prop-{timestamp}-{hex} format (e.g., prop-1767737266851-6fd36731)
  */
-const PROPOSAL_ID_REGEX = /^(SWO-\d{3,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const PROPOSAL_ID_REGEX = /^(SWO-\d{3,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|prop-\d+-[0-9a-f]+)$/i;
 
 /**
  * Validate proposal ID format
- * Accepts SWO-XXX or UUID format
+ * Accepts SWO-XXX, UUID, or prop-{timestamp}-{hex} format
  */
 export function validateProposalId(id: unknown): boolean {
   return typeof id === 'string' && PROPOSAL_ID_REGEX.test(id);
