@@ -298,6 +298,7 @@ function VoteModal({
   const [voteStep, setVoteStep] = useState<'choice' | 'signing'>('choice');
   
   const { signMessageAsync, isPending: isSigningPending } = useSignMessage();
+  const { address } = useAccount();
 
   // Reset state when modal closes
   useEffect(() => {
@@ -319,30 +320,53 @@ function VoteModal({
   };
 
   const handleConfirmVote = async () => {
-    if (!pendingVote) return;
+    if (!pendingVote || !address) return;
     
     setError(null);
     
     try {
-      // Create the message to sign
+      // STEP 1: Fetch server-issued nonce
+      const nonceResponse = await fetch(
+        `/api/governance?action=nonce&id=${encodeURIComponent(proposal.id)}&address=${encodeURIComponent(address)}`,
+        { method: 'GET' }
+      );
+      
+      if (!nonceResponse.ok) {
+        throw new Error('Failed to obtain voting nonce');
+      }
+      
+      const nonceData = await nonceResponse.json();
+      if (!nonceData.success || !nonceData.nonce) {
+        throw new Error(nonceData.error || 'Failed to obtain voting nonce');
+      }
+      
+      const { nonce, snapshotBlock } = nonceData;
+      
+      // STEP 2: Create the message with server-issued nonce
       const signatureRequest = createVoteSignatureRequest(
         proposal.id,
         pendingVote,
+        nonce,
+        snapshotBlock || 0,
         proposal.title
       );
       
-      // Request signature from wallet
+      // STEP 3: Request signature from wallet
       const signature = await signMessageAsync({
         message: signatureRequest.message,
       });
       
-      // Submit vote with signature
+      // STEP 4: Submit vote with signature and nonce
       const result = await onVote(
         proposal.id,
         pendingVote,
         reason || undefined,
         signature,
-        signatureRequest
+        { 
+          message: signatureRequest.message,
+          nonce: signatureRequest.nonce,
+          timestamp: Date.now()
+        }
       );
       
       if (result.success) {
@@ -369,7 +393,9 @@ function VoteModal({
       if (isUserRejection) {
         setError('Signature cancelled. Your vote was not recorded.');
       } else {
-        setError('Failed to sign vote. Please try again.');
+        setError(errorMessage.includes('nonce') 
+          ? 'Voting session expired. Please try again.'
+          : 'Failed to sign vote. Please try again.');
       }
       setVoteStep('choice');
     }

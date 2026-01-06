@@ -89,23 +89,30 @@ export function voteChoiceToNumber(choice: VoteChoice | number): number {
  * - The exact vote being cast
  * - The proposal ID
  * - A timestamp and nonce for uniqueness
+ * - Snapshot block for voting power calculation
+ * - Chain ID and DAO ID for cross-chain/cross-DAO protection
  * 
  * @param proposalId - The ID of the proposal being voted on
  * @param choice - The vote choice (yes/no/abstain)
- * @param timestamp - Unix timestamp when vote was cast
- * @param nonce - Unique nonce to prevent replay attacks
+ * @param nonce - Server-issued nonce to prevent replay attacks
+ * @param snapshotBlock - Block number for voting power snapshot
  * @param proposalTitle - Optional title for better UX
+ * @param chainId - Chain ID to prevent cross-chain replay
+ * @param daoId - DAO identifier to prevent cross-DAO replay
  */
 export function constructVoteMessage(
   proposalId: string,
   choice: VoteChoice | number,
-  timestamp: number,
   nonce: string,
-  proposalTitle?: string
+  snapshotBlock: number,
+  proposalTitle?: string,
+  chainId: number = 143, // Monad mainnet
+  daoId: string = 'starworldorder.com'
 ): string {
   const choiceStr = voteChoiceToString(choice);
+  const timestamp = Date.now();
   const date = new Date(timestamp).toISOString();
-  const { APP_NAME, DOMAIN, VERSION } = VOTE_SIGNATURE_CONFIG;
+  const { APP_NAME, VERSION } = VOTE_SIGNATURE_CONFIG;
   
   // Human-readable message that users can understand
   return [
@@ -114,7 +121,8 @@ export function constructVoteMessage(
     `This is a MESSAGE signature, NOT a transaction.`,
     `Your assets are completely safe.`,
     ``,
-    `Domain: ${DOMAIN}`,
+    `Domain: ${daoId}`,
+    `Chain ID: ${chainId}`,
     `Version: ${VERSION}`,
     ``,
     `I am casting my vote:`,
@@ -122,6 +130,7 @@ export function constructVoteMessage(
     `  Vote: ${choiceStr}`,
     `  Proposal: ${proposalId}`,
     proposalTitle ? `  Title: ${proposalTitle}` : null,
+    `  Snapshot Block: ${snapshotBlock}`,
     ``,
     `  Timestamp: ${date}`,
     `  Nonce: ${nonce}`,
@@ -140,6 +149,9 @@ export function parseVoteMessage(message: string): {
   proposalId: string;
   timestamp: number;
   nonce: string;
+  snapshotBlock: number;
+  chainId: number;
+  daoId: string;
 } | null {
   try {
     // Extract vote choice
@@ -152,6 +164,11 @@ export function parseVoteMessage(message: string): {
     if (!proposalMatch) return null;
     const proposalId = proposalMatch[1].trim();
     
+    // Extract snapshot block
+    const snapshotMatch = message.match(/Snapshot Block: (\d+)/);
+    if (!snapshotMatch) return null;
+    const snapshotBlock = parseInt(snapshotMatch[1], 10);
+    
     // Extract timestamp
     const timestampMatch = message.match(/Timestamp: ([^\n]+)/);
     if (!timestampMatch) return null;
@@ -162,7 +179,15 @@ export function parseVoteMessage(message: string): {
     if (!nonceMatch) return null;
     const nonce = nonceMatch[1].trim();
     
-    return { choice, proposalId, timestamp, nonce };
+    // Extract chain ID
+    const chainIdMatch = message.match(/Chain ID: (\d+)/);
+    const chainId = chainIdMatch ? parseInt(chainIdMatch[1], 10) : 143; // Default to Monad
+    
+    // Extract DAO ID
+    const daoIdMatch = message.match(/Domain: ([^\n]+)/);
+    const daoId = daoIdMatch ? daoIdMatch[1].trim() : 'starworldorder.com';
+    
+    return { choice, proposalId, timestamp, nonce, snapshotBlock, chainId, daoId };
   } catch {
     return null;
   }
@@ -213,27 +238,60 @@ export async function recoverVoteSigner(
 }
 
 /**
- * Create a vote signature request object
- * This is what gets passed to the wallet for signing
+ * Create a vote signature request object (for client-side signing)
+ * NOTE: The nonce MUST be fetched from the server via /api/governance/nonce
+ * This function is only used to construct the message once the nonce is obtained
  */
 export function createVoteSignatureRequest(
   proposalId: string,
   choice: VoteChoice | number,
-  proposalTitle?: string
+  nonce: string,
+  snapshotBlock: number,
+  proposalTitle?: string,
+  chainId: number = 143,
+  daoId: string = 'starworldorder.com'
 ): {
   message: string;
-  timestamp: number;
   nonce: string;
 } {
-  const timestamp = Date.now();
-  const nonce = generateNonce();
-  const message = constructVoteMessage(proposalId, choice, timestamp, nonce, proposalTitle);
+  const message = constructVoteMessage(
+    proposalId,
+    choice,
+    nonce,
+    snapshotBlock,
+    proposalTitle,
+    chainId,
+    daoId
+  );
   
   return {
     message,
-    timestamp,
     nonce,
   };
+}
+
+/**
+ * Server-side function to reconstruct vote message from stored data
+ * This ensures the client cannot tamper with the message
+ */
+export function reconstructVoteMessage(
+  proposalId: string,
+  choice: VoteChoice | number,
+  nonce: string,
+  snapshotBlock: number,
+  proposalTitle?: string,
+  chainId: number = 143,
+  daoId: string = 'starworldorder.com'
+): string {
+  return constructVoteMessage(
+    proposalId,
+    choice,
+    nonce,
+    snapshotBlock,
+    proposalTitle,
+    chainId,
+    daoId
+  );
 }
 
 /**

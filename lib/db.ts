@@ -15,6 +15,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { getResilientClient } from './rpcClient';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -471,12 +472,35 @@ function initializeDatabase(database: Database.Database): void {
     database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_nonce TEXT`);
   } catch { /* Column already exists */ }
 
+  // Add snapshot_block column to governance_proposals if it doesn't exist
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN snapshot_block INTEGER`);
+  } catch { /* Column already exists */ }
+
+  // Governance nonces table - for secure server-issued nonces
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS governance_nonces (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nonce TEXT UNIQUE NOT NULL,
+      proposal_id TEXT NOT NULL,
+      voter_address TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued', 'consumed', 'expired')),
+      issued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      consumed_at DATETIME,
+      FOREIGN KEY (proposal_id) REFERENCES governance_proposals(id)
+    )
+  `);
+
   // Governance indexes
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_governance_proposals_state ON governance_proposals(state, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_governance_proposals_proposer ON governance_proposals(proposer_address);
     CREATE INDEX IF NOT EXISTS idx_governance_votes_proposal ON governance_votes(proposal_id);
     CREATE INDEX IF NOT EXISTS idx_governance_votes_voter ON governance_votes(voter_address);
+    CREATE INDEX IF NOT EXISTS idx_governance_nonces_lookup ON governance_nonces(proposal_id, voter_address, status);
+    CREATE INDEX IF NOT EXISTS idx_governance_nonces_nonce ON governance_nonces(nonce);
+    CREATE INDEX IF NOT EXISTS idx_governance_nonces_expires ON governance_nonces(status, expires_at);
   `);
 
   // ============================================================
@@ -4210,6 +4234,7 @@ export interface GovernanceProposal {
   voting_duration_weeks: number;
   start_time: string | null;
   end_time: string | null;
+  snapshot_block: number | null; // Block number for snapshot-based voting power
   created_at: string;
   executed_at: string | null;
   cancelled_at: string | null;
@@ -4239,31 +4264,47 @@ export const PROPOSAL_CATEGORIES = {
 } as const;
 
 /**
- * Create a new governance proposal
+ * Get current block number from blockchain
+ * Used for snapshot-based voting power calculation
  */
+async function getCurrentBlockNumber(): Promise<number> {
+  try {
+    const client = await getResilientClient();
+    const block = await client.getBlockNumber();
+    return Number(block);
+  } catch (error) {
+    console.error('Failed to get current block number:', error);
+    // Return 0 as fallback - proposals without snapshot_block will use real-time voting power
+    return 0;
+  }
+}
+
 /**
  * Create a new governance proposal
  */
-export function createGovernanceProposal(data: {
+export async function createGovernanceProposal(data: {
   title: string;
   description: string;
   proposerAddress: string;
   votingDurationWeeks?: number;
   quorum?: number;
   category?: ProposalCategory;
-}): GovernanceProposal {
+}): Promise<GovernanceProposal> {
   const db = getDatabase();
   
   const id = `prop-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const now = new Date();
   const endTime = new Date(now.getTime() + (data.votingDurationWeeks || 1) * 7 * 24 * 60 * 60 * 1000);
   
+  // Capture current block number for snapshot-based voting
+  const snapshotBlock = await getCurrentBlockNumber();
+  
   const stmt = db.prepare(`
     INSERT INTO governance_proposals (
       id, title, description, proposer_address, state, 
-      voting_duration_weeks, quorum, category, start_time, end_time
+      voting_duration_weeks, quorum, category, start_time, end_time, snapshot_block
     )
-    VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
   `);
   
   stmt.run(
@@ -4275,7 +4316,8 @@ export function createGovernanceProposal(data: {
     data.quorum || 10,
     data.category || 'general',
     now.toISOString(),
-    endTime.toISOString()
+    endTime.toISOString(),
+    snapshotBlock
   );
   
   const getStmt = db.prepare('SELECT * FROM governance_proposals WHERE id = ?');
@@ -4824,6 +4866,160 @@ export function getUserVoteOnProposal(proposalId: string, voterAddress: string):
   } catch {
     return null;
   }
+}
+
+// ============================================================================
+// Governance Nonce Management (Security Enhancement)
+// ============================================================================
+
+/**
+ * Nonce expiration time in minutes
+ */
+const NONCE_EXPIRATION_MINUTES = 10;
+
+export interface GovernanceNonce {
+  id: number;
+  nonce: string;
+  proposal_id: string;
+  voter_address: string;
+  status: 'issued' | 'consumed' | 'expired';
+  issued_at: string;
+  expires_at: string;
+  consumed_at: string | null;
+}
+
+/**
+ * Issue a new server-generated nonce for vote signing
+ * Nonces are cryptographically random and single-use
+ */
+export function issueGovernanceNonce(proposalId: string, voterAddress: string): GovernanceNonce {
+  const db = getDatabase();
+  
+  // Generate cryptographically secure nonce
+  const nonce = `nonce-${Date.now()}-${crypto.randomBytes(16).toString('hex')}`;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + NONCE_EXPIRATION_MINUTES * 60 * 1000);
+  
+  // Insert nonce
+  const stmt = db.prepare(`
+    INSERT INTO governance_nonces (nonce, proposal_id, voter_address, status, expires_at)
+    VALUES (?, ?, ?, 'issued', ?)
+  `);
+  
+  stmt.run(nonce, proposalId, voterAddress.toLowerCase(), expiresAt.toISOString());
+  
+  // Retrieve the created nonce
+  const getStmt = db.prepare('SELECT * FROM governance_nonces WHERE nonce = ?');
+  return getStmt.get(nonce) as GovernanceNonce;
+}
+
+/**
+ * Validate a nonce and mark it as consumed
+ * Returns the nonce if valid, null if invalid/expired/already consumed
+ */
+export function consumeGovernanceNonce(
+  nonce: string,
+  proposalId: string,
+  voterAddress: string
+): GovernanceNonce | null {
+  const db = getDatabase();
+  
+  // Find the nonce
+  const stmt = db.prepare(`
+    SELECT * FROM governance_nonces 
+    WHERE nonce = ? 
+      AND proposal_id = ? 
+      AND voter_address = ?
+      AND status = 'issued'
+  `);
+  
+  const nonceRecord = stmt.get(nonce, proposalId, voterAddress.toLowerCase()) as GovernanceNonce | undefined;
+  
+  if (!nonceRecord) {
+    return null; // Nonce not found or already consumed
+  }
+  
+  // Check if nonce is expired
+  const now = new Date();
+  const expiresAt = new Date(nonceRecord.expires_at);
+  if (now > expiresAt) {
+    // Mark as expired
+    db.prepare(`
+      UPDATE governance_nonces 
+      SET status = 'expired' 
+      WHERE id = ?
+    `).run(nonceRecord.id);
+    return null;
+  }
+  
+  // Mark as consumed
+  const updateStmt = db.prepare(`
+    UPDATE governance_nonces 
+    SET status = 'consumed', consumed_at = ? 
+    WHERE id = ?
+  `);
+  
+  updateStmt.run(now.toISOString(), nonceRecord.id);
+  
+  // Return updated nonce
+  const getStmt = db.prepare('SELECT * FROM governance_nonces WHERE id = ?');
+  return getStmt.get(nonceRecord.id) as GovernanceNonce;
+}
+
+/**
+ * Validate a nonce without consuming it
+ * Returns true if nonce is valid and not expired
+ */
+export function validateGovernanceNonce(
+  nonce: string,
+  proposalId: string,
+  voterAddress: string
+): boolean {
+  const db = getDatabase();
+  
+  const stmt = db.prepare(`
+    SELECT * FROM governance_nonces 
+    WHERE nonce = ? 
+      AND proposal_id = ? 
+      AND voter_address = ?
+      AND status = 'issued'
+  `);
+  
+  const nonceRecord = stmt.get(nonce, proposalId, voterAddress.toLowerCase()) as GovernanceNonce | undefined;
+  
+  if (!nonceRecord) {
+    return false;
+  }
+  
+  // Check expiration
+  const now = new Date();
+  const expiresAt = new Date(nonceRecord.expires_at);
+  return now <= expiresAt;
+}
+
+/**
+ * Clean up expired nonces (should be called periodically)
+ */
+export function expireOldGovernanceNonces(): number {
+  const db = getDatabase();
+  
+  const stmt = db.prepare(`
+    UPDATE governance_nonces 
+    SET status = 'expired' 
+    WHERE status = 'issued' AND datetime(expires_at) < datetime('now')
+  `);
+  
+  const result = stmt.run();
+  return result.changes;
+}
+
+/**
+ * Get nonce by value (for debugging/admin purposes)
+ */
+export function getGovernanceNonceByValue(nonce: string): GovernanceNonce | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM governance_nonces WHERE nonce = ?');
+  return stmt.get(nonce) as GovernanceNonce | null;
 }
 
 // ============================================================================
