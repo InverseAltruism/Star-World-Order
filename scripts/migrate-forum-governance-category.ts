@@ -6,6 +6,14 @@
  * category CHECK constraint. SQLite doesn't support ALTER COLUMN, so we need
  * to recreate the table.
  * 
+ * Forum Categories:
+ * - general: General discussion topics
+ * - governance: Discussion threads for governance proposals (auto-created)
+ * - proposals: Manual proposal discussions
+ * - ideas: Feature requests and suggestions
+ * - support: Help and support topics
+ * - announcements: Official announcements
+ * 
  * Run with: npx tsx scripts/migrate-forum-governance-category.ts
  */
 
@@ -13,8 +21,26 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
-  path.join(process.cwd(), 'data', 'swo.db');
+// Parse database path from environment or use default
+function getDatabasePath(): string {
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl) {
+    // Handle file:// URLs properly
+    if (dbUrl.startsWith('file:')) {
+      try {
+        return new URL(dbUrl).pathname;
+      } catch (error) {
+        // Log error and fallback to simple string replacement
+        console.warn('Failed to parse DATABASE_URL as URL, using string replacement:', error);
+        return dbUrl.replace(/^file:/, '');
+      }
+    }
+    return dbUrl;
+  }
+  return path.join(process.cwd(), 'data', 'swo.db');
+}
+
+const DB_PATH = getDatabasePath();
 
 console.log('🔄 Starting forum governance category migration...');
 console.log(`📂 Database: ${DB_PATH}`);
