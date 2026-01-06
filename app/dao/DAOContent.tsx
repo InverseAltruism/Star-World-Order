@@ -42,6 +42,51 @@ const tabs: Tab[] = [
 ];
 
 /**
+ * Snapshot verification link component
+ * Shows a link to verify votes on Snapshot.org if configured
+ */
+function SnapshotVerifyLink({ proposalId }: { proposalId: string }) {
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [configured, setConfigured] = useState(false);
+
+  useEffect(() => {
+    // Check Snapshot status on mount
+    const checkSnapshot = async () => {
+      try {
+        const response = await fetch('/api/governance?action=snapshotStatus');
+        const data = await response.json();
+        if (data.success && data.configured) {
+          setConfigured(true);
+          // Construct the proposal URL
+          const baseUrl = data.spaceUrl || 'https://snapshot.org';
+          setSnapshotUrl(`${baseUrl}/proposal/${proposalId}`);
+        }
+      } catch (error) {
+        // Silently fail - Snapshot is optional
+        console.debug('Snapshot status check failed:', error);
+      }
+    };
+    checkSnapshot();
+  }, [proposalId]);
+
+  if (!configured || !snapshotUrl) {
+    return null;
+  }
+
+  return (
+    <a
+      href={snapshotUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-[10px] text-[#9966ff] hover:text-[#ffd700] transition-colors"
+      title="Verify votes on Snapshot.org"
+    >
+      🔍 Verify
+    </a>
+  );
+}
+
+/**
  * Format time remaining for a proposal vote
  * Returns a human-readable string like "2d 5h 30m" or "ENDED"
  */
@@ -787,13 +832,16 @@ function GovernanceTab({
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => setViewVotersProposal(proposal)}
-                    className="text-[#9966ff] text-[10px] hover:text-[#ffd700] hover:underline smooth-transition cursor-pointer"
-                    title="Click to view voters"
-                  >
-                    {totalVotes} votes
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={() => setViewVotersProposal(proposal)}
+                      className="text-[#9966ff] text-[10px] hover:text-[#ffd700] hover:underline smooth-transition cursor-pointer"
+                      title="Click to view voters"
+                    >
+                      {totalVotes} votes
+                    </button>
+                    <SnapshotVerifyLink proposalId={proposal.id} />
+                  </div>
                 </div>
 
                 {/* History: Pass/Fail Result with defeat reason */}

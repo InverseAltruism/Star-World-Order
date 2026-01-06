@@ -1737,8 +1737,42 @@ Users can earn +1 bonus entry by liking and retweeting the raffle announcement:
 | `/api/messages` | DELETE | Delete a message (sender only) |
 | `/api/raffle` | GET | Get raffles (params: `type=active\|upcoming\|past\|all`, `id`, `address`, `export=csv`) |
 | `/api/raffle` | POST | Enter raffle or admin actions (body: `action`, `walletAddress`, `raffleId`, etc.) |
+| `/api/governance` | GET | Get proposals, votes, and Snapshot status (params: `action`, `id`, `state`, `category`, `address`) |
+| `/api/governance` | POST | Create proposals, cast votes, change votes, cancel proposals |
 | `/api/floor-prices` | GET | **Public API**: Get floor prices for all Monad NFT collections |
 | `/api/cron/refresh-floor-prices` | GET | Cron endpoint to refresh floor prices (requires `CRON_SECRET`) |
+
+### Governance API
+
+The governance API provides DAO voting functionality with optional Snapshot.org verification.
+
+**GET /api/governance**
+
+Query parameters:
+- `action`: Action to perform
+  - `proposals`: Get all proposals (supports `state` and `category` filters)
+  - `proposal`: Get single proposal by `id`
+  - `votes`: Get votes for proposal by `id`
+  - `hasVoted`: Check if address has voted (requires `id` and `address`)
+  - `userVote`: Get user's vote (requires `id` and `address`)
+  - `canChangeVote`: Check if vote can be changed (requires `id`)
+  - `canCancel`: Check if proposer can cancel (requires `id` and `address`)
+  - `snapshotStatus`: Get Snapshot.org configuration status
+  - `verifySnapshot`: Verify database votes against Snapshot (requires `id`)
+
+**POST /api/governance**
+
+Actions:
+- `createProposal`: Create new proposal (body: `title`, `description`, `proposerAddress`, `votingDurationWeeks`, `category`)
+- `vote`: Cast a vote (body: `proposalId`, `voterAddress`, `support` (0/1/2), `votingPower`, `reason`)
+- `changeVote`: Change existing vote within 24h window (body: `proposalId`, `voterAddress`, `newSupport`, `reason`)
+- `cancelProposal`: Cancel proposal as proposer (body: `proposalId`, `userAddress`)
+- `updateState`: Update proposal state (body: `proposalId`, `newState`, `defeatReason`)
+
+**Three-Way Voting:**
+- `0` = No (Against)
+- `1` = Yes (For)
+- `2` = Abstain
 
 ### Floor Prices API (SWO Product)
 
@@ -2763,6 +2797,10 @@ NEXT_PUBLIC_GOVERNOR_CONTRACT=            # TBD
 NEXT_PUBLIC_DAO_TREASURY_ADDRESS=         # TBD
 NEXT_PUBLIC_DAO_FEE_BPS=250              # 2.5% fee
 
+# Snapshot.org Integration (optional)
+NEXT_PUBLIC_SNAPSHOT_SPACE=               # e.g., starworldorder.eth
+NEXT_PUBLIC_SNAPSHOT_HUB=https://hub.snapshot.org
+
 # WalletConnect (optional)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 
@@ -2788,6 +2826,52 @@ OPENSEA_API_KEY=your-opensea-api-key  # Optional - enhances floor price data
 ```
 
 **Example**: See `.env.example` in repository root
+
+---
+
+## Snapshot.org Integration
+
+Star World Order uses a **hybrid governance model**:
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Primary** | SQLite Database | Fast, free, instant voting |
+| **Verification** | Snapshot.org | Decentralized proof (optional) |
+
+### Why Hybrid?
+
+- **Web2 Database**: Zero gas fees, instant results, vote changing (24h window)
+- **Snapshot.org**: Cryptographic signatures, IPFS storage, public verifiability
+
+### Configuration
+
+Set in `.env.local`:
+```bash
+NEXT_PUBLIC_SNAPSHOT_SPACE=starworldorder.eth  # Your Snapshot space ID
+NEXT_PUBLIC_SNAPSHOT_HUB=https://hub.snapshot.org
+```
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/governance?action=snapshotStatus` | Check if Snapshot is configured |
+| `GET /api/governance?action=verifySnapshot&id={proposalId}` | Verify database votes against Snapshot |
+
+### Implementation Files
+
+| File | Purpose |
+|------|---------|
+| `lib/snapshot.ts` | Snapshot API client and verification |
+| `docs/SNAPSHOT_SETUP.md` | Full setup guide |
+
+### Features
+
+- **Vote Verification**: Cross-reference database votes with Snapshot
+- **"Verify" Link**: UI shows Snapshot link on proposal cards (when configured)
+- **GraphQL API**: Query proposals, votes, voting power from Snapshot Hub
+
+**Full Documentation**: See `docs/SNAPSHOT_SETUP.md`
 
 ---
 

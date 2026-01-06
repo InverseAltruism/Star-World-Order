@@ -35,11 +35,12 @@ import { logger } from '@/lib/logger';
  * 
  * Get governance proposals and votes
  * Query params:
- * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote' | 'canChangeVote' | 'canCancel'
- * - id: proposal ID (for proposal, votes, hasVoted, userVote, canChangeVote, canCancel)
+ * - action: 'proposals' | 'proposal' | 'votes' | 'hasVoted' | 'userVote' | 'canChangeVote' | 'canCancel' | 'snapshotStatus' | 'verifySnapshot'
+ * - id: proposal ID (for proposal, votes, hasVoted, userVote, canChangeVote, canCancel, verifySnapshot)
  * - state: filter by proposal state
  * - category: filter by proposal category
  * - address: voter address (for hasVoted, userVote) or proposer address (for canCancel)
+ * - snapshotId: Snapshot proposal ID for verification (optional, defaults to id)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -171,6 +172,63 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         ...result,
+      });
+    }
+
+    // Check Snapshot configuration status
+    if (action === 'snapshotStatus') {
+      // Dynamically import snapshot module to avoid issues if not configured
+      const { isSnapshotConfigured, getSnapshotSpaceUrl, SNAPSHOT_SPACE_ID } = await import('@/lib/snapshot');
+      
+      return NextResponse.json({
+        success: true,
+        configured: isSnapshotConfigured(),
+        spaceId: SNAPSHOT_SPACE_ID || null,
+        spaceUrl: isSnapshotConfigured() ? getSnapshotSpaceUrl() : null,
+      });
+    }
+
+    // Verify votes against Snapshot
+    if (action === 'verifySnapshot') {
+      if (!proposalId) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal ID required' },
+          { status: 400 }
+        );
+      }
+
+      const proposal = getGovernanceProposalById(proposalId);
+      if (!proposal) {
+        return NextResponse.json(
+          { success: false, error: 'Proposal not found' },
+          { status: 404 }
+        );
+      }
+
+      // Dynamically import snapshot verification
+      const { verifyVotesWithSnapshot, isSnapshotConfigured } = await import('@/lib/snapshot');
+      
+      if (!isSnapshotConfigured()) {
+        return NextResponse.json({
+          success: true,
+          configured: false,
+          message: 'Snapshot is not configured. Set NEXT_PUBLIC_SNAPSHOT_SPACE in environment variables.',
+        });
+      }
+
+      // Get Snapshot proposal ID from the request or use the database proposal ID
+      const snapshotProposalId = searchParams.get('snapshotId') || proposalId;
+
+      const verification = await verifyVotesWithSnapshot(snapshotProposalId, {
+        yes: proposal.for_votes,
+        no: proposal.against_votes,
+        abstain: proposal.abstain_votes || 0,
+      });
+
+      return NextResponse.json({
+        success: true,
+        configured: true,
+        verification,
       });
     }
 
