@@ -53,12 +53,14 @@ To configure MCP servers for Copilot coding agent, navigate to:
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ secrets.GITHUB_TOKEN }}"
+        "GITHUB_TOKEN": "GITHUB_TOKEN"
       }
     }
   }
 }
 ```
+
+**Note**: The `GITHUB_TOKEN` environment variable is automatically provided by GitHub Actions. For personal use, you may need to configure a personal access token with appropriate scopes (repo, read:org).
 
 ---
 
@@ -138,7 +140,10 @@ To configure MCP servers for Copilot coding agent, navigate to:
       "args": [
         "-y",
         "@modelcontextprotocol/server-github"
-      ]
+      ],
+      "env": {
+        "GITHUB_TOKEN": "GITHUB_TOKEN"
+      }
     },
     "memory": {
       "command": "npx",

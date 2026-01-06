@@ -23,7 +23,7 @@ GitHub Copilot coding agent can be assigned issues and autonomously work on code
 
 - **Custom Instructions** (`.github/copilot-instructions.md`) - Project-specific coding guidelines
 - **Setup Steps** (`.github/workflows/copilot-setup-steps.yml`) - Environment configuration
-- **Comprehensive Documentation** (`CLAUDE.md`) - 3000+ lines of technical reference
+- **Comprehensive Documentation** (`CLAUDE.md`) - Extensive technical reference
 
 ---
 
