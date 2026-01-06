@@ -392,7 +392,8 @@ export function useGovernance(): UseGovernanceResult {
     support: 'yes' | 'no' | 'abstain' | number,
     reason?: string,
     signature?: string,
-    signatureData?: { message: string; timestamp: number; nonce: string }
+    signatureData?: { message?: string; timestamp: number; nonce: string; typedData?: any },
+    signatureVersion?: 'eip712' | 'eip191'
   ): Promise<{ success: boolean; error?: string }> => {
     if (!address || !isConnected) {
       return { success: false, error: 'Wallet not connected' };
@@ -424,6 +425,8 @@ export function useGovernance(): UseGovernanceResult {
           // Include signature and nonce for cryptographic verification
           signature,
           nonce: signatureData?.nonce,
+          signatureVersion: signatureVersion || 'eip712',
+          typedData: signatureData?.typedData,
         }),
       });
       

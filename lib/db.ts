@@ -471,6 +471,12 @@ function initializeDatabase(database: Database.Database): void {
   try {
     database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_nonce TEXT`);
   } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_version TEXT DEFAULT 'eip191'`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_votes ADD COLUMN signature_typed_data TEXT`);
+  } catch { /* Column already exists */ }
 
   // Add snapshot_block column to governance_proposals if it doesn't exist
   try {
@@ -4502,7 +4508,7 @@ export function updateGovernanceProposalState(
  * Returns error if user already voted
  * 
  * Optionally includes cryptographic signature for vote verification.
- * Message signing (EIP-191) is COMPLETELY SAFE - it cannot move assets.
+ * Supports both EIP-712 (new) and EIP-191 (legacy) signatures.
  */
 export function castGovernanceVote(data: {
   proposalId: string;
@@ -4512,10 +4518,12 @@ export function castGovernanceVote(data: {
   reason?: string;
   // Cryptographic signature data (optional but recommended for verifiability)
   signature?: string;
+  signatureVersion?: 'eip712' | 'eip191';
   signatureData?: {
-    message: string;
+    message?: string; // EIP-191 only
     timestamp: number;
     nonce: string;
+    typedData?: any; // EIP-712 only (JSON stringified)
   };
 }): { success: boolean; error?: string; vote?: GovernanceVote } {
   const db = getDatabase();
@@ -4550,13 +4558,17 @@ export function castGovernanceVote(data: {
       return { success: false, error: 'Invalid support value. Must be 0 (No), 1 (Yes), or 2 (Abstain)' };
     }
     
+    // Determine signature version (default to eip712 if signature provided without version)
+    const signatureVersion = data.signatureVersion || (data.signature ? 'eip712' : null);
+    
     // Insert vote with optional signature data
     const insertStmt = db.prepare(`
       INSERT INTO governance_votes (
         proposal_id, voter_address, support, voting_power, reason,
-        signature, signature_message, signature_timestamp, signature_nonce
+        signature, signature_message, signature_timestamp, signature_nonce,
+        signature_version, signature_typed_data
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = insertStmt.run(
       data.proposalId,
@@ -4567,7 +4579,9 @@ export function castGovernanceVote(data: {
       data.signature || null,
       data.signatureData?.message || null,
       data.signatureData?.timestamp || null,
-      data.signatureData?.nonce || null
+      data.signatureData?.nonce || null,
+      signatureVersion || 'eip191', // Default to eip191 for backward compat
+      data.signatureData?.typedData ? JSON.stringify(data.signatureData.typedData) : null
     );
     
     // Update proposal vote counts and unique voter count
