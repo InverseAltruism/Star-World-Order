@@ -70,7 +70,7 @@ npm run test:network     # Test Monad RPC connection
 | **Smart Contracts** | Solidity | 0.8.20 |
 | **Contract Library** | OpenZeppelin | 5.x |
 | **Database** | SQLite | better-sqlite3 |
-| **Blockchain** | Monad | Chain ID: 143 |
+| **Blockchain** | Monad | See `.env.example` for Chain ID |
 
 ---
 

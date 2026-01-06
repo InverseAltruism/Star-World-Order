@@ -11,7 +11,7 @@ permissions:
 jobs:
   copilot-setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     
     steps:
       - name: Checkout repository
@@ -31,6 +31,7 @@ jobs:
 
       - name: Verify project structure
         run: |
+          set -e
           echo "📁 Verifying project structure..."
           test -d "app" && echo "✅ app/ directory exists"
           test -d "components" && echo "✅ components/ directory exists"
@@ -39,6 +40,7 @@ jobs:
           test -f "CLAUDE.md" && echo "✅ CLAUDE.md exists"
           test -f "tsconfig.json" && echo "✅ tsconfig.json exists"
           test -f "tailwind.config.ts" && echo "✅ tailwind.config.ts exists"
+          echo "✅ All project structure checks passed"
 
       - name: Run type checking
         run: npm run type-check

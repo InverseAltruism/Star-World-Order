@@ -174,10 +174,17 @@ fonts.gstatic.com
 If you want to limit network access, use this minimal set:
 
 ```
+# Package Registries (required)
 registry.npmjs.org
+
+# Blockchain RPC (required for Web3 features)
 rpc.monad.xyz
+
+# NFT API (required for NFT data)
 api-mainnet.magiceden.dev
 ```
+
+**Note**: This minimal set assumes the "Recommended allowlist" option is enabled in your repository's Copilot settings (GitHub Repository Settings → Copilot → Coding agent → Internet access → Enable recommended allowlist), which already covers common package registries and GitHub domains.
 
 ---
 
