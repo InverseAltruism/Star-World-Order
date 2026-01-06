@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSignMessage, useAccount } from 'wagmi';
+import { useSignMessage, useSignTypedData, useAccount } from 'wagmi';
 import AccessGate from '@/components/AccessGate';
 import MembersContent from '@/app/members/MembersContent';
 import TreasuryContent from '@/app/treasury/TreasuryContent';
@@ -23,7 +23,9 @@ import {
 import { useStarPoints, formatStarAmount, STAR_PER_NFT_PER_DAY } from '@/lib/hooks/useStarPoints';
 import {
   createVoteSignatureRequest,
+  createEIP712VoteSignatureRequest,
   SIGNATURE_SAFETY_EXPLANATION,
+  getChainId,
 } from '@/lib/voteSignature';
 
 // Default minimum voters for quorum (used when not specified in proposal)
@@ -288,7 +290,7 @@ function VoteModal({
   isOpen: boolean;
   proposal: Proposal | null;
   onClose: () => void;
-  onVote: (proposalId: string, support: VoteSupport, reason?: string, signature?: string, signatureData?: { message: string; timestamp: number; nonce: string }) => Promise<{ success: boolean; error?: string }>;
+  onVote: (proposalId: string, support: VoteSupport, reason?: string, signature?: string, signatureData?: { message?: string; timestamp: number; nonce: string; typedData?: any }, signatureVersion?: 'eip712' | 'eip191') => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
 }) {
   const [reason, setReason] = useState('');
@@ -297,8 +299,11 @@ function VoteModal({
   const [pendingVote, setPendingVote] = useState<VoteSupport | null>(null);
   const [voteStep, setVoteStep] = useState<'choice' | 'signing'>('choice');
   
-  const { signMessageAsync, isPending: isSigningPending } = useSignMessage();
+  const { signTypedDataAsync, isPending: isSigningPendingTyped } = useSignTypedData();
+  const { signMessageAsync, isPending: isSigningPendingMessage } = useSignMessage();
   const { address } = useAccount();
+  
+  const isSigningPending = isSigningPendingTyped || isSigningPendingMessage;
 
   // Reset state when modal closes
   useEffect(() => {
@@ -341,32 +346,38 @@ function VoteModal({
       }
       
       const { nonce, snapshotBlock } = nonceData;
+      const chainId = getChainId();
       
-      // STEP 2: Create the message with server-issued nonce
-      const signatureRequest = createVoteSignatureRequest(
+      // STEP 2: Create EIP-712 typed data with server-issued nonce
+      const signatureRequest = createEIP712VoteSignatureRequest(
         proposal.id,
         pendingVote,
+        address,
         nonce,
         snapshotBlock || 0,
-        proposal.title
+        chainId
       );
       
-      // STEP 3: Request signature from wallet
-      const signature = await signMessageAsync({
+      // STEP 3: Request EIP-712 signature from wallet
+      const signature = await signTypedDataAsync({
+        domain: signatureRequest.domain,
+        types: signatureRequest.types,
+        primaryType: signatureRequest.primaryType,
         message: signatureRequest.message,
       });
       
-      // STEP 4: Submit vote with signature and nonce
+      // STEP 4: Submit vote with EIP-712 signature and typed data
       const result = await onVote(
         proposal.id,
         pendingVote,
         reason || undefined,
         signature,
         { 
-          message: signatureRequest.message,
           nonce: signatureRequest.nonce,
-          timestamp: Date.now()
-        }
+          timestamp: Date.now(),
+          typedData: signatureRequest.message,
+        },
+        'eip712'
       );
       
       if (result.success) {
