@@ -32,7 +32,17 @@ import {
   expireOldGovernanceNonces,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { reconstructVoteMessage, verifyVoteSignature } from '@/lib/voteSignature';
+import {
+  reconstructVoteMessage,
+  verifyVoteSignature,
+  verifyVoteSignatureComprehensive,
+  validateChoice,
+  validateProposalId,
+  normalizeAddress,
+  constructVoteTypedData,
+  verifyEIP712VoteSignature,
+  getChainId,
+} from '@/lib/voteSignature';
 
 /**
  * GET /api/governance
@@ -346,8 +356,9 @@ export async function POST(request: NextRequest) {
 
     // Cast a vote
     if (action === 'vote') {
-      const { proposalId, voterAddress, support, votingPower, reason, signature, nonce } = body;
+      const { proposalId, voterAddress, support, votingPower, reason, signature, nonce, signatureVersion, typedData } = body;
 
+      // Strict input validation
       if (!proposalId || !voterAddress || support === undefined) {
         return NextResponse.json(
           { success: false, error: 'ProposalId, voterAddress, and support are required' },
@@ -355,9 +366,26 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Validate proposal ID format
+      if (!validateProposalId(proposalId)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid proposal ID format' },
+          { status: 400 }
+        );
+      }
+
+      // Validate and normalize voter address
+      const normalizedVoterAddress = normalizeAddress(voterAddress);
+      if (!normalizedVoterAddress) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid voter address' },
+          { status: 400 }
+        );
+      }
+
       // Validate support value (0=No, 1=Yes, 2=Abstain)
       const supportValue = typeof support === 'boolean' ? (support ? 1 : 0) : parseInt(support, 10);
-      if (![0, 1, 2].includes(supportValue)) {
+      if (!validateChoice(supportValue)) {
         return NextResponse.json(
           { success: false, error: 'Support must be 0 (No), 1 (Yes), or 2 (Abstain)' },
           { status: 400 }
@@ -373,13 +401,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Get chain ID from environment
+      const chainId = getChainId();
+
       // CRITICAL SECURITY: Server-side signature verification
       if (signature && nonce) {
         // Import nonce validation
         const { consumeGovernanceNonce } = await import('@/lib/db');
         
         // 1. Validate and consume the nonce
-        const nonceRecord = consumeGovernanceNonce(nonce, proposalId, voterAddress);
+        const nonceRecord = consumeGovernanceNonce(nonce, proposalId, normalizedVoterAddress);
         if (!nonceRecord) {
           return NextResponse.json(
             { success: false, error: 'Invalid or expired nonce. Please request a new nonce and try again.' },
@@ -387,23 +418,50 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // 2. Reconstruct the message server-side (NEVER trust client message)
-        const serverMessage = reconstructVoteMessage(
-          proposalId,
-          supportValue,
-          nonce,
-          proposal.snapshot_block || 0,
-          proposal.title,
-          143, // Monad chain ID
-          'starworldorder.com'
-        );
+        // Determine signature version (prefer EIP-712 if not specified)
+        const version = signatureVersion || 'eip712';
 
-        // 3. Verify the signature against the reconstructed message
-        const isValidSignature = await verifyVoteSignature(
-          voterAddress,
-          serverMessage,
-          signature as `0x${string}`
-        );
+        // 2. Verify signature based on version
+        let isValidSignature = false;
+        let reconstructedTypedData: any = null;
+
+        if (version === 'eip712') {
+          // EIP-712 verification
+          // Reconstruct typed data server-side (NEVER trust client)
+          reconstructedTypedData = constructVoteTypedData(
+            proposalId,
+            supportValue,
+            normalizedVoterAddress,
+            nonce,
+            proposal.snapshot_block || 0,
+            chainId
+          );
+
+          // Verify the EIP-712 signature
+          isValidSignature = await verifyEIP712VoteSignature(
+            normalizedVoterAddress,
+            reconstructedTypedData,
+            signature as `0x${string}`,
+            chainId
+          );
+        } else {
+          // Legacy EIP-191 verification
+          const serverMessage = reconstructVoteMessage(
+            proposalId,
+            supportValue,
+            nonce,
+            proposal.snapshot_block || 0,
+            proposal.title,
+            chainId,
+            'starworldorder.com'
+          );
+
+          isValidSignature = await verifyVoteSignature(
+            normalizedVoterAddress,
+            serverMessage,
+            signature as `0x${string}`
+          );
+        }
 
         if (!isValidSignature) {
           return NextResponse.json(
@@ -415,23 +473,54 @@ export async function POST(request: NextRequest) {
         // Signature is valid, proceed with vote
         logger.info('Governance: Valid signature verified', { 
           proposalId, 
-          voterAddress: voterAddress.slice(0, 10) + '...' 
+          voterAddress: normalizedVoterAddress.slice(0, 10) + '...',
+          version
+        });
+
+        // Store vote with signature data
+        const result = castGovernanceVote({
+          proposalId,
+          voterAddress: normalizedVoterAddress,
+          support: supportValue,
+          votingPower: parseInt(votingPower, 10) || 1,
+          reason,
+          signature,
+          signatureVersion: version,
+          signatureData: {
+            message: version === 'eip191' ? 'server-reconstructed' : undefined,
+            timestamp: Date.now(),
+            nonce,
+            typedData: version === 'eip712' ? reconstructedTypedData : undefined,
+          },
+        });
+
+        if (!result.success) {
+          return NextResponse.json(
+            { success: false, error: result.error },
+            { status: 400 }
+          );
+        }
+
+        const supportLabel = supportValue === 1 ? 'Yes' : supportValue === 0 ? 'No' : 'Abstain';
+        logger.info('Governance: Vote cast', { 
+          proposalId, 
+          voterAddress: normalizedVoterAddress.slice(0, 10) + '...', 
+          support: supportLabel,
+          version
+        });
+        return NextResponse.json({
+          success: true,
+          vote: result.vote,
         });
       }
 
+      // No signature provided - cast vote without signature
       const result = castGovernanceVote({
         proposalId,
-        voterAddress,
+        voterAddress: normalizedVoterAddress,
         support: supportValue,
         votingPower: parseInt(votingPower, 10) || 1,
         reason,
-        // Store signature for verification (nonce is already consumed)
-        signature,
-        signatureData: signature && nonce ? {
-          message: 'server-reconstructed', // Placeholder - actual message is reconstructed on verification
-          timestamp: Date.now(),
-          nonce,
-        } : undefined,
       });
 
       if (!result.success) {
@@ -444,7 +533,7 @@ export async function POST(request: NextRequest) {
       const supportLabel = supportValue === 1 ? 'Yes' : supportValue === 0 ? 'No' : 'Abstain';
       logger.info('Governance: Vote cast', { 
         proposalId, 
-        voterAddress: voterAddress.slice(0, 10) + '...', 
+        voterAddress: normalizedVoterAddress.slice(0, 10) + '...', 
         support: supportLabel 
       });
       return NextResponse.json({
