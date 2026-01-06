@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const validCategories: ForumCategory[] = ['general', 'proposals', 'ideas', 'support', 'announcements'];
+      const validCategories: ForumCategory[] = ['general', 'governance', 'proposals', 'ideas', 'support', 'announcements'];
       const threadCategory = validCategories.includes(category) ? category : 'general';
 
       const thread = createForumThread({
