@@ -421,9 +421,9 @@ export function useGovernance(): UseGovernanceResult {
           support: supportValue,
           votingPower,
           reason,
-          // Include signature data for cryptographic verification
+          // Include signature and nonce for cryptographic verification
           signature,
-          signatureData,
+          nonce: signatureData?.nonce,
         }),
       });
       
