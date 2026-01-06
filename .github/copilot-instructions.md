@@ -15,6 +15,9 @@ npm run type-check       # TypeScript validation (MUST PASS)
 npm run lint             # ESLint checks (MUST PASS)
 npm run build            # Production build (MUST SUCCEED)
 
+# Before creating a PR, ALWAYS run:
+npm run type-check && npm run lint && npm run build
+
 # Development
 npm run dev              # Start dev server on port 3000
 
@@ -126,6 +129,51 @@ Star-World-Order/
 ├── data/                  # SQLite database storage
 └── scripts/               # Build and utility scripts
 ```
+
+---
+
+## 📐 Coding Standards
+
+### TypeScript Best Practices
+
+1. **Use Strict Typing** - Avoid `any` type
+   ```typescript
+   // ❌ WRONG
+   function processData(data: any) { }
+   
+   // ✅ CORRECT
+   interface DataInput {
+     id: string;
+     value: number;
+   }
+   function processData(data: DataInput) { }
+   ```
+
+2. **Export Types/Interfaces** - Define types where they're used
+   ```typescript
+   // ✅ CORRECT - Export from same file
+   export interface UserProfile {
+     address: string;
+     tokenIds: number[];
+   }
+   
+   export function getUserProfile(address: string): UserProfile {
+     // implementation
+   }
+   ```
+
+3. **Colocate Component Types** - Keep types with components
+   ```typescript
+   // ✅ CORRECT - Types defined in same file as component
+   interface ProfileCardProps {
+     address: string;
+     tokens: number[];
+   }
+   
+   export function ProfileCard({ address, tokens }: ProfileCardProps) {
+     return <div>...</div>;
+   }
+   ```
 
 ---
 
@@ -257,6 +305,51 @@ writeContract({
 
 ## ⚠️ Anti-Patterns to Avoid
 
+### ❌ DON'T: Use `any` type
+```typescript
+// ❌ WRONG - Loses type safety
+function handleData(data: any) {
+  return data.value;
+}
+
+// ✅ CORRECT - Proper interface
+interface DataType {
+  value: string;
+}
+function handleData(data: DataType) {
+  return data.value;
+}
+```
+
+### ❌ DON'T: Commit without validation
+```bash
+# ❌ WRONG - Committing without checks
+git commit -m "fix"
+
+# ✅ CORRECT - Always validate first
+npm run type-check && npm run lint && npm run build
+git commit -m "fix: proper commit message"
+```
+
+### ❌ DON'T: Hardcode chain IDs
+```typescript
+// ❌ WRONG - Hardcoded chain ID
+const chainId = 143;
+
+// ✅ CORRECT - Use configuration
+import { monad } from '@/lib/wagmi';
+const chainId = monad.id;
+```
+
+### ❌ DON'T: Create PRs targeting main
+```bash
+# ❌ WRONG - PR to main branch
+gh pr create --base main
+
+# ✅ CORRECT - PR to dev branch
+gh pr create --base dev
+```
+
 ### ❌ DON'T: Fetch NFT metadata from IPFS directly
 ```typescript
 // ❌ WRONG - Slow and unreliable
@@ -300,6 +393,156 @@ const client = getResilientClient();
 
 ---
 
+## 📝 File Templates
+
+### New API Route Template
+
+```typescript
+// app/api/example/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const param = searchParams.get('param');
+    
+    // Validation
+    if (!param) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: param' },
+        { status: 400 }
+      );
+    }
+    
+    // Implementation
+    const result = { example: 'data' };
+    
+    return NextResponse.json({ data: result });
+  } catch (error) {
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Validation
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    
+    // Implementation
+    // Process body...
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### New Component Template
+
+```typescript
+// components/ComponentName.tsx
+'use client';
+
+import { useState } from 'react';
+
+interface ComponentNameProps {
+  title: string;
+  onAction?: () => void;
+  className?: string;
+}
+
+export function ComponentName({ 
+  title, 
+  onAction,
+  className = '' 
+}: ComponentNameProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleClick = async () => {
+    if (!onAction) return;
+    
+    setIsLoading(true);
+    try {
+      await onAction();
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <div className={`bg-[#1a0033] border border-[#00f7ff]/30 rounded-lg p-4 ${className}`}>
+      <h3 className="text-[#00f7ff] font-['Press_Start_2P'] text-sm mb-2">
+        {title}
+      </h3>
+      
+      {onAction && (
+        <button
+          onClick={handleClick}
+          disabled={isLoading}
+          className="px-4 py-2 bg-[#00f7ff]/20 hover:bg-[#00f7ff]/30 
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     border border-[#00f7ff] text-[#00f7ff] rounded 
+                     transition-all hover:shadow-[0_0_10px_#00f7ff]"
+        >
+          {isLoading ? 'Loading...' : 'Action'}
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## 🎯 Important Context
+
+### DAO for NFT Holders
+- **Wallet connection is critical** - All features require Star Skrumpey NFT ownership
+- Use `AccessGate` component to protect pages that require NFT ownership
+- Verify ownership with `checkStarOwnershipBatched()` from `lib/starSkrumpey.ts`
+- Never assume a user has access - always verify on-chain
+
+### Retro/Synthwave Aesthetic
+- **The aesthetic is core to the brand** - Maintain N64/synthwave theme consistently
+- Use the defined color palette: neon cyan (#00f7ff), magenta (#ff00ff), gold (#ffd700)
+- Apply CRT effects, scanlines, and neon glows to interactive elements
+- Use 'Press Start 2P' font for headings and retro UI elements
+
+### Performance Matters
+- **Batch operations where possible** - Avoid sequential RPC calls
+- Use multicall for blockchain reads (`checkStarOwnershipBatched`)
+- Cache NFT metadata in database - never fetch from IPFS in real-time
+- Use `getStarSkrumpeyMetadataBatch()` for O(1) metadata lookups
+- Implement pagination for large data sets (members list, proposals)
+
+### Security is Paramount
+- **Validate all inputs** - This is a Web3 app handling real assets
+- Never trust client-side data - verify ownership server-side for critical operations
+- Sanitize user inputs to prevent XSS attacks
+- Use proper error handling - don't expose sensitive information
+- Validate wallet signatures for write operations (voting, staking, trading)
+- Rate limit API endpoints to prevent abuse
+
+---
+
 ## 📚 Key File Reference
 
 | Purpose | File(s) |
@@ -334,14 +577,16 @@ const client = getResilientClient();
 
 Before every commit, ensure:
 
-- [ ] `npm run type-check` passes
-- [ ] `npm run lint` passes  
-- [ ] `npm run build` succeeds
+- [ ] `npm run type-check && npm run lint && npm run build` passes (all three commands)
 - [ ] PR targets `dev` branch (NOT `main`)
+- [ ] No `any` types used - proper TypeScript interfaces defined
+- [ ] Types/interfaces exported from the file where they're defined
 - [ ] New files follow existing patterns
 - [ ] Database changes include proper indexes
-- [ ] API endpoints return proper JSON responses
-- [ ] Components use synthwave color scheme
+- [ ] API endpoints return proper JSON responses with error handling
+- [ ] Components use synthwave color scheme (#00f7ff, #ff00ff, #ffd700)
+- [ ] Wallet ownership verified for protected features
+- [ ] No hardcoded chain IDs - use config from `lib/wagmi.ts`
 
 ---
 
