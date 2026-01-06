@@ -499,34 +499,33 @@ function VoteModal({
               </div>
             </div>
             
-            {/* Safety Notice - Always visible */}
-            <div className="bg-[#44ff88]/10 border border-[#44ff88]/30 rounded-lg p-3">
+            {/* Safety Notice - Simplified and less alarming */}
+            <div className="bg-[#0a0a15] border border-[#2a2a4e] rounded-lg p-3">
               <div className="flex items-start gap-2">
-                <span className="text-[#44ff88] text-lg">✅</span>
+                <span className="text-[#9966ff] text-sm">✍️</span>
                 <div>
-                  <p className="text-[#44ff88] text-xs font-bold mb-1">
-                    MESSAGE SIGNATURE - YOUR ASSETS ARE SAFE
-                  </p>
-                  <p className="text-gray-400 text-[10px]">
-                    {SIGNATURE_SAFETY_EXPLANATION.short.replace('✅ ', '')}
+                  <p className="text-gray-300 text-[10px]">
+                    Sign to confirm your vote. This is a standard signature (not a transaction).
                   </p>
                 </div>
               </div>
             </div>
             
-            {/* Expandable details */}
+            {/* Expandable details - More discrete toggle */}
             <button
               onClick={() => setShowSafetyInfo(!showSafetyInfo)}
-              className="w-full text-[#9966ff] text-[10px] hover:text-[#ffd700] transition-colors flex items-center justify-center gap-1"
+              className="w-full text-gray-500 text-[9px] hover:text-[#9966ff] transition-colors flex items-center justify-center gap-1"
             >
-              {showSafetyInfo ? '▼' : '▶'} {showSafetyInfo ? 'Hide' : 'Learn more about'} signature safety
+              {showSafetyInfo ? '▼' : '▶'} What does signing mean?
             </button>
             
             {showSafetyInfo && (
               <div className="bg-[#0a0a15] border border-[#2a2a4e] rounded-lg p-3">
-                <pre className="text-gray-400 text-[9px] whitespace-pre-wrap font-sans leading-relaxed">
-                  {SIGNATURE_SAFETY_EXPLANATION.detailed}
-                </pre>
+                <p className="text-gray-400 text-[9px] leading-relaxed">
+                  <span className="text-[#44ff88]">✓ Safe:</span> Signatures prove you own your wallet and confirm your vote choice.<br/><br/>
+                  <span className="text-[#ff4466]">✗ Cannot:</span> Move tokens, NFTs, or interact with contracts.<br/><br/>
+                  This is the same standard used by Snapshot, OpenSea, and other major protocols.
+                </p>
               </div>
             )}
             
@@ -1122,6 +1121,9 @@ function ForumTab({
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
   
+  // Forum sub-tab state: 'general' shows all non-governance threads, 'governance' shows only governance threads
+  const [forumSubTab, setForumSubTab] = useState<'general' | 'governance'>('general');
+  
   // Edit states
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editThreadContent, setEditThreadContent] = useState('');
@@ -1301,12 +1303,26 @@ function ForumTab({
     return result;
   };
 
+  // Filter threads based on sub-tab
+  const filteredThreads = threads.filter((thread) => {
+    if (forumSubTab === 'governance') {
+      return thread.category === ThreadCategory.Governance;
+    } else {
+      // General tab shows all non-governance threads
+      return thread.category !== ThreadCategory.Governance;
+    }
+  });
+
   // Sort threads: pinned first, then by last activity
-  const sortedThreads = [...threads].sort((a, b) => {
+  const sortedThreads = [...filteredThreads].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
     return b.updatedAt - a.updatedAt;
   });
+  
+  // Count threads for each tab
+  const generalCount = threads.filter(t => t.category !== ThreadCategory.Governance).length;
+  const governanceCount = threads.filter(t => t.category === ThreadCategory.Governance).length;
 
   if (isLoading) {
     return (
@@ -1643,41 +1659,84 @@ function ForumTab({
         </button>
       </div>
 
-      {/* Thread List */}
-      <div className="space-y-3">
-        {sortedThreads.map((thread, index) => {
-          const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
-          return (
-            <div 
-              key={thread.id} 
-              onClick={() => handleSelectThread(thread)}
-              className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
-            >
-              {thread.pinned && <span className="text-[#ffd700] text-xs">📌</span>}
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(thread.category)}</span>
-                </div>
-                <h4 className={`text-sm font-bold mb-1 ${thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'}`}>
-                  {thread.title}
-                </h4>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>by <ClickableUsername 
-                    address={thread.authorAddress || ''} 
-                    displayName={thread.author} 
-                    className="text-xs"
-                  /></span>
-                  <span>{thread.replyCount ?? thread.replies.length} replies</span>
-                  <span>{formatRelativeTime(thread.updatedAt)}</span>
-                </div>
-              </div>
-
-              <div className="text-gray-600 text-xs">💬</div>
-            </div>
-          );
-        })}
+      {/* Forum Sub-tabs */}
+      <div className="flex gap-2 animate-slide-in-up animate-delay-1">
+        <button
+          onClick={() => setForumSubTab('general')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+            forumSubTab === 'general'
+              ? 'bg-[#9966ff]/20 border-[#9966ff] text-[#9966ff]'
+              : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#9966ff]/50'
+          }`}
+        >
+          💬 GENERAL ({generalCount})
+        </button>
+        <button
+          onClick={() => setForumSubTab('governance')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold border-2 transition-all ${
+            forumSubTab === 'governance'
+              ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+              : 'bg-[#1a1a2e] border-[#2a2a4e] text-gray-400 hover:border-[#ffd700]/50'
+          }`}
+        >
+          🗳️ GOVERNANCE ({governanceCount})
+        </button>
       </div>
+
+      {/* Thread List */}
+      {sortedThreads.length === 0 ? (
+        <div className="pixel-card p-8 text-center animate-slide-in-up animate-delay-2">
+          <div className="text-4xl mb-4 animate-pixel-float">{forumSubTab === 'governance' ? '🗳️' : '💬'}</div>
+          <h3 className="text-[#ffd700] text-xs tracking-wider mb-2">
+            {forumSubTab === 'governance' ? 'NO GOVERNANCE DISCUSSIONS' : 'NO THREADS YET'}
+          </h3>
+          <p className="text-gray-500 text-xs">
+            {forumSubTab === 'governance' 
+              ? 'Governance discussion threads are automatically created when proposals are submitted.' 
+              : 'Be the first to start a conversation!'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedThreads.map((thread, index) => {
+            const delayClass = `animate-delay-${Math.min(index + 1, 6)}`;
+            return (
+              <div 
+                key={thread.id} 
+                onClick={() => handleSelectThread(thread)}
+                className={`pixel-card p-4 smooth-transition cursor-pointer flex items-center gap-4 animate-slide-in-up ${delayClass}`}
+              >
+                {thread.pinned && <span className="text-[#ffd700] text-xs">📌</span>}
+                
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[#9966ff] text-xs uppercase">{getCategoryLabel(thread.category)}</span>
+                    {thread.proposalId && (
+                      <span className="text-[#ffd700] text-[10px] px-2 py-0.5 rounded bg-[#ffd700]/10 border border-[#ffd700]/30">
+                        LINKED TO PROPOSAL
+                      </span>
+                    )}
+                  </div>
+                  <h4 className={`text-sm font-bold mb-1 ${thread.pinned ? 'text-[#ffd700]' : 'text-gray-200'}`}>
+                    {thread.title}
+                  </h4>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span>by <ClickableUsername 
+                      address={thread.authorAddress || ''} 
+                      displayName={thread.author} 
+                      className="text-xs"
+                    /></span>
+                    <span>{thread.replyCount ?? thread.replies.length} replies</span>
+                    <span>{formatRelativeTime(thread.updatedAt)}</span>
+                  </div>
+                </div>
+
+                <div className="text-gray-600 text-xs">💬</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Forum Rules */}
       <div className="pixel-card p-4 bg-[#0a0a15]">

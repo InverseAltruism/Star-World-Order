@@ -482,6 +482,33 @@ function initializeDatabase(database: Database.Database): void {
   try {
     database.exec(`ALTER TABLE governance_proposals ADD COLUMN snapshot_block INTEGER`);
   } catch { /* Column already exists */ }
+  
+  // Add enhanced governance columns (for existing databases that don't have them)
+  // These columns are part of the enhanced governance system introduced in v2
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN abstain_votes INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN unique_voter_count INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN min_voters INTEGER NOT NULL DEFAULT 10`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN yes_threshold_percent INTEGER NOT NULL DEFAULT 60`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN max_abstain_percent INTEGER NOT NULL DEFAULT 30`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN category TEXT DEFAULT 'general'`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN forum_thread_id TEXT`);
+  } catch { /* Column already exists */ }
+  try {
+    database.exec(`ALTER TABLE governance_proposals ADD COLUMN defeat_reason TEXT`);
+  } catch { /* Column already exists */ }
 
   // Governance nonces table - for secure server-issued nonces
   database.exec(`
@@ -521,7 +548,7 @@ function initializeDatabase(database: Database.Database): void {
       content TEXT NOT NULL,
       original_content TEXT,
       author_address TEXT NOT NULL,
-      category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('general', 'proposals', 'ideas', 'support', 'announcements')),
+      category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('general', 'governance', 'proposals', 'ideas', 'support', 'announcements')),
       proposal_id TEXT,
       pinned INTEGER NOT NULL DEFAULT 0,
       locked INTEGER NOT NULL DEFAULT 0,
@@ -4504,6 +4531,24 @@ export function updateGovernanceProposalState(
 }
 
 /**
+ * Link a forum thread to a governance proposal
+ */
+export function linkForumThreadToProposal(
+  proposalId: string,
+  forumThreadId: string
+): boolean {
+  const db = getDatabase();
+  
+  try {
+    const stmt = db.prepare('UPDATE governance_proposals SET forum_thread_id = ? WHERE id = ?');
+    const result = stmt.run(forumThreadId, proposalId);
+    return result.changes > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Cast a vote on a governance proposal
  * Returns error if user already voted
  * 
@@ -5040,7 +5085,7 @@ export function getGovernanceNonceByValue(nonce: string): GovernanceNonce | null
 // Forum System Database Functions (with likes and edits)
 // ============================================================================
 
-export type ForumCategory = 'general' | 'proposals' | 'ideas' | 'support' | 'announcements';
+export type ForumCategory = 'general' | 'governance' | 'proposals' | 'ideas' | 'support' | 'announcements';
 
 export interface ForumThreadDB {
   id: string;

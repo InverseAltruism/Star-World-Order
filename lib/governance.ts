@@ -171,6 +171,7 @@ export interface ForumReply {
  */
 export enum ThreadCategory {
   General = 'general',
+  Governance = 'governance',
   Proposals = 'proposals',
   Ideas = 'ideas',
   Support = 'support',
@@ -933,6 +934,8 @@ export function getCategoryLabel(category: ThreadCategory): string {
   switch (category) {
     case ThreadCategory.General:
       return 'General';
+    case ThreadCategory.Governance:
+      return '🗳️ Governance';
     case ThreadCategory.Proposals:
       return 'Proposals';
     case ThreadCategory.Ideas:
