@@ -139,6 +139,7 @@ interface ExtendedProposal extends Proposal {
   minVoters?: number;
   category?: string;
   defeatReason?: string | null;
+  forumThreadId?: string | null;
 }
 
 /**
@@ -761,6 +762,7 @@ function GovernanceTab({
   hasVoted,
   votingPower,
   isLoading,
+  onViewDiscussion,
 }: {
   proposals: Proposal[];
   onCreateProposal: (title: string, description: string, votingDurationWeeks: number, category?: string) => Promise<{ success: boolean; error?: string }>;
@@ -768,6 +770,7 @@ function GovernanceTab({
   hasVoted: (proposalId: string) => boolean;
   votingPower: number;
   isLoading: boolean;
+  onViewDiscussion?: (forumThreadId: string) => void;
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
@@ -1077,6 +1080,18 @@ function GovernanceTab({
                     <span className="text-[#44ff88] text-xs">✓ You have voted on this proposal</span>
                   </div>
                 )}
+
+                {/* View Discussion Link */}
+                {extendedProposal.forumThreadId && onViewDiscussion && (
+                  <div className="mt-3 pt-3 border-t border-[#2a2a4e]">
+                    <button
+                      onClick={() => onViewDiscussion(extendedProposal.forumThreadId!)}
+                      className="flex items-center justify-center gap-2 text-[#00ffff] text-[10px] hover:text-[#ffd700] transition-colors w-full"
+                    >
+                      💬 View Discussion Thread
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1100,6 +1115,8 @@ function ForumTab({
   currentUserAddress,
   votingPower,
   isLoading,
+  initialSelectedThreadId,
+  onThreadSelected,
 }: {
   threads: ForumThread[];
   onCreateThread: (title: string, content: string, category: ThreadCategory) => Promise<{ success: boolean; error?: string }>;
@@ -1111,6 +1128,8 @@ function ForumTab({
   currentUserAddress?: string;
   votingPower: number;
   isLoading: boolean;
+  initialSelectedThreadId?: string | null;
+  onThreadSelected?: () => void;
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedThread, setSelectedThread] = useState<ForumThread | null>(null);
@@ -1175,6 +1194,10 @@ function ForumTab({
           originalContent: data.thread.original_content,
         };
         setSelectedThread(thread);
+        // Set forum sub-tab to governance if this is a governance thread
+        if (data.thread.category === 'governance') {
+          setForumSubTab('governance');
+        }
       }
     } catch (error) {
       console.error('Failed to fetch thread details:', error);
@@ -1182,6 +1205,14 @@ function ForumTab({
       setIsLoadingThread(false);
     }
   }, []);
+
+  // Handle initial thread selection from governance tab
+  useEffect(() => {
+    if (initialSelectedThreadId && !isLoading) {
+      fetchThreadDetails(initialSelectedThreadId);
+      onThreadSelected?.();
+    }
+  }, [initialSelectedThreadId, isLoading, fetchThreadDetails, onThreadSelected]);
 
   // Handle thread selection - fetch full thread with replies
   const handleSelectThread = useCallback((thread: ForumThread) => {
@@ -2194,6 +2225,7 @@ function GovernanceInfoButton() {
 
 export default function DAOContent() {
   const [activeTab, setActiveTab] = useState<TabId>('governance');
+  const [selectedForumThreadId, setSelectedForumThreadId] = useState<string | null>(null);
   
   const {
     proposals,
@@ -2218,6 +2250,12 @@ export default function DAOContent() {
     getUserLikeStatus,
     address,
   } = useGovernance();
+  
+  // Handle navigation to a forum thread from the governance tab
+  const handleViewDiscussion = useCallback((forumThreadId: string) => {
+    setSelectedForumThreadId(forumThreadId);
+    setActiveTab('forum');
+  }, []);
   
   // Get available tokens from DAO access (would come from useDAOAccess in real implementation)
   const availableTokens = stakingSummary 
@@ -2280,6 +2318,7 @@ export default function DAOContent() {
               hasVoted={hasVoted}
               votingPower={votingPower}
               isLoading={isLoadingProposals}
+              onViewDiscussion={handleViewDiscussion}
             />
           )}
           {activeTab === 'forum' && (
@@ -2294,6 +2333,8 @@ export default function DAOContent() {
               currentUserAddress={address}
               votingPower={votingPower}
               isLoading={isLoadingThreads}
+              initialSelectedThreadId={selectedForumThreadId}
+              onThreadSelected={() => setSelectedForumThreadId(null)}
             />
           )}
           {activeTab === 'members' && (

@@ -203,6 +203,7 @@ export function useGovernance(): UseGovernanceResult {
             endTime: p.end_time,
             startTime: p.start_time,
             quorum: p.quorum,
+            forumThreadId: p.forum_thread_id,
           }));
           setProposals(convertedProposals);
         }
