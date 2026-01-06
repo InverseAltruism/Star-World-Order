@@ -1085,7 +1085,7 @@ function GovernanceTab({
                 {extendedProposal.forumThreadId && onViewDiscussion && (
                   <div className="mt-3 pt-3 border-t border-[#2a2a4e]">
                     <button
-                      onClick={() => onViewDiscussion(extendedProposal.forumThreadId!)}
+                      onClick={() => onViewDiscussion(extendedProposal.forumThreadId as string)}
                       className="flex items-center justify-center gap-2 text-[#00ffff] text-[10px] hover:text-[#ffd700] transition-colors w-full"
                     >
                       💬 View Discussion Thread
