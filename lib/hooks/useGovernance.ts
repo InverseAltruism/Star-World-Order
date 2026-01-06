@@ -386,11 +386,13 @@ export function useGovernance(): UseGovernanceResult {
     }
   }, [address, isConnected, votingPower, loadProposals]);
   
-  // Vote on proposal (enhanced with three-way voting)
+  // Vote on proposal (enhanced with three-way voting and signature verification)
   const vote = useCallback(async (
     proposalId: string,
     support: 'yes' | 'no' | 'abstain' | number,
-    reason?: string
+    reason?: string,
+    signature?: string,
+    signatureData?: { message: string; timestamp: number; nonce: string }
   ): Promise<{ success: boolean; error?: string }> => {
     if (!address || !isConnected) {
       return { success: false, error: 'Wallet not connected' };
@@ -419,6 +421,9 @@ export function useGovernance(): UseGovernanceResult {
           support: supportValue,
           votingPower,
           reason,
+          // Include signature data for cryptographic verification
+          signature,
+          signatureData,
         }),
       });
       
