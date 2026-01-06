@@ -355,8 +355,18 @@ function VoteModal({
         setVoteStep('choice');
       }
     } catch (err) {
-      // User rejected the signature or other error
-      if ((err as Error).message?.includes('User rejected')) {
+      // Handle signature rejection or other errors
+      // Check for common rejection patterns across wallet implementations
+      const errorMessage = (err as Error).message?.toLowerCase() || '';
+      const isUserRejection = 
+        errorMessage.includes('user rejected') ||
+        errorMessage.includes('user denied') ||
+        errorMessage.includes('rejected by user') ||
+        errorMessage.includes('user cancelled') ||
+        errorMessage.includes('action_rejected') ||
+        (err as { code?: number }).code === 4001; // EIP-1193 user rejection code
+      
+      if (isUserRejection) {
         setError('Signature cancelled. Your vote was not recorded.');
       } else {
         setError('Failed to sign vote. Please try again.');

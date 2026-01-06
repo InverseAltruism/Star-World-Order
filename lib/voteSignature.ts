@@ -27,6 +27,21 @@ const APP_NAME = 'Star World Order DAO';
 const VERSION = '1';
 
 /**
+ * Configuration constants for vote signatures
+ * These can be adjusted based on network conditions and UX requirements
+ */
+export const VOTE_SIGNATURE_CONFIG = {
+  /** Maximum age (in minutes) for a signature to be considered valid for submission */
+  SIGNATURE_MAX_AGE_MINUTES: 10,
+  /** Domain for signature validation (prevents cross-site reuse) */
+  DOMAIN,
+  /** Application name shown in signature message */
+  APP_NAME,
+  /** Protocol version */
+  VERSION,
+};
+
+/**
  * Vote support values
  */
 export type VoteChoice = 'yes' | 'no' | 'abstain';
@@ -90,6 +105,7 @@ export function constructVoteMessage(
 ): string {
   const choiceStr = voteChoiceToString(choice);
   const date = new Date(timestamp).toISOString();
+  const { APP_NAME, DOMAIN, VERSION } = VOTE_SIGNATURE_CONFIG;
   
   // Human-readable message that users can understand
   return [
@@ -273,8 +289,8 @@ export async function verifyVote(
       return { valid: false, error: 'Vote choice mismatch' };
     }
     
-    // 5. Check signature timestamp
-    if (!isSignatureRecent(parsed.timestamp, 10)) { // 10 minute window for vote submission
+    // 5. Check signature timestamp (uses configurable max age)
+    if (!isSignatureRecent(parsed.timestamp, VOTE_SIGNATURE_CONFIG.SIGNATURE_MAX_AGE_MINUTES)) {
       return { valid: false, error: 'Signature expired' };
     }
     
