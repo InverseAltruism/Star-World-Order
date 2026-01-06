@@ -28,8 +28,6 @@ import {
   verifyTypedData,
   hashTypedData,
   type TypedDataDomain,
-  isAddress,
-  getAddress,
 } from 'viem';
 
 // Domain identifier to prevent cross-site signature reuse
@@ -164,7 +162,10 @@ export function validateProposalId(id: unknown): boolean {
  */
 export function normalizeAddress(address: string): string | null {
   try {
-    if (!isAddress(address)) return null;
+    // Check basic format: starts with 0x and has 40 hex characters
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      return null;
+    }
     return address.toLowerCase();
   } catch {
     return null;
@@ -175,10 +176,11 @@ export function normalizeAddress(address: string): string | null {
  * Validate and normalize Ethereum address (throws on invalid)
  */
 export function validateAddress(address: string): `0x${string}` {
-  if (!isAddress(address)) {
+  // Check basic format: starts with 0x and has 40 hex characters
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
     throw new Error(`Invalid Ethereum address: ${address}`);
   }
-  return getAddress(address) as `0x${string}`;
+  return address.toLowerCase() as `0x${string}`;
 }
 
 /**
