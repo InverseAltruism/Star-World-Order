@@ -351,7 +351,28 @@ export async function POST(request: NextRequest) {
 
       // Automatically create a forum thread in the 'governance' category for discussion
       try {
-        const forumThreadContent = `## 📜 Governance Proposal Discussion\n\n**Proposal:** ${title}\n\n**Category:** ${(category || 'general').toUpperCase()}\n\n**Voting Period:** ${duration} week${duration > 1 ? 's' : ''}\n\n---\n\n### Description\n\n${description}\n\n---\n\n*This discussion thread was automatically created for the governance proposal. Please discuss the proposal here before casting your vote.*`;
+        const categoryDisplay = (category || 'general').toUpperCase();
+        const votingPeriodText = `${duration} week${duration > 1 ? 's' : ''}`;
+        
+        const forumThreadContent = [
+          '## 📜 Governance Proposal Discussion',
+          '',
+          `**Proposal:** ${title}`,
+          '',
+          `**Category:** ${categoryDisplay}`,
+          '',
+          `**Voting Period:** ${votingPeriodText}`,
+          '',
+          '---',
+          '',
+          '### Description',
+          '',
+          description,
+          '',
+          '---',
+          '',
+          '*This discussion thread was automatically created for the governance proposal. Please discuss the proposal here before casting your vote.*',
+        ].join('\n');
         
         const forumThread = createForumThread({
           title: `[VOTE] ${title}`,
