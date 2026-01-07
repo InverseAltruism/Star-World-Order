@@ -375,6 +375,8 @@ export function useGovernance(): UseGovernanceResult {
       const data = await response.json();
       if (data.success) {
         loadProposals();
+        // Also refresh forum threads since a governance thread is auto-created with each proposal
+        loadThreads();
         return { success: true, proposal: data.proposal };
       }
       return { success: false, error: data.error || 'Failed to create proposal' };
@@ -385,7 +387,7 @@ export function useGovernance(): UseGovernanceResult {
       loadProposals();
       return { success: true, proposal };
     }
-  }, [address, isConnected, votingPower, loadProposals]);
+  }, [address, isConnected, votingPower, loadProposals, loadThreads]);
   
   // Vote on proposal (enhanced with three-way voting and signature verification)
   const vote = useCallback(async (
