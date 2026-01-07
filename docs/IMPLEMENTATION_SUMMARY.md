@@ -4,6 +4,22 @@
 
 This PR implements **Phases 1-4 (Core Infrastructure)** of the Enhanced DAO Governance System, providing the complete backend and API foundation for three-way voting, vote management, and enhanced quorum requirements.
 
+## Voting Power
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    VOTING POWER                               │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   1 Star Skrumpey NFT  =  1 Vote                              │
+│                                                               │
+│   Example: Hold 8 Star Skrumpeys = 8 Voting Power             │
+│                                                               │
+│   Simple, fair, and transparent!                              │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## ✅ What's Been Completed

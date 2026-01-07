@@ -4,6 +4,22 @@
 
 This document summarizes the implementation of the enhanced DAO governance system for Star World Order. The system now supports three-way voting (Yes/No/Abstain), vote changing, proposal cancellation, categories, and enhanced quorum requirements.
 
+## Voting Power
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    VOTING POWER                               │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   1 Star Skrumpey NFT  =  1 Vote                              │
+│                                                               │
+│   Example: Hold 8 Star Skrumpeys = 8 Voting Power             │
+│                                                               │
+│   Simple, fair, and transparent!                              │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## ✅ Completed (Phases 1-4)

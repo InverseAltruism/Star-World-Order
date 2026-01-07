@@ -107,9 +107,9 @@ Each constellation has a unique visual appearance in the UI:
 
 ### 🏛️ DAO Governance
 - **Proposals & Voting** - Create and vote on governance proposals
-- **Weighted Voting** - Voting power = √STAR + NFT count for fairness
+- **Simple Voting Power** - 1 Star Skrumpey NFT = 1 Vote (hold 8 = 8 voting power)
 - **Treasury Management** - Community-controlled DAO treasury
-- **Star Council Forum** - Discussion threads and community conversations
+- **Star Council Forum** - Discussion threads auto-created with proposals
 
 ### 🔄 Cosmic Exchange (OTC Marketplace)
 - **Peer-to-Peer Trading** - Trustless NFT marketplace for Star Skrumpeys
@@ -177,12 +177,115 @@ NFT staking system for earning STAR tokens.
 DAO governance with proposal creation and voting.
 
 **Features:**
-- NFT-weighted voting (1 Star Skrumpey = 1 Vote)
-- Square root STAR weighting for fairness
+- Simple voting power (1 Star Skrumpey = 1 Vote)
+- Three-way voting (Yes/No/Abstain)
 - Configurable voting period, delay, quorum
 - Proposal lifecycle management
 
 **Location:** [`contracts/StarWorldOrderGovernor.sol`](contracts/StarWorldOrderGovernor.sol)
+
+## 🗳️ How Governance Works
+
+Star World Order uses a secure Web2-powered governance system that verifies NFT ownership on-chain but stores votes off-chain for gas-free voting.
+
+### Voting Power
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    VOTING POWER                               │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   1 Star Skrumpey NFT  =  1 Vote                              │
+│                                                               │
+│   Example: Hold 8 Star Skrumpeys = 8 Voting Power             │
+│                                                               │
+│   Simple, fair, and transparent!                              │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Governance Infrastructure
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      STAR WORLD ORDER GOVERNANCE                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐                                                            │
+│  │   HOLDER    │  Connects wallet                                           │
+│  │   WALLET    │──────────────────┐                                         │
+│  └─────────────┘                  │                                         │
+│                                   ▼                                         │
+│                          ┌─────────────────┐                                │
+│                          │   WEB APP       │                                │
+│                          │   (Frontend)    │                                │
+│                          └────────┬────────┘                                │
+│                                   │                                         │
+│           ┌───────────────────────┼───────────────────────┐                 │
+│           │                       │                       │                 │
+│           ▼                       ▼                       ▼                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐          │
+│  │ 1. VERIFY NFT   │    │ 2. FETCH NONCE  │    │ 4. SUBMIT VOTE  │          │
+│  │    OWNERSHIP    │    │    (Server)     │    │    + SIGNATURE  │          │
+│  └────────┬────────┘    └────────┬────────┘    └────────┬────────┘          │
+│           │                      │                      │                   │
+│           ▼                      ▼                      ▼                   │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐          │
+│  │   MONAD RPC     │    │   SQLITE DB     │    │  API SERVER     │          │
+│  │   (On-chain)    │    │   (Nonces)      │    │  (Validation)   │          │
+│  └─────────────────┘    └─────────────────┘    └────────┬────────┘          │
+│                                                         │                   │
+│                                                         ▼                   │
+│                                                ┌─────────────────┐          │
+│   ┌──────────────────────────────────────────▶│  SQLITE DB      │          │
+│   │  3. SIGN VOTE                              │  (Votes Store)  │          │
+│   │     (EIP-712)                              └─────────────────┘          │
+│   │                                                                         │
+│  ┌┴────────────────┐                                                        │
+│  │  USER WALLET    │  Signs message (NOT a transaction)                     │
+│  │  (MetaMask etc) │  NO gas fees required                                  │
+│  └─────────────────┘                                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Security Features
+
+| Security Layer | Description |
+|---------------|-------------|
+| **On-Chain NFT Verification** | Ownership verified via Monad RPC multicall |
+| **Server-Issued Nonces** | Prevents replay attacks, expires after 10 minutes |
+| **EIP-712 Signatures** | Cryptographically signed votes prove voter intent |
+| **Single-Use Nonces** | Each nonce can only be used once |
+| **No Gas Fees** | Message signatures don't require transactions |
+
+### Voting Flow
+
+1. **Connect Wallet** - User connects their wallet to Star World Order
+2. **NFT Verification** - System checks Star Skrumpey ownership on Monad blockchain
+3. **Request Nonce** - Server issues a unique, time-limited nonce
+4. **Sign Vote** - User signs their vote choice with their wallet (no gas)
+5. **Submit Vote** - Signed vote is submitted to the API
+6. **Validation** - Server verifies signature, nonce, and NFT ownership
+7. **Record Vote** - Vote is stored securely in the database
+
+### Three-Way Voting
+
+- **✓ YES** - Vote in favor of the proposal
+- **✕ NO** - Vote against the proposal  
+- **◯ ABSTAIN** - Participate without taking a side (counts toward quorum)
+
+### Quorum Requirements
+
+| Requirement | Threshold | Description |
+|-------------|-----------|-------------|
+| Minimum Voters | 10 | At least 10 unique wallets must vote |
+| Approval | 60% | YES votes must be ≥60% of all votes |
+| Abstain Cap | 30% | Proposal fails if ABSTAIN exceeds 30% |
+
+### Forum Integration
+
+When a governance proposal is created, a discussion thread is automatically created in the Star Council forum, allowing the community to discuss proposals before and during voting.
 
 ## 🔗 Links
 
