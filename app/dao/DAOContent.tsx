@@ -428,7 +428,9 @@ function VoteModal({
         
         <div className="mb-4">
           <h4 className="text-gray-200 text-[10px] font-bold mb-2">{proposal.title}</h4>
-          <p className="text-gray-500 text-xs">{proposal.description.slice(0, 200)}...</p>
+          <div className="bg-[#0a0a15] border border-[#2a2a4e] rounded-lg p-3 max-h-[200px] overflow-y-auto scrollbar-pixel">
+            <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{proposal.description}</p>
+          </div>
         </div>
         
         {voteStep === 'choice' ? (
