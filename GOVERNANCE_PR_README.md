@@ -171,6 +171,21 @@ npx tsx scripts/migrate-governance.ts
 
 ## 💡 Key Concepts
 
+### Voting Power
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    VOTING POWER                               │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│   1 Star Skrumpey NFT  =  1 Vote                              │
+│                                                               │
+│   Example: Hold 8 Star Skrumpeys = 8 Voting Power             │
+│                                                               │
+│   Simple, fair, and transparent!                              │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
 ### Three-Way Voting
 - **Yes (1)**: For the proposal
 - **No (0)**: Against the proposal  

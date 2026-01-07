@@ -5,12 +5,12 @@
  * - 1 Star Skrumpey staked = 1 STAR per 24 hours
  * - Multiple NFTs can be staked simultaneously
  * - No unstaking period (immediate unstaking)
- * - STAR points are usable in governance voting
+ * - STAR points are earned through staking
  * 
- * Governance Weighting:
- * - To balance early vs late joiners, we use a square root weighting system
- * - Voting power = sqrt(STAR balance) + NFT count
- * - This ensures late joiners aren't too disadvantaged while still rewarding loyalty
+ * Governance Voting Power:
+ * - Simple 1:1 voting: 1 Star Skrumpey NFT = 1 Vote
+ * - Example: Hold 8 Star Skrumpeys = 8 Voting Power
+ * - Simple, fair, and transparent!
  * 
  * Future Features:
  * - Point shop for rewards
@@ -62,14 +62,14 @@ export interface StarTransaction {
 }
 
 /**
- * Governance vote with STAR weighting
+ * Governance vote with voting power
  */
 export interface WeightedVote {
   address: string;
   starBalance: number;
   nftCount: number;
-  rawVotingPower: number; // Total before weighting
-  weightedVotingPower: number; // sqrt(STAR) + NFT count
+  rawVotingPower: number; // Total NFT count
+  weightedVotingPower: number; // 1 NFT = 1 Vote
   support: boolean;
   reason?: string;
 }
@@ -384,33 +384,26 @@ export function getPendingStars(address: string): number {
   return pending;
 }
 
-// ============ Governance Weighting Functions ============
+// ============ Governance Voting Power Functions ============
 
 /**
- * Calculate weighted voting power
- * Formula: sqrt(STAR balance) + NFT count
+ * Calculate voting power
+ * Formula: 1 Star Skrumpey NFT = 1 Vote
  * 
- * This balances:
- * - Early supporters who have accumulated STAR
- * - Late joiners who have NFTs but less STAR
- * - Prevents STAR whale dominance via square root
+ * Simple, fair, and transparent!
+ * Example: Hold 8 Star Skrumpeys = 8 Voting Power
  */
 export function calculateWeightedVotingPower(
   starBalance: number,
   nftCount: number
 ): number {
-  // Square root of STAR balance (minimum 0)
-  const starPower = Math.sqrt(Math.max(0, starBalance));
-  
-  // Each NFT gives 1 voting power
-  const nftPower = nftCount;
-  
-  // Combined weighted power
-  return starPower + nftPower;
+  // Simple 1:1 voting: 1 NFT = 1 Vote
+  return nftCount;
 }
 
 /**
  * Get voting power breakdown for a user
+ * Voting Power = Number of Star Skrumpey NFTs held
  */
 export function getVotingPowerBreakdown(address: string, nftCount: number): {
   starBalance: number;
@@ -424,12 +417,12 @@ export function getVotingPowerBreakdown(address: string, nftCount: number): {
 } {
   const balance = getUserStarBalance(address);
   const pendingStars = getPendingStars(address);
-  const totalStar = balance.balance + pendingStars;
   
-  const starVotingPower = Math.sqrt(totalStar);
+  // Simple 1:1 voting: 1 NFT = 1 Vote
   const nftVotingPower = nftCount;
-  const totalVotingPower = totalStar + nftCount;
-  const weightedVotingPower = starVotingPower + nftVotingPower;
+  const starVotingPower = 0; // STAR tokens don't affect voting power
+  const totalVotingPower = nftCount;
+  const weightedVotingPower = nftCount;
   
   return {
     starBalance: balance.balance,
@@ -458,7 +451,7 @@ export function recordGovernanceVote(
     type: 'governance_vote',
     amount: weightedPower,
     timestamp: now,
-    description: `Voted on proposal ${proposalId} with ${weightedPower.toFixed(2)} weighted voting power`,
+    description: `Voted on proposal ${proposalId} with ${weightedPower} voting power`,
   });
 }
 

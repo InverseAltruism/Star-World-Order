@@ -1946,8 +1946,7 @@ function StakingTab({
             <li>• Earn <span className="text-[#ffd700]">{STAR_PER_NFT_PER_DAY} STAR</span> per NFT every 24 hours</li>
             <li>• Stake multiple NFTs to multiply earnings</li>
             <li>• <span className="text-[#44ff88]">NO unstaking period</span> - unstake anytime!</li>
-            <li>• Use STAR for governance voting (√STAR + NFT count)</li>
-            <li>• Late joiners stay competitive with sqrt weighting</li>
+            <li>• <span className="text-[#9966ff]">Governance:</span> 1 Star Skrumpey = 1 Vote</li>
           </ul>
         </div>
       </div>
@@ -1955,27 +1954,20 @@ function StakingTab({
       {/* Voting Power Breakdown */}
       {votingPower && (
         <div className="pixel-card p-4 animate-slide-in-up animate-delay-1">
-          <h4 className="text-[#9966ff] text-xs mb-3">VOTING POWER BREAKDOWN</h4>
+          <h4 className="text-[#9966ff] text-xs mb-3">VOTING POWER</h4>
           <div className="bg-[#0a0a15] rounded-lg p-4">
             <div className="space-y-2 text-[10px]">
               <div className="flex justify-between">
-                <span className="text-gray-500">NFT Voting Power:</span>
-                <span className="text-[#9966ff]">{votingPower.nftVotingPower.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">STAR Voting Power:</span>
-                <span className="text-[#ffd700]">{votingPower.starVotingPower.toFixed(2)}</span>
-              </div>
-              <div className="text-gray-600 text-[5px] mb-1">
-                (√{formatStarAmount(votingPower.starBalance + votingPower.pendingStars)} STAR = {votingPower.starVotingPower.toFixed(2)})
+                <span className="text-gray-500">Star Skrumpeys Held:</span>
+                <span className="text-[#9966ff]">{votingPower.nftVotingPower.toFixed(0)}</span>
               </div>
               <div className="border-t border-[#2a2a4e] pt-2 flex justify-between">
-                <span className="text-gray-300">Total Weighted Power:</span>
-                <span className="text-[#00ffff] font-bold">{votingPower.weightedVotingPower.toFixed(2)}</span>
+                <span className="text-gray-300">Total Voting Power:</span>
+                <span className="text-[#00ffff] font-bold">{votingPower.nftVotingPower.toFixed(0)}</span>
               </div>
             </div>
             <p className="text-gray-600 text-[10px] mt-3">
-              ℹ️ Weighted voting uses √STAR + NFT count to balance early vs late members
+              ℹ️ 1 Star Skrumpey = 1 Vote. Simple and fair!
             </p>
           </div>
         </div>
@@ -2088,8 +2080,7 @@ function StakingTab({
           <li>• Stake your Star Skrumpeys to earn STAR tokens</li>
           <li>• <span className="text-[#44ff88]">Instant unstaking</span> - no cooldown period!</li>
           <li>• STAR earned = Days staked × NFTs staked × {STAR_PER_NFT_PER_DAY}</li>
-          <li>• Governance voting power = √(STAR) + NFT count</li>
-          <li>• Sqrt weighting ensures late joiners stay competitive</li>
+          <li>• <span className="text-[#ffd700]">Governance:</span> 1 Star Skrumpey = 1 Vote</li>
         </ul>
       </div>
     </div>
@@ -2168,10 +2159,9 @@ function GovernanceInfoButton() {
               <div className="bg-[#0a0a15] rounded-lg p-4">
                 <h4 className="text-[#44ff88] text-xs mb-2 font-bold">⚖️ VOTING POWER</h4>
                 <ul className="text-gray-300 text-xs space-y-1">
-                  <li>• <span className="text-[#9966ff]">1 Star Skrumpey NFT</span> = 1 base vote</li>
-                  <li>• <span className="text-[#ffd700]">STAR tokens</span> from staking add voting weight</li>
-                  <li>• Formula: <span className="text-[#00ffff]">√(STAR) + NFT Count</span></li>
-                  <li>• This ensures late joiners can still compete!</li>
+                  <li>• <span className="text-[#9966ff]">1 Star Skrumpey NFT</span> = <span className="text-[#ffd700]">1 Vote</span></li>
+                  <li>• Hold 8 Star Skrumpeys = <span className="text-[#00ffff]">8 Voting Power</span></li>
+                  <li>• Simple, fair, and transparent!</li>
                 </ul>
               </div>
 

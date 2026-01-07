@@ -872,7 +872,7 @@ DAO governance contract for proposal creation, voting, and execution.
 | **Proposal Lifecycle** | Pending → Active → Defeated/Succeeded → Executed/Cancelled |
 | **Configurable Parameters** | Voting period, delay, quorum, proposal threshold |
 | **Timelock** | Optional timelock for execution delay |
-| **Square Root Weighting** | √STAR + NFT count for fair voting power |
+| **Three-Way Voting** | Yes/No/Abstain voting options |
 
 #### Proposal States
 
@@ -920,14 +920,16 @@ function cancel(
 #### Voting Power Calculation
 
 ```typescript
-// Voting Power = √(STAR Balance) + NFT Count
-const votingPower = Math.sqrt(starBalance) + nftCount;
+// Voting Power = Number of Star Skrumpey NFTs held
+// 1 Star Skrumpey = 1 Vote
+const votingPower = nftCount;
+// Example: Hold 8 Star Skrumpeys = 8 Voting Power
 ```
 
 This ensures:
-- **Early supporters** are rewarded for loyalty (accumulated STAR)
-- **Late joiners** remain competitive (NFT count still matters)
-- **Whale prevention** - Square root prevents STAR hoarding dominance
+- **Simple and fair** - One NFT, one vote
+- **Transparent** - Easy to understand and verify
+- **Equal participation** - All holders have proportional voting power
 
 ---
 
