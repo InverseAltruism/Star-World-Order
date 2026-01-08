@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title IVRFCoordinator
@@ -268,6 +270,10 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     error JackpotRequiresVRF();
     /// @notice FIX #16: Invalid pattern/grid combination
     error InvalidPattern();
+    error SignatureExpired();
+    error InvalidSignature();
+    error InsufficientFundsForPayout();
+    error InsufficientFundsForJackpot();
 
     // ============ Constructor ============
 
@@ -318,15 +324,34 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
      * @param _tier Game tier (Bronze/Silver/Gold)
      * @param serverSeedHash Server seed hash - MUST be keccak256(COMMIT_DOMAIN, serverSeed)
      * @param starTokenId Optional Star Skrumpey token ID for bonus (0 if not claiming)
+     * @param expiration Signature expiration timestamp
+     * @param signature Operator signature authorizing this serverSeedHash
      * @return gameId Unique game identifier
      * @dev FIX #3 CORRECTED: serverSeedHash now ONLY binds serverSeed (multiplier calculated from VRF grid)
      * @dev FIX #16: Multiplier is dynamically calculated from grid pattern for provable fairness
+     * @dev SECURITY: Requires operator signature to prevent risk-free betting exploit
      */
     function commitGame(
         Tier _tier,
         bytes32 serverSeedHash,
-        uint256 starTokenId
+        uint256 starTokenId,
+        uint256 expiration,
+        bytes calldata signature
     ) external payable nonReentrant whenNotPaused returns (bytes32 gameId) {
+        // Verify signature has not expired (strict inequality for security)
+        if (block.timestamp > expiration) revert SignatureExpired();
+        
+        // Verify operator signature
+        {
+            // Use abi.encode instead of abi.encodePacked to prevent hash collisions
+            bytes32 messageHash = keccak256(abi.encode(msg.sender, _tier, serverSeedHash, expiration));
+            address signer = ECDSA.recover(MessageHashUtils.toEthSignedMessageHash(messageHash), signature);
+            
+            // Prevent address(0) bypass (ECDSA.recover returns address(0) on failure)
+            if (signer == address(0)) revert InvalidSignature();
+            if (!hasRole(OPERATOR_ROLE, signer)) revert InvalidSignature();
+        }
+        
         TierConfig storage tierConfig = tiers[_tier];
         
         if (!tierConfig.isActive) revert TierNotActive();
@@ -459,8 +484,10 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
             // FIX #12: Jackpot REQUIRES VRF validation to prevent operator manipulation
             if (commitment.vrfRequestId == 0) revert JackpotRequiresVRF();
             
+            // SECURITY FIX: Revert if insufficient jackpot pool instead of partial payout
+            if (tierConfig.jackpotPool == 0) revert InsufficientFundsForJackpot();
+            
             payout = tierConfig.jackpotPool;
-            if (payout == 0) revert InsufficientJackpotPool();
             tierConfig.jackpotPool = 0;
             emit JackpotWon(gameId, commitment.player, commitment.tier, payout);
         } else if (multiplier > 0) {
@@ -470,10 +497,8 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
             // Cap at max payout configuration
             if (payout > tierConfig.maxPayout) payout = tierConfig.maxPayout;
             
-            // FIX #14: Solvency check - cap payout at available pool to prevent revert/DoS
-            if (payout > tierConfig.prizePool) {
-                payout = tierConfig.prizePool;
-            }
+            // SECURITY FIX: Revert if insufficient funds instead of partial payout
+            if (payout > tierConfig.prizePool) revert InsufficientFundsForPayout();
             
             tierConfig.prizePool -= payout;
         }
