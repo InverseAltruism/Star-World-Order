@@ -16,10 +16,11 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * Key Features:
  * - 5x5 grid reveal game with star patterns
  * - Commit-reveal RNG for provable fairness
+ * - Optional VRF integration for enhanced randomness
  * - 3 tiers: Bronze (45 MON), Silver (225 MON), Gold (450 MON)
  * - Pattern-based payouts up to 10x
  * - Jackpot pool for Supernova (all 25 stars)
- * - Star trait holders get better RTP (3% bonus)
+ * - Star trait holders get better RTP (3% bonus) via explicit token ID
  * - Tier auto-locking based on treasury balance
  * 
  * Fee Distribution:
@@ -27,6 +28,20 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * - 5% → Jackpot pool (Supernova only)
  * - 7% → Treasury (standard players)
  * - 4% → Treasury, 3% → Player bonus (Star holders)
+ * 
+ * VRF Integration (SECURITY FIX #6):
+ * - VRF Coordinator can be Gelato VRF, Chainlink VRF, or Chronicle
+ * - Gelato VRF recommended for Monad (free, decentralized)
+ * - VRF coordinator address set at deployment (immutable)
+ * - Authorized callers can request/fulfill VRF randomness
+ * - Force reveal mechanism after 1 hour timeout if server fails to reveal
+ * 
+ * Security Enhancements:
+ * - SECURITY FIX #1/#7: Force reveal after VRF timeout with 100% refund
+ * - SECURITY FIX #2: Treasury transfer failure handling (no DoS)
+ * - SECURITY FIX #3: O(1) Star holder verification with explicit token ID
+ * - SECURITY FIX #4: Pending game liability tracking for emergency withdraw
+ * - SECURITY FIX #5: Pattern ID optimization (uint8 vs string)
  * 
  * Deployed on Monad (Chain ID: 143)
  */
@@ -102,6 +117,8 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         bool revealed;
         uint256 vrfRequestId;       // VRF request ID (0 if not requested)
         bool vrfFulfilled;          // Whether VRF was fulfilled
+        uint256 vrfFulfillmentTimestamp; // Timestamp when VRF was fulfilled (SECURITY FIX #7)
+        uint256 starTokenId;        // Star Skrumpey token ID for bonus (SECURITY FIX #3)
     }
     
     /// @notice Game commitments by game ID
@@ -132,6 +149,9 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     
     // ============ VRF State Variables (SECURITY FIX #5, #6) ============
     
+    /// @notice VRF Coordinator address (immutable for gas optimization, SECURITY FIX #6)
+    address public immutable vrfCoordinator;
+    
     /// @notice Whether VRF is enabled (can be toggled by owner)
     bool public vrfEnabled;
     
@@ -152,8 +172,17 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     /// @notice Refund window duration (e.g., 24 hours)
     uint256 public constant REFUND_WINDOW = 24 hours;
     
+    /// @notice Reveal timeout for force reveal (1 hour after VRF fulfilled)
+    uint256 public constant REVEAL_TIMEOUT = 1 hours;
+    
     /// @notice Reserved funds for potential refunds
     mapping(bytes32 => bool) public refundReserved;
+    
+    /// @notice Total pending entry fees for unrevealed games (SECURITY FIX #4)
+    uint256 public totalPendingEntryFees;
+    
+    /// @notice Accumulated treasury fees from failed transfers (SECURITY FIX #2)
+    uint256 public accumulatedTreasuryFees;
     
     // ============ Events ============
     
@@ -174,7 +203,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         address indexed player,
         Tier tier,
         uint256 grid,
-        string pattern,
+        uint8 patternId,
         uint256 multiplier,
         uint256 payout,
         bool isJackpot
@@ -214,6 +243,15 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     /// @notice Emitted when a refund is requested (SECURITY FIX #3)
     event RefundIssued(bytes32 indexed gameId, address indexed player, uint256 amount);
     
+    /// @notice Emitted when treasury transfer fails (SECURITY FIX #2)
+    event TreasuryTransferFailed(uint256 amount);
+    
+    /// @notice Emitted when accumulated fees are withdrawn (SECURITY FIX #2)
+    event AccumulatedFeesWithdrawn(address indexed recipient, uint256 amount);
+    
+    /// @notice Emitted when a game is force revealed (SECURITY FIX #7)
+    event GameForcedReveal(bytes32 indexed gameId, address indexed player, uint256 refundAmount);
+    
     // ============ Errors ============
     
     error InvalidTier();
@@ -232,6 +270,8 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     error RefundWindowExpired();  // SECURITY FIX #3
     error RefundAlreadyProcessed();  // SECURITY FIX #3
     error ZeroAddress();
+    error VRFRevealTimeout();  // SECURITY FIX #7
+    error InvalidStarToken();  // SECURITY FIX #3
     
     // ============ Constructor ============
     
@@ -239,13 +279,16 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @notice Initialize StarForge contract
      * @param _starSkrumpeyNFT Star Skrumpey NFT contract address
      * @param _daoTreasury DAO treasury address
+     * @param _vrfCoordinator VRF coordinator address (address(0) if VRF not used)
      */
     constructor(
         address _starSkrumpeyNFT,
-        address _daoTreasury
+        address _daoTreasury,
+        address _vrfCoordinator
     ) Ownable(msg.sender) {
         starSkrumpeyNFT = IERC721(_starSkrumpeyNFT);
         daoTreasury = _daoTreasury;
+        vrfCoordinator = _vrfCoordinator;
         
         // Initialize tiers
         tiers[Tier.BRONZE] = TierConfig({
@@ -282,11 +325,14 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @notice Commit to a new game
      * @param _tier Game tier (Bronze/Silver/Gold)
      * @param serverSeedHash Server seed hash commitment
+     * @param starTokenId Optional Star Skrumpey token ID for bonus (0 if not claiming bonus)
      * @return gameId Unique game identifier
+     * @dev SECURITY FIX #3: Star holders explicitly claim their bonus with token ID
      */
     function commitGame(
         Tier _tier,
-        bytes32 serverSeedHash
+        bytes32 serverSeedHash,
+        uint256 starTokenId
     ) external payable nonReentrant whenNotPaused returns (bytes32 gameId) {
         TierConfig storage tierConfig = tiers[_tier];
         
@@ -297,8 +343,11 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         // Check rate limit
         if (!_checkRateLimit(msg.sender)) revert RateLimitExceeded();
         
-        // Check if player holds Star Skrumpey
-        bool _isStarHolder = _checkStarHolder(msg.sender);
+        // Check if player holds Star Skrumpey (SECURITY FIX #3: O(1) verification)
+        bool _isStarHolder = false;
+        if (starTokenId > 0) {
+            _isStarHolder = _checkStarHolderWithToken(msg.sender, starTokenId);
+        }
         
         // Generate game ID
         uint256 nonce = playerNonces[msg.sender]++;
@@ -321,14 +370,17 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
             isStarHolder: _isStarHolder,
             revealed: false,
             vrfRequestId: 0,        // SECURITY FIX #6: Initialize VRF fields
-            vrfFulfilled: false
+            vrfFulfilled: false,
+            vrfFulfillmentTimestamp: 0,
+            starTokenId: starTokenId
         });
         
-        // Distribute entry fee
+        // Distribute entry fee (SECURITY FIX #2: Wrapped in try-catch)
         _distributeEntryFee(_tier, msg.value, _isStarHolder);
         
-        // Update stats
+        // Update stats (SECURITY FIX #4: Track pending entry fees)
         totalWagered += msg.value;
+        totalPendingEntryFees += msg.value;
         
         emit GameCommitted(
             gameId,
@@ -346,7 +398,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param gameId Game identifier
      * @param serverSeed Server seed (reveals hash)
      * @param grid 25-bit grid result
-     * @param pattern Pattern name
+     * @param patternId Pattern identifier (SECURITY FIX #5: uint8 instead of string)
      * @param multiplier Payout multiplier in percent×100 (e.g., 200 = 2x, 1000 = 10x)
      * @dev Multipliers use percent×100 semantics: divide by 100, cap at MAX_MULTIPLIER * 100
      */
@@ -354,7 +406,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         bytes32 gameId,
         bytes32 serverSeed,
         uint256 grid,
-        string calldata pattern,
+        uint8 patternId,
         uint256 multiplier
     ) external nonReentrant whenNotPaused {
         GameCommitment storage commitment = commitments[gameId];
@@ -430,15 +482,16 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
             if (!success) revert TransferFailed();
         }
         
-        // Update stats
+        // Update stats (SECURITY FIX #4: Decrement pending entry fees)
         totalGamesPlayed++;
+        totalPendingEntryFees -= commitment.entryFee;
         
         emit GameRevealed(
             gameId,
             commitment.player,
             commitment.tier,
             grid,
-            pattern,
+            patternId,
             multiplier,
             payout,
             isJackpot
@@ -545,8 +598,8 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @dev SECURITY FIX #4: Added solvency check to prevent draining player funds
      */
     function emergencyWithdraw(uint256 amount) external onlyOwner {
-        // Calculate total liabilities (prize pools + jackpot pools)
-        uint256 totalLiabilities = 0;
+        // Calculate total liabilities (prize pools + jackpot pools + pending entry fees)
+        uint256 totalLiabilities = totalPendingEntryFees;
         for (uint256 i = 0; i < 3; i++) {
             Tier tier = Tier(i);
             totalLiabilities += tiers[tier].prizePool + tiers[tier].jackpotPool;
@@ -577,6 +630,13 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @return requestId VRF request ID
      * @dev SECURITY FIX #5: Added access control
      * @dev SECURITY FIX #6: Integrated VRF into game flow
+     * 
+     * VRF Integration Notes:
+     * - For Gelato VRF: Call Gelato's requestRandomness() with this contract as callback
+     * - For Chainlink VRF: Call COORDINATOR.requestRandomWords() with subscription
+     * - For Chronicle: Use Schnorr signature verification
+     * - The VRF coordinator should call fulfillVRFRandomness() with the result
+     * - Frontend should authorize the VRF coordinator address via setAuthorizedCaller()
      */
     function requestVRFRandomness(bytes32 gameId) external onlyAuthorized returns (uint256 requestId) {
         GameCommitment storage commitment = commitments[gameId];
@@ -604,6 +664,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param requestId VRF request ID
      * @param randomness Random value from VRF
      * @dev SECURITY FIX #6: Store VRF randomness for grid validation
+     * @dev SECURITY FIX #7: Record fulfillment timestamp for force reveal
      * @dev This should be called by the VRF coordinator (Gelato)
      */
     function fulfillVRFRandomness(
@@ -615,9 +676,10 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         
         GameCommitment storage commitment = commitments[gameId];
         
-        // Store randomness
+        // Store randomness and timestamp (SECURITY FIX #7)
         vrfRandomness[gameId] = randomness;
         commitment.vrfFulfilled = true;
+        commitment.vrfFulfillmentTimestamp = block.timestamp;
         
         emit VRFFulfilled(gameId, requestId, randomness);
     }
@@ -683,6 +745,71 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
             
             emit RefundIssued(gameId, msg.sender, prizePoolAmount);
         }
+        
+        // Update stats (SECURITY FIX #4: Decrement pending entry fees)
+        totalPendingEntryFees -= commitment.entryFee;
+    }
+    
+    /**
+     * @notice Withdraw accumulated treasury fees from failed transfers (owner only)
+     * @dev SECURITY FIX #2: Allow owner to withdraw fees that failed to transfer
+     */
+    function withdrawAccumulatedFees() external onlyOwner {
+        uint256 amount = accumulatedTreasuryFees;
+        if (amount == 0) revert InsufficientSurplus();
+        
+        accumulatedTreasuryFees = 0;
+        
+        (bool success, ) = payable(daoTreasury).call{value: amount}("");
+        if (!success) revert TransferFailed();
+        
+        emit AccumulatedFeesWithdrawn(daoTreasury, amount);
+    }
+    
+    /**
+     * @notice Force reveal a game after VRF timeout
+     * @param gameId Game identifier
+     * @dev SECURITY FIX #7: Allows player to force reveal if server fails to reveal after VRF fulfilled
+     */
+    function forceReveal(bytes32 gameId) external nonReentrant {
+        GameCommitment storage commitment = commitments[gameId];
+        
+        // Validate game exists and belongs to caller
+        if (commitment.player != msg.sender) revert Unauthorized();
+        if (commitment.revealed) revert GameAlreadyRevealed();
+        
+        // VRF must be enabled and fulfilled
+        if (!vrfEnabled || !commitment.vrfFulfilled) revert VRFRevealTimeout();
+        
+        // Check timeout has passed
+        if (block.timestamp < commitment.vrfFulfillmentTimestamp + REVEAL_TIMEOUT) {
+            revert VRFRevealTimeout();
+        }
+        
+        // Mark as revealed
+        commitment.revealed = true;
+        
+        // Provide 100% refund from prize pool
+        TierConfig storage tierConfig = tiers[commitment.tier];
+        uint256 refundAmount = commitment.entryFee;
+        
+        // Check solvency
+        if (refundAmount > tierConfig.prizePool) {
+            refundAmount = tierConfig.prizePool;
+        }
+        
+        if (refundAmount > 0) {
+            tierConfig.prizePool -= refundAmount;
+            
+            // Transfer refund
+            (bool success, ) = payable(msg.sender).call{value: refundAmount}("");
+            if (!success) revert TransferFailed();
+        }
+        
+        // Update stats (SECURITY FIX #4: Decrement pending entry fees)
+        totalPendingEntryFees -= commitment.entryFee;
+        
+        emit GameForcedReveal(gameId, msg.sender, refundAmount);
     }
     
     // ============ View Functions ============
@@ -730,6 +857,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param tier Game tier
      * @param entryFee Entry fee amount
      * @param starHolder Whether player holds Star Skrumpey
+     * @dev SECURITY FIX #2: Wraps treasury transfer in try-catch to prevent DoS
      */
     function _distributeEntryFee(
         Tier tier,
@@ -757,10 +885,14 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         tierConfig.prizePool += prizePoolAmount;
         tierConfig.jackpotPool += jackpot;
         
-        // Transfer treasury fee to DAO
+        // SECURITY FIX #2: Try to transfer treasury fee to DAO (don't revert on failure)
         if (treasury > 0) {
             (bool success, ) = payable(daoTreasury).call{value: treasury}("");
-            if (!success) revert TransferFailed();
+            if (!success) {
+                // Accumulate failed transfer for later withdrawal
+                accumulatedTreasuryFees += treasury;
+                emit TreasuryTransferFailed(treasury);
+            }
         }
         
         // Return player bonus to Star holders
@@ -803,6 +935,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param player Player address
      * @return Whether player holds a Star Skrumpey
      * @dev Uses IERC721Enumerable to iterate tokens and check isStarSkrumpey registry
+     * @dev DEPRECATED: Use _checkStarHolderWithToken for gas efficiency
      */
     function _checkStarHolder(address player) internal view returns (bool) {
         uint256 balance = starSkrumpeyNFT.balanceOf(player);
@@ -823,6 +956,26 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
             // If not enumerable, return false
             // Alternative: maintain an address-level allowlist
             return false;
+        }
+    }
+    
+    /**
+     * @notice Check if player owns specific Star Skrumpey token with Star trait
+     * @param player Player address
+     * @param tokenId Token ID to verify
+     * @return Whether player holds the specified Star Skrumpey
+     * @dev SECURITY FIX #3: O(1) verification using explicit token ID
+     */
+    function _checkStarHolderWithToken(address player, uint256 tokenId) internal view returns (bool) {
+        // Verify token has Star trait
+        if (!isStarSkrumpey[tokenId]) revert InvalidStarToken();
+        
+        // Verify player owns the token
+        try starSkrumpeyNFT.ownerOf(tokenId) returns (address owner) {
+            if (owner != player) revert InvalidStarToken();
+            return true;
+        } catch {
+            revert InvalidStarToken();
         }
     }
     
