@@ -40,7 +40,7 @@ interface IVRFCoordinator {
  * Security Improvements (V3):
  * - FIX #1: Use coordinator's VRF requestId (not internal counter)
  * - FIX #2: VRF requirement is per-game based on commitment, not global toggle
- * - FIX #3: Bind patternId & multiplier to commit via domain-separated hash
+ * - FIX #3: CORRECTED - Bind ONLY serverSeed to commit (multiplier calculated from VRF grid)
  * - FIX #4: Jackpot path verifies grid is full (all 25 bits set)
  * - FIX #5: Consistent prize pool math with star bonus semantics
  * - FIX #6: Added setDaoTreasury admin setter
@@ -53,6 +53,7 @@ interface IVRFCoordinator {
  * - FIX #13: Removed gas-heavy getStarTokens (use off-chain indexer)
  * - FIX #14: Added solvency cap on payouts (prevents insolvency)
  * - FIX #15: Simplified rate limiting with compact uint32[10] storage (gas optimization)
+ * - FIX #16: Dynamic multiplier calculation from grid (provably fair outcomes)
  * 
  * Deployed on Monad (Chain ID: 143)
  */
@@ -64,7 +65,8 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
 
     // ============ Constants ============
     
-    /// @notice Domain separator for commit hash validation (FIX #3)
+    /// @notice Domain separator for commit hash validation (FIX #3 CORRECTED)
+    /// @dev Hash now only binds serverSeed: keccak256(COMMIT_DOMAIN, serverSeed)
     bytes32 public constant COMMIT_DOMAIN = keccak256("STARFORGE_V3");
     
     /// @notice Basis points divisor (100% = 10000 bps)
@@ -142,7 +144,7 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
         address player;
         Tier tier;
         uint256 entryFee;
-        bytes32 serverSeedHash;  // Now: keccak256(COMMIT_DOMAIN, serverSeed, patternId, multiplier)
+        bytes32 serverSeedHash;  // FIX #3 CORRECTED: keccak256(COMMIT_DOMAIN, serverSeed)
         uint256 nonce;
         uint256 timestamp;
         bool isStarHolder;
@@ -264,6 +266,8 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     error InvalidJackpotGrid();
     /// @notice FIX #12: Jackpot requires VRF
     error JackpotRequiresVRF();
+    /// @notice FIX #16: Invalid pattern/grid combination
+    error InvalidPattern();
 
     // ============ Constructor ============
 
@@ -312,10 +316,11 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice Commit to a new game
      * @param _tier Game tier (Bronze/Silver/Gold)
-     * @param serverSeedHash Server seed hash - MUST be keccak256(COMMIT_DOMAIN, serverSeed, patternId, multiplier)
+     * @param serverSeedHash Server seed hash - MUST be keccak256(COMMIT_DOMAIN, serverSeed)
      * @param starTokenId Optional Star Skrumpey token ID for bonus (0 if not claiming)
      * @return gameId Unique game identifier
-     * @dev FIX #3: serverSeedHash now binds patternId and multiplier at commit time
+     * @dev FIX #3 CORRECTED: serverSeedHash now ONLY binds serverSeed (multiplier calculated from VRF grid)
+     * @dev FIX #16: Multiplier is dynamically calculated from grid pattern for provable fairness
      */
     function commitGame(
         Tier _tier,
@@ -367,38 +372,40 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     /**
      * @notice Reveal game result and process payout
      * @param gameId Game identifier
-     * @param serverSeed Server seed (must match hash when combined with domain, patternId, multiplier)
-     * @param grid 25-bit grid result
-     * @param patternId Pattern identifier
-     * @param multiplier Payout multiplier (type(uint256).max for jackpot)
+     * @param serverSeed Server seed (must match hash: keccak256(COMMIT_DOMAIN, serverSeed))
      * @dev FIX #2: VRF requirement is per-game based on commitment.vrfRequestId
-     * @dev FIX #3: Validates keccak256(COMMIT_DOMAIN, serverSeed, patternId, multiplier) == serverSeedHash
+     * @dev FIX #3 CORRECTED: Validates keccak256(COMMIT_DOMAIN, serverSeed) == serverSeedHash
      * @dev FIX #4: Jackpot requires grid == ((1 << 25) - 1) (all stars)
+     * @dev FIX #16: Multiplier calculated dynamically from VRF grid (provably fair)
      */
     function revealGame(
         bytes32 gameId,
-        bytes32 serverSeed,
-        uint256 grid,
-        uint8 patternId,
-        uint256 multiplier
+        bytes32 serverSeed
     ) external nonReentrant whenNotPaused {
         GameCommitment storage commitment = commitments[gameId];
         
         if (commitment.player == address(0)) revert GameNotFound();
         if (commitment.revealed) revert GameAlreadyRevealed();
         
-        // FIX #3: Validate server seed with domain separator, patternId, and multiplier bound at commit
-        if (keccak256(abi.encodePacked(COMMIT_DOMAIN, serverSeed, patternId, multiplier)) != commitment.serverSeedHash) {
+        // FIX #3 CORRECTED: Validate server seed with domain separator (only seed, not outcome)
+        if (keccak256(abi.encodePacked(COMMIT_DOMAIN, serverSeed)) != commitment.serverSeedHash) {
             revert InvalidServerSeed();
         }
         
         // FIX #2: VRF requirement is per-game (based on whether VRF was requested), not global toggle
+        uint256 grid;
         if (commitment.vrfRequestId != 0) {
             // VRF was requested for this game, so we must validate
             if (!commitment.vrfFulfilled) revert VRFNotFulfilled();
-            uint256 expectedGrid = _generateGridFromVRF(vrfRandomness[gameId], serverSeed);
-            if (grid != expectedGrid) revert InvalidServerSeed();
+            grid = _generateGridFromVRF(vrfRandomness[gameId], serverSeed);
+        } else {
+            // No VRF - server-generated grid (less secure, only for testing)
+            grid = uint256(keccak256(abi.encodePacked(serverSeed))) & ((1 << 25) - 1);
         }
+        
+        // FIX #16: Calculate multiplier dynamically from grid pattern (PROVABLY FAIR)
+        uint256 multiplier = _calculateMultiplierFromGrid(grid);
+        uint8 patternId = _getPatternId(grid);
         
         // Mark revealed and decrement pending
         commitment.revealed = true;
@@ -791,6 +798,93 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
 
     function _generateGridFromVRF(uint256 randomness, bytes32 seed) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(randomness, seed))) & ((1 << 25) - 1);
+    }
+
+    /**
+     * @notice FIX #16: Count number of stars in grid
+     * @param grid 25-bit grid
+     * @return count Number of lit stars (bits set to 1)
+     */
+    function _countStars(uint256 grid) internal pure returns (uint256 count) {
+        // Brian Kernighan's algorithm for counting set bits
+        uint256 n = grid;
+        while (n != 0) {
+            n &= n - 1; // Clear the lowest set bit
+            count++;
+        }
+    }
+
+    /**
+     * @notice FIX #16: Calculate multiplier from grid pattern (PROVABLY FAIR)
+     * @param grid 25-bit grid result
+     * @return multiplier Payout multiplier in percent*100 (e.g., 200 = 2x)
+     * @dev This is the core provably fair logic - outcome determined by VRF-generated grid
+     * 
+     * Pattern Definitions:
+     * - 25 stars (all lit): JACKPOT (type(uint256).max)
+     * - 20-24 stars: 10x (1000)
+     * - 16-19 stars: 5x (500)
+     * - 13-15 stars: 3x (300)
+     * - 10-12 stars: 2x (200)
+     * - 7-9 stars: 1.5x (150)
+     * - 5-6 stars: 1.25x (125)
+     * - 3-4 stars: 1x (100) - break even
+     * - 0-2 stars: 0x (0) - loss
+     */
+    function _calculateMultiplierFromGrid(uint256 grid) internal pure returns (uint256) {
+        uint256 starCount = _countStars(grid);
+        
+        // Jackpot: All 25 stars (full grid)
+        if (starCount == 25) {
+            return type(uint256).max; // Jackpot indicator
+        }
+        // Big win patterns
+        else if (starCount >= 20) {
+            return 1000; // 10x
+        }
+        else if (starCount >= 16) {
+            return 500; // 5x
+        }
+        else if (starCount >= 13) {
+            return 300; // 3x
+        }
+        // Medium win patterns
+        else if (starCount >= 10) {
+            return 200; // 2x
+        }
+        else if (starCount >= 7) {
+            return 150; // 1.5x
+        }
+        // Small win patterns
+        else if (starCount >= 5) {
+            return 125; // 1.25x
+        }
+        else if (starCount >= 3) {
+            return 100; // 1x (break even)
+        }
+        // Loss
+        else {
+            return 0; // Loss
+        }
+    }
+
+    /**
+     * @notice FIX #16: Get pattern ID from grid for event emission
+     * @param grid 25-bit grid result
+     * @return patternId Pattern identifier (0-8)
+     */
+    function _getPatternId(uint256 grid) internal pure returns (uint8) {
+        uint256 starCount = _countStars(grid);
+        
+        if (starCount == 25) return 8; // Jackpot
+        else if (starCount >= 20) return 7; // 10x
+        else if (starCount >= 16) return 6; // 5x
+        else if (starCount >= 13) return 5; // 3x
+        else if (starCount >= 10) return 4; // 2x
+        else if (starCount >= 7) return 3; // 1.5x
+        else if (starCount >= 5) return 2; // 1.25x
+        else if (starCount >= 3) return 1; // 1x
+        else return 0; // Loss
     }
 
     // ============ View Helpers for Frontend ============
