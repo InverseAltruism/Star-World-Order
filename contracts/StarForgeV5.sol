@@ -266,10 +266,12 @@ contract StarForgeV5 is ReentrancyGuard, AccessControl, Pausable {
     error JackpotRequiresVRF();
     error InvalidPattern();
     error SignatureExpired();
+    error SignatureValidityTooLong();  // Signature expiration too far in future
     error InvalidSignature();
     error InsufficientFundsForPayout();
     error InsufficientFundsForJackpot();
     error ServerSeedHashAlreadyUsed();  // FIX #5: New error for seed reuse
+    error ArithmeticOverflow();  // Overflow protection for solvency checks
 
     // ============ Constructor ============
 
@@ -365,7 +367,7 @@ contract StarForgeV5 is ReentrancyGuard, AccessControl, Pausable {
         if (block.timestamp > expiration) revert SignatureExpired();
         
         // Additional check: signature shouldn't be valid for too long
-        if (expiration > block.timestamp + SIGNATURE_VALIDITY) revert SignatureExpired();
+        if (expiration > block.timestamp + SIGNATURE_VALIDITY) revert SignatureValidityTooLong();
         
         uint256 currentNonce = playerNonces[msg.sender];
         
@@ -591,6 +593,9 @@ contract StarForgeV5 is ReentrancyGuard, AccessControl, Pausable {
         
         uint256 totalLiabilities = _calculateTotalLiabilities();
         
+        // Overflow check: ensure addition doesn't overflow
+        if (amount > type(uint256).max - totalLiabilities) revert ArithmeticOverflow();
+        
         if (address(this).balance < totalLiabilities + amount) revert InsufficientSurplus();
 
         withdrawalRequest = WithdrawalRequest({
@@ -615,6 +620,10 @@ contract StarForgeV5 is ReentrancyGuard, AccessControl, Pausable {
 
         // Double check solvency at execution time
         uint256 totalLiabilities = _calculateTotalLiabilities();
+        
+        // Overflow check: ensure addition doesn't overflow
+        if (amount > type(uint256).max - totalLiabilities) revert ArithmeticOverflow();
+        
         if (address(this).balance < totalLiabilities + amount) revert InsufficientSurplus();
 
         (bool success, ) = payable(msg.sender).call{value: amount}("");
