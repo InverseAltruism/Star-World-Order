@@ -19,7 +19,8 @@ const CONTRACTS = [
   'StarSkrumpeyMarketplace.sol',
   'StarSkrumpeyStaking.sol',
   'StarWorldOrderGovernor.sol',
-  'StarForge.sol'
+  'StarForge.sol',
+  'StarForgeV2.sol'
 ];
 
 /**
