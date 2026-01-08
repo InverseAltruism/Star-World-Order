@@ -35,7 +35,7 @@ interface IVRFCoordinator {
  * - 88% → Prize pool (regular wins)
  * - 5% → Jackpot pool (Supernova only)
  * - 7% → Treasury (standard players)
- * - 4% → Treasury, 3% → Player bonus (Star holders)
+ * - 4% → Treasury (Star holders) - 3% surplus retained in prize pool for bonuses
  * 
  * Security Improvements (V3):
  * - FIX #1: Use coordinator's VRF requestId (not internal counter)
@@ -48,6 +48,11 @@ interface IVRFCoordinator {
  * - FIX #8: Type-safe rate limiter with uint64 cast
  * - FIX #9: Indexed patternId in GameRevealed event for analytics
  * - FIX #10: Specific error types for VRF reveal path
+ * - FIX #11: Star Holder bonus now funded from treasury savings (3% retained in prize pool)
+ * - FIX #12: Jackpot requires VRF validation (prevents operator manipulation)
+ * - FIX #13: Removed gas-heavy getStarTokens (use off-chain indexer)
+ * - FIX #14: Added solvency cap on payouts (prevents insolvency)
+ * - FIX #15: Simplified rate limiting with compact uint32[10] storage (gas optimization)
  * 
  * Deployed on Monad (Chain ID: 143)
  */
@@ -91,9 +96,6 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     
     /// @notice Rate limit time window (1 minute)
     uint256 public constant RATE_LIMIT_WINDOW = 1 minutes;
-    
-    /// @notice Maximum rate limit entries to store per player
-    uint256 public constant MAX_RATE_LIMIT_ENTRIES = 20;
     
     /// @notice Refund window duration (24 hours)
     uint256 public constant REFUND_WINDOW = 24 hours;
@@ -157,11 +159,12 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     /// @notice Player nonces for game uniqueness
     mapping(address => uint256) public playerNonces;
     
-    /// @notice Rate limiting with bounded storage (circular buffer)
+    /// @notice FIX #15: Simplified rate limiting (last 10 timestamps only)
+    /// @dev Uses compact storage: 10 uint32 timestamps (sufficient until year 2106)
     struct RateLimit {
-        uint64 head;        
-        uint64 count;       
-        uint64[20] stamps;  
+        uint32[10] stamps;  // Last 10 game timestamps
+        uint8 count;        // Number of valid entries (0-10)
+        uint8 head;         // Circular buffer head position
     }
     mapping(address => RateLimit) private rateLimits;
     
@@ -259,6 +262,8 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     error VRFRequestFailed();
     /// @notice FIX #4: Invalid jackpot grid error
     error InvalidJackpotGrid();
+    /// @notice FIX #12: Jackpot requires VRF
+    error JackpotRequiresVRF();
 
     // ============ Constructor ============
 
@@ -412,15 +417,19 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
         uint256 treasuryAmount;
         uint256 jackpotAlloc = (commitment.entryFee * JACKPOT_POOL_BPS) / BPS_DIVISOR;
         
+        // FIX #11: Star holders pay 4% treasury, creating 3% surplus that funds their bonus
+        // This 3% is added to prize pool to maintain solvency when bonuses are paid
+        uint256 netStake;
         if (commitment.isStarHolder) {
-            treasuryAmount = (commitment.entryFee * TREASURY_STAR_BPS) / BPS_DIVISOR;
+            treasuryAmount = (commitment.entryFee * TREASURY_STAR_BPS) / BPS_DIVISOR; // 4%
+            // 91% goes to pools (88% base + 3% to cover star bonus)
+            netStake = (commitment.entryFee * (PRIZE_POOL_BPS + STAR_BONUS_BPS)) / BPS_DIVISOR;
         } else {
-            treasuryAmount = (commitment.entryFee * TREASURY_STANDARD_BPS) / BPS_DIVISOR;
+            treasuryAmount = (commitment.entryFee * TREASURY_STANDARD_BPS) / BPS_DIVISOR; // 7%
+            // Standard 88% to prize pool
+            netStake = (commitment.entryFee * PRIZE_POOL_BPS) / BPS_DIVISOR;
         }
-
-        // FIX #5: Consistent net stake calculation - always 88% base to prize pool
-        // Star holders get their 3% bonus added to payout, not to pool
-        uint256 netStake = (commitment.entryFee * PRIZE_POOL_BPS) / BPS_DIVISOR;
+        
         tierConfig.prizePool += netStake;
 
         // Update Jackpot Pool
@@ -440,16 +449,24 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
             // FIX #4: Verify grid is full (all 25 stars lit) for jackpot
             if (grid != ((1 << 25) - 1)) revert InvalidJackpotGrid();
             
+            // FIX #12: Jackpot REQUIRES VRF validation to prevent operator manipulation
+            if (commitment.vrfRequestId == 0) revert JackpotRequiresVRF();
+            
             payout = tierConfig.jackpotPool;
             if (payout == 0) revert InsufficientJackpotPool();
             tierConfig.jackpotPool = 0;
             emit JackpotWon(gameId, commitment.player, commitment.tier, payout);
         } else if (multiplier > 0) {
-            // FIX #5: Base payout on 88% prize pool portion, add star bonus separately
+            // FIX #14: Calculate payout with star bonus
             payout = _calculatePayout(commitment.entryFee, multiplier, commitment.isStarHolder);
             
+            // Cap at max payout configuration
             if (payout > tierConfig.maxPayout) payout = tierConfig.maxPayout;
-            if (payout > tierConfig.prizePool) revert InsufficientTreasuryBalance();
+            
+            // FIX #14: Solvency check - cap payout at available pool to prevent revert/DoS
+            if (payout > tierConfig.prizePool) {
+                payout = tierConfig.prizePool;
+            }
             
             tierConfig.prizePool -= payout;
         }
@@ -627,6 +644,29 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
         if (!success) revert TransferFailed();
         emit AccumulatedFeesWithdrawn(daoTreasury, amount);
     }
+    
+    /**
+     * @notice Get contract solvency status
+     * @return totalAssets Total ETH in contract
+     * @return totalLiabilities Total committed liabilities
+     * @return surplus Available surplus (can be negative if insolvent)
+     * @dev Added for transparency and monitoring
+     */
+    function getSolvencyStatus() external view returns (
+        uint256 totalAssets,
+        uint256 totalLiabilities, 
+        int256 surplus
+    ) {
+        totalAssets = address(this).balance;
+        totalLiabilities = totalPendingEntryFees + accumulatedTreasuryFees;
+        
+        for (uint256 i = 0; i < 3; i++) {
+            Tier tier = Tier(i);
+            totalLiabilities += tiers[tier].prizePool + tiers[tier].jackpotPool;
+        }
+        
+        surplus = int256(totalAssets) - int256(totalLiabilities);
+    }
 
     function pause() external onlyRole(OPERATOR_ROLE) { _pause(); }
     function unpause() external onlyRole(OPERATOR_ROLE) { _unpause(); }
@@ -686,40 +726,44 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     }
 
     /**
-     * @notice FIX #8: Type-safe rate limit check with uint64 cast
+     * @notice FIX #15: Simplified rate limit check with compact storage
      * @param player Player address
      * @return Whether player can play
+     * @dev Uses 10 uint32 timestamps instead of 20 uint64 for gas efficiency
      */
     function _checkRateLimit(address player) internal returns (bool) {
         RateLimit storage r = rateLimits[player];
-        uint256 cutoff = block.timestamp - RATE_LIMIT_WINDOW;
-        uint256 valid = 0;
+        uint32 currentTime = uint32(block.timestamp);
+        uint32 cutoff = uint32(block.timestamp - RATE_LIMIT_WINDOW);
         
+        // Count valid entries within time window
+        uint256 valid = 0;
         for (uint256 i = 0; i < r.count; i++) {
-            uint256 idx = (uint256(r.head) + i) % MAX_RATE_LIMIT_ENTRIES;
-            if (r.stamps[idx] > cutoff) valid++;
+            if (r.stamps[i] > cutoff) valid++;
         }
         
+        // Check if limit exceeded
         if (valid >= RATE_LIMIT_GAMES) return false;
         
-        uint256 nextIdx = (uint256(r.head) + uint256(r.count)) % MAX_RATE_LIMIT_ENTRIES;
-        if (r.count < MAX_RATE_LIMIT_ENTRIES) {
-            r.stamps[nextIdx] = uint64(block.timestamp);
+        // Add new timestamp to circular buffer
+        r.stamps[r.head] = currentTime;
+        r.head = uint8((r.head + 1) % RATE_LIMIT_GAMES);
+        if (r.count < RATE_LIMIT_GAMES) {
             r.count++;
-        } else {
-            r.stamps[r.head] = uint64(block.timestamp);
-            // FIX #8: Type-safe increment with modulo
-            r.head = (r.head + 1) % uint64(MAX_RATE_LIMIT_ENTRIES);
         }
+        
         return true;
     }
 
     /**
-     * @notice FIX #5: Calculate payout with consistent 88% base + 3% star bonus
+     * @notice FIX #11: Calculate payout - Star bonus is now pre-funded in prize pool
      * @param entryFee Entry fee
      * @param multiplier Multiplier in percent*100 (200 = 2x)
      * @param starHolder Whether player is star holder
      * @return Payout amount
+     * @dev For star holders: 91% allocated to prize pool (88% base + 3% bonus fund)
+     *      Payout = (88% * multiplier) + 3% bonus
+     *      All funds come from prize pool (which was funded with the 91%)
      */
     function _calculatePayout(uint256 entryFee, uint256 multiplier, bool starHolder) internal pure returns (uint256) {
         // Base calculation on the Prize Pool allocation (88% of entry)
@@ -728,6 +772,7 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
         
         if (starHolder) {
             // Star holders get an additional 3% bonus on their entry fee
+            // This is funded by the extra 3% allocated to prize pool at reveal
             uint256 bonus = (entryFee * STAR_BONUS_BPS) / BPS_DIVISOR;
             return basePayout + bonus;
         }
@@ -751,35 +796,18 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
     // ============ View Helpers for Frontend ============
     
     /**
-     * @notice Helper to find Star Skrumpeys in a player's wallet
-     * @dev GAS HEAVY: Call off-chain via view/staticCall only
+     * @notice FIX #13: getStarTokens REMOVED - Use off-chain indexer instead
+     * @dev The previous implementation was:
+     *      - Gas intensive (O(n) iteration)
+     *      - Unreliable (capped at 20 tokens, missing tokens beyond that)
+     *      - Unsuitable for production
+     *      
+     *      RECOMMENDATION: Use The Graph, Goldsky, or similar indexer service
+     *      to track Star Skrumpey ownership off-chain and query via API.
+     *      
+     *      For on-chain verification, use _checkStarHolderWithToken() with
+     *      a known tokenId (provided by frontend/indexer).
      */
-    function getStarTokens(address player) external view returns (uint256[] memory) {
-        uint256 balance = starSkrumpeyNFT.balanceOf(player);
-        if (balance == 0) return new uint256[](0);
-
-        // Cap at 20 to prevent timeouts
-        uint256 scanCount = balance > 20 ? 20 : balance;
-        uint256[] memory tokens = new uint256[](scanCount);
-        uint256 found = 0;
-
-        try IERC721Enumerable(address(starSkrumpeyNFT)).tokenOfOwnerByIndex(player, 0) returns (uint256) {
-            for (uint256 i = 0; i < scanCount; i++) {
-                uint256 tid = IERC721Enumerable(address(starSkrumpeyNFT)).tokenOfOwnerByIndex(player, i);
-                if (isStarSkrumpey[tid]) {
-                    tokens[found] = tid;
-                    found++;
-                }
-            }
-        } catch {
-            return new uint256[](0);
-        }
-
-        // Resize array
-        uint256[] memory result = new uint256[](found);
-        for(uint256 i = 0; i < found; i++) result[i] = tokens[i];
-        return result;
-    }
 
     function getTimeUntilForceReveal(bytes32 gameId) external view returns (uint256) {
         GameCommitment memory c = commitments[gameId];
