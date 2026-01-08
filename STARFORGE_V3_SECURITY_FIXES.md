@@ -375,3 +375,55 @@ StarForgeV3 is now **production-ready** with all critical vulnerabilities fixed:
 **Date**: January 8, 2026  
 **Contract Version**: StarForgeV3 (Post-Fix)  
 **Chain**: Monad (Chain ID: 143)
+
+---
+
+## FIX #16: Dynamic Multiplier Calculation (CRITICAL REFACTOR)
+
+**Severity**: CRITICAL  
+**Impact**: Fixed fundamental logic contradiction that made jackpots impossible
+
+### The Problem
+
+Original FIX #3 bound the multiplier in the commit hash, creating an impossible situation:
+
+```solidity
+// Commit: keccak256(DOMAIN, serverSeed, patternId, multiplier)
+// Problem: Outcome predetermined BEFORE VRF randomness
+```
+
+**Contradiction**:
+- Server commits to `multiplier=MAX` for jackpot
+- VRF randomly generates grid
+- If VRF doesn't generate 25 stars → Transaction reverts
+- **Result**: Jackpots mathematically impossible
+
+### The Fix
+
+```solidity
+// Commit: keccak256(DOMAIN, serverSeed) - Only seed
+// Reveal: multiplier = _calculateMultiplierFromGrid(vrf_grid)
+// ✅ Outcome determined by VRF (PROVABLY FAIR)
+```
+
+**Key Changes**:
+1. Removed `patternId` and `multiplier` from commit hash
+2. Added `_calculateMultiplierFromGrid()` - calculates payout from grid
+3. Added `_countStars()` - counts set bits in grid
+4. Added `_getPatternId()` - maps star count to pattern
+5. Simplified `revealGame()` - takes only `gameId` and `serverSeed`
+
+**Pattern Definitions**:
+- 25 stars: JACKPOT
+- 20-24: 10x
+- 16-19: 5x
+- 13-15: 3x
+- 10-12: 2x
+- 7-9: 1.5x
+- 5-6: 1.25x
+- 3-4: 1x (break even)
+- 0-2: Loss
+
+**Verification**: See `STARFORGE_V3_FIX_16.md` for complete documentation.
+
+---
