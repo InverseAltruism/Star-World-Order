@@ -338,13 +338,17 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
         uint256 expiration,
         bytes calldata signature
     ) external payable nonReentrant whenNotPaused returns (bytes32 gameId) {
-        // Verify signature has not expired
-        if (block.timestamp >= expiration) revert SignatureExpired();
+        // Verify signature has not expired (strict inequality for security)
+        if (block.timestamp > expiration) revert SignatureExpired();
         
         // Verify operator signature
         {
-            bytes32 messageHash = keccak256(abi.encodePacked(msg.sender, _tier, serverSeedHash, expiration));
+            // Use abi.encode instead of abi.encodePacked to prevent hash collisions
+            bytes32 messageHash = keccak256(abi.encode(msg.sender, _tier, serverSeedHash, expiration));
             address signer = ECDSA.recover(MessageHashUtils.toEthSignedMessageHash(messageHash), signature);
+            
+            // Prevent address(0) bypass (ECDSA.recover returns address(0) on failure)
+            if (signer == address(0)) revert InvalidSignature();
             if (!hasRole(OPERATOR_ROLE, signer)) revert InvalidSignature();
         }
         
@@ -480,11 +484,10 @@ contract StarForgeV3 is ReentrancyGuard, AccessControl, Pausable {
             // FIX #12: Jackpot REQUIRES VRF validation to prevent operator manipulation
             if (commitment.vrfRequestId == 0) revert JackpotRequiresVRF();
             
-            payout = tierConfig.jackpotPool;
-            
             // SECURITY FIX: Revert if insufficient jackpot pool instead of partial payout
-            if (tierConfig.jackpotPool < payout) revert InsufficientFundsForJackpot();
+            if (tierConfig.jackpotPool == 0) revert InsufficientFundsForJackpot();
             
+            payout = tierConfig.jackpotPool;
             tierConfig.jackpotPool = 0;
             emit JackpotWon(gameId, commitment.player, commitment.tier, payout);
         } else if (multiplier > 0) {
