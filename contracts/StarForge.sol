@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -60,6 +61,9 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     /// @notice Rate limit time window (1 minute)
     uint256 public constant RATE_LIMIT_WINDOW = 1 minutes;
     
+    /// @notice Maximum entries in rate limit buffer
+    uint256 public constant MAX_RATE_LIMIT_ENTRIES = 20;
+    
     // ============ State Variables ============
     
     /// @notice Star Skrumpey NFT contract for trait verification
@@ -106,8 +110,13 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     /// @notice Player nonces for game uniqueness
     mapping(address => uint256) public playerNonces;
     
-    /// @notice Rate limiting: player => last game timestamps
-    mapping(address => uint256[]) private playerGameTimestamps;
+    /// @notice Rate limiting: circular buffer for timestamp tracking
+    struct RateLimit {
+        uint64 head;        // Head index in circular buffer
+        uint64 count;       // Number of entries in buffer
+        uint64[20] stamps;  // Circular buffer of timestamps (MAX_RATE_LIMIT_ENTRIES)
+    }
+    mapping(address => RateLimit) private rateLimits;
     
     /// @notice Total games played
     uint256 public totalGamesPlayed;
@@ -222,6 +231,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     error Unauthorized();  // SECURITY FIX #5
     error RefundWindowExpired();  // SECURITY FIX #3
     error RefundAlreadyProcessed();  // SECURITY FIX #3
+    error ZeroAddress();
     
     // ============ Constructor ============
     
@@ -337,8 +347,8 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param serverSeed Server seed (reveals hash)
      * @param grid 25-bit grid result
      * @param pattern Pattern name
-     * @param multiplier Payout multiplier in basis points (e.g., 200 = 2x, 1000 = 10x)
-     * @dev SECURITY FIX #1: Multipliers are in basis points throughout
+     * @param multiplier Payout multiplier in percent×100 (e.g., 200 = 2x, 1000 = 10x)
+     * @dev Multipliers use percent×100 semantics: divide by 100, cap at MAX_MULTIPLIER * 100
      */
     function revealGame(
         bytes32 gameId,
@@ -358,23 +368,26 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
             revert InvalidServerSeed();
         }
         
-        // SECURITY FIX #6: Verify grid was generated from VRF if enabled
-        if (vrfEnabled && commitment.vrfRequestId != 0) {
-            // Ensure VRF was fulfilled
-            if (!commitment.vrfFulfilled) revert InvalidServerSeed();
+        // Verify grid was generated from VRF if VRF is enabled
+        if (vrfEnabled) {
+            if (commitment.vrfRequestId == 0 || !commitment.vrfFulfilled) {
+                revert Unauthorized();
+            }
             
             // Validate grid matches VRF randomness
             uint256 expectedGrid = _generateGridFromVRF(vrfRandomness[gameId], serverSeed);
-            if (grid != expectedGrid) revert InvalidServerSeed();
+            if (grid != expectedGrid) {
+                revert InvalidServerSeed();
+            }
         }
         
         // Mark as revealed
         commitment.revealed = true;
         
-        // SECURITY FIX #1: Validate multiplier in basis points (1000 = 10x)
-        // Max 10x = 10000 basis points, so MAX_MULTIPLIER * 1000 = 10000
+        // Validate multiplier in percent×100 (200 = 2x, 1000 = 10x)
+        // Max 10x = MAX_MULTIPLIER * 100 = 1000
         bool isJackpot = (multiplier == type(uint256).max);
-        if (!isJackpot && multiplier > MAX_MULTIPLIER * 1000) {
+        if (!isJackpot && multiplier > MAX_MULTIPLIER * 100) {
             revert InvalidPayout();
         }
         
@@ -397,7 +410,12 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
                 commitment.isStarHolder
             );
             
-            // SECURITY FIX #2: Check prize pool can cover payout
+            // Enforce maxPayout cap
+            if (payout > tierConfig.maxPayout) {
+                payout = tierConfig.maxPayout;
+            }
+            
+            // Check prize pool can cover payout
             if (payout > tierConfig.prizePool) {
                 revert InsufficientTreasuryBalance();
             }
@@ -503,6 +521,7 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @param newTreasury New treasury address
      */
     function updateTreasury(address newTreasury) external onlyOwner {
+        if (newTreasury == address(0)) revert ZeroAddress();
         daoTreasury = newTreasury;
     }
     
@@ -753,10 +772,10 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Calculate payout for regular win
      * @param entryFee Entry fee
-     * @param multiplier Multiplier in basis points (e.g., 200 = 2x, 1000 = 10x)
+     * @param multiplier Multiplier in percent×100 (e.g., 200 = 2x, 1000 = 10x)
      * @param starHolder Whether player holds Star Skrumpey
      * @return Payout amount
-     * @dev SECURITY FIX #1: Correctly divide by BPS_DIVISOR (10000) for basis points
+     * @dev Uses percent×100 semantics: divide by 100 (2x = 200, 10x = 1000)
      */
     function _calculatePayout(
         uint256 entryFee,
@@ -766,9 +785,9 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
         // Calculate prize pool allocation
         uint256 prizePool = (entryFee * PRIZE_POOL_BPS) / BPS_DIVISOR;
         
-        // SECURITY FIX #1: Apply multiplier using basis points (divide by 10000, not 100)
-        // Example: prizePool = 100, multiplier = 200 (2x) → (100 * 200) / 10000 = 2
-        uint256 basePayout = (prizePool * multiplier) / BPS_DIVISOR;
+        // Apply multiplier using percent×100 (divide by 100)
+        // Example: prizePool = 100, multiplier = 200 (2x) → (100 * 200) / 100 = 200
+        uint256 basePayout = (prizePool * multiplier) / 100;
         
         // Add Star holder bonus
         if (starHolder) {
@@ -780,46 +799,69 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
     }
     
     /**
-     * @notice Check if player owns any Star Skrumpey
+     * @notice Check if player owns any Star Skrumpey with Star trait
      * @param player Player address
-     * @return Whether player holds Star Skrumpey
+     * @return Whether player holds a Star Skrumpey
+     * @dev Uses IERC721Enumerable to iterate tokens and check isStarSkrumpey registry
      */
     function _checkStarHolder(address player) internal view returns (bool) {
-        // Note: This is a simplified check
-        // In production, implement efficient batch checking
-        // or maintain a registry of Star holders
         uint256 balance = starSkrumpeyNFT.balanceOf(player);
         if (balance == 0) return false;
         
-        // For now, assume any Skrumpey holder qualifies
-        // In production, check specific token IDs against isStarSkrumpey mapping
-        return true;
+        // Try to use enumeration to check token IDs
+        try IERC721Enumerable(address(starSkrumpeyNFT)).tokenOfOwnerByIndex(player, 0) returns (uint256) {
+            // Collection supports enumeration - iterate tokens (capped for gas)
+            uint256 cap = balance < 100 ? balance : 100;
+            for (uint256 i = 0; i < cap; i++) {
+                uint256 tokenId = IERC721Enumerable(address(starSkrumpeyNFT)).tokenOfOwnerByIndex(player, i);
+                if (isStarSkrumpey[tokenId]) {
+                    return true;
+                }
+            }
+            return false;
+        } catch {
+            // If not enumerable, return false
+            // Alternative: maintain an address-level allowlist
+            return false;
+        }
     }
     
     /**
-     * @notice Check rate limit for player
+     * @notice Check rate limit for player using circular buffer
      * @param player Player address
      * @return Whether player can play
+     * @dev Uses bounded circular buffer to prevent unbounded gas costs
      */
     function _checkRateLimit(address player) internal returns (bool) {
-        uint256[] storage timestamps = playerGameTimestamps[player];
-        uint256 cutoffTime = block.timestamp - RATE_LIMIT_WINDOW;
+        RateLimit storage r = rateLimits[player];
+        uint256 cutoff = block.timestamp - RATE_LIMIT_WINDOW;
         
-        // Remove old timestamps
-        uint256 validCount = 0;
-        for (uint256 i = 0; i < timestamps.length; i++) {
-            if (timestamps[i] > cutoffTime) {
-                validCount++;
+        // Count valid (recent) timestamps
+        uint256 valid = 0;
+        for (uint256 i = 0; i < r.count; i++) {
+            uint256 idx = (r.head + i) % MAX_RATE_LIMIT_ENTRIES;
+            if (r.stamps[idx] > cutoff) {
+                valid++;
             }
         }
         
         // Check if under limit
-        if (validCount >= RATE_LIMIT_GAMES) {
+        if (valid >= RATE_LIMIT_GAMES) {
             return false;
         }
         
-        // Add current timestamp
-        timestamps.push(block.timestamp);
+        // Add current timestamp to circular buffer
+        uint256 insertIdx;
+        if (r.count < MAX_RATE_LIMIT_ENTRIES) {
+            // Buffer not full yet - append
+            insertIdx = (r.head + r.count) % MAX_RATE_LIMIT_ENTRIES;
+            r.count++;
+        } else {
+            // Buffer full - overwrite oldest entry
+            insertIdx = r.head;
+            r.head = uint64((r.head + 1) % MAX_RATE_LIMIT_ENTRIES);
+        }
+        r.stamps[insertIdx] = uint64(block.timestamp);
         
         return true;
     }
@@ -830,12 +872,13 @@ contract StarForge is ReentrancyGuard, Ownable, Pausable {
      * @return Number of games in current window
      */
     function _getRecentGameCount(address player) internal view returns (uint256) {
-        uint256[] storage timestamps = playerGameTimestamps[player];
-        uint256 cutoffTime = block.timestamp - RATE_LIMIT_WINDOW;
+        RateLimit storage r = rateLimits[player];
+        uint256 cutoff = block.timestamp - RATE_LIMIT_WINDOW;
         
         uint256 count = 0;
-        for (uint256 i = 0; i < timestamps.length; i++) {
-            if (timestamps[i] > cutoffTime) {
+        for (uint256 i = 0; i < r.count; i++) {
+            uint256 idx = (r.head + i) % MAX_RATE_LIMIT_ENTRIES;
+            if (r.stamps[idx] > cutoff) {
                 count++;
             }
         }
