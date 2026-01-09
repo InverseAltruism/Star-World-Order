@@ -15,13 +15,12 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'artifacts');
 const NODE_MODULES_DIR = path.join(__dirname, '..', 'node_modules');
 
 // Contract files to compile
+// Note: Only StarForgeV5 is production-ready, other versions are archived
 const CONTRACTS = [
   'StarSkrumpeyMarketplace.sol',
   'StarSkrumpeyStaking.sol',
   'StarWorldOrderGovernor.sol',
-  'StarForge.sol',
-  'StarForgeV2.sol',
-  'StarForgeV3.sol'
+  'StarForgeV5.sol'
 ];
 
 /**
