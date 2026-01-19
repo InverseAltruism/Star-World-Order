@@ -36,6 +36,7 @@ interface Raffle {
   require_x: number;
   require_discord: number;
   tweet_url: string | null;
+  is_public: number;
   userEntry?: RaffleEntry | null;
 }
 
@@ -96,6 +97,12 @@ const TIER_STYLES: Record<string, { color: string; bgColor: string; borderColor:
     bgColor: 'rgba(153, 102, 255, 0.15)',
     borderColor: '#9966ff',
     glow: '0 0 20px rgba(153, 102, 255, 0.4)',
+  },
+  skrumpey_holder: {
+    color: '#44ff88',
+    bgColor: 'rgba(68, 255, 136, 0.15)',
+    borderColor: '#44ff88',
+    glow: '0 0 20px rgba(68, 255, 136, 0.4)',
   },
 };
 

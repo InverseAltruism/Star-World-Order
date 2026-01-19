@@ -312,14 +312,29 @@ function MemberCard({ user }: { user: OnlineUser }) {
 /**
  * Chat Message Component
  * Displays individual chat messages with sender name prominently shown
+ * Shows date + time for messages, and Star badge for Star Skrumpey holders
  */
-function ChatMessageItem({ message }: { message: ChatMessage }) {
+function ChatMessageItem({ message, isStarHolder }: { message: ChatMessage; isStarHolder?: boolean }) {
   const isSystem = message.type === 'system';
   const isEmote = message.type === 'emote';
   
-  const formatTime = (timestamp: number) => {
+  const formatDateTime = (timestamp: number) => {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+    
+    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    if (isToday) {
+      return time;
+    } else if (isYesterday) {
+      return `Yesterday ${time}`;
+    } else {
+      return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+    }
   };
   
   if (isSystem) {
@@ -343,8 +358,9 @@ function ChatMessageItem({ message }: { message: ChatMessage }) {
   return (
     <div className="py-2 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
       <div className="flex items-start gap-2">
-        <span className="text-gray-500 text-xs shrink-0 mt-0.5">{formatTime(message.timestamp)}</span>
+        <span className="text-gray-500 text-xs shrink-0 mt-0.5">{formatDateTime(message.timestamp)}</span>
         <div className="flex-1 min-w-0">
+          {isStarHolder && <span className="text-[#ffd700] text-xs mr-1" title="Star Skrumpey Holder">⭐</span>}
           <span className="text-[#ffd700] text-sm font-bold">{message.sender}</span>
           <span className="text-gray-400 text-sm">: </span>
           <span className="text-gray-200 text-sm break-words">{message.message}</span>
