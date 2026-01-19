@@ -52,6 +52,7 @@ interface Raffle {
   require_x: number;
   require_discord: number;
   tweet_url: string | null;
+  is_public: number;
   created_at: string;
 }
 
@@ -222,6 +223,7 @@ export default function AdminContent() {
   const [raffleRequireX, setRaffleRequireX] = useState(false);
   const [raffleRequireDiscord, setRaffleRequireDiscord] = useState(false);
   const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
+  const [raffleIsPublic, setRaffleIsPublic] = useState(false);
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
   const [showDrawnRaffles, setShowDrawnRaffles] = useState(false);
   
@@ -775,6 +777,7 @@ export default function AdminContent() {
           requireX: raffleRequireX,
           requireDiscord: raffleRequireDiscord,
           tweetUrl: raffleTweetUrl || undefined,
+          isPublic: raffleIsPublic,
         }),
       });
 
@@ -795,6 +798,7 @@ export default function AdminContent() {
         setRaffleRequireX(false);
         setRaffleRequireDiscord(false);
         setRaffleTweetUrl('');
+        setRaffleIsPublic(false);
         // Refresh raffles
         await fetchRaffles();
       }
@@ -1492,6 +1496,31 @@ export default function AdminContent() {
             />
           </div>
           
+          {/* Public Raffle Toggle */}
+          <div className="mb-3 p-3 bg-[#ffd700]/10 rounded border-2 border-[#ffd700]/50">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={raffleIsPublic}
+                onChange={(e) => setRaffleIsPublic(e.target.checked)}
+                className="w-4 h-4 mr-3"
+              />
+              <div>
+                <span className="text-[#ffd700] text-xs font-bold">🌐 PUBLIC SKRUMPEY RAFFLE</span>
+                <p className="text-gray-400 text-[9px] mt-1">
+                  Allow ALL Skrumpey holders to participate (not just Star holders)
+                </p>
+              </div>
+            </label>
+            {raffleIsPublic && (
+              <div className="mt-3 p-2 bg-black/30 rounded text-[9px]">
+                <p className="text-[#44ff88] font-bold mb-1">⚖️ WEIGHTED ENTRIES:</p>
+                <p className="text-gray-300">• ⭐ Star Skrumpey holders: <span className="text-[#ffd700] font-bold">x5 entries</span></p>
+                <p className="text-gray-300">• 🐸 Regular Skrumpey holders: <span className="text-gray-400">x1 entry</span></p>
+              </div>
+            )}
+          </div>
+          
           {/* Social Requirements Section */}
           <div className="mb-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4e]">
             <h4 className="text-[#9966ff] text-[10px] mb-2">📱 SOCIAL REQUIREMENTS (Mandatory to Enter)</h4>
@@ -1636,7 +1665,12 @@ export default function AdminContent() {
                         <p className="text-gray-500 text-[9px] mt-1 italic">{raffle.description}</p>
                       )}
                       {/* Show requirements */}
-                      <div className="flex gap-2 mt-1">
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        {raffle.is_public === 1 && (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-[#ffd700]/20 text-[#ffd700] rounded border border-[#ffd700]">
+                            🌐 PUBLIC (⭐x5, 🐸x1)
+                          </span>
+                        )}
                         {raffle.require_x === 1 && (
                           <span className="text-[8px] px-1.5 py-0.5 bg-black/50 text-gray-300 rounded border border-gray-600">
                             𝕏 Required

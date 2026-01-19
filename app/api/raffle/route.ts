@@ -31,7 +31,7 @@ import {
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
-import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
+import { checkStarOwnershipBatched, checkSkrumpeyOwnership } from '@/lib/starSkrumpey';
 import { getResilientClient } from '@/lib/rpcClient';
 
 /**
@@ -352,20 +352,42 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        // Verify user owns Star Skrumpeys
+        // Check ownership based on raffle type
+        const isPublicRaffle = raffle.is_public === 1;
+        
+        // For public raffles: Check if user owns ANY Skrumpey
+        // For Star-only raffles: Check if user owns Star Skrumpeys
         const ownedStars = await checkStarOwnershipBatched(walletAddress);
-        if (ownedStars.length === 0) {
-          return NextResponse.json(
-            { success: false, error: 'You must own at least 1 Star Skrumpey to enter' },
-            { status: 403 }
-          );
+        const starCount = ownedStars.length;
+        
+        if (isPublicRaffle) {
+          // Public raffle - check for any Skrumpey ownership
+          if (starCount === 0) {
+            // No Stars, check if they have any Skrumpey at all
+            const { hasSkrumpey } = await checkSkrumpeyOwnership(walletAddress);
+            if (!hasSkrumpey) {
+              return NextResponse.json(
+                { success: false, error: 'You must own at least 1 Skrumpey NFT to enter this raffle' },
+                { status: 403 }
+              );
+            }
+          }
+          // User has either Stars or regular Skrumpeys - they can enter
+        } else {
+          // Star-only raffle
+          if (starCount === 0) {
+            return NextResponse.json(
+              { success: false, error: 'You must own at least 1 Star Skrumpey to enter' },
+              { status: 403 }
+            );
+          }
         }
         
         // Enter raffle
         const entry = enterRaffle({
           raffleId,
           walletAddress,
-          starCount: ownedStars.length,
+          starCount,
           discordBonus,
           engagementBonus,
         });
@@ -377,11 +399,20 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        const tierInfo = calculateHolderTier(ownedStars.length);
+        // Determine tier info for response
+        let tierInfo = null;
+        if (isPublicRaffle) {
+          tierInfo = starCount > 0 
+            ? { tier: 'star_holder', entries: 5, name: 'Star Holder (x5)' }
+            : { tier: 'skrumpey_holder', entries: 1, name: 'Skrumpey Holder (x1)' };
+        } else {
+          tierInfo = calculateHolderTier(starCount);
+        }
         
         logger.info('User entered raffle', {
           walletAddress: walletAddress.slice(0, 10) + '...',
           raffleId,
+          isPublic: isPublicRaffle,
           tier: tierInfo?.tier,
           entries: entry.entries_count,
           engagementBonus: entry.engagement_bonus,
@@ -424,7 +455,7 @@ export async function POST(request: NextRequest) {
         
         const { 
           name, description, prizeDescription, prizeImageUrl, startTime, endTime, 
-          discordBonusEnabled, requireX, requireDiscord, tweetUrl 
+          discordBonusEnabled, requireX, requireDiscord, tweetUrl, isPublic 
         } = body;
         
         if (!name || !description || !prizeDescription || !endTime) {
@@ -450,11 +481,13 @@ export async function POST(request: NextRequest) {
           requireX,
           requireDiscord,
           tweetUrl,
+          isPublic,
         });
         
         logger.info('Raffle created', { 
           raffleId: id, 
           name,
+          isPublic: !!isPublic,
           requireX: !!requireX,
           requireDiscord: !!requireDiscord,
           hasTweetUrl: !!tweetUrl,

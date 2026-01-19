@@ -3129,6 +3129,7 @@ export interface Raffle {
   require_x: number;
   require_discord: number;
   tweet_url: string | null;
+  is_public: number; // 0 = Star only, 1 = All Skrumpey holders (Star gets x5, regular gets x1)
   created_at: string;
 }
 
@@ -3136,7 +3137,7 @@ export interface RaffleEntry {
   id: number;
   raffle_id: string;
   wallet_address: string;
-  tier: 'star_forged' | 'cosmic_warden' | 'star_lord' | 'cosmic_emperor';
+  tier: 'star_forged' | 'cosmic_warden' | 'star_lord' | 'cosmic_emperor' | 'skrumpey_holder';
   entries_count: number;
   discord_bonus: number;
   engagement_bonus: number;
@@ -3199,6 +3200,7 @@ export function createRaffle(data: {
   requireX?: boolean;
   requireDiscord?: boolean;
   tweetUrl?: string;
+  isPublic?: boolean; // If true, all Skrumpey holders can enter (Star: x5, regular: x1)
 }): Raffle {
   const db = getDatabase();
   
@@ -3221,6 +3223,7 @@ export function createRaffle(data: {
       require_x INTEGER NOT NULL DEFAULT 0,
       require_discord INTEGER NOT NULL DEFAULT 0,
       tweet_url TEXT,
+      is_public INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -3235,14 +3238,18 @@ export function createRaffle(data: {
   try {
     db.exec(`ALTER TABLE raffles ADD COLUMN tweet_url TEXT`);
   } catch { /* Column may already exist */ }
+  try {
+    db.exec(`ALTER TABLE raffles ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0`);
+  } catch { /* Column may already exist */ }
   
   // Create raffle entries table if it doesn't exist
+  // Note: Added 'skrumpey_holder' tier for public raffles
   db.exec(`
     CREATE TABLE IF NOT EXISTS raffle_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       raffle_id TEXT NOT NULL,
       wallet_address TEXT NOT NULL,
-      tier TEXT NOT NULL CHECK (tier IN ('star_forged', 'cosmic_warden', 'star_lord', 'cosmic_emperor')),
+      tier TEXT NOT NULL CHECK (tier IN ('star_forged', 'cosmic_warden', 'star_lord', 'cosmic_emperor', 'skrumpey_holder')),
       entries_count INTEGER NOT NULL DEFAULT 1,
       discord_bonus INTEGER NOT NULL DEFAULT 0,
       engagement_bonus INTEGER NOT NULL DEFAULT 0,
@@ -3279,8 +3286,8 @@ export function createRaffle(data: {
   `);
   
   const stmt = db.prepare(`
-    INSERT INTO raffles (id, name, description, prize_description, prize_image_url, created_by, start_time, end_time, discord_bonus_enabled, require_x, require_discord, tweet_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO raffles (id, name, description, prize_description, prize_image_url, created_by, start_time, end_time, discord_bonus_enabled, require_x, require_discord, tweet_url, is_public)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   stmt.run(
@@ -3295,7 +3302,8 @@ export function createRaffle(data: {
     data.discordBonusEnabled ? 1 : 0,
     data.requireX ? 1 : 0,
     data.requireDiscord ? 1 : 0,
-    data.tweetUrl || null
+    data.tweetUrl || null,
+    data.isPublic ? 1 : 0
   );
   
   return getRaffleById(data.id)!;
@@ -3417,6 +3425,11 @@ export function getRafflesNeedingDraw(): Raffle[] {
 
 /**
  * Enter a raffle
+ * 
+ * For standard raffles: Only Star Skrumpey holders can enter, entries based on Star count tier
+ * For public raffles: All Skrumpey holders can enter
+ *   - Star Skrumpey holders: x5 entries (weighted)
+ *   - Regular Skrumpey holders: x1 entry
  */
 export function enterRaffle(data: {
   raffleId: string;
@@ -3424,6 +3437,7 @@ export function enterRaffle(data: {
   starCount: number;
   discordBonus?: boolean;
   engagementBonus?: boolean;
+  isPublicEntry?: boolean; // For public raffles - entering as regular Skrumpey holder
 }): RaffleEntry | null {
   const db = getDatabase();
   const normalizedAddress = data.walletAddress.toLowerCase();
@@ -3439,14 +3453,32 @@ export function enterRaffle(data: {
     return null;
   }
   
-  // Calculate tier and entries
-  const tierInfo = calculateHolderTier(data.starCount);
-  if (!tierInfo) {
-    return null; // Not a holder
+  let tier: string;
+  let baseEntries: number;
+  
+  // For public raffles, determine entry weight based on whether they have Stars
+  if (raffle.is_public === 1) {
+    if (data.starCount > 0) {
+      // Star Skrumpey holder gets x5 base entries in public raffles
+      tier = 'star_forged'; // Use star_forged as the tier marker for Star holders
+      baseEntries = 5;
+    } else {
+      // Regular Skrumpey holder (no Stars) gets x1 entry
+      tier = 'skrumpey_holder';
+      baseEntries = 1;
+    }
+  } else {
+    // Standard raffle - only Star holders can enter
+    const tierInfo = calculateHolderTier(data.starCount);
+    if (!tierInfo) {
+      return null; // Not a Star holder
+    }
+    tier = tierInfo.tier;
+    baseEntries = tierInfo.entries;
   }
   
   // Calculate total entries (base + engagement bonus for Like & RT)
-  let totalEntries = tierInfo.entries;
+  let totalEntries = baseEntries;
   // Discord bonus is deprecated, but keep for backwards compatibility
   const discordBonus = data.discordBonus && raffle.discord_bonus_enabled ? 1 : 0;
   // Engagement bonus: +1 for liking & retweeting the tweet (if tweet_url is set)
@@ -3474,7 +3506,7 @@ export function enterRaffle(data: {
     stmt.run(
       data.raffleId,
       normalizedAddress,
-      tierInfo.tier,
+      tier,
       totalEntries,
       discordBonus,
       engagementBonus,
