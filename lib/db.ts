@@ -3168,7 +3168,7 @@ export type HolderTier = keyof typeof HOLDER_TIERS;
 /**
  * Calculate holder tier based on Star Skrumpey count
  */
-export function calculateHolderTier(starCount: number): { tier: HolderTier; entries: number; name: string } | null {
+export function calculateHolderTier(starCount: number): { tier: HolderTier; entries: number; name: string; minStars: number } | null {
   if (starCount >= 10) {
     return { tier: 'cosmic_emperor', ...HOLDER_TIERS.cosmic_emperor };
   }
