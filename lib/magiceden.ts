@@ -157,12 +157,22 @@ export async function fetchUserCollections(
       
       logger.debug('MagicEden: Fetching user collections', { url, walletAddress, attempt });
 
+      // Get API key from environment (optional - API works without it but may have higher rate limits)
+      const apiKey = process.env.MAGIC_EDEN_API_KEY;
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Add Authorization header if API key is available
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON. stringify({
+        headers,
+        body: JSON.stringify({
           chain: 'monad',
           walletAddresses: [walletAddress],
         }),

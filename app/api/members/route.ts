@@ -29,7 +29,8 @@ const ERC721_ABI = [
 ] as const;
 
 // Cache for holder data (5 minute TTL)
-let holderCache: {
+// Export so other API routes can use it (e.g., chat API for Star holder status)
+export let holderCache: {
   data: MemberData[];
   timestamp: number;
 } | null = null;

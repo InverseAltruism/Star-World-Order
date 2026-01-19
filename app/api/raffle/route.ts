@@ -201,10 +201,24 @@ export async function GET(request: NextRequest) {
         }
         
         // Get user's current tier (from their Star count)
+        // For public raffles, show 5 base + tier entries; for standard raffles, just tier entries
         try {
           const ownedStars = await checkStarOwnershipBatched(address);
           const tierInfo = calculateHolderTier(ownedStars.length);
-          userTier = tierInfo;
+          if (tierInfo) {
+            if (raffle.is_public === 1) {
+              // Public raffle: Star holders get 5 base + their tier entries
+              userTier = {
+                tier: tierInfo.tier,
+                entries: 5 + tierInfo.entries,
+                name: `${tierInfo.name} (x${5 + tierInfo.entries})`,
+                minStars: tierInfo.minStars,
+              };
+            } else {
+              // Standard raffle: just tier entries
+              userTier = tierInfo;
+            }
+          }
         } catch {
           // Ignore errors
         }
@@ -402,9 +416,22 @@ export async function POST(request: NextRequest) {
         // Determine tier info for response
         let tierInfo = null;
         if (isPublicRaffle) {
-          tierInfo = starCount > 0 
-            ? { tier: 'star_holder', entries: 5, name: 'Star Holder (x5)' }
-            : { tier: 'skrumpey_holder', entries: 1, name: 'Skrumpey Holder (x1)' };
+          if (starCount > 0) {
+            // For public raffles, Star holders get 5 base + their tier entries
+            const holderTier = calculateHolderTier(starCount);
+            if (holderTier) {
+              tierInfo = {
+                tier: holderTier.tier,
+                entries: 5 + holderTier.entries, // 5 base + tier entries
+                name: `${holderTier.name} (x${5 + holderTier.entries})`,
+                minStars: holderTier.minStars,
+              };
+            } else {
+              tierInfo = { tier: 'star_forged', entries: 5, name: 'Star Holder (x5)' };
+            }
+          } else {
+            tierInfo = { tier: 'skrumpey_holder', entries: 1, name: 'Skrumpey Holder (x1)' };
+          }
         } else {
           tierInfo = calculateHolderTier(starCount);
         }

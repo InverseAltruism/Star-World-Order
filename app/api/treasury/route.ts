@@ -8,6 +8,8 @@ import { SKRUMPEY_CONTRACT_ADDRESS } from '@/lib/starSkrumpey';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
+import { fetchCollectionFloorPrice } from '@/lib/blockvision';
+import { getFloorPriceByContract } from '@/lib/floorPrices';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
@@ -94,9 +96,21 @@ async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
   try {
     logger.info('Fetching NFTs from Magic Eden API', { address: TREASURY_ADDRESS });
     
+    // Get API key from environment (optional - API works without it but may have higher rate limits)
+    const apiKey = process.env.MAGIC_EDEN_API_KEY;
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if API key is available
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
     const response = await fetch(MAGIC_EDEN_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         chain: 'monad',
         walletAddresses: [TREASURY_ADDRESS],
@@ -197,16 +211,75 @@ export async function GET(request: Request) {
     const uniqueCollections = [... new Set(nfts.map(n => n.contractAddress. toLowerCase()))];
     const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
 
+    // Calculate NFT values using floor prices
+    // Try BlockVision API first, fall back to database floor prices
+    logger.info('Calculating NFT values for treasury holdings', { 
+      collectionCount: uniqueCollections.length 
+    });
+    
+    let totalNFTValue = 0;
+    const nftsWithPrices = await Promise.all(
+      nfts.map(async (nft) => {
+        let floorPrice: number | null = null;
+        
+        // Try BlockVision API first
+        try {
+          floorPrice = await fetchCollectionFloorPrice(nft.contractAddress);
+          if (floorPrice !== null) {
+            logger.debug('Got floor price from BlockVision', {
+              contract: nft.contractAddress,
+              floorPrice,
+            });
+          }
+        } catch (error) {
+          logger.debug('BlockVision floor price fetch failed, trying database', {
+            contract: nft.contractAddress,
+            error: String(error),
+          });
+        }
+        
+        // Fall back to database floor prices if BlockVision didn't return a value
+        if (floorPrice === null) {
+          const dbFloorPrice = getFloorPriceByContract(nft.contractAddress);
+          if (dbFloorPrice && dbFloorPrice.floorPriceMON !== null) {
+            floorPrice = dbFloorPrice.floorPriceMON;
+            logger.debug('Got floor price from database', {
+              contract: nft.contractAddress,
+              floorPrice,
+            });
+          }
+        }
+        
+        // Calculate value for this NFT holding (floor price * quantity)
+        const nftValue = floorPrice !== null ? floorPrice * nft.quantity : 0;
+        totalNFTValue += nftValue;
+        
+        return {
+          ...nft,
+          estimatedFloorPrice: floorPrice || undefined,
+        };
+      })
+    );
+
+    const estimatedNFTValueMON = totalNFTValue.toFixed(4);
+    const totalValueMON = (monBalanceNum + totalNFTValue).toFixed(4);
+
+    logger.info('Treasury NFT valuation complete', {
+      totalNFTValue: estimatedNFTValueMON,
+      totalValue: totalValueMON,
+      collectionsWithPrices: nftsWithPrices.filter(n => n.estimatedFloorPrice !== undefined).length,
+    });
+
     const treasuryData:  TreasuryData = {
       address: TREASURY_ADDRESS,
       monBalance: balance.toString(),
       monBalanceFormatted: monBalanceNum.toFixed(4),
-      nftHoldings: nfts,
+      nftHoldings: nftsWithPrices,
       nftCount,
       collectionCount: uniqueCollections.length,
       starSkrumpeyCount,
-      estimatedValueMON: monBalanceNum.toFixed(4),
-      estimatedNFTValueMON: '0.0000',
+      estimatedValueMON: totalValueMON,
+      estimatedNFTValueMON: estimatedNFTValueMON,
       recentActivities:  [],
       lastUpdated: new Date().toISOString(),
     };

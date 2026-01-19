@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import WalletConnect from './WalletConnect';
 // Demo Mode is disabled for now - keeping imports for future use
 // import DemoMode from './DemoMode';
@@ -10,8 +10,14 @@ import NotificationBell from './NotificationBell';
 import { isProdMode } from '@/lib/config';
 
 export default function Header() {
-  const isProduction = isProdMode();
+  // Use useState to avoid hydration mismatch - check mode on client side only
+  const [isProduction, setIsProduction] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Set production mode on client side only to avoid SSR/client mismatch
+  useEffect(() => {
+    setIsProduction(isProdMode());
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 bg-[#0d0d1a]/95 backdrop-blur-sm smooth-transition">

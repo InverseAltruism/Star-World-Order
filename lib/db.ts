@@ -3459,9 +3459,13 @@ export function enterRaffle(data: {
   // For public raffles, determine entry weight based on whether they have Stars
   if (raffle.is_public === 1) {
     if (data.starCount > 0) {
-      // Star Skrumpey holder gets x5 base entries in public raffles
-      tier = 'star_forged'; // Use star_forged as the tier marker for Star holders
-      baseEntries = 5;
+      // Star Skrumpey holder gets x5 base entries + their holder tier entries in public raffles
+      const tierInfo = calculateHolderTier(data.starCount);
+      if (!tierInfo) {
+        return null; // Should not happen if starCount > 0
+      }
+      tier = tierInfo.tier; // Use their actual tier (cosmic_emperor, star_lord, etc.)
+      baseEntries = 5 + tierInfo.entries; // 5 base + tier entries
     } else {
       // Regular Skrumpey holder (no Stars) gets x1 entry
       tier = 'skrumpey_holder';

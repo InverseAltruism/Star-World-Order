@@ -151,6 +151,20 @@ function NFTCard({ nft }: { nft: NFTHolding }) {
           {nft.collectionName}
         </p>
       )}
+      
+      {/* Floor price display if available */}
+      {nft.estimatedFloorPrice !== undefined && nft.estimatedFloorPrice > 0 && (
+        <div className="mt-1 px-1">
+          <p className="text-[#44ff88] text-[8px] font-bold">
+            {nft.estimatedFloorPrice.toFixed(2)} MON
+          </p>
+          {nft.quantity > 1 && (
+            <p className="text-gray-500 text-[7px]">
+              ({(nft.estimatedFloorPrice * nft.quantity).toFixed(2)} total)
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -756,9 +770,14 @@ export default function TreasuryContent() {
             </div>
             <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#44ff88]/30 smooth-transition hover-lift">
               <p className="text-[#44ff88] text-lg sm:text-xl font-bold">
-                {isLoading ? '...' : treasuryData?.estimatedNFTValueMON || '0'}
+                {isLoading ? '...' : treasuryData?.estimatedNFTValueMON || '0.0000'}
               </p>
-              <p className="text-gray-500 text-[10px]">NFT VALUE</p>
+              <p className="text-gray-500 text-[10px]">NFT VALUE (MON)</p>
+              {treasuryData && parseFloat(treasuryData.estimatedNFTValueMON || '0') > 0 && (
+                <p className="text-gray-600 text-[8px] mt-1">
+                  Based on floor prices
+                </p>
+              )}
             </div>
           </div>
         </div>

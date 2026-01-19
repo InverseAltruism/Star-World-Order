@@ -1,12 +1,11 @@
 'use client';
 
-import Image from 'next/image';
-import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { useSkrumpeyAccess } from '@/lib/hooks/useSkrumpeyAccess';
 import WalletConnect from './WalletConnect';
 import DemoMode from './DemoMode';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 
-interface AccessGateProps {
+interface SkrumpeyAccessGateProps {
   children: React.ReactNode;
   /** Optional custom title for the locked screen */
   title?: string;
@@ -15,16 +14,16 @@ interface AccessGateProps {
 }
 
 /**
- * Access Gate Component
- * Wraps protected content and only shows it to Star Skrumpey holders.
+ * Skrumpey Access Gate Component
+ * Wraps protected content and only shows it to Skrumpey holders (any Skrumpey, not just Star).
  * Non-holders see a fun, retro game-style "locked" screen.
  */
-export default function AccessGate({ 
+export default function SkrumpeyAccessGate({ 
   children, 
   title = 'ACCESS RESTRICTED',
-  message = 'Only Star Skrumpey holders may enter.'
-}: AccessGateProps) {
-  const { hasAccess, isLoading, isConnected } = useDAOAccess();
+  message = 'Only Skrumpey holders may enter.'
+}: SkrumpeyAccessGateProps) {
+  const { hasAccess, isLoading, isConnected, balance } = useSkrumpeyAccess();
   const { isDemoMode } = useDemoMode();
   
   /**
@@ -32,7 +31,7 @@ export default function AccessGate({
    * 
    * When enabled, this allows viewing all protected pages without:
    * - Connecting a wallet
-   * - Holding a Star Skrumpey NFT
+   * - Holding a Skrumpey NFT
    * 
    * HOW TO ENABLE DEV MODE:
    * 1. Copy .env.example to .env.local
@@ -50,9 +49,9 @@ export default function AccessGate({
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="pixel-card p-8 text-center max-w-md animate-slide-in-up">
-          <div className="text-4xl mb-4 animate-pixel-float hover-lift smooth-transition">⭐</div>
+          <div className="text-4xl mb-4 animate-pixel-float hover-lift smooth-transition">🐸</div>
           <p className="text-[#ffd700] text-xs tracking-wide animate-pixel-pulse animate-glow-pulse">
-            VERIFYING STAR STATUS...
+            VERIFYING SKRUMPEY STATUS...
           </p>
           <div className="mt-4 w-32 h-2 bg-[#1a1a2e] mx-auto overflow-hidden border border-[#333]">
             <div className="h-full bg-gradient-to-r from-[#9966ff] to-[#ffd700] animate-pulse" 
@@ -65,7 +64,6 @@ export default function AccessGate({
 
   // Show locked screen for non-holders or disconnected wallets
   // EXCEPTION: In dev mode with NEXT_PUBLIC_DEV_ACCESS_ENABLED=true, bypass all access checks
-  // This allows developers to view and test all pages without needing a wallet or NFT
   if ((!isConnected || !hasAccess) && !devModeActive) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
@@ -98,13 +96,11 @@ export default function AccessGate({
           {/* Pixel art divider */}
           <div className="flex items-center justify-center gap-2 mb-6 animate-slide-in-up animate-delay-3">
             <div className="w-8 h-[2px] bg-gradient-to-r from-transparent to-[#9966ff]" />
-            <Image 
-              src="/skr_str_mon2.png" 
-              alt="Star Skrumpey" 
-              width={64}
-              height={64}
+            <img 
+              src="/purple_skrumpey.png" 
+              alt="Purple Skrumpey frog mascot" 
               className="w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 animate-pixel-float hover-lift cursor-pointer smooth-transition -mt-2"
-              style={{ filter: 'drop-shadow(rgba(255, 215, 0, 0.25) 0px 0px 8px)' }}
+              style={{ filter: 'drop-shadow(rgba(68, 255, 136, 0.5) 0px 0px 10px)' }}
             />
             <div className="w-8 h-[2px] bg-gradient-to-l from-transparent to-[#9966ff]" />
           </div>
@@ -124,13 +120,13 @@ export default function AccessGate({
               <div className="flex items-start gap-2 animate-slide-in-left animate-delay-2 smooth-transition hover-lift">
                 <span className="text-[#44ff88] text-xs">2.</span>
                 <span className="text-gray-400 text-[8px]">
-                  Acquire a Skrumpey NFT with the <span className="text-[#ffd700]">★ STAR trait</span>
+                  Acquire a <span className="text-[#ffd700]">Skrumpey NFT</span>
                 </span>
               </div>
               <div className="flex items-start gap-2 animate-slide-in-left animate-delay-3 smooth-transition hover-lift">
                 <span className="text-[#44ff88] text-xs">3.</span>
                 <span className="text-gray-400 text-[8px]">
-                  Return here and the stars will welcome you
+                  Return here and join the community!
                 </span>
               </div>
             </div>
@@ -150,7 +146,7 @@ export default function AccessGate({
           ) : (
             <div className="space-y-3 animate-slide-in-up animate-delay-5">
               <p className="text-[#9966ff] text-[8px] tracking-wide animate-glow-pulse">
-                ✦ NO STAR SKRUMPEY DETECTED ✦
+                ✦ NO SKRUMPEY DETECTED ✦
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <a 
@@ -159,7 +155,7 @@ export default function AccessGate({
                   rel="noopener noreferrer"
                   className="pixel-btn text-[8px] inline-block smooth-transition hover-lift"
                 >
-                  FIND A STAR SKRUMPEY
+                  FIND A SKRUMPEY
                 </a>
                 <DemoMode className="pixel-btn text-xs !px-4 !py-2" />
               </div>
@@ -168,7 +164,7 @@ export default function AccessGate({
           
           {/* Fun footer message */}
           <p className="text-gray-600 text-[6px] mt-6 tracking-wide">
-            🐸 + ⭐ = ACCESS GRANTED
+            🐸 = ACCESS GRANTED
           </p>
         </div>
       </div>

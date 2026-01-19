@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAccount } from 'wagmi';
-import AccessGate from '@/components/AccessGate';
+import Image from 'next/image';
+import SkrumpeyAccessGate from '@/components/SkrumpeyAccessGate';
 import { useStarPoints, OnlineUser, formatStarAmount } from '@/lib/hooks/useStarPoints';
 import { truncateAddress } from '@/lib/governance';
+import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
 
 // Chat message interface
 interface ChatMessage {
@@ -14,6 +16,7 @@ interface ChatMessage {
   message: string;
   timestamp: number;
   type: 'chat' | 'system' | 'emote';
+  isStarHolder?: boolean;
 }
 
 // Extended online user with chat bubble
@@ -48,6 +51,7 @@ interface ApiChatMessage {
   message: string;
   message_type: 'chat' | 'system' | 'emote';
   created_at: string;
+  isStarHolder?: boolean;
 }
 
 interface ApiVoiceParticipant {
@@ -360,7 +364,17 @@ function ChatMessageItem({ message, isStarHolder }: { message: ChatMessage; isSt
       <div className="flex items-start gap-2">
         <span className="text-gray-500 text-xs shrink-0 mt-0.5">{formatDateTime(message.timestamp)}</span>
         <div className="flex-1 min-w-0">
-          {isStarHolder && <span className="text-[#ffd700] text-xs mr-1" title="Star Skrumpey Holder">⭐</span>}
+          {isStarHolder && (
+            <Image 
+              src="/skr_str_mon2.png" 
+              alt="Star Skrumpey Holder" 
+              width={16}
+              height={16}
+              className="inline-block mr-1 animate-pixel-float" 
+              style={{ filter: 'drop-shadow(rgba(255, 215, 0, 0.25) 0px 0px 8px)', verticalAlign: 'middle' }}
+              title="Star Skrumpey Holder"
+            />
+          )}
           <span className="text-[#ffd700] text-sm font-bold">{message.sender}</span>
           <span className="text-gray-400 text-sm">: </span>
           <span className="text-gray-200 text-sm break-words">{message.message}</span>
@@ -560,6 +574,7 @@ function Chat({
           message: dbMsg.message,
           timestamp: new Date(dbMsg.created_at).getTime(),
           type: dbMsg.message_type,
+          isStarHolder: dbMsg.isStarHolder || false,
         }));
         setMessages(transformedMessages);
       }
@@ -608,7 +623,23 @@ function Chat({
       });
       
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.message) {
+        // Add the new message immediately with proper timestamp from server
+        // The server returns the full message object with created_at
+        const serverTimestamp = data.message.created_at 
+          ? new Date(data.message.created_at).getTime()
+          : Date.now(); // Fallback to current time if not provided
+        
+        const newMessage: ChatMessage = {
+          id: `msg-${data.message.id}`,
+          sender: data.message.sender_display_name || truncateAddress(address),
+          senderAddress: address,
+          message: data.message.message,
+          timestamp: serverTimestamp,
+          type: data.message.message_type,
+          isStarHolder: false, // Will be updated when loadMessages runs
+        };
+        
         // Also update presence with last message for chat bubble
         await fetch('/api/presence', {
           method: 'POST',
@@ -620,7 +651,20 @@ function Chat({
         });
         
         setInputValue('');
-        loadMessages(); // Refresh messages
+        
+        // Add the new message immediately (optimistic update with proper timestamp)
+        setMessages(prev => {
+          // Check if message already exists (avoid duplicates)
+          const exists = prev.some(msg => msg.id === newMessage.id);
+          if (exists) return prev;
+          return [...prev, newMessage];
+        });
+        
+        // Refresh messages after a short delay to get Star holder status and ensure consistency
+        // This allows the optimistic update to show immediately with the correct timestamp
+        setTimeout(() => {
+          loadMessages();
+        }, 500);
         
         // Trigger immediate presence refresh for chat bubbles
         if (refreshPresence) {
@@ -634,6 +678,15 @@ function Chat({
         ? `msg-${crypto.randomUUID()}`
         : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       
+      // Check if current user is a Star holder for local fallback
+      let isStarHolder = false;
+      try {
+        const starTokens = await checkStarOwnershipBatched(address);
+        isStarHolder = starTokens.length > 0;
+      } catch {
+        // Ignore errors in fallback
+      }
+      
       const newMessage: ChatMessage = {
         id: messageId,
         sender: displayName || truncateAddress(address),
@@ -641,6 +694,7 @@ function Chat({
         message: messageText.trim(),
         timestamp: Date.now(),
         type: isEmote ? 'emote' : 'chat',
+        isStarHolder,
       };
       
       saveChatMessage(newMessage);
@@ -686,7 +740,7 @@ function Chat({
           </div>
         ) : (
           messages.map((msg) => (
-            <ChatMessageItem key={msg.id} message={msg} />
+            <ChatMessageItem key={msg.id} message={msg} isStarHolder={msg.isStarHolder} />
           ))
         )}
         <div ref={messagesEndRef} />
@@ -1319,9 +1373,9 @@ export default function HangoutContent() {
       </div>
 
       {/* Access-gated content */}
-      <AccessGate
+      <SkrumpeyAccessGate
         title="HANGOUT ACCESS LOCKED"
-        message="Only Star Skrumpey holders may enter the Hangout Hub."
+        message="Only Skrumpey holders may enter the Hangout Hub."
       >
         {/* Status Bar */}
         <div className="pixel-card p-3 mb-6 flex flex-wrap items-center justify-between gap-4 animate-slide-in-up">
@@ -1385,7 +1439,7 @@ export default function HangoutContent() {
             <li>• Have fun and make new friends!</li>
           </ul>
         </div>
-      </AccessGate>
+      </SkrumpeyAccessGate>
     </>
   );
 }

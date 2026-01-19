@@ -1515,8 +1515,9 @@ export default function AdminContent() {
             {raffleIsPublic && (
               <div className="mt-3 p-2 bg-black/30 rounded text-[9px]">
                 <p className="text-[#44ff88] font-bold mb-1">⚖️ WEIGHTED ENTRIES:</p>
-                <p className="text-gray-300">• ⭐ Star Skrumpey holders: <span className="text-[#ffd700] font-bold">x5 entries</span></p>
-                <p className="text-gray-300">• 🐸 Regular Skrumpey holders: <span className="text-gray-400">x1 entry</span></p>
+                <p className="text-gray-300">• ⭐ Star Skrumpey holders: <span className="text-[#ffd700] font-bold">5 base + tier entries</span></p>
+                <p className="text-gray-400 text-[8px] ml-2">(Star Forged: 6, Warden: 7, Lord: 8, Emperor: 9)</p>
+                <p className="text-gray-300 mt-1">• 🐸 Regular Skrumpey holders: <span className="text-gray-400">x1 entry</span></p>
               </div>
             )}
           </div>
@@ -1668,7 +1669,7 @@ export default function AdminContent() {
                       <div className="flex gap-2 mt-1 flex-wrap">
                         {raffle.is_public === 1 && (
                           <span className="text-[8px] px-1.5 py-0.5 bg-[#ffd700]/20 text-[#ffd700] rounded border border-[#ffd700]">
-                            🌐 PUBLIC (⭐x5, 🐸x1)
+                            🌐 PUBLIC (⭐5+tier, 🐸x1)
                           </span>
                         )}
                         {raffle.require_x === 1 && (

@@ -971,8 +971,20 @@ export default function RaffleContent() {
                           : 'bg-[#0a0a15] border-[#2a2a4e]'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-white text-sm font-bold">{raffle.name}</h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-white text-sm font-bold">{raffle.name}</h3>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Public/SWO Label */}
+                        {raffle.is_public === 1 ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#00ffff]/20 text-[#00ffff] border border-[#00ffff]/30">
+                            PUBLIC
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#9966ff]/20 text-[#9966ff] border border-[#9966ff]/30">
+                            SWO
+                          </span>
+                        )}
+                        {/* Status Badge */}
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                           raffle.status === 'drawn' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
                           raffle.status === 'ended' ? 'bg-[#9966ff]/20 text-[#9966ff]' :
@@ -981,11 +993,12 @@ export default function RaffleContent() {
                           {raffle.status.toUpperCase()}
                         </span>
                       </div>
-                      
-                      <p className="text-gray-400 text-[10px] mb-3">{raffle.prize_description}</p>
-                      
-                      {/* Winner Info */}
-                      {raffle.status === 'drawn' && raffle.winner_address && (
+                    </div>
+                    
+                    <p className="text-gray-400 text-[10px] mb-3">{raffle.prize_description}</p>
+                    
+                    {/* Winner Info */}
+                    {raffle.status === 'drawn' && raffle.winner_address && (
                         <div className="bg-[#ffd700]/10 rounded p-3 mb-3 border border-[#ffd700]/20">
                           <p className="text-[#ffd700] text-[10px] mb-1">🏆 WINNER</p>
                           <p className="text-white text-xs font-mono">
@@ -1099,14 +1112,43 @@ export default function RaffleContent() {
         {/* Raffle Name & Status */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-[#ffd700] text-base sm:text-lg truncate pr-2">{activeRaffle.name}</h2>
-          <span className={`px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold flex-shrink-0 ${
-            activeRaffle.status === 'active' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
-            activeRaffle.status === 'drawn' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
-            'bg-gray-500/20 text-gray-400'
-          }`}>
-            {activeRaffle.status.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Public/SWO Label */}
+            {activeRaffle.is_public === 1 ? (
+              <span className="px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold bg-[#00ffff]/20 text-[#00ffff] border border-[#00ffff]/30">
+                PUBLIC
+              </span>
+            ) : (
+              <span className="px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold bg-[#9966ff]/20 text-[#9966ff] border border-[#9966ff]/30">
+                SWO
+              </span>
+            )}
+            {/* Status Badge */}
+            <span className={`px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold ${
+              activeRaffle.status === 'active' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
+              activeRaffle.status === 'drawn' ? 'bg-[#ffd700]/20 text-[#ffd700]' :
+              'bg-gray-500/20 text-gray-400'
+            }`}>
+              {activeRaffle.status.toUpperCase()}
+            </span>
+          </div>
         </div>
+        
+        {/* Public Raffle Explainer */}
+        {activeRaffle.is_public === 1 && (
+          <div className="bg-[#00ffff]/10 border border-[#00ffff]/30 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+            <div className="flex items-start gap-2">
+              <span className="text-[#00ffff] text-lg sm:text-xl flex-shrink-0">ℹ️</span>
+              <div className="flex-1">
+                <p className="text-[#00ffff] text-xs sm:text-sm font-bold mb-2">PUBLIC RAFFLE ENTRY RULES</p>
+                <div className="space-y-1.5 text-[10px] sm:text-xs text-gray-300">
+                  <p>• <span className="text-[#44ff88] font-semibold">1 Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
+                  <p>• <span className="text-[#ffd700] font-semibold">1 Star Skrumpey</span> = <span className="text-[#ffd700]">5 Entries</span> + <span className="text-[#9966ff]">Holder Perk</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Prize Display */}
         <div className="bg-[#0a0a15] rounded-lg p-3 sm:p-4 mb-3 sm:mb-4 border border-[#ffd700]/30">
@@ -1425,6 +1467,19 @@ export default function RaffleContent() {
         <p className="text-gray-500 text-[10px] text-center mt-4">
           More Star Skrumpeys = More entries per raffle!
         </p>
+        
+        {/* Public Raffle Explainer */}
+        {activeRaffles.some(r => r.raffle.is_public === 1) && (
+          <div className="mt-6 pt-6 border-t border-[#2a2a4e]">
+            <div className="bg-[#00ffff]/10 border border-[#00ffff]/30 rounded-lg p-4">
+              <p className="text-[#00ffff] text-xs font-bold mb-2 text-center">ℹ️ PUBLIC RAFFLE ENTRY RULES</p>
+              <div className="space-y-1.5 text-[10px] text-gray-300">
+                <p className="text-center">• <span className="text-[#44ff88] font-semibold">1 Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
+                <p className="text-center">• <span className="text-[#ffd700] font-semibold">1 Star Skrumpey</span> = <span className="text-[#ffd700]">5 Entries</span> + <span className="text-[#9966ff]">Holder Perk</span></p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* No active raffles message */}
@@ -1496,13 +1551,26 @@ export default function RaffleContent() {
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-white text-sm font-bold">{raffle.name}</h3>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        raffle.status === 'drawn' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
-                        raffle.status === 'ended' ? 'bg-[#9966ff]/20 text-[#9966ff]' :
-                        'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {raffle.status.toUpperCase()}
-                      </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Public/SWO Label */}
+                        {raffle.is_public === 1 ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#00ffff]/20 text-[#00ffff] border border-[#00ffff]/30">
+                            PUBLIC
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#9966ff]/20 text-[#9966ff] border border-[#9966ff]/30">
+                            SWO
+                          </span>
+                        )}
+                        {/* Status Badge */}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          raffle.status === 'drawn' ? 'bg-[#44ff88]/20 text-[#44ff88]' :
+                          raffle.status === 'ended' ? 'bg-[#9966ff]/20 text-[#9966ff]' :
+                          'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {raffle.status.toUpperCase()}
+                        </span>
+                      </div>
                     </div>
                     
                     <p className="text-gray-400 text-[10px] mb-3">{raffle.prize_description}</p>

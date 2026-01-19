@@ -520,7 +520,7 @@ export async function checkDAOAccess(address: string): Promise<boolean> {
 /**
  * Check if a wallet address owns ANY Skrumpey NFT (Star or regular)
  * 
- * Uses balanceOf to efficiently check if the user owns at least one Skrumpey.
+ * Uses Magic Eden API first (more reliable), falls back to RPC balanceOf if API fails.
  * This is used for public raffles and chat access.
  * 
  * @param address - The wallet address to check
@@ -532,6 +532,39 @@ export async function checkSkrumpeyOwnership(address: string): Promise<{ hasSkru
     return { hasSkrumpey: false, balance: 0 };
   }
 
+  const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS.toLowerCase();
+
+  // Try Magic Eden API first (more reliable and uses our API key)
+  try {
+    const { fetchUserCollections } = await import('./magiceden');
+    const collections = await fetchUserCollections(address);
+    
+    // Check if Skrumpey collection is in the user's collections
+    const skrumpeyCollection = collections.collections.find(
+      c => c.contract.toLowerCase() === skrumpeyContractLower
+    );
+    
+    if (skrumpeyCollection) {
+      const balance = skrumpeyCollection.ownedCount;
+      logger.info('Checked Skrumpey ownership via Magic Eden API', {
+        address: address.slice(0, 10) + '...',
+        balance,
+      });
+      return { hasSkrumpey: balance > 0, balance };
+    }
+    
+    logger.debug('No Skrumpey collection found in Magic Eden response', {
+      address: address.slice(0, 10) + '...',
+      collectionsFound: collections.collections.length,
+    });
+  } catch (error) {
+    logger.debug('Magic Eden API check failed, falling back to RPC', {
+      address: address.slice(0, 10) + '...',
+      error: String(error),
+    });
+  }
+
+  // Fallback to RPC balanceOf check
   try {
     const client = await getResilientClient();
 
@@ -546,7 +579,7 @@ export async function checkSkrumpeyOwnership(address: string): Promise<{ hasSkru
 
     const balanceNum = Number(balance);
     
-    logger.debug('Checked Skrumpey ownership', {
+    logger.debug('Checked Skrumpey ownership via RPC', {
       address: address.slice(0, 10) + '...',
       balance: balanceNum,
     });
