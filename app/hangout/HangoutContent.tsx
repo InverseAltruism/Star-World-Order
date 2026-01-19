@@ -317,6 +317,12 @@ function MemberCard({ user }: { user: OnlineUser }) {
  * Chat Message Component
  * Displays individual chat messages with sender name prominently shown
  * Shows date + time for messages, and Star badge for Star Skrumpey holders
+ * 
+ * Layout: [TIMESTAMP] [STAR?] [USERNAME]: [MESSAGE]
+ * - Timestamp: fixed width, monospace, right-aligned
+ * - Star badge: fixed width slot for consistency
+ * - Username: bold, color-coded
+ * - Message: wraps naturally
  */
 function ChatMessageItem({ message, isStarHolder }: { message: ChatMessage; isStarHolder?: boolean }) {
   const isSystem = message.type === 'system';
@@ -330,55 +336,91 @@ function ChatMessageItem({ message, isStarHolder }: { message: ChatMessage; isSt
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
     
-    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Compact time format: "2:14 PM" instead of "02:14 PM"
+    const time = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     
     if (isToday) {
-      return time;
+      return time; // Just time for today
     } else if (isYesterday) {
-      return `Yesterday ${time}`;
+      return `Yest ${time}`; // Short "Yest" instead of "Yesterday"
     } else {
-      return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+      // Compact date: "Jan 7" without time for older messages, or "1/7 2:14 PM"
+      const shortDate = `${date.getMonth() + 1}/${date.getDate()}`;
+      return `${shortDate} ${time}`;
     }
   };
   
   if (isSystem) {
     return (
-      <div className="text-center py-1">
+      <div className="text-center py-1.5">
         <span className="text-[#9966ff] text-xs italic">{message.message}</span>
       </div>
     );
   }
   
+  // Star holder badge component - consistent size slot
+  const StarBadge = () => (
+    <span className="inline-flex items-center justify-center w-5 shrink-0">
+      {isStarHolder ? (
+        <Image 
+          src="/skr_str_mon2.png" 
+          alt="★" 
+          width={14}
+          height={14}
+          className="animate-pixel-float" 
+          style={{ filter: 'drop-shadow(0 0 4px rgba(255, 215, 0, 0.5))' }}
+          title="Star Skrumpey Holder"
+        />
+      ) : (
+        <span className="text-gray-600 text-xs">•</span>
+      )}
+    </span>
+  );
+  
   if (isEmote) {
     return (
-      <div className="py-1">
-        <span className="text-[#ffd700] text-sm">
-          * {message.sender} {message.message}
-        </span>
+      <div className="py-1.5 group hover:bg-[#1a1a2e]/30 px-2 -mx-2 rounded smooth-transition">
+        <div className="flex items-baseline gap-0">
+          {/* Timestamp - compact fixed width */}
+          <span 
+            className="text-gray-600 text-[10px] shrink-0 font-mono text-right mr-1"
+            style={{ width: '75px', minWidth: '75px' }}
+          >
+            {formatDateTime(message.timestamp)}
+          </span>
+          
+          {/* Star badge slot */}
+          <StarBadge />
+          
+          {/* Emote content */}
+          <span className="text-[#ffd700] text-sm italic">
+            {message.sender} {message.message}
+          </span>
+        </div>
       </div>
     );
   }
   
   return (
-    <div className="py-2 group hover:bg-[#1a1a2e]/30 px-2 rounded smooth-transition">
-      <div className="flex items-start gap-2">
-        <span className="text-gray-500 text-xs shrink-0 mt-0.5">{formatDateTime(message.timestamp)}</span>
-        <div className="flex-1 min-w-0">
-          {isStarHolder && (
-            <Image 
-              src="/skr_str_mon2.png" 
-              alt="Star Skrumpey Holder" 
-              width={16}
-              height={16}
-              className="inline-block mr-1 animate-pixel-float" 
-              style={{ filter: 'drop-shadow(rgba(255, 215, 0, 0.25) 0px 0px 8px)', verticalAlign: 'middle' }}
-              title="Star Skrumpey Holder"
-            />
-          )}
-          <span className="text-[#ffd700] text-sm font-bold">{message.sender}</span>
-          <span className="text-gray-400 text-sm">: </span>
+    <div className="py-1.5 group hover:bg-[#1a1a2e]/30 px-2 -mx-2 rounded smooth-transition">
+      <div className="flex items-baseline gap-0">
+        {/* Timestamp - compact fixed width, monospace for alignment */}
+        <span 
+          className="text-gray-600 text-[10px] shrink-0 font-mono text-right mr-1"
+          style={{ width: '75px', minWidth: '75px' }}
+        >
+          {formatDateTime(message.timestamp)}
+        </span>
+        
+        {/* Star badge slot - always takes same space */}
+        <StarBadge />
+        
+        {/* Username and message */}
+        <span className="flex-1 min-w-0">
+          <span className="text-[#ffd700] text-sm font-semibold">{message.sender}</span>
+          <span className="text-gray-500 text-sm">: </span>
           <span className="text-gray-200 text-sm break-words">{message.message}</span>
-        </div>
+        </span>
       </div>
     </div>
   );
