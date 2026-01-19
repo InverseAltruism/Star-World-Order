@@ -129,23 +129,26 @@ export default function Header() {
               }}
             />
           </Link>
-          <Link 
-            href="/starforge" 
-            className="text-[10px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider relative group flex-shrink-0"
-            style={{ 
-              transition: 'color 0.3s ease',
-              willChange: 'color'
-            }}
-          >
-            STAR FORGE
-            <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
+          {/* Star Forge link - hidden on PROD, shown on DEV */}
+          {!isProduction && (
+            <Link 
+              href="/starforge" 
+              className="text-[10px] text-gray-300 hover:text-[#ff00ff] uppercase tracking-wider relative group flex-shrink-0"
               style={{ 
-                transition: 'width 0.3s ease',
-                willChange: 'width'
+                transition: 'color 0.3s ease',
+                willChange: 'color'
               }}
-            />
-          </Link>
+            >
+              STAR FORGE
+              <span 
+                className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff00ff] group-hover:w-full" 
+                style={{ 
+                  transition: 'width 0.3s ease',
+                  willChange: 'width'
+                }}
+              />
+            </Link>
+          )}
           <Link 
             href="/profile" 
             className="text-[10px] text-gray-300 hover:text-[#ffd700] uppercase tracking-wider hidden sm:block relative group flex-shrink-0"
@@ -231,14 +234,17 @@ export default function Header() {
             >
               RAFFLE
             </Link>
-            <Link 
-              href="/starforge" 
-              className="text-sm text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
-              style={{ textShadow: '0 0 10px rgba(255, 0, 255, 0.5)' }}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              STAR FORGE
-            </Link>
+            {/* Star Forge link - hidden on PROD, shown on DEV */}
+            {!isProduction && (
+              <Link 
+                href="/starforge" 
+                className="text-sm text-white hover:text-[#ff00ff] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
+                style={{ textShadow: '0 0 10px rgba(255, 0, 255, 0.5)' }}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                STAR FORGE
+              </Link>
+            )}
             <Link 
               href="/profile" 
               className="text-sm text-white hover:text-[#ffd700] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
