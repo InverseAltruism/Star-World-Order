@@ -204,7 +204,8 @@ export async function GET(request: NextRequest) {
         // For public raffles, show 5 base + tier entries; for standard raffles, just tier entries
         try {
           const ownedStars = await checkStarOwnershipBatched(address);
-          const tierInfo = calculateHolderTier(ownedStars.length);
+          const starCount = ownedStars.length;
+          const tierInfo = calculateHolderTier(starCount);
           if (tierInfo) {
             if (raffle.is_public === 1) {
               // Public raffle: Star holders get 5 base + their tier entries
@@ -212,7 +213,7 @@ export async function GET(request: NextRequest) {
                 tier: tierInfo.tier,
                 entries: 5 + tierInfo.entries,
                 name: `${tierInfo.name} (x${5 + tierInfo.entries})`,
-                minStars: tierInfo.minStars,
+                minStars: starCount, // Use actual star count
               };
             } else {
               // Standard raffle: just tier entries
