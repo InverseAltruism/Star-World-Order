@@ -516,3 +516,47 @@ export async function checkDAOAccess(address: string): Promise<boolean> {
   const ownedTokens = await checkStarOwnershipBatched(address);
   return hasStarSkrumpey(ownedTokens);
 }
+
+/**
+ * Check if a wallet address owns ANY Skrumpey NFT (Star or regular)
+ * 
+ * Uses balanceOf to efficiently check if the user owns at least one Skrumpey.
+ * This is used for public raffles and chat access.
+ * 
+ * @param address - The wallet address to check
+ * @returns Promise<{ hasSkrumpey: boolean; balance: number }> - ownership status and balance
+ */
+export async function checkSkrumpeyOwnership(address: string): Promise<{ hasSkrumpey: boolean; balance: number }> {
+  if (!SKRUMPEY_CONTRACT_ADDRESS) {
+    logger.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
+    return { hasSkrumpey: false, balance: 0 };
+  }
+
+  try {
+    const client = await getResilientClient();
+
+    const balance = await retryWithBackoff(async () => {
+      return await client.readContract({
+        address: SKRUMPEY_CONTRACT_ADDRESS as `0x${string}`,
+        abi: ERC721_ABI,
+        functionName: 'balanceOf',
+        args: [address as `0x${string}`],
+      });
+    });
+
+    const balanceNum = Number(balance);
+    
+    logger.debug('Checked Skrumpey ownership', {
+      address: address.slice(0, 10) + '...',
+      balance: balanceNum,
+    });
+
+    return { hasSkrumpey: balanceNum > 0, balance: balanceNum };
+  } catch (error) {
+    logger.error('Failed to check Skrumpey ownership', {
+      address: address.slice(0, 10) + '...',
+      error: String(error),
+    });
+    return { hasSkrumpey: false, balance: 0 };
+  }
+}
