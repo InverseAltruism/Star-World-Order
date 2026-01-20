@@ -3265,6 +3265,48 @@ export function createRaffle(data: {
     db.exec(`ALTER TABLE raffle_entries ADD COLUMN engagement_bonus INTEGER NOT NULL DEFAULT 0`);
   } catch { /* Column may already exist */ }
   
+  // Migration: Update tier CHECK constraint to include 'skrumpey_holder' for public raffles
+  // SQLite doesn't support modifying CHECK constraints, so we need to recreate the table
+  try {
+    // Check if we need to migrate by attempting to query for the constraint
+    const tableInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='raffle_entries'`).get() as { sql: string } | undefined;
+    if (tableInfo && !tableInfo.sql.includes('skrumpey_holder')) {
+      console.log('Migrating raffle_entries table to support skrumpey_holder tier...');
+      
+      // Create new table with updated constraint
+      db.exec(`
+        CREATE TABLE raffle_entries_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          raffle_id TEXT NOT NULL,
+          wallet_address TEXT NOT NULL,
+          tier TEXT NOT NULL CHECK (tier IN ('star_forged', 'cosmic_warden', 'star_lord', 'cosmic_emperor', 'skrumpey_holder')),
+          entries_count INTEGER NOT NULL DEFAULT 1,
+          discord_bonus INTEGER NOT NULL DEFAULT 0,
+          engagement_bonus INTEGER NOT NULL DEFAULT 0,
+          star_count INTEGER NOT NULL DEFAULT 1,
+          entered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (raffle_id) REFERENCES raffles(id),
+          UNIQUE(raffle_id, wallet_address)
+        )
+      `);
+      
+      // Copy existing data
+      db.exec(`
+        INSERT INTO raffle_entries_new (id, raffle_id, wallet_address, tier, entries_count, discord_bonus, engagement_bonus, star_count, entered_at)
+        SELECT id, raffle_id, wallet_address, tier, entries_count, discord_bonus, engagement_bonus, star_count, entered_at
+        FROM raffle_entries
+      `);
+      
+      // Drop old table and rename new one
+      db.exec(`DROP TABLE raffle_entries`);
+      db.exec(`ALTER TABLE raffle_entries_new RENAME TO raffle_entries`);
+      
+      console.log('Migration complete: raffle_entries table now supports skrumpey_holder tier');
+    }
+  } catch (migrationError) {
+    console.error('Migration error (raffle_entries tier constraint):', migrationError);
+  }
+  
   // Create raffle result view tracking (for one-time animation display)
   db.exec(`
     CREATE TABLE IF NOT EXISTS raffle_result_views (
