@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
 import { fetchCollectionFloorPrice } from '@/lib/blockvision';
 import { getFloorPriceByContract } from '@/lib/floorPrices';
+import { getLocalApiFloorPrices } from '@/lib/floorPriceApi';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
@@ -212,42 +213,60 @@ export async function GET(request: Request) {
     const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
 
     // Calculate NFT values using floor prices
-    // Try BlockVision API first, fall back to database floor prices
+    // Priority: 1. Local Floor Price API, 2. BlockVision, 3. Database
     logger.info('Calculating NFT values for treasury holdings', { 
       collectionCount: uniqueCollections.length 
+    });
+    
+    // Fetch all floor prices from local API in one call (cached)
+    const localFloorPrices = await getLocalApiFloorPrices();
+    logger.info('Local floor price API returned prices', { 
+      count: localFloorPrices.size 
     });
     
     let totalNFTValue = 0;
     const nftsWithPrices = await Promise.all(
       nfts.map(async (nft) => {
         let floorPrice: number | null = null;
+        let priceSource = 'none';
         
-        // Try BlockVision API first
-        try {
-          floorPrice = await fetchCollectionFloorPrice(nft.contractAddress);
-          if (floorPrice !== null) {
-            logger.debug('Got floor price from BlockVision', {
-              contract: nft.contractAddress,
-              floorPrice,
-            });
-          }
-        } catch (error) {
-          logger.debug('BlockVision floor price fetch failed, trying database', {
-            contract: nft.contractAddress,
-            error: String(error),
-          });
+        // 1. Try local floor price API first (fastest, our own data)
+        const localPrice = localFloorPrices.get(nft.collectionName.toLowerCase());
+        if (localPrice !== undefined && localPrice > 0) {
+          floorPrice = localPrice;
+          priceSource = 'local_api';
         }
         
-        // Fall back to database floor prices if BlockVision didn't return a value
+        // 2. Try BlockVision API if local didn't have it
+        if (floorPrice === null) {
+          try {
+            floorPrice = await fetchCollectionFloorPrice(nft.contractAddress);
+            if (floorPrice !== null) {
+              priceSource = 'blockvision';
+            }
+          } catch (error) {
+            logger.debug('BlockVision floor price fetch failed', {
+              collection: nft.collectionName,
+              error: String(error),
+            });
+          }
+        }
+        
+        // 3. Fall back to database floor prices
         if (floorPrice === null) {
           const dbFloorPrice = getFloorPriceByContract(nft.contractAddress);
           if (dbFloorPrice && dbFloorPrice.floorPriceMON !== null) {
             floorPrice = dbFloorPrice.floorPriceMON;
-            logger.debug('Got floor price from database', {
-              contract: nft.contractAddress,
-              floorPrice,
-            });
+            priceSource = 'database';
           }
+        }
+        
+        if (floorPrice !== null) {
+          logger.debug('Got floor price', {
+            collection: nft.collectionName,
+            floorPrice,
+            source: priceSource,
+          });
         }
         
         // Calculate value for this NFT holding (floor price * quantity)

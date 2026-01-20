@@ -600,7 +600,21 @@ CREATE TABLE raffle_entries (
 );
 ```
 
-**Holder Tiers**: Cosmic Emperor (10+) = 4 entries, Star Lord (5-9) = 3, Cosmic Warden (2-4) = 2, Star Forged (1) = 1
+**Holder Tiers** (Star-only raffles):
+| Tier | Stars | Entries |
+|------|-------|---------|
+| Cosmic Emperor | 10+ | 4 |
+| Star Lord | 5-9 | 3 |
+| Cosmic Warden | 2-4 | 2 |
+| Star Forged | 1 | 1 |
+
+**Public Raffle Entry Formula:**
+```
+entries = regular_skrumpeys + (is_star_holder ? 5 + tier_bonus : 0)
+```
+- Each regular Skrumpey = 1 entry
+- Star holders get flat 5 bonus + tier bonus (1-4)
+- Example: 4 regular + 1 Star (Star Forged) = 4 + (5+1) = 10 entries
 
 **Verifiable Randomness**: SHA-256 of `${blockHash}-${raffleId}-${timestamp}-${entryCount}`
 
@@ -743,9 +757,41 @@ Uses Magic Eden's public Monad API (no API key required, 180 QPM limit).
 
 ---
 
+## Local Floor Price API (ME Scraper)
+
+**Primary source for NFT floor prices.** Runs on our infrastructure, scraping Magic Eden every 30 minutes.
+
+| Property | Value |
+|----------|-------|
+| **API Base** | `https://starworldorder.com/nft/api` |
+| **Scheduler** | Every 30 minutes via systemd |
+| **Database** | `~/.me_scraper/floor_prices.db` |
+| **Collections Tracked** | 32+ |
+
+**Endpoints:**
+| Endpoint | Description |
+|----------|-------------|
+| `/api/health` | Health check |
+| `/api/collections` | All collection floor prices |
+| `/api/collections/{name}` | Single collection with 24h history |
+| `/api/stats` | Scraper statistics |
+
+**Usage in Treasury:**
+```typescript
+import { getLocalApiFloorPrices } from '@/lib/floorPriceApi';
+const prices = await getLocalApiFloorPrices(); // Map<collectionName, floorPrice>
+```
+
+**Floor Price Priority:**
+1. **Local API** (by collection name) - fastest, our own data
+2. **BlockVision** (by contract address) - external API fallback
+3. **Database** (by contract address) - manual entries fallback
+
+---
+
 ## BlockVision API (Optional)
 
-Used for floor prices only. NFT holdings use Magic Eden.
+Used for floor prices as fallback when local API doesn't have the collection.
 
 ```bash
 BLOCKVISION_API=your-api-key-here
@@ -756,9 +802,10 @@ BLOCKVISION_API=your-api-key-here
 ## RPC Optimization Strategy
 
 1. **Batched Multicall**: Check all 333 Star IDs in one call
-2. **Fallback Endpoints**: Rotate through multiple RPCs
-3. **Exponential Backoff**: Retry with 1s, 2s, 4s delays
-4. **Graceful Degradation**: Return empty array on total failure
+2. **Star Ownership Cache**: 30-second in-memory cache to prevent duplicate RPC calls
+3. **Fallback Endpoints**: Rotate through multiple RPCs
+4. **Exponential Backoff**: Retry with 1s, 2s, 4s delays
+5. **Graceful Degradation**: Return empty array on total failure
 
 ```typescript
 const ownershipChecks = await client.multicall({
@@ -783,7 +830,9 @@ const ownershipChecks = await client.multicall({
 | `lib/wagmi.ts` | Chain configuration |
 | `lib/rpcClient.ts` | RPC fallback and retry |
 | `lib/magiceden.ts` | Magic Eden API |
-| `lib/blockvision.ts` | BlockVision API (floor prices) |
+| `lib/floorPriceApi.ts` | Local floor price API integration |
+| `lib/blockvision.ts` | BlockVision API (fallback floor prices) |
+| `lib/floorPrices.ts` | Database floor prices (manual entries) |
 | `lib/db.ts` | Database operations (3500+ lines) |
 | `components/Header.tsx` | Navigation |
 | `components/AccessGate.tsx` | NFT gating |
@@ -836,8 +885,11 @@ NEXT_PUBLIC_DEV_ACCESS_ENABLED=true|false
 # Database
 DATABASE_URL=file:./data/swo.db
 
-# BlockVision (optional)
+# BlockVision (optional - fallback for floor prices)
 BLOCKVISION_API=
+
+# Floor Price API (optional - defaults to https://starworldorder.com/nft/api)
+# FLOOR_PRICE_API_URL=https://starworldorder.com/nft/api
 
 # Cron
 CRON_SECRET=
@@ -981,6 +1033,6 @@ Star-World-Order/
 
 ---
 
-**Last Updated**: January 9, 2025
+**Last Updated**: January 20, 2026
 
 **Repository**: https://github.com/InverseAltruism/Star-World-Order

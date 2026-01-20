@@ -130,11 +130,13 @@ Each constellation has a unique visual appearance in the UI:
 - **Online Presence** - See who's in the cosmic realm
 
 ### 🎰 Cosmic Raffle
-- **Exclusive Giveaways** - Only Star Skrumpey holders can enter
-- **Tier-Based Entries** - More Stars = more tickets (1-4 entries based on holdings)
-- **Bonus Entries** - Extra tickets for Discord members and social engagement
+- **Two Raffle Types**:
+  - **Star-Only Raffles** - Exclusive to Star Skrumpey holders (1-4 entries based on tier)
+  - **Public Raffles** - Open to all Skrumpey holders (1 entry per Skrumpey + Star holder bonus)
+- **Tier-Based Entries** - Star holders get tier bonuses (Star Forged +1, Warden +2, Lord +3, Emperor +4)
+- **Bonus Entries** - Extra tickets for social engagement (Like & RT)
 - **Verifiable Randomness** - SHA-256 based winner selection with transparent seed
-- **Lottery Animations** - Fun ticket animations when entering raffles
+- **Entry Breakdown** - Click your tier to see exactly how entries are calculated
 
 ### 👥 Star Bearers (Members Page)
 - **Holder Leaderboard** - Ranked list of Star Skrumpey holders
@@ -303,6 +305,7 @@ When a governance proposal is created, a discussion thread is automatically crea
 - **Web3**: Wagmi 3, Viem 2
 - **Contracts**: Solidity 0.8.20, OpenZeppelin 5.x
 - **Database**: SQLite (better-sqlite3)
+- **Floor Prices**: Local ME Scraper API (auto-updates every 30 min)
 - **Font**: Press Start 2P (Retro Pixel)
 
 ## 📄 License
