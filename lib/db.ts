@@ -3428,16 +3428,17 @@ export function getRafflesNeedingDraw(): Raffle[] {
  * 
  * For standard raffles: Only Star Skrumpey holders can enter, entries based on Star count tier
  * For public raffles: All Skrumpey holders can enter
- *   - Star Skrumpey holders: x5 entries (weighted)
- *   - Regular Skrumpey holders: x1 entry
+ *   - Each regular Skrumpey = 1 entry
+ *   - Star holders = 5 base + tier bonus (flat, not per star)
+ *   - Total = regularSkrumpeys + (isStarHolder ? 5 + tierBonus : 0)
  */
 export function enterRaffle(data: {
   raffleId: string;
   walletAddress: string;
   starCount: number;
+  totalSkrumpeyBalance?: number; // Total Skrumpeys from Magic Eden (includes Stars)
   discordBonus?: boolean;
   engagementBonus?: boolean;
-  isPublicEntry?: boolean; // For public raffles - entering as regular Skrumpey holder
 }): RaffleEntry | null {
   const db = getDatabase();
   const normalizedAddress = data.walletAddress.toLowerCase();
@@ -3456,20 +3457,25 @@ export function enterRaffle(data: {
   let tier: string;
   let baseEntries: number;
   
-  // For public raffles, determine entry weight based on whether they have Stars
+  // For public raffles, calculate entries based on holdings
   if (raffle.is_public === 1) {
+    // Calculate regular Skrumpeys (total - stars)
+    const totalBalance = data.totalSkrumpeyBalance ?? data.starCount;
+    const regularSkrumpeys = Math.max(0, totalBalance - data.starCount);
+    
     if (data.starCount > 0) {
-      // Star Skrumpey holder gets x5 base entries + their holder tier entries in public raffles
+      // Star holder: regularSkrumpeys × 1 + (5 base + tier bonus)
       const tierInfo = calculateHolderTier(data.starCount);
       if (!tierInfo) {
         return null; // Should not happen if starCount > 0
       }
-      tier = tierInfo.tier; // Use their actual tier (cosmic_emperor, star_lord, etc.)
-      baseEntries = 5 + tierInfo.entries; // 5 base + tier entries
+      tier = tierInfo.tier;
+      // Each regular Skrumpey = 1 entry, Star holder bonus = 5 + tier
+      baseEntries = regularSkrumpeys + 5 + tierInfo.entries;
     } else {
-      // Regular Skrumpey holder (no Stars) gets x1 entry
+      // Regular Skrumpey holder: each Skrumpey = 1 entry
       tier = 'skrumpey_holder';
-      baseEntries = 1;
+      baseEntries = regularSkrumpeys > 0 ? regularSkrumpeys : 1; // At least 1 if they got here
     }
   } else {
     // Standard raffle - only Star holders can enter

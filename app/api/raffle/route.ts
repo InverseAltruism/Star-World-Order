@@ -200,28 +200,57 @@ export async function GET(request: NextRequest) {
           hasViewedResult = hasViewedRaffleResult(id, address);
         }
         
-        // Get user's current tier (from their Star count)
-        // For public raffles, show 5 base + tier entries; for standard raffles, just tier entries
+        // Get user's current tier and potential entries
         try {
           const ownedStars = await checkStarOwnershipBatched(address);
           const starCount = ownedStars.length;
-          const tierInfo = calculateHolderTier(starCount);
-          if (tierInfo) {
-            if (raffle.is_public === 1) {
-              // Public raffle: Star holders get 5 base + their tier entries
+          
+          if (raffle.is_public === 1) {
+            // Public raffle: fetch total Skrumpey balance
+            const { balance: totalSkrumpeyBalance } = await checkSkrumpeyOwnership(address);
+            const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
+            
+            if (starCount > 0) {
+              // Star holder: regularSkrumpeys + 5 base + tier bonus
+              const tierInfo = calculateHolderTier(starCount);
+              if (tierInfo) {
+                const starBonus = 5 + tierInfo.entries;
+                const totalEntries = regularSkrumpeys + starBonus;
+                userTier = {
+                  tier: tierInfo.tier,
+                  entries: totalEntries,
+                  name: tierInfo.name,
+                  breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
+                  regularSkrumpeys,
+                  starBonus,
+                  totalSkrumpeys: totalSkrumpeyBalance,
+                };
+              }
+            } else if (regularSkrumpeys > 0) {
+              // Regular holder: 1 entry per Skrumpey
               userTier = {
-                tier: tierInfo.tier,
-                entries: 5 + tierInfo.entries,
-                name: `${tierInfo.name} (x${5 + tierInfo.entries})`,
-                minStars: starCount, // Use actual star count
+                tier: 'skrumpey_holder',
+                entries: regularSkrumpeys,
+                name: 'Skrumpey Holder',
+                breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+                regularSkrumpeys,
+                totalSkrumpeys: totalSkrumpeyBalance,
               };
-            } else {
-              // Standard raffle: just tier entries
+            }
+          } else {
+            // Standard raffle: just tier entries
+            const tierInfo = calculateHolderTier(starCount);
+            if (tierInfo) {
               userTier = tierInfo;
             }
           }
-        } catch {
-          // Ignore errors
+        } catch (tierError) {
+          // Log error but don't fail - user might still be able to enter
+          logger.warn('Failed to calculate user tier for raffle', {
+            raffleId: id,
+            address: address.slice(0, 10) + '...',
+            error: String(tierError),
+          });
         }
         
         // Get user's social connections for requirement checking
@@ -375,17 +404,19 @@ export async function POST(request: NextRequest) {
         const ownedStars = await checkStarOwnershipBatched(walletAddress);
         const starCount = ownedStars.length;
         
+        // For public raffles, we need total Skrumpey balance to calculate entries
+        let totalSkrumpeyBalance = starCount; // Default to star count
+        
         if (isPublicRaffle) {
-          // Public raffle - check for any Skrumpey ownership
-          if (starCount === 0) {
-            // No Stars, check if they have any Skrumpey at all
-            const { hasSkrumpey } = await checkSkrumpeyOwnership(walletAddress);
-            if (!hasSkrumpey) {
-              return NextResponse.json(
-                { success: false, error: 'You must own at least 1 Skrumpey NFT to enter this raffle' },
-                { status: 403 }
-              );
-            }
+          // Fetch total Skrumpey balance from Magic Eden
+          const { hasSkrumpey, balance } = await checkSkrumpeyOwnership(walletAddress);
+          totalSkrumpeyBalance = balance;
+          
+          if (!hasSkrumpey && starCount === 0) {
+            return NextResponse.json(
+              { success: false, error: 'You must own at least 1 Skrumpey NFT to enter this raffle' },
+              { status: 403 }
+            );
           }
           // User has either Stars or regular Skrumpeys - they can enter
         } else {
@@ -398,11 +429,12 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Enter raffle
+        // Enter raffle with total balance for proper entry calculation
         const entry = enterRaffle({
           raffleId,
           walletAddress,
           starCount,
+          totalSkrumpeyBalance,
           discordBonus,
           engagementBonus,
         });
@@ -416,22 +448,32 @@ export async function POST(request: NextRequest) {
         
         // Determine tier info for response
         let tierInfo = null;
+        const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
+        
         if (isPublicRaffle) {
           if (starCount > 0) {
-            // For public raffles, Star holders get 5 base + their tier entries
+            // Star holders: regularSkrumpeys + 5 base + tier bonus
             const holderTier = calculateHolderTier(starCount);
             if (holderTier) {
+              const starBonus = 5 + holderTier.entries;
               tierInfo = {
                 tier: holderTier.tier,
-                entries: 5 + holderTier.entries, // 5 base + tier entries
-                name: `${holderTier.name} (x${5 + holderTier.entries})`,
-                minStars: holderTier.minStars,
+                entries: entry.entries_count,
+                name: holderTier.name,
+                breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
+                regularSkrumpeys,
+                starBonus,
               };
-            } else {
-              tierInfo = { tier: 'star_forged', entries: 5, name: 'Star Holder (x5)' };
             }
           } else {
-            tierInfo = { tier: 'skrumpey_holder', entries: 1, name: 'Skrumpey Holder (x1)' };
+            // Regular holders: 1 entry per Skrumpey
+            tierInfo = { 
+              tier: 'skrumpey_holder', 
+              entries: entry.entries_count,
+              name: 'Skrumpey Holder',
+              breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+              regularSkrumpeys,
+            };
           }
         } else {
           tierInfo = calculateHolderTier(starCount);

@@ -69,7 +69,11 @@ interface UserTier {
   tier: string;
   entries: number;
   name: string;
-  minStars: number;
+  minStars?: number;
+  breakdown?: string;
+  regularSkrumpeys?: number;
+  starBonus?: number;
+  totalSkrumpeys?: number;
 }
 
 // Tier colors and styles
@@ -596,6 +600,7 @@ export default function RaffleContent() {
     stats: RaffleStats;
     userEntry: RaffleEntry | null;
     socialConnections: SocialConnections | null;
+    userTier: UserTier | null;
   }
   
   // State - now supporting multiple active raffles
@@ -617,6 +622,7 @@ export default function RaffleContent() {
   const [showEntryConfirmation, setShowEntryConfirmation] = useState(false);
   const [entryConfirmData, setEntryConfirmData] = useState<{ entries: number; tier: string; raffleName: string } | null>(null);
   const [winAnimationData, setWinAnimationData] = useState<{ raffleName: string; prizeName: string } | null>(null);
+  const [showTierBreakdown, setShowTierBreakdown] = useState(false);
   
   /**
    * Helper function to check and show win/lose animation for a drawn raffle
@@ -738,6 +744,7 @@ export default function RaffleContent() {
               stats: detailData.stats || { participants: 0, totalTickets: 0 },
               userEntry: detailData.userEntry,
               socialConnections: detailData.socialConnections,
+              userTier: detailData.userTier,
             } as ActiveRaffleData;
           }
           return null;
@@ -1142,8 +1149,9 @@ export default function RaffleContent() {
               <div className="flex-1">
                 <p className="text-[#00ffff] text-xs sm:text-sm font-bold mb-2">PUBLIC RAFFLE ENTRY RULES</p>
                 <div className="space-y-1.5 text-[10px] sm:text-xs text-gray-300">
-                  <p>• <span className="text-[#44ff88] font-semibold">1 Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
-                  <p>• <span className="text-[#ffd700] font-semibold">1 Star Skrumpey</span> = <span className="text-[#ffd700]">5 Entries</span> + <span className="text-[#9966ff]">Holder Perk</span></p>
+                  <p>• <span className="text-[#44ff88] font-semibold">Each Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
+                  <p>• <span className="text-[#ffd700] font-semibold">Star Holders</span> = <span className="text-[#ffd700]">+5 Bonus</span> + <span className="text-[#9966ff]">Tier Perk</span></p>
+                  <p className="text-gray-500 text-[9px] italic mt-1">Example: 4 Skrumpey + 1 Star (Star Forged) = 4 + 6 = 10 entries</p>
                 </div>
               </div>
             </div>
@@ -1355,14 +1363,82 @@ export default function RaffleContent() {
                   }
                   return null;
                 })()}
-                {!getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing && userTier ? (
+                {!getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing && raffleData.userTier ? (
                   <>
                     <div className="mb-3">
-                      <p className="text-gray-400 text-xs mb-2">Your Tier:</p>
-                      <TierBadge tier={userTier.tier} />
-                      <p className="text-white text-sm mt-1">
-                        {userTier.entries} {userTier.entries > 1 ? 'Entries' : 'Entry'}
-                      </p>
+                      {/* Clickable Tier Card */}
+                      <button 
+                        onClick={() => setShowTierBreakdown(!showTierBreakdown)}
+                        className="w-full p-2.5 bg-[#0a0a15]/80 border border-[#2a2a4e] hover:border-[#00ffff]/50 rounded-lg transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-gray-500 text-[10px] group-hover:text-[#00ffff] transition-colors">
+                            📊 Your Entries
+                          </span>
+                          <span className="text-gray-500 text-[9px] group-hover:text-[#00ffff] transition-colors">
+                            {showTierBreakdown ? '▲ hide' : '▼ details'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <TierBadge tier={raffleData.userTier.tier} />
+                          <p className="text-white text-lg font-bold">
+                            {raffleData.userTier.entries} <span className="text-xs font-normal text-gray-400">{raffleData.userTier.entries > 1 ? 'entries' : 'entry'}</span>
+                          </p>
+                        </div>
+                      </button>
+                      
+                      {/* Tier Breakdown Panel */}
+                      {showTierBreakdown && (
+                        <div className="mt-2 p-3 bg-[#0a0a15] border border-[#00ffff]/30 rounded-lg text-[10px]">
+                          <p className="text-[#00ffff] font-bold mb-2">📊 ENTRY CALCULATION</p>
+                          
+                          {activeRaffle.is_public === 1 ? (
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-gray-300">
+                                <span>🐸 Total Skrumpeys:</span>
+                                <span className="text-white font-bold">{raffleData.userTier.totalSkrumpeys ?? '-'}</span>
+                              </div>
+                              {raffleData.userTier.starBonus !== undefined && (
+                                <>
+                                  <div className="flex justify-between text-gray-300">
+                                    <span>⭐ Star Skrumpeys:</span>
+                                    <span className="text-[#ffd700] font-bold">
+                                      {(raffleData.userTier.totalSkrumpeys ?? 0) - (raffleData.userTier.regularSkrumpeys ?? 0)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-gray-300">
+                                    <span>🐸 Regular Skrumpeys:</span>
+                                    <span className="text-white font-bold">{raffleData.userTier.regularSkrumpeys ?? 0}</span>
+                                  </div>
+                                  <div className="border-t border-[#2a2a4e] my-2 pt-2">
+                                    <p className="text-gray-400 mb-1">Calculation:</p>
+                                    <p className="text-gray-300">
+                                      {raffleData.userTier.regularSkrumpeys ?? 0} regular × 1 = <span className="text-[#44ff88]">{raffleData.userTier.regularSkrumpeys ?? 0}</span>
+                                    </p>
+                                    <p className="text-gray-300">
+                                      Star bonus (5 + {raffleData.userTier.starBonus - 5} tier) = <span className="text-[#ffd700]">{raffleData.userTier.starBonus}</span>
+                                    </p>
+                                    <p className="text-white font-bold mt-1">
+                                      Total: {raffleData.userTier.regularSkrumpeys ?? 0} + {raffleData.userTier.starBonus} = {raffleData.userTier.entries}
+                                    </p>
+                                  </div>
+                                </>
+                              )}
+                              {raffleData.userTier.starBonus === undefined && (
+                                <div className="border-t border-[#2a2a4e] my-2 pt-2">
+                                  <p className="text-gray-300">
+                                    {raffleData.userTier.regularSkrumpeys ?? raffleData.userTier.entries} Skrumpey × 1 = <span className="text-[#44ff88]">{raffleData.userTier.entries}</span> entries
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <p className="text-gray-300">Star-only raffle: {raffleData.userTier.entries} entries from {raffleData.userTier.name} tier</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => handleEnterRaffle(activeRaffle.id, activeRaffle.name, false)}
@@ -1401,17 +1477,35 @@ export default function RaffleContent() {
                   </>
                 ) : !getMissingSocialRequirements(activeRaffle, userSocialConnections).hasMissing ? (
                   <div className="text-center">
-                    <p className="text-[#ff4466] text-xs mb-2">
-                      You must own at least 1 Star Skrumpey to enter
-                    </p>
-                    <a 
-                      href="https://magiceden.io/collections/monad/skrumpeys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="pixel-btn text-xs"
-                    >
-                      GET A STAR SKRUMPEY
-                    </a>
+                    {activeRaffle.is_public === 1 ? (
+                      <>
+                        <p className="text-[#ff4466] text-xs mb-2">
+                          You must own at least 1 Skrumpey to enter
+                        </p>
+                        <a 
+                          href="https://magiceden.io/collections/monad/skrumpeys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="pixel-btn text-xs"
+                        >
+                          GET A SKRUMPEY
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[#ff4466] text-xs mb-2">
+                          You must own at least 1 Star Skrumpey to enter
+                        </p>
+                        <a 
+                          href="https://magiceden.io/collections/monad/skrumpeys"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="pixel-btn text-xs"
+                        >
+                          GET A STAR SKRUMPEY
+                        </a>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -1474,8 +1568,8 @@ export default function RaffleContent() {
             <div className="bg-[#00ffff]/10 border border-[#00ffff]/30 rounded-lg p-4">
               <p className="text-[#00ffff] text-xs font-bold mb-2 text-center">ℹ️ PUBLIC RAFFLE ENTRY RULES</p>
               <div className="space-y-1.5 text-[10px] text-gray-300">
-                <p className="text-center">• <span className="text-[#44ff88] font-semibold">1 Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
-                <p className="text-center">• <span className="text-[#ffd700] font-semibold">1 Star Skrumpey</span> = <span className="text-[#ffd700]">5 Entries</span> + <span className="text-[#9966ff]">Holder Perk</span></p>
+                <p className="text-center">• <span className="text-[#44ff88] font-semibold">Each Skrumpey</span> = <span className="text-[#ffd700]">1 Entry</span></p>
+                <p className="text-center">• <span className="text-[#ffd700] font-semibold">Star Holders</span> = <span className="text-[#ffd700]">+5 Bonus</span> + <span className="text-[#9966ff]">Tier Perk</span></p>
               </div>
             </div>
           </div>

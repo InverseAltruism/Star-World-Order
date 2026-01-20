@@ -1514,10 +1514,11 @@ export default function AdminContent() {
             </label>
             {raffleIsPublic && (
               <div className="mt-3 p-2 bg-black/30 rounded text-[9px]">
-                <p className="text-[#44ff88] font-bold mb-1">⚖️ WEIGHTED ENTRIES:</p>
-                <p className="text-gray-300">• ⭐ Star Skrumpey holders: <span className="text-[#ffd700] font-bold">5 base + tier entries</span></p>
-                <p className="text-gray-400 text-[8px] ml-2">(Star Forged: 6, Warden: 7, Lord: 8, Emperor: 9)</p>
-                <p className="text-gray-300 mt-1">• 🐸 Regular Skrumpey holders: <span className="text-gray-400">x1 entry</span></p>
+                <p className="text-[#44ff88] font-bold mb-1">⚖️ ENTRY CALCULATION:</p>
+                <p className="text-gray-300">• 🐸 Each regular Skrumpey: <span className="text-gray-400">1 entry</span></p>
+                <p className="text-gray-300 mt-1">• ⭐ Star holders get: <span className="text-[#ffd700] font-bold">5 base + tier bonus</span></p>
+                <p className="text-gray-400 text-[8px] ml-2">(Star Forged: +6, Warden: +7, Lord: +8, Emperor: +9)</p>
+                <p className="text-gray-500 text-[8px] mt-1 italic">Example: 4 regular + 1 Star = 4 + 6 = 10 entries</p>
               </div>
             )}
           </div>

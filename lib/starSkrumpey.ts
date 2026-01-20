@@ -327,11 +327,21 @@ async function processBatch<T, R>(
 }
 
 /**
+ * In-memory cache for Star ownership checks to prevent duplicate RPC calls
+ * when multiple raffles/endpoints fetch data in parallel for the same address.
+ */
+const starOwnershipCache = new Map<string, { tokens: OwnedToken[]; timestamp: number }>();
+const STAR_OWNERSHIP_CACHE_TTL = 30 * 1000; // 30 seconds - short TTL for real-time accuracy
+
+/**
  * Check Star Skrumpey ownership using batched multicall
  * 
  * This is the primary strategy (Tier 1) that checks ownership of all 333 known
  * Star Skrumpey token IDs in a single batched multicall. This approach makes
  * O(1) RPC calls regardless of how many NFTs the user owns, avoiding rate limiting.
+ * 
+ * Results are cached for 30 seconds to prevent duplicate RPC calls when
+ * multiple parallel API requests check the same address.
  * 
  * @param address - The wallet address to check
  * @returns Array of owned Star Skrumpey tokens
@@ -340,6 +350,18 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
   if (!SKRUMPEY_CONTRACT_ADDRESS) {
     logger.warn('SKRUMPEY_CONTRACT_ADDRESS not configured');
     return [];
+  }
+
+  const normalizedAddress = address.toLowerCase();
+  
+  // Check cache first
+  const cached = starOwnershipCache.get(normalizedAddress);
+  if (cached && Date.now() - cached.timestamp < STAR_OWNERSHIP_CACHE_TTL) {
+    logger.debug('Returning cached Star ownership', {
+      address: address.slice(0, 10) + '...',
+      ownedStars: cached.tokens.length,
+    });
+    return cached.tokens;
   }
 
   logger.info('Checking Star ownership via batched multicall', { 
@@ -395,6 +417,9 @@ export async function checkStarOwnershipBatched(address: string): Promise<OwnedT
       ownedStars: ownedStars.length,
       tokenIds: ownedStars.map(t => t.tokenId).join(', '),
     });
+
+    // Cache the result
+    starOwnershipCache.set(normalizedAddress, { tokens: ownedStars, timestamp: Date.now() });
 
     return ownedStars;
   } catch (error) {
