@@ -13,6 +13,7 @@ import {
   addUserXP,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { verifyAdminAccess } from '@/lib/adminAuth';
 
 /**
  * GET /api/user-xp
@@ -80,6 +81,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await verifyAdminAccess(request);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { walletAddress, xpAmount, reason } = body;
 

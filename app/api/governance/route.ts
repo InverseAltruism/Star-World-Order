@@ -37,7 +37,6 @@ import { logger } from '@/lib/logger';
 import {
   reconstructVoteMessage,
   verifyVoteSignature,
-  verifyVoteSignatureComprehensive,
   validateChoice,
   validateProposalId,
   normalizeAddress,
@@ -45,6 +44,8 @@ import {
   verifyEIP712VoteSignature,
   getChainId,
 } from '@/lib/voteSignature';
+import { verifyAdminAccess } from '@/lib/adminAuth';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 /**
  * GET /api/governance
@@ -322,6 +323,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const walletAuth = await verifyWalletAccess(request, proposerAddress);
+      if (!walletAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: walletAuth.error },
+          { status: 401 }
+        );
+      }
+
       // Validate voting duration (1-4 weeks)
       const duration = parseInt(votingDurationWeeks, 10) || 1;
       if (duration < 1 || duration > 4) {
@@ -454,123 +463,99 @@ export async function POST(request: NextRequest) {
       // Get chain ID from environment
       const chainId = getChainId();
 
-      // CRITICAL SECURITY: Server-side signature verification
-      if (signature && nonce) {
-        // Import nonce validation
-        const { consumeGovernanceNonce } = await import('@/lib/db');
-        
-        // 1. Validate and consume the nonce
-        const nonceRecord = consumeGovernanceNonce(nonce, proposalId, normalizedVoterAddress);
-        if (!nonceRecord) {
-          return NextResponse.json(
-            { success: false, error: 'Invalid or expired nonce. Please request a new nonce and try again.' },
-            { status: 400 }
-          );
-        }
-
-        // Determine signature version (prefer EIP-712 if not specified)
-        const version = signatureVersion || 'eip712';
-
-        // 2. Verify signature based on version
-        let isValidSignature = false;
-        let reconstructedTypedData: any = null;
-
-        if (version === 'eip712') {
-          // EIP-712 verification
-          // Reconstruct typed data server-side (NEVER trust client)
-          reconstructedTypedData = constructVoteTypedData(
-            proposalId,
-            supportValue,
-            normalizedVoterAddress,
-            nonce,
-            proposal.snapshot_block || 0,
-            chainId
-          );
-
-          // Verify the EIP-712 signature
-          isValidSignature = await verifyEIP712VoteSignature(
-            normalizedVoterAddress,
-            reconstructedTypedData,
-            signature as `0x${string}`,
-            chainId
-          );
-        } else {
-          // Legacy EIP-191 verification
-          const serverMessage = reconstructVoteMessage(
-            proposalId,
-            supportValue,
-            nonce,
-            proposal.snapshot_block || 0,
-            proposal.title,
-            chainId,
-            'starworldorder.com'
-          );
-
-          isValidSignature = await verifyVoteSignature(
-            normalizedVoterAddress,
-            serverMessage,
-            signature as `0x${string}`
-          );
-        }
-
-        if (!isValidSignature) {
-          return NextResponse.json(
-            { success: false, error: 'Invalid signature. Signature verification failed.' },
-            { status: 400 }
-          );
-        }
-
-        // Signature is valid, proceed with vote
-        logger.info('Governance: Valid signature verified', { 
-          proposalId, 
-          voterAddress: normalizedVoterAddress.slice(0, 10) + '...',
-          version
-        });
-
-        // Store vote with signature data
-        const result = castGovernanceVote({
-          proposalId,
-          voterAddress: normalizedVoterAddress,
-          support: supportValue,
-          votingPower: parseInt(votingPower, 10) || 1,
-          reason,
-          signature,
-          signatureVersion: version,
-          signatureData: {
-            message: version === 'eip191' ? 'server-reconstructed' : undefined,
-            timestamp: Date.now(),
-            nonce,
-            typedData: version === 'eip712' ? reconstructedTypedData : undefined,
-          },
-        });
-
-        if (!result.success) {
-          return NextResponse.json(
-            { success: false, error: result.error },
-            { status: 400 }
-          );
-        }
-
-        const supportLabel = supportValue === 1 ? 'Yes' : supportValue === 0 ? 'No' : 'Abstain';
-        logger.info('Governance: Vote cast', { 
-          proposalId, 
-          voterAddress: normalizedVoterAddress.slice(0, 10) + '...', 
-          support: supportLabel,
-          version
-        });
-        return NextResponse.json({
-          success: true,
-          vote: result.vote,
-        });
+      if (!signature || !nonce) {
+        return NextResponse.json(
+          { success: false, error: 'Signature and nonce are required for voting' },
+          { status: 400 }
+        );
       }
 
-      // No signature provided - cast vote without signature
+      // Import nonce validation
+      const { consumeGovernanceNonce } = await import('@/lib/db');
+      
+      // 1. Validate and consume the nonce
+      const nonceRecord = consumeGovernanceNonce(nonce, proposalId, normalizedVoterAddress);
+      if (!nonceRecord) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid or expired nonce. Please request a new nonce and try again.' },
+          { status: 400 }
+        );
+      }
+
+      // Determine signature version (prefer EIP-712 if not specified)
+      const version = signatureVersion || 'eip712';
+
+      // 2. Verify signature based on version
+      let isValidSignature = false;
+      let reconstructedTypedData: any = null;
+
+      if (version === 'eip712') {
+        // EIP-712 verification
+        // Reconstruct typed data server-side (NEVER trust client)
+        reconstructedTypedData = constructVoteTypedData(
+          proposalId,
+          supportValue,
+          normalizedVoterAddress,
+          nonce,
+          proposal.snapshot_block || 0,
+          chainId
+        );
+
+        // Verify the EIP-712 signature
+        isValidSignature = await verifyEIP712VoteSignature(
+          normalizedVoterAddress,
+          reconstructedTypedData,
+          signature as `0x${string}`,
+          chainId
+        );
+      } else {
+        // Legacy EIP-191 verification
+        const serverMessage = reconstructVoteMessage(
+          proposalId,
+          supportValue,
+          nonce,
+          proposal.snapshot_block || 0,
+          proposal.title,
+          chainId,
+          'starworldorder.com'
+        );
+
+        isValidSignature = await verifyVoteSignature(
+          normalizedVoterAddress,
+          serverMessage,
+          signature as `0x${string}`
+        );
+      }
+
+      if (!isValidSignature) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid signature. Signature verification failed.' },
+          { status: 400 }
+        );
+      }
+
+      // Signature is valid, proceed with vote
+      logger.info('Governance: Valid signature verified', { 
+        proposalId, 
+        voterAddress: normalizedVoterAddress.slice(0, 10) + '...',
+        version
+      });
+
+      // Store vote with signature data
       const result = castGovernanceVote({
         proposalId,
         voterAddress: normalizedVoterAddress,
         support: supportValue,
         votingPower: parseInt(votingPower, 10) || 1,
         reason,
+        signature,
+        signatureVersion: version,
+        signatureData: {
+          message: version === 'eip191' ? 'server-reconstructed' : undefined,
+          timestamp: Date.now(),
+          nonce,
+          typedData: version === 'eip712' ? reconstructedTypedData : undefined,
+        },
       });
 
       if (!result.success) {
@@ -584,7 +569,8 @@ export async function POST(request: NextRequest) {
       logger.info('Governance: Vote cast', { 
         proposalId, 
         voterAddress: normalizedVoterAddress.slice(0, 10) + '...', 
-        support: supportLabel 
+        support: supportLabel,
+        version
       });
       return NextResponse.json({
         success: true,
@@ -600,6 +586,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { success: false, error: 'ProposalId, voterAddress, and newSupport are required' },
           { status: 400 }
+        );
+      }
+
+      const walletAuth = await verifyWalletAccess(request, voterAddress);
+      if (!walletAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: walletAuth.error },
+          { status: 401 }
         );
       }
 
@@ -650,6 +644,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const walletAuth = await verifyWalletAccess(request, userAddress);
+      if (!walletAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: walletAuth.error },
+          { status: 401 }
+        );
+      }
+
       const result = cancelGovernanceProposal(proposalId, userAddress);
 
       if (!result.success) {
@@ -669,8 +671,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Update proposal state (could be admin-only in production)
+    // Update proposal state (admin-only)
     if (action === 'updateState') {
+      const auth = await verifyAdminAccess(request);
+      if (!auth.valid) {
+        return NextResponse.json(
+          { success: false, error: auth.error },
+          { status: 401 }
+        );
+      }
+
       const { proposalId, newState, defeatReason } = body;
 
       if (!proposalId || !newState) {

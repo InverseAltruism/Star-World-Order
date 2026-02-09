@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 interface Notification {
   id: number;
@@ -111,9 +112,17 @@ export default function NotificationBell() {
     if (!address) return;
     
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       await fetch('/api/notifications', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: address,
           action: 'markRead',
@@ -136,9 +145,17 @@ export default function NotificationBell() {
     if (!address) return;
     
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       await fetch('/api/notifications', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: address,
           action: 'markAllRead',

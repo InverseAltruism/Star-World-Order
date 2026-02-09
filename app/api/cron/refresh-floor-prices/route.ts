@@ -23,12 +23,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { 
-  refreshAllFloorPrices, 
+import {
+  refreshAllFloorPrices,
   getCacheStats,
   initializeFloorPricesTable,
 } from '@/lib/floorPrices';
 import { logger } from '@/lib/logger';
+import { validateCronSecret } from '@/lib/cronAuth';
 
 // Minimum time between refreshes (10 minutes)
 const MIN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
@@ -37,41 +38,15 @@ const MIN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 let lastRefreshAttempt = 0;
 
 /**
- * Validate the cron secret token
- */
-function validateCronSecret(request: Request): boolean {
-  // In development, allow without token
-  if (process.env.NODE_ENV === 'development') {
-    return true;
-  }
-  
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    // If no secret is configured, allow the request (but log warning)
-    logger.warn('CRON_SECRET not configured - allowing unauthenticated cron request');
-    return true;
-  }
-  
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
-    return false;
-  }
-  
-  // Support "Bearer <token>" format
-  const token = authHeader.replace('Bearer ', '');
-  return token === cronSecret;
-}
-
-/**
  * GET /api/cron/refresh-floor-prices
  * Refresh floor prices from marketplaces
  */
 export async function GET(request: Request) {
-  // Validate cron secret
-  if (!validateCronSecret(request)) {
-    logger.warn('FloorPrices Cron: Unauthorized request');
+  const auth = validateCronSecret(request, 'refresh-floor-prices');
+  if (!auth.valid) {
+    logger.warn('FloorPrices Cron: Unauthorized request', { error: auth.error });
     return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
+      { success: false, error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
   }

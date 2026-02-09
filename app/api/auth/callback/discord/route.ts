@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
 import { getBaseUrl } from '@/lib/utils';
+import { encryptToken } from '@/lib/tokenCrypto';
 
 // Discord OAuth 2.0 Configuration
 const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
@@ -245,8 +246,8 @@ async function saveDiscordConnection(
     username,
     displayName || null,
     avatarUrl,
-    accessToken,
-    refreshToken || null,
+    encryptToken(accessToken),
+    encryptToken(refreshToken),
     tokenExpiresAt
   );
 }

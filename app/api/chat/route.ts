@@ -8,10 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addChatMessage, getChatMessages, getChatMessagesSince, getDatabase } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
-
-// Import members API cache directly (shared in-memory cache)
-// Access the same cache that /api/members uses
-import { holderCache } from '../members/route';
+import { memberHolderCache } from '@/lib/memberCache';
 
 /**
  * Get Star holders from members cache
@@ -21,8 +18,8 @@ function getStarHoldersFromCache(): Map<string, boolean> {
   const holderMap = new Map<string, boolean>();
   
   // Check if members cache exists and is valid
-  if (holderCache && holderCache.data) {
-    for (const member of holderCache.data) {
+  if (memberHolderCache && memberHolderCache.data) {
+    for (const member of memberHolderCache.data) {
       holderMap.set(member.address.toLowerCase(), true);
     }
   }

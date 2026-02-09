@@ -31,6 +31,7 @@ import {
   getUserProfile,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -113,6 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'walletAddress, targetAddress, and action are required' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
       );
     }
 

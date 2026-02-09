@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { truncateAddress } from '@/lib/governance';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 /**
  * Profile Avatar Image Component with fallback handling
@@ -137,7 +138,7 @@ export default function UserProfileModal({
       // Fetch all data in parallel
       const [profileRes, socialRes, xpRes] = await Promise.all([
         fetch(`/api/profile?address=${userAddress}`),
-        fetch(`/api/social-connections?address=${userAddress}`),
+        fetch(`/api/social-connections?wallet=${userAddress}`),
         fetch(`/api/user-xp?address=${userAddress}`),
       ]);
       
@@ -162,8 +163,8 @@ export default function UserProfileModal({
         bio: profileData.profile?.bio,
         avatarTokenId: avatarTokenId,
         displayedBadges: profileData.profile?.displayed_badges ? JSON.parse(profileData.profile.displayed_badges) : [],
-        discordUsername: socialData.connections?.find((c: { platform: string; platform_username?: string }) => c.platform === 'discord')?.platform_username,
-        xUsername: socialData.connections?.find((c: { platform: string; platform_username?: string }) => c.platform === 'x')?.platform_username,
+        discordUsername: socialData.connections?.discord?.username || null,
+        xUsername: socialData.connections?.x?.username || null,
         level: xpData.xp?.level || 1,
         xp: xpData.xp?.total_xp || 0,
         starCount: profileData.starCount || 0,
@@ -203,9 +204,17 @@ export default function UserProfileModal({
     
     setIsSendingRequest(true);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(currentUserAddress);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       const res = await fetch('/api/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: currentUserAddress,
           targetAddress: userAddress,
@@ -230,9 +239,17 @@ export default function UserProfileModal({
     
     setIsSendingRequest(true);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(currentUserAddress);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       const res = await fetch('/api/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: currentUserAddress,
           targetAddress: userAddress,

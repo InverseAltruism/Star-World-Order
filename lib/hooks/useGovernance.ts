@@ -43,6 +43,7 @@ import {
   formatMON,
   generateId,
 } from '@/lib/governance';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // Extended types for database-backed features
 export interface ExtendedForumThread extends ForumThread {
@@ -171,6 +172,22 @@ export function useGovernance(): UseGovernanceResult {
   
   const isGovernanceDeployed = isGovernanceConfigured();
   const isStakingDeployed = isStakingConfigured();
+
+  const getAuthenticatedJsonHeaders = useCallback(async (): Promise<Record<string, string> | null> => {
+    if (!address) {
+      return null;
+    }
+
+    const walletAuthHeader = await getWalletAuthHeader(address);
+    if (!walletAuthHeader) {
+      return null;
+    }
+
+    return {
+      'Content-Type': 'application/json',
+      'x-wallet-auth': walletAuthHeader,
+    };
+  }, [address]);
   
   // User's voting power (number of Star Skrumpeys)
   const votingPower = starSkrumpeys.length;
@@ -359,9 +376,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/governance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'createProposal',
           title: title.trim(),
@@ -387,7 +409,7 @@ export function useGovernance(): UseGovernanceResult {
       loadProposals();
       return { success: true, proposal };
     }
-  }, [address, isConnected, votingPower, loadProposals, loadThreads]);
+  }, [address, isConnected, votingPower, loadProposals, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Vote on proposal (enhanced with three-way voting and signature verification)
   const vote = useCallback(async (
@@ -469,9 +491,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/governance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'changeVote',
           proposalId,
@@ -491,7 +518,7 @@ export function useGovernance(): UseGovernanceResult {
       console.error('Failed to change vote:', error);
       return { success: false, error: 'Failed to change vote' };
     }
-  }, [address, isConnected, loadProposals]);
+  }, [address, isConnected, loadProposals, getAuthenticatedJsonHeaders]);
   
   // Check if vote can be changed (new)
   const checkCanChangeVote = useCallback(async (
@@ -523,9 +550,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/governance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'cancelProposal',
           proposalId,
@@ -543,7 +575,7 @@ export function useGovernance(): UseGovernanceResult {
       console.error('Failed to cancel proposal:', error);
       return { success: false, error: 'Failed to cancel proposal' };
     }
-  }, [address, isConnected, loadProposals]);
+  }, [address, isConnected, loadProposals, getAuthenticatedJsonHeaders]);
   
   // Check if proposal can be cancelled (new)
   const checkCanCancelProposal = useCallback(async (
@@ -607,9 +639,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/forum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'createThread',
           title: title.trim(),
@@ -633,7 +670,7 @@ export function useGovernance(): UseGovernanceResult {
       loadThreads();
       return { success: true, thread };
     }
-  }, [address, isConnected, votingPower, loadThreads]);
+  }, [address, isConnected, votingPower, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Reply to thread
   const replyToThread = useCallback(async (
@@ -653,9 +690,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/forum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'reply',
           threadId,
@@ -679,7 +721,7 @@ export function useGovernance(): UseGovernanceResult {
       }
       return result;
     }
-  }, [address, isConnected, votingPower, loadThreads]);
+  }, [address, isConnected, votingPower, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Get threads by category
   const getThreadsByCategoryFn = useCallback((category: ThreadCategory): ForumThread[] => {
@@ -739,9 +781,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/forum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'editThread',
           threadId,
@@ -760,7 +807,7 @@ export function useGovernance(): UseGovernanceResult {
       console.error('Failed to edit thread:', error);
       return { success: false, error: 'Failed to edit thread' };
     }
-  }, [address, isConnected, loadThreads]);
+  }, [address, isConnected, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Edit a forum reply
   const editReply = useCallback(async (
@@ -776,9 +823,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false, error: 'Wallet authentication signature required' };
+      }
+
       const response = await fetch('/api/forum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'editReply',
           replyId,
@@ -797,7 +849,7 @@ export function useGovernance(): UseGovernanceResult {
       console.error('Failed to edit reply:', error);
       return { success: false, error: 'Failed to edit reply' };
     }
-  }, [address, isConnected, loadThreads]);
+  }, [address, isConnected, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Toggle like/dislike on thread or reply
   const toggleLike = useCallback(async (
@@ -810,9 +862,14 @@ export function useGovernance(): UseGovernanceResult {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return { success: false };
+      }
+
       const response = await fetch('/api/forum', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'toggleLike',
           userAddress: address,
@@ -842,7 +899,7 @@ export function useGovernance(): UseGovernanceResult {
       console.error('Failed to toggle like:', error);
       return { success: false };
     }
-  }, [address, isConnected, loadThreads]);
+  }, [address, isConnected, loadThreads, getAuthenticatedJsonHeaders]);
   
   // Get user's like status on a target
   const getUserLikeStatusFn = useCallback((targetId: string, targetType: 'thread' | 'reply'): 'like' | 'dislike' | null => {

@@ -10,6 +10,8 @@ import {
   updateNotificationSettings,
   NotificationType,
 } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { verifyAdminAccess } from '@/lib/adminAuth';
 
 /**
  * GET /api/notifications
@@ -109,6 +111,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Create notification is admin-only
+    if (action !== 'updateSettings') {
+      const adminAuth = await verifyAdminAccess(request);
+      if (!adminAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: adminAuth.error },
+          { status: 401 }
+        );
+      }
+    } else {
+      const walletAuth = await verifyWalletAccess(request, walletAddress);
+      if (!walletAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: walletAuth.error },
+          { status: 401 }
+        );
+      }
+    }
     
     // Update notification settings
     if (action === 'updateSettings') {
@@ -182,12 +203,28 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const walletAuth = await verifyWalletAccess(request, walletAddress);
+    if (!walletAuth.valid) {
+      return NextResponse.json(
+        { success: false, error: walletAuth.error },
+        { status: 401 }
+      );
+    }
     
     if (action === 'markRead') {
       if (!notificationId) {
         return NextResponse.json(
           { success: false, error: 'Notification ID required' },
           { status: 400 }
+        );
+      }
+      const ownedNotifications = getNotifications(walletAddress, { limit: 500 });
+      const isOwned = ownedNotifications.some((n) => n.id === Number(notificationId));
+      if (!isOwned) {
+        return NextResponse.json(
+          { success: false, error: 'Notification not found' },
+          { status: 404 }
         );
       }
       markNotificationRead(notificationId);
@@ -227,11 +264,29 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const walletAddress = searchParams.get('walletAddress');
     
-    if (!id) {
+    if (!id || !walletAddress) {
       return NextResponse.json(
-        { success: false, error: 'Notification ID required' },
+        { success: false, error: 'Notification ID and walletAddress required' },
         { status: 400 }
+      );
+    }
+
+    const walletAuth = await verifyWalletAccess(request, walletAddress);
+    if (!walletAuth.valid) {
+      return NextResponse.json(
+        { success: false, error: walletAuth.error },
+        { status: 401 }
+      );
+    }
+
+    const ownedNotifications = getNotifications(walletAddress, { limit: 500 });
+    const isOwned = ownedNotifications.some((n) => n.id === Number(id));
+    if (!isOwned) {
+      return NextResponse.json(
+        { success: false, error: 'Notification not found' },
+        { status: 404 }
       );
     }
     

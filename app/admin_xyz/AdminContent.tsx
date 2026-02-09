@@ -243,7 +243,10 @@ export default function AdminContent() {
     try {
       const timestamp = Date.now().toString();
       const message = `SWO Admin Access\nTimestamp: ${timestamp}`;
-      const signature = await signMessageAsync({ message });
+      const signature = await signMessageAsync({
+        account: address as `0x${string}`,
+        message,
+      });
       return `${address}:${timestamp}:${signature}`;
     } catch (error) {
       console.error('Failed to sign message:', error);
@@ -762,9 +765,18 @@ export default function AdminContent() {
     }
 
     try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) {
+        setActionResult({ success: false, message: 'Admin authentication required' });
+        return;
+      }
+
       const response = await fetch('/api/raffle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': authHeader,
+        },
         body: JSON.stringify({
           action: 'create',
           walletAddress: address,
@@ -812,9 +824,18 @@ export default function AdminContent() {
    */
   const drawRaffleWinner = async (raffleId: string) => {
     try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) {
+        setActionResult({ success: false, message: 'Admin authentication required' });
+        return;
+      }
+
       const response = await fetch('/api/raffle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': authHeader,
+        },
         body: JSON.stringify({
           action: 'draw',
           walletAddress: address,
@@ -845,9 +866,18 @@ export default function AdminContent() {
     if (!confirm('Are you sure you want to cancel this raffle?')) return;
 
     try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) {
+        setActionResult({ success: false, message: 'Admin authentication required' });
+        return;
+      }
+
       const response = await fetch('/api/raffle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-auth': authHeader,
+        },
         body: JSON.stringify({
           action: 'cancel',
           walletAddress: address,
@@ -866,6 +896,53 @@ export default function AdminContent() {
       }
     } catch (error) {
       setActionResult({ success: false, message: 'Failed to cancel raffle' });
+    }
+  };
+
+  /**
+   * Export raffle entries as CSV (authenticated admin-only route)
+   */
+  const exportRaffleCSV = async (raffleId: string, raffleName: string) => {
+    try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) {
+        setActionResult({ success: false, message: 'Admin authentication required' });
+        return;
+      }
+
+      const response = await fetch(`/api/raffle?id=${encodeURIComponent(raffleId)}&export=csv`, {
+        headers: {
+          'x-admin-auth': authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        let error = 'Failed to export CSV';
+        try {
+          const errData = await response.json();
+          error = errData.error || error;
+        } catch {
+          // Ignore JSON parsing failures and keep default message.
+        }
+        setActionResult({ success: false, message: error });
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const safeName = raffleName.replace(/[^a-z0-9]/gi, '_');
+      link.href = url;
+      link.download = `${safeName}_participants.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setActionResult({ success: true, message: 'CSV exported successfully' });
+    } catch (error) {
+      console.error('Failed to export raffle CSV:', error);
+      setActionResult({ success: false, message: 'Failed to export CSV' });
     }
   };
 
@@ -1755,14 +1832,13 @@ export default function AdminContent() {
                         ✗ CANCEL
                       </button>
                     )}
-                    <a
-                      href={`/api/raffle?id=${raffle.id}&export=csv`}
-                      download
+                    <button
+                      onClick={() => exportRaffleCSV(raffle.id, raffle.name)}
                       className="pixel-btn text-[10px]"
                       title="Download participant list as CSV"
                     >
                       📥 CSV
-                    </a>
+                    </button>
                     <a
                       href="/raffle"
                       target="_blank"

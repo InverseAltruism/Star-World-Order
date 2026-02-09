@@ -24,6 +24,7 @@ import {
   ForumCategory,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 /**
  * GET /api/forum
@@ -176,6 +177,25 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action } = body;
+
+    const actionToAddressKey: Record<string, string> = {
+      createThread: 'authorAddress',
+      reply: 'authorAddress',
+      editThread: 'authorAddress',
+      editReply: 'authorAddress',
+      toggleLike: 'userAddress',
+    };
+    const addressKey = actionToAddressKey[action];
+    if (addressKey) {
+      const actionAddress = body[addressKey];
+      const auth = await verifyWalletAccess(request, actionAddress);
+      if (!auth.valid) {
+        return NextResponse.json(
+          { success: false, error: auth.error },
+          { status: 401 }
+        );
+      }
+    }
 
     // Create a new thread
     if (action === 'createThread') {

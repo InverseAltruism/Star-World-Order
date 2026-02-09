@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import Image from 'next/image';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // Types
 interface HolderTierInfo {
@@ -650,9 +651,17 @@ export default function RaffleContent() {
     }
     
     // Mark as viewed so animation only shows once
+    const walletAuthHeader = await getWalletAuthHeader(userAddress);
+    if (!walletAuthHeader) {
+      return true;
+    }
+
     await fetch('/api/raffle', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-wallet-auth': walletAuthHeader,
+      },
       body: JSON.stringify({
         action: 'markViewed',
         walletAddress: userAddress,
@@ -788,9 +797,18 @@ export default function RaffleContent() {
     setError(null);
     
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) {
+        setError('Wallet signature required to enter raffle');
+        return;
+      }
+
       const res = await fetch('/api/raffle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           action: 'enter',
           walletAddress: address,

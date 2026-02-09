@@ -23,6 +23,11 @@ import {
   updateStarForgeTreasury,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import {
+  getStarForgeServerSeed,
+  consumeStarForgeServerSeed,
+} from '@/lib/starforgeSeedStore';
 
 /**
  * POST /api/starforge/reveal
@@ -73,6 +78,14 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    const walletAuth = await verifyWalletAccess(request, game.player_address);
+    if (!walletAuth.valid) {
+      return NextResponse.json(
+        { success: false, error: walletAuth.error },
+        { status: 401 }
+      );
+    }
     
     // Check if game already revealed
     if (game.status === 'completed') {
@@ -82,22 +95,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // TODO: In production, retrieve server seed from secure storage
-    // For now, we need to generate it again (INSECURE - just for development)
-    // In production: const serverSeed = await redis.get(`starforge:seed:${gameId}`);
-    
-    // For development: Generate a deterministic server seed from game data
-    // WARNING: This is NOT secure for production!
-    const serverSeed = game.server_seed_hash; // TEMPORARY
-    
-    // Verify server seed hash (in production with real server seed)
-    // const computedHash = hashServerSeed(serverSeed);
-    // if (computedHash !== game.server_seed_hash) {
-    //   return NextResponse.json(
-    //     { success: false, error: 'Server seed hash mismatch' },
-    //     { status: 400 }
-    //   );
-    // }
+    const serverSeed = getStarForgeServerSeed(gameId, game.player_address);
+    if (!serverSeed) {
+      return NextResponse.json(
+        { success: false, error: 'Game reveal session expired. Please start a new game.' },
+        { status: 409 }
+      );
+    }
+
+    const computedHash = hashServerSeed(serverSeed);
+    if (computedHash !== game.server_seed_hash) {
+      logger.error('Star Forge reveal: server seed hash mismatch', { gameId });
+      return NextResponse.json(
+        { success: false, error: 'Server seed hash mismatch' },
+        { status: 400 }
+      );
+    }
     
     // Generate grid from seeds
     const grid = generateGrid(serverSeed, clientSeed, game.nonce);
@@ -148,6 +161,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    consumeStarForgeServerSeed(gameId, game.player_address);
     
     // Update treasury stats
     const houseFee = BigInt(game.entry_fee) - payout;

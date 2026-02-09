@@ -30,6 +30,7 @@ import {
 import { getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
+import { validateCronSecret } from '@/lib/cronAuth';
 
 // ERC721 ABI for ownership check
 const ERC721_ABI = [
@@ -44,32 +45,6 @@ const ERC721_ABI = [
 
 // Minimum time between refreshes (1 hour)
 const MIN_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
-
-/**
- * Validate the cron secret token
- */
-function validateCronSecret(request: Request): boolean {
-  // In development, allow without token
-  if (process.env.NODE_ENV === 'development') {
-    return true;
-  }
-  
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    // If no secret is configured, allow the request (but log warning)
-    logger.warn('CRON_SECRET not configured - allowing unauthenticated cron request');
-    return true;
-  }
-  
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
-    return false;
-  }
-  
-  // Support "Bearer <token>" format
-  const token = authHeader.replace('Bearer ', '');
-  return token === cronSecret;
-}
 
 /**
  * Fetch current holder data from blockchain and calculate counts per constellation.
@@ -151,10 +126,10 @@ async function fetchCurrentHolderData(): Promise<{
 }
 
 export async function GET(request: Request) {
-  // Validate cron secret
-  if (!validateCronSecret(request)) {
+  const auth = validateCronSecret(request, 'refresh-holders');
+  if (!auth.valid) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
+      { success: false, error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
   }

@@ -5,6 +5,7 @@ import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import SocialConnect from './SocialConnect';
 
 /**
@@ -634,6 +635,20 @@ export default function ProfileCard() {
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
   }, []);
+
+  const getAuthenticatedJsonHeaders = useCallback(async () => {
+    if (!address) {
+      return null;
+    }
+    const walletAuthHeader = await getWalletAuthHeader(address);
+    if (!walletAuthHeader) {
+      return null;
+    }
+    return {
+      'Content-Type': 'application/json',
+      'x-wallet-auth': walletAuthHeader,
+    };
+  }, [address]);
   
   // Fetch friends data
   const fetchFriends = useCallback(async () => {
@@ -758,12 +773,16 @@ export default function ProfileCard() {
         if (markAsViewed) {
           const unviewedWonRaffles = entries.filter((r: RaffleHistoryEntry) => r.won && !r.hasViewed);
           if (unviewedWonRaffles.length > 0) {
+            const headers = await getAuthenticatedJsonHeaders();
+            if (!headers) {
+              return;
+            }
             // Mark asynchronously without blocking
             Promise.allSettled(
               unviewedWonRaffles.map((entry: RaffleHistoryEntry) =>
                 fetch('/api/raffle', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers,
                   body: JSON.stringify({
                     action: 'markViewed',
                     walletAddress: address,
@@ -783,7 +802,7 @@ export default function ProfileCard() {
     } finally {
       setIsLoadingRaffles(false);
     }
-  }, [address]);
+  }, [address, getAuthenticatedJsonHeaders]);
   
   // Fetch raffle history on mount to show badge in tab navigation
   useEffect(() => {
@@ -873,9 +892,14 @@ export default function ProfileCard() {
     if (!address) return;
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           targetAddress,
@@ -899,9 +923,14 @@ export default function ProfileCard() {
     
     setQuestClaimingId(questId);
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/quests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           questId,
@@ -928,9 +957,14 @@ export default function ProfileCard() {
     if (!address) return;
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/quests', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           questId,
@@ -1024,9 +1058,15 @@ export default function ProfileCard() {
     setProfileSuccess(false);
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        setProfileError('Wallet signature required to save profile');
+        return;
+      }
+
       const response = await fetch('/api/profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           displayName: displayName.trim(),
@@ -1058,9 +1098,14 @@ export default function ProfileCard() {
     
     setIsSavingAvatar(true);
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           avatarTokenId: tokenId,
@@ -1187,9 +1232,14 @@ export default function ProfileCard() {
     }
     
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           displayedBadges: selectedBadges,
@@ -2812,10 +2862,17 @@ function NotificationSettingsCard({
         governance_notifications: 'governanceNotifications',
       };
       const apiKey = keyMap[key] || key;
+      const walletAuthHeader = await getWalletAuthHeader(walletAddress);
+      if (!walletAuthHeader) {
+        throw new Error('Wallet signature required');
+      }
       
       await fetch('/api/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress,
           action: 'updateSettings',

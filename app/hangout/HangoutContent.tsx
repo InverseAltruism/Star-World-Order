@@ -63,6 +63,16 @@ interface ApiVoiceParticipant {
   left_at: string | null;
 }
 
+async function getAuthenticatedJsonHeaders(address?: string): Promise<Record<string, string> | null> {
+  if (!address) {
+    return null;
+  }
+
+  return {
+    'Content-Type': 'application/json',
+  };
+}
+
 /**
  * Get chat messages from storage
  */
@@ -654,9 +664,14 @@ function Chat({
     userSentMessageRef.current = true;
     
     try {
+      const headers = await getAuthenticatedJsonHeaders(address);
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           senderAddress: address,
           message: messageText.trim(),
@@ -683,9 +698,14 @@ function Chat({
         };
         
         // Also update presence with last message for chat bubble
+        const presenceHeaders = await getAuthenticatedJsonHeaders(address);
+        if (!presenceHeaders) {
+          return;
+        }
+
         await fetch('/api/presence', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: presenceHeaders,
           body: JSON.stringify({
             walletAddress: address,
             lastMessage: messageText.trim().slice(0, MAX_LAST_MESSAGE_LENGTH),
@@ -887,9 +907,14 @@ function VoiceChatInline({
     if (!address) return;
     
     try {
+      const headers = await getAuthenticatedJsonHeaders(address);
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/voice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           action: 'join',
@@ -929,9 +954,14 @@ function VoiceChatInline({
     // Try to leave via API if we have a sessionId
     if (sessionId) {
       try {
+        const headers = await getAuthenticatedJsonHeaders(address);
+        if (!headers) {
+          return;
+        }
+
         await fetch('/api/voice', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             sessionId,
@@ -957,9 +987,14 @@ function VoiceChatInline({
     
     if (sessionId && address) {
       try {
+        const headers = await getAuthenticatedJsonHeaders(address);
+        if (!headers) {
+          return;
+        }
+
         await fetch('/api/voice', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             sessionId,
@@ -1159,9 +1194,14 @@ function VoiceChat({
     if (!address) return;
     
     try {
+      const headers = await getAuthenticatedJsonHeaders(address);
+      if (!headers) {
+        return;
+      }
+
       const response = await fetch('/api/voice', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           action: 'join',
@@ -1201,9 +1241,14 @@ function VoiceChat({
     // Try to leave via API if we have a sessionId
     if (sessionId) {
       try {
+        const headers = await getAuthenticatedJsonHeaders(address);
+        if (!headers) {
+          return;
+        }
+
         await fetch('/api/voice', {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             sessionId,
@@ -1229,9 +1274,14 @@ function VoiceChat({
     
     if (sessionId && address) {
       try {
+        const headers = await getAuthenticatedJsonHeaders(address);
+        if (!headers) {
+          return;
+        }
+
         await fetch('/api/voice', {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             sessionId,

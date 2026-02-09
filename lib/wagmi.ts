@@ -1,6 +1,6 @@
 import { http, createConfig, fallback } from 'wagmi';
 import { defineChain } from 'viem';
-import { injected } from 'wagmi/connectors';
+import { injected } from '@wagmi/core';
 
 // Monad Chain Configuration
 // Supports both Mainnet (Chain ID: 143) and Testnet (Chain ID: 10143)

@@ -16,6 +16,7 @@ import {
 import { getUserProfilesBatch, getStarSkrumpeyMetadataBatch } from '@/lib/db';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
+import { memberHolderCache, setMemberHolderCache } from '@/lib/memberCache';
 
 // ERC721 ABI for ownership check
 const ERC721_ABI = [
@@ -29,11 +30,6 @@ const ERC721_ABI = [
 ] as const;
 
 // Cache for holder data (5 minute TTL)
-// Export so other API routes can use it (e.g., chat API for Star holder status)
-export let holderCache: {
-  data: MemberData[];
-  timestamp: number;
-} | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export interface MemberData {
@@ -125,15 +121,15 @@ export async function GET() {
   try {
     // Check cache first
     const now = Date.now();
-    if (holderCache && (now - holderCache.timestamp < CACHE_TTL)) {
+    if (memberHolderCache && (now - memberHolderCache.timestamp < CACHE_TTL)) {
       logger.debug('Returning cached holder data');
       return NextResponse.json({
         success: true,
-        members: holderCache.data,
-        totalMembers: holderCache.data.length,
-        totalStarSkrumpeys: holderCache.data.reduce((sum, m) => sum + m.count, 0),
+        members: memberHolderCache.data,
+        totalMembers: memberHolderCache.data.length,
+        totalStarSkrumpeys: memberHolderCache.data.reduce((sum, m) => sum + m.count, 0),
         cached: true,
-        timestamp: new Date(holderCache.timestamp).toISOString(),
+        timestamp: new Date(memberHolderCache.timestamp).toISOString(),
       });
     }
 
@@ -211,10 +207,7 @@ export async function GET() {
     });
 
     // Update cache
-    holderCache = {
-      data: members,
-      timestamp: now,
-    };
+    setMemberHolderCache(members);
 
     return NextResponse.json({
       success: true,

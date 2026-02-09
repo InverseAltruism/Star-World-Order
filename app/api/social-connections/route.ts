@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export interface SocialConnectionRecord {
   id: number;
@@ -105,6 +106,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid platform' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
       );
     }
 

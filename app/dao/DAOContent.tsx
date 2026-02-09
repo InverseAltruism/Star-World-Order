@@ -768,7 +768,14 @@ function GovernanceTab({
 }: {
   proposals: Proposal[];
   onCreateProposal: (title: string, description: string, votingDurationWeeks: number, category?: string) => Promise<{ success: boolean; error?: string }>;
-  onVote: (proposalId: string, support: VoteSupport, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  onVote: (
+    proposalId: string,
+    support: VoteSupport,
+    reason?: string,
+    signature?: string,
+    signatureData?: { message?: string; timestamp: number; nonce: string; typedData?: any },
+    signatureVersion?: 'eip712' | 'eip191'
+  ) => Promise<{ success: boolean; error?: string }>;
   hasVoted: (proposalId: string) => boolean;
   votingPower: number;
   isLoading: boolean;
@@ -807,9 +814,23 @@ function GovernanceTab({
     return result;
   };
 
-  const handleVote = async (proposalId: string, support: VoteSupport, reason?: string) => {
+  const handleVote = async (
+    proposalId: string,
+    support: VoteSupport,
+    reason?: string,
+    signature?: string,
+    signatureData?: { message?: string; timestamp: number; nonce: string; typedData?: any },
+    signatureVersion?: 'eip712' | 'eip191'
+  ) => {
     setIsPending(true);
-    const result = await onVote(proposalId, support, reason);
+    const result = await onVote(
+      proposalId,
+      support,
+      reason,
+      signature,
+      signatureData,
+      signatureVersion
+    );
     setIsPending(false);
     return result;
   };
