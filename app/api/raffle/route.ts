@@ -30,7 +30,8 @@ import {
   getRafflesNeedingDraw,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
+import { verifyAdminAccess } from '@/lib/adminAuth';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 import { checkStarOwnershipBatched, checkSkrumpeyOwnership } from '@/lib/starSkrumpey';
 import { getResilientClient } from '@/lib/rpcClient';
 
@@ -116,6 +117,14 @@ export async function GET(request: NextRequest) {
     
     // Handle CSV export (admin only)
     if (exportFormat === 'csv' && id) {
+      const auth = await verifyAdminAccess(request);
+      if (!auth.valid) {
+        return NextResponse.json(
+          { success: false, error: auth.error },
+          { status: 401 }
+        );
+      }
+
       const entries = getRaffleEntriesForExport(id);
       const raffle = getRaffleById(id);
       
@@ -334,6 +343,34 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    let authenticatedAdminAddress: string | undefined;
+    if (['create', 'draw', 'end', 'cancel'].includes(action)) {
+      const auth = await verifyAdminAccess(request);
+      if (!auth.valid) {
+        return NextResponse.json(
+          { success: false, error: auth.error },
+          { status: 401 }
+        );
+      }
+      authenticatedAdminAddress = auth.adminAddress;
+    }
+
+    if (['enter', 'markViewed'].includes(action)) {
+      if (!walletAddress) {
+        return NextResponse.json(
+          { success: false, error: 'Wallet address required' },
+          { status: 400 }
+        );
+      }
+      const walletAuth = await verifyWalletAccess(request, walletAddress);
+      if (!walletAuth.valid) {
+        return NextResponse.json(
+          { success: false, error: walletAuth.error },
+          { status: 401 }
+        );
+      }
+    }
     
     // Handle different actions
     switch (action) {
@@ -515,14 +552,6 @@ export async function POST(request: NextRequest) {
       
       // Admin actions
       case 'create': {
-        // Verify admin
-        if (walletAddress?.toLowerCase() !== ADMIN_WALLET_ADDRESS) {
-          return NextResponse.json(
-            { success: false, error: 'Admin access required' },
-            { status: 403 }
-          );
-        }
-        
         const { 
           name, description, prizeDescription, prizeImageUrl, startTime, endTime, 
           discordBonusEnabled, requireX, requireDiscord, tweetUrl, isPublic 
@@ -544,7 +573,7 @@ export async function POST(request: NextRequest) {
           description,
           prizeDescription,
           prizeImageUrl,
-          createdBy: walletAddress,
+          createdBy: authenticatedAdminAddress || walletAddress || 'admin',
           startTime: startTime ? new Date(startTime) : new Date(),
           endTime: new Date(endTime),
           discordBonusEnabled,
@@ -570,14 +599,6 @@ export async function POST(request: NextRequest) {
       }
       
       case 'draw': {
-        // Verify admin
-        if (walletAddress?.toLowerCase() !== ADMIN_WALLET_ADDRESS) {
-          return NextResponse.json(
-            { success: false, error: 'Admin access required' },
-            { status: 403 }
-          );
-        }
-        
         const { raffleId, blockHash } = body;
         
         if (!raffleId) {
@@ -614,14 +635,6 @@ export async function POST(request: NextRequest) {
       }
       
       case 'end': {
-        // Verify admin
-        if (walletAddress?.toLowerCase() !== ADMIN_WALLET_ADDRESS) {
-          return NextResponse.json(
-            { success: false, error: 'Admin access required' },
-            { status: 403 }
-          );
-        }
-        
         const { raffleId } = body;
         
         if (!raffleId) {
@@ -640,14 +653,6 @@ export async function POST(request: NextRequest) {
       }
       
       case 'cancel': {
-        // Verify admin
-        if (walletAddress?.toLowerCase() !== ADMIN_WALLET_ADDRESS) {
-          return NextResponse.json(
-            { success: false, error: 'Admin access required' },
-            { status: 403 }
-          );
-        }
-        
         const { raffleId } = body;
         
         if (!raffleId) {

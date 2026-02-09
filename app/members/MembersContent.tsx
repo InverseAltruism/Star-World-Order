@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS, CONSTELLATION_RARITY } from '@/lib/starSkrumpey';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useAccount } from 'wagmi';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // Max supply constant
 const MAX_STAR_SKRUMPEY_SUPPLY = STAR_SKRUMPEY_IDS.length;
@@ -460,9 +461,17 @@ function MemberDetailModal({
     
     setIsSendingRequest(true);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(currentUserAddress);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       const res = await fetch('/api/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: currentUserAddress,
           targetAddress: member.address,
@@ -487,9 +496,17 @@ function MemberDetailModal({
     
     setIsSendingRequest(true);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(currentUserAddress);
+      if (!walletAuthHeader) {
+        return;
+      }
+
       const res = await fetch('/api/friends', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           walletAddress: currentUserAddress,
           targetAddress: member.address,

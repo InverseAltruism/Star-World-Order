@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createNotification, NotificationType } from '@/lib/db';
+import { verifyAdminAccess } from '@/lib/adminAuth';
 
 /**
  * POST /api/notifications/test
@@ -18,6 +19,14 @@ import { createNotification, NotificationType } from '@/lib/db';
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await verifyAdminAccess(request);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { walletAddress, testType = 'all' } = body;
     
@@ -119,7 +128,15 @@ export async function POST(request: NextRequest) {
  * 
  * Returns information about how to use the test endpoint.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await verifyAdminAccess(request);
+  if (!auth.valid) {
+    return NextResponse.json(
+      { success: false, error: auth.error },
+      { status: 401 }
+    );
+  }
+
   return NextResponse.json({
     endpoint: '/api/notifications/test',
     method: 'POST',

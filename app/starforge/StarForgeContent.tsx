@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAccount } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import AccessGate from '@/components/AccessGate';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // ============================================================================
 // Types
@@ -670,10 +671,18 @@ export default function StarForgeContent() {
     setGameState(prev => ({ ...prev, phase: 'committing' }));
     
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) {
+        throw new Error('Wallet authentication signature required');
+      }
+
       // Step 1: Commit game to server
       const commitRes = await fetch('/api/starforge/commit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           playerAddress: address,
           tier: gameState.tier,
@@ -705,7 +714,10 @@ export default function StarForgeContent() {
       // Step 2: Reveal game result
       const revealRes = await fetch('/api/starforge/reveal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({
           gameId: commitData.gameId,
           clientSeed,

@@ -28,6 +28,7 @@ import {
   areFriends,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -191,6 +192,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     switch (action) {
       case 'markRead': {
         if (messageId) {
@@ -235,6 +244,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'id and senderAddress are required' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, senderAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
       );
     }
 

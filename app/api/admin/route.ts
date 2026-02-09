@@ -9,11 +9,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyMessage } from 'viem';
 import { clearAllBlockVisionCaches, getAllCacheStats } from '@/lib/blockvision';
 import { clearTreasuryCache } from '@/app/api/treasury/route';
-import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
-import { 
+import { verifyAdminAccess } from '@/lib/adminAuth';
+import {
   getNotifications, 
   createNotification, 
   deleteNotification, 
@@ -34,77 +33,6 @@ import {
   getRaffleWinnerDetails,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
-
-// Admin wallet address from config (case-insensitive comparison already applied)
-const ADMIN_WALLET = ADMIN_WALLET_ADDRESS;
-
-// Nonce storage for replay attack prevention
-// TODO: In production with multiple instances, use Redis or database for nonce storage
-// Current implementation is sufficient for single-instance deployments
-const usedNonces = new Set<string>();
-const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Verify that the request is from the admin wallet
- * Requires a signed message with timestamp to prevent replay attacks
- */
-async function verifyAdminAccess(request: NextRequest): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const authHeader = request.headers.get('x-admin-auth');
-    if (!authHeader) {
-      return { valid: false, error: 'Missing authentication header' };
-    }
-
-    // Parse auth header: "address:timestamp:signature"
-    const [address, timestamp, signature] = authHeader.split(':');
-    
-    if (!address || !timestamp || !signature) {
-      return { valid: false, error: 'Invalid authentication format' };
-    }
-
-    // Check if address matches admin wallet
-    if (address.toLowerCase() !== ADMIN_WALLET) {
-      logger.warn('Admin API: Unauthorized access attempt', { address });
-      return { valid: false, error: 'Unauthorized wallet address' };
-    }
-
-    // Check timestamp freshness (within 5 minutes)
-    const timestampNum = parseInt(timestamp, 10);
-    const now = Date.now();
-    if (isNaN(timestampNum) || Math.abs(now - timestampNum) > NONCE_EXPIRY_MS) {
-      return { valid: false, error: 'Authentication expired' };
-    }
-
-    // Check for replay attack
-    const nonce = `${address}:${timestamp}`;
-    if (usedNonces.has(nonce)) {
-      return { valid: false, error: 'Authentication already used' };
-    }
-
-    // Verify signature
-    const message = `SWO Admin Access\nTimestamp: ${timestamp}`;
-    const isValid = await verifyMessage({
-      address: address as `0x${string}`,
-      message,
-      signature: signature as `0x${string}`,
-    });
-
-    if (!isValid) {
-      return { valid: false, error: 'Invalid signature' };
-    }
-
-    // Mark nonce as used
-    usedNonces.add(nonce);
-    
-    // Clean up old nonces periodically
-    setTimeout(() => usedNonces.delete(nonce), NONCE_EXPIRY_MS);
-
-    return { valid: true };
-  } catch (error) {
-    logger.error('Admin API: Authentication error', { error: String(error) });
-    return { valid: false, error: 'Authentication failed' };
-  }
-}
 
 /**
  * GET /api/admin

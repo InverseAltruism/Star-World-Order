@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
 import { getBaseUrl } from '@/lib/utils';
+import { encryptToken } from '@/lib/tokenCrypto';
 
 // X (Twitter) OAuth 2.0 Configuration
 const X_CLIENT_ID = process.env.NEXT_PUBLIC_X_CLIENT_ID || '';
@@ -244,8 +245,8 @@ async function saveXConnection(
     username,
     displayName || null,
     avatarUrl || null,
-    accessToken,
-    refreshToken || null,
+    encryptToken(accessToken),
+    encryptToken(refreshToken),
     tokenExpiresAt
   );
 }

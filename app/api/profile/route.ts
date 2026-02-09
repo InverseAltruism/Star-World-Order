@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserProfile, updateUserProfile } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
       );
     }
     

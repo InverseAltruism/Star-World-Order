@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import {
   isDiscordConfigured,
   isXConfigured,
@@ -181,9 +182,18 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
     setIsDisconnecting(platform);
     
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) {
+        setMessage({ type: 'error', text: 'Wallet signature required to disconnect' });
+        return;
+      }
+
       const response = await fetch('/api/social-connections', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
         body: JSON.stringify({ walletAddress: address, platform }),
       });
       

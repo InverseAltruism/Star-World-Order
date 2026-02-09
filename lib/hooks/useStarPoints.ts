@@ -213,7 +213,9 @@ export function useStarPoints(): UseStarPointsResult {
       try {
         await fetch('/api/presence', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             walletAddress: address,
             displayName,
@@ -253,7 +255,9 @@ export function useStarPoints(): UseStarPointsResult {
       try {
         await fetch('/api/presence', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             walletAddress: address,
             displayName,
@@ -288,25 +292,16 @@ export function useStarPoints(): UseStarPointsResult {
     return () => {
       clearInterval(interval);
       if (address) {
-        // Remove presence on disconnect using sendBeacon for reliability (Issue 3 fix)
-        // sendBeacon uses POST, so we add _method field for the server to handle as DELETE
-        const data = JSON.stringify({ walletAddress: address, _method: 'DELETE' });
-        const blob = new Blob([data], { type: 'application/json' });
-        
-        // Try sendBeacon first (more reliable on page close)
-        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-          navigator.sendBeacon('/api/presence', blob);
-        } else {
-          // Fallback to fetch with DELETE method
-          fetch('/api/presence', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress: address }),
-          }).catch(() => {
-            // Fallback to localStorage
-            removeOnlinePresence(address);
-          });
-        }
+        fetch('/api/presence', {
+          method: 'DELETE',
+          keepalive: true,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ walletAddress: address }),
+        }).catch(() => {
+          removeOnlinePresence(address);
+        });
       }
     };
   }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchProfileData]);
@@ -392,7 +387,9 @@ export function useStarPoints(): UseStarPointsResult {
     try {
       await fetch('/api/presence', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           walletAddress: address,
           displayName,

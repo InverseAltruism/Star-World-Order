@@ -17,40 +17,14 @@
  */
 
 import { NextResponse } from 'next/server';
-import { 
+import {
   getRafflesNeedingDraw,
   drawRaffleWinner,
   getRaffleEntries,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getResilientClient } from '@/lib/rpcClient';
-
-/**
- * Validate the cron secret token
- */
-function validateCronSecret(request: Request): boolean {
-  // In development, allow without token but log warning
-  if (process.env.NODE_ENV === 'development') {
-    logger.info('Development mode - allowing cron request without authentication');
-    return true;
-  }
-  
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    // Fail securely - require authentication in production
-    logger.error('CRON_SECRET not configured - rejecting cron request for security');
-    return false;
-  }
-  
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
-    return false;
-  }
-  
-  // Support "Bearer <token>" format
-  const token = authHeader.replace('Bearer ', '');
-  return token === cronSecret;
-}
+import { validateCronSecret } from '@/lib/cronAuth';
 
 /**
  * Get a recent block hash from the blockchain for randomness seed
@@ -67,10 +41,10 @@ async function getBlockHash(): Promise<string> {
 }
 
 export async function GET(request: Request) {
-  // Validate cron secret
-  if (!validateCronSecret(request)) {
+  const auth = validateCronSecret(request, 'auto-draw-raffles');
+  if (!auth.valid) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
+      { success: false, error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
   }

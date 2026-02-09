@@ -13,8 +13,10 @@ import {
 } from '@/lib/starforge';
 import { createStarForgeGame } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { parseEther } from 'viem';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { storeStarForgeServerSeed } from '@/lib/starforgeSeedStore';
+import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
 
 // Rate limiting storage (in-memory for now)
 const rateLimitMap = new Map<string, number[]>();
@@ -48,27 +50,19 @@ function checkRateLimit(playerAddress: string): { allowed: boolean; remaining: n
 }
 
 /**
- * Check if player holds Star Skrumpey NFT
- * 
- * Note: This is a simplified check. In production, you would:
- * 1. Query the blockchain for the player's NFT balance
- * 2. Check each owned token ID against the Star Skrumpey list
- * 3. Return true if they own at least one Star Skrumpey
- * 
- * For now, we return true for development purposes
+ * Check if player holds at least one Star Skrumpey NFT.
  */
 async function checkStarHolder(playerAddress: string): Promise<boolean> {
-  // TODO: Implement actual blockchain check
-  // Example:
-  // const balance = await contract.balanceOf(playerAddress);
-  // for (let i = 0; i < balance; i++) {
-  //   const tokenId = await contract.tokenOfOwnerByIndex(playerAddress, i);
-  //   if (isStarSkrumpeyId(tokenId)) return true;
-  // }
-  // return false;
-  
-  // For development: return true
-  return true;
+  try {
+    const ownedStars = await checkStarOwnershipBatched(playerAddress);
+    return ownedStars.length > 0;
+  } catch (error) {
+    logger.warn('Star Forge: failed to verify Star holder status', {
+      playerAddress: playerAddress.slice(0, 10) + '...',
+      error: String(error),
+    });
+    return false;
+  }
 }
 
 /**
@@ -100,6 +94,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid player address' },
         { status: 400 }
+      );
+    }
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(playerAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid player address format' },
+        { status: 400 }
+      );
+    }
+
+    const walletAuth = await verifyWalletAccess(request, playerAddress);
+    if (!walletAuth.valid) {
+      return NextResponse.json(
+        { success: false, error: walletAuth.error },
+        { status: 401 }
       );
     }
     
@@ -152,6 +161,9 @@ export async function POST(request: NextRequest) {
       nonce: commitment.nonce,
       is_star_holder: isStarHolder,
     });
+
+    // Keep the real seed server-side until reveal.
+    storeStarForgeServerSeed(game.id, playerAddress, serverSeed);
     
     // Store server seed temporarily (in production, use Redis or secure storage)
     // For now, we'll include it in the game data but not send to client
