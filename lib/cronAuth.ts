@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { logger } from './logger';
 
 export interface CronAuthResult {
@@ -32,7 +33,10 @@ export function validateCronSecret(request: Request, jobName: string): CronAuthR
     ? authHeader.slice('Bearer '.length)
     : authHeader;
 
-  if (token !== cronSecret) {
+  // Use constant-time comparison to prevent timing attacks
+  const tokenBuf = Buffer.from(token);
+  const secretBuf = Buffer.from(cronSecret);
+  if (tokenBuf.length !== secretBuf.length || !timingSafeEqual(tokenBuf, secretBuf)) {
     return { valid: false, error: 'Invalid cron token' };
   }
 

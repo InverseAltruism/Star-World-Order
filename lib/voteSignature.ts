@@ -21,6 +21,7 @@
  * @see https://eips.ethereum.org/EIPS/eip-191
  */
 
+import { randomBytes } from 'crypto';
 import { 
   verifyMessage, 
   hashMessage, 
@@ -191,7 +192,7 @@ export function validateAddress(address: string): `0x${string}` {
  * Generate a unique nonce for replay attack prevention
  */
 export function generateNonce(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  return `${Date.now()}-${randomBytes(12).toString('hex')}`;
 }
 
 /**

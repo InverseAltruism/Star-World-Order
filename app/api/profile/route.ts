@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserProfile, updateUserProfile } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { escapeHtml } from '@/lib/sanitize';
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
     
     const profile = updateUserProfile(walletAddress, {
       displayName: displayName?.trim(),
-      bio: bio?.trim(),
+      bio: bio?.trim() ? escapeHtml(bio.trim()) : bio?.trim(),
       avatarTokenId: avatarTokenId,
       displayedBadges: displayedBadges || undefined,
     });

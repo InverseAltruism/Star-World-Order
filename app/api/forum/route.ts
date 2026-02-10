@@ -25,6 +25,7 @@ import {
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { escapeHtml, isValidWalletAddress } from '@/lib/sanitize';
 
 /**
  * GET /api/forum
@@ -208,12 +209,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (!isValidWalletAddress(authorAddress)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid wallet address format' },
+          { status: 400 }
+        );
+      }
+
       const validCategories: ForumCategory[] = ['general', 'governance', 'proposals', 'ideas', 'support', 'announcements'];
       const threadCategory = validCategories.includes(category) ? category : 'general';
 
       const thread = createForumThread({
-        title,
-        content,
+        title: escapeHtml(title),
+        content: escapeHtml(content),
         authorAddress,
         category: threadCategory,
         proposalId,
@@ -239,7 +247,7 @@ export async function POST(request: NextRequest) {
 
       const result = addForumReply({
         threadId,
-        content,
+        content: escapeHtml(content),
         authorAddress,
       });
 
@@ -270,7 +278,7 @@ export async function POST(request: NextRequest) {
 
       const result = editForumThread({
         threadId,
-        newContent,
+        newContent: escapeHtml(newContent),
         authorAddress,
       });
 
@@ -301,7 +309,7 @@ export async function POST(request: NextRequest) {
 
       const result = editForumReply({
         replyId,
-        newContent,
+        newContent: escapeHtml(newContent),
         authorAddress,
       });
 

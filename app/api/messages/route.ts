@@ -29,6 +29,7 @@ import {
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { escapeHtml, isValidWalletAddress } from '@/lib/sanitize';
 
 export async function GET(request: NextRequest) {
   try {
@@ -112,6 +113,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate wallet address formats
+    if (!isValidWalletAddress(senderAddress) || !isValidWalletAddress(recipientAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
+        { status: 400 }
+      );
+    }
+
+    // Verify wallet ownership
+    const auth = await verifyWalletAccess(request, senderAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     // Validate message length
     const trimmedMessage = message.trim();
     if (trimmedMessage.length === 0) {
@@ -128,6 +146,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize message content
+    const sanitizedMessage = escapeHtml(trimmedMessage);
+
     // Check if users are friends (optional - can allow non-friend messaging)
     const friendsCheck = areFriends(senderAddress, recipientAddress);
     if (!friendsCheck) {
@@ -135,7 +156,7 @@ export async function POST(request: NextRequest) {
       logger.debug('Message sent to non-friend', { sender: senderAddress, recipient: recipientAddress });
     }
 
-    const result = sendDirectMessage(senderAddress, recipientAddress, trimmedMessage);
+    const result = sendDirectMessage(senderAddress, recipientAddress, sanitizedMessage);
     
     if (!result) {
       return NextResponse.json(
@@ -148,14 +169,14 @@ export async function POST(request: NextRequest) {
     const senderProfile = getUserProfile(senderAddress);
     const senderName = senderProfile?.display_name || `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)}`;
     
-    // Truncate message for notification preview
-    const messagePreview = trimmedMessage.length > 50 
-      ? trimmedMessage.substring(0, 50) + '...' 
-      : trimmedMessage;
+    // Truncate message for notification preview (already sanitized)
+    const messagePreview = sanitizedMessage.length > 50 
+      ? sanitizedMessage.substring(0, 50) + '...' 
+      : sanitizedMessage;
     
     createNotification(recipientAddress, {
       type: 'social',
-      title: `Message from ${senderName}`,
+      title: `Message from ${escapeHtml(senderName)}`,
       message: messagePreview,
       link: `/profile?tab=messages&chat=${senderAddress}`,
       icon: '💬',

@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { addChatMessage, getChatMessages, getChatMessagesSince, getDatabase } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { memberHolderCache } from '@/lib/memberCache';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { escapeHtml, isValidWalletAddress } from '@/lib/sanitize';
 
 /**
  * Get Star holders from members cache
@@ -156,13 +158,30 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate wallet address format
+    if (!isValidWalletAddress(senderAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
+        { status: 400 }
+      );
+    }
+
+    // Verify wallet ownership
+    const auth = await verifyWalletAccess(request, senderAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
     
     // Validate message type
     const validTypes = ['chat', 'system', 'emote'];
     const type = validTypes.includes(messageType) ? messageType : 'chat';
     
-    // Limit message length
-    const trimmedMessage = message.slice(0, 500);
+    // Limit message length and sanitize
+    const trimmedMessage = escapeHtml(message.slice(0, 500));
     
     // Try to get display name from user profile
     const { getUserProfile } = await import('@/lib/db');
