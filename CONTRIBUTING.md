@@ -1,138 +1,67 @@
 # Contributing to Star World Order
 
-Thank you for your interest in contributing to the Star World Order (SWO) project! This document provides guidelines for contributing to the project.
+## Prerequisites
 
-## Getting Started
+- **Node.js** 22+ (check with `node -v`)
+- **npm** (comes with Node.js)
 
-1. **Fork the repository**
-2. **Clone your fork**: `git clone https://github.com/YOUR_USERNAME/Star-World-Order.git`
-3. **Install dependencies**: `npm install`
-4. **Create a branch from dev**: `git checkout dev && git checkout -b feature/your-feature-name`
-5. **Make your changes**
-6. **Test your changes**: 
-   ```bash
-   NEXT_PUBLIC_ENV_MODE=dev npm run dev
-   npm run build
-   npm run type-check
-   ```
-7. **Commit your changes**: `git commit -m "Description of changes"`
-8. **Push to your fork**: `git push origin feature/your-feature-name`
-9. **Create a Pull Request targeting the `dev` branch**
+## Development Setup
 
-### Important: PR Target Branch
-
-⚠️ **All pull requests must target the `dev` branch, not `main`.**
-
-The workflow is:
-1. PRs merge to `dev` first
-2. Changes are tested on the DEV environment
-3. `dev` is then merged to `main` for production release
-
-## Development Guidelines
-
-### Code Style
-
-- Use TypeScript for all new files
-- Follow the existing code structure and naming conventions
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Keep components small and focused
-
-### Component Structure
-
-```typescript
-// Use functional components with TypeScript
-export default function ComponentName() {
-  // Component logic here
-  return (
-    // JSX here
-  );
-}
+```bash
+git clone https://github.com/InverseAltruism/Star-World-Order.git
+cd Star-World-Order
+npm install
+cp .env.example .env.local  # Configure environment variables
+npm run dev                  # Start dev server on port 3000
 ```
-
-### Styling
-
-- Use Tailwind CSS utility classes
-- Follow the existing color scheme (primary, accent, dark theme)
-- Ensure responsive design (mobile-first approach)
-- Test on multiple screen sizes
-
-### Web3 Integration
-
-- Use Wagmi hooks for blockchain interactions
-- Handle loading and error states properly
-- Add proper error messages for users
-- Test with different wallet providers
-
-## Project Structure
-
-- `app/` - Next.js pages and layouts
-- `components/` - React components
-- `lib/` - Utility libraries and configurations
-- `utils/` - Helper functions
-- `public/` - Static assets
 
 ## Testing
 
-Before submitting a PR:
+Run all checks before submitting changes:
 
-1. Run type checking: `npm run type-check`
-2. Build the project: `npm run build`
-3. Test locally: `npm run dev`
-4. Test wallet connections
-5. Test on mobile and desktop
+```bash
+npm run test          # Unit tests (Vitest)
+npm run type-check    # TypeScript validation
+npm run lint          # ESLint checks
+```
 
-## Commit Messages
+## Build Verification
 
-Use clear, descriptive commit messages:
+Ensure the production build succeeds:
 
-- `feat: Add new feature`
-- `fix: Fix bug in component`
-- `docs: Update documentation`
-- `style: Format code`
-- `refactor: Refactor component`
-- `test: Add tests`
-- `chore: Update dependencies`
+```bash
+npm run build
+```
 
-## Pull Request Process
+## Pull Request Guidelines
 
-1. Ensure your code follows the guidelines above
-2. Update documentation if needed
-3. Describe your changes clearly in the PR description
-4. Link any related issues
-5. Wait for review and address feedback
+1. **Branch from `dev`** — all PRs must target the `dev` branch, not `main`.
+2. **Create a feature branch**:
+   ```bash
+   git checkout dev
+   git pull origin dev
+   git checkout -b feature/your-feature
+   ```
+3. **Make your changes** following existing code patterns and the synthwave theme.
+4. **Run validation** before committing:
+   ```bash
+   npm run type-check && npm run lint && npm run build
+   ```
+5. **Commit** with a clear, concise message describing the change.
+6. **Push and open a PR** targeting `dev`:
+   ```bash
+   git push origin feature/your-feature
+   gh pr create --base dev
+   ```
 
-## Areas for Contribution
+## Code Style
 
-### High Priority
-- NFT smart contract development
-- DAO governance implementation
-- Marketplace/gallery features
-- Staking mechanisms
-
-### Medium Priority
-- Additional UI components
-- Animation and transitions
-- Performance optimizations
-- Accessibility improvements
-
-### Low Priority
-- Documentation improvements
-- Code refactoring
-- Unit tests
-- Integration tests
+- Use **TypeScript** with proper types (avoid `any`).
+- Follow the **synthwave color palette** for UI (`#00f7ff`, `#ff00ff`, `#ffd700`).
+- Use existing utilities from `lib/` — see `CLAUDE.md` for details.
+- Use `getStarSkrumpeyMetadataBatch()` from `lib/db` for NFT metadata (not IPFS).
+- Use batched multicall for blockchain queries.
 
 ## Questions?
 
-If you have questions, feel free to:
-- Open an issue for discussion
-- Reach out to the team
-- Check the README for more information
-
-## Code of Conduct
-
-Be respectful and constructive in all interactions. We're building a community together!
-
----
-
-Thank you for contributing to Star World Order! 🌟
+Open an issue or reach out on [Twitter/X](https://x.com/StrWorldOrder).
