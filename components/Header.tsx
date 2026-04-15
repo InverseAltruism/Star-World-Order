@@ -112,18 +112,35 @@ export default function Header() {
               }}
             />
           </Link>
-          <Link 
-            href="/raffle" 
+          <Link
+            href="/sanctuary"
+            className="text-[10px] text-gray-300 hover:text-[#ff8844] uppercase tracking-wider relative group flex-shrink-0"
+            style={{
+              transition: 'color 0.3s ease',
+              willChange: 'color'
+            }}
+          >
+            SANCTUARY
+            <span
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff8844] group-hover:w-full"
+              style={{
+                transition: 'width 0.3s ease',
+                willChange: 'width'
+              }}
+            />
+          </Link>
+          <Link
+            href="/raffle"
             className="text-[10px] text-gray-300 hover:text-[#ff6ec7] uppercase tracking-wider relative group flex-shrink-0"
-            style={{ 
+            style={{
               transition: 'color 0.3s ease',
               willChange: 'color'
             }}
           >
             RAFFLE
-            <span 
-              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff6ec7] group-hover:w-full" 
-              style={{ 
+            <span
+              className="absolute bottom-0 left-0 w-0 h-[2px] bg-[#ff6ec7] group-hover:w-full"
+              style={{
                 transition: 'width 0.3s ease',
                 willChange: 'width'
               }}
@@ -226,8 +243,16 @@ export default function Header() {
             >
               HANGOUT
             </Link>
-            <Link 
-              href="/raffle" 
+            <Link
+              href="/sanctuary"
+              className="text-sm text-white hover:text-[#ff8844] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
+              style={{ textShadow: '0 0 10px rgba(255, 136, 68, 0.5)' }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              SANCTUARY
+            </Link>
+            <Link
+              href="/raffle"
               className="text-sm text-white hover:text-[#ff6ec7] uppercase tracking-wider font-semibold transition-all hover:scale-105 py-2 px-4"
               style={{ textShadow: '0 0 10px rgba(255, 110, 199, 0.5)' }}
               onClick={() => setMobileMenuOpen(false)}
