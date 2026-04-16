@@ -17,6 +17,7 @@ import {
   getVoiceParticipants,
   updateMuteStatus,
 } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET() {
   try {
@@ -58,7 +59,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     if (action === 'create') {
       // Create a new session
       const existingSession = getActiveVoiceSession();
@@ -133,7 +142,15 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     updateMuteStatus(sessionId, walletAddress, isMuted);
     
     return NextResponse.json({
@@ -160,7 +177,15 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     if (endSession) {
       // End the entire session
       endVoiceSession(sessionId);
