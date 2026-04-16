@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { logger } from './logger';
 
 export interface CronAuthResult {
@@ -5,18 +6,25 @@ export interface CronAuthResult {
   error?: string;
 }
 
+function safeEqualStrings(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    // Still do a constant-time compare against a same-length buffer so the
+    // length mismatch alone doesn't leak via timing.
+    timingSafeEqual(bufA, Buffer.alloc(bufA.length));
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
+
 /**
- * Validates cron requests.
- *
- * Policy:
- * - Development: allow without token.
- * - Production: requires CRON_SECRET and matching Authorization header.
+ * Validates cron requests. Every environment (including development) must
+ * present a valid CRON_SECRET — bypassing auth in dev previously allowed
+ * unauthenticated calls to any deployment that happened to have
+ * NODE_ENV=development set.
  */
 export function validateCronSecret(request: Request, jobName: string): CronAuthResult {
-  if (process.env.NODE_ENV === 'development') {
-    return { valid: true };
-  }
-
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     logger.error(`${jobName}: CRON_SECRET is not configured`);
@@ -32,7 +40,7 @@ export function validateCronSecret(request: Request, jobName: string): CronAuthR
     ? authHeader.slice('Bearer '.length)
     : authHeader;
 
-  if (token !== cronSecret) {
+  if (!safeEqualStrings(token, cronSecret)) {
     return { valid: false, error: 'Invalid cron token' };
   }
 
