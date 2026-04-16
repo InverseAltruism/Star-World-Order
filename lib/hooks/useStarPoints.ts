@@ -23,6 +23,18 @@ import {
   removeOnlinePresence,
   STAR_PER_NFT_PER_DAY,
 } from '@/lib/starPoints';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+
+async function getPresenceHeaders(address: string): Promise<Record<string, string> | null> {
+  const walletAuthHeader = await getWalletAuthHeader(address);
+  if (!walletAuthHeader) {
+    return null;
+  }
+  return {
+    'Content-Type': 'application/json',
+    'x-wallet-auth': walletAuthHeader,
+  };
+}
 
 export interface UseStarPointsResult {
   // Balance info
@@ -211,11 +223,13 @@ export function useStarPoints(): UseStarPointsResult {
       const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
+        const headers = await getPresenceHeaders(address);
+        if (!headers) {
+          return;
+        }
         await fetch('/api/presence', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             displayName,
@@ -253,11 +267,13 @@ export function useStarPoints(): UseStarPointsResult {
       const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
       
       try {
+        const headers = await getPresenceHeaders(address);
+        if (!headers) {
+          return;
+        }
         await fetch('/api/presence', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             walletAddress: address,
             displayName,
@@ -277,7 +293,7 @@ export function useStarPoints(): UseStarPointsResult {
         });
       }
     };
-    
+
     // Update immediately when NFT data is available and has actually changed
     if (starSkrumpeys.length > 0) {
       const currentNFTData = JSON.stringify(starSkrumpeys.map(s => ({ tokenId: s.tokenId, starVariant: s.starVariant })));
@@ -292,16 +308,21 @@ export function useStarPoints(): UseStarPointsResult {
     return () => {
       clearInterval(interval);
       if (address) {
-        fetch('/api/presence', {
-          method: 'DELETE',
-          keepalive: true,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ walletAddress: address }),
-        }).catch(() => {
-          removeOnlinePresence(address);
-        });
+        (async () => {
+          const headers = await getPresenceHeaders(address);
+          if (!headers) {
+            removeOnlinePresence(address);
+            return;
+          }
+          fetch('/api/presence', {
+            method: 'DELETE',
+            keepalive: true,
+            headers,
+            body: JSON.stringify({ walletAddress: address }),
+          }).catch(() => {
+            removeOnlinePresence(address);
+          });
+        })();
       }
     };
   }, [address, isConnected, starSkrumpeys, loadOnlineUsers, fetchProfileData]);
@@ -385,11 +406,13 @@ export function useStarPoints(): UseStarPointsResult {
     const validatedAvatarTokenId = avatarTokenId && ownedTokenIds.includes(avatarTokenId) ? avatarTokenId : undefined;
     const nftTokenId = validatedAvatarTokenId || firstStar?.tokenId;
     try {
+      const headers = await getPresenceHeaders(address);
+      if (!headers) {
+        return;
+      }
       await fetch('/api/presence', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           walletAddress: address,
           displayName,

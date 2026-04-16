@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { addChatMessage, getChatMessages, getChatMessagesSince, getDatabase } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { memberHolderCache } from '@/lib/memberCache';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 /**
  * Get Star holders from members cache
@@ -156,7 +157,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, senderAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     // Validate message type
     const validTypes = ['chat', 'system', 'emote'];
     const type = validTypes.includes(messageType) ? messageType : 'chat';

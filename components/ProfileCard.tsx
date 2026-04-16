@@ -863,9 +863,15 @@ export default function ProfileCard() {
     
     setIsSendingMessage(true);
     try {
+      const headers = await getAuthenticatedJsonHeaders();
+      if (!headers) {
+        setIsSendingMessage(false);
+        return;
+      }
+
       const response = await fetch('/api/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           senderAddress: address,
           recipientAddress: selectedChat,

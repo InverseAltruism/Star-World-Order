@@ -112,6 +112,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const auth = await verifyWalletAccess(request, senderAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+
     // Validate message length
     const trimmedMessage = message.trim();
     if (trimmedMessage.length === 0) {
