@@ -72,39 +72,106 @@ function PublicWorldView({ locations }: { locations: MapLocation[] }) {
   );
 }
 
-function CompanionPanel({ companion }: { companion: Companion }) {
+const MOOD_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
+  happy: { emoji: '😊', label: 'Happy', color: '#44ff88' },
+  excited: { emoji: '🤩', label: 'Excited', color: '#ffd700' },
+  calm: { emoji: '😌', label: 'Calm', color: '#66bbff' },
+  sleepy: { emoji: '😴', label: 'Sleepy', color: '#9966ff' },
+  curious: { emoji: '🧐', label: 'Curious', color: '#ff9944' },
+};
+const DEFAULT_MOOD = { emoji: '🐸', label: 'Neutral', color: '#888' };
+
+function StatBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = Math.min((value / max) * 100, 100);
   return (
-    <div className="pixel-card p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="text-3xl">
-          {companion.mood === 'happy' ? '😊' : companion.mood === 'excited' ? '🤩' : companion.mood === 'calm' ? '😌' : '🐸'}
+    <div>
+      <div className="flex justify-between text-[8px] mb-0.5">
+        <span className="text-gray-500">{label}</span>
+        <span style={{ color }}>{value.toFixed(1)} / {max}</span>
+      </div>
+      <div className="h-1.5 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+function CompanionPanel({
+  companion,
+  latestJournal,
+  onInteract,
+  interacting,
+}: {
+  companion: Companion;
+  latestJournal: JournalEntry | null;
+  onInteract: (action: 'feed' | 'pet' | 'talk') => void;
+  interacting: string | null;
+}) {
+  const mood = MOOD_CONFIG[companion.mood ?? ''] ?? DEFAULT_MOOD;
+  const traits = [companion.constellation, companion.aura, companion.form].filter(Boolean);
+
+  return (
+    <div className="pixel-card p-6 space-y-4">
+      {/* Header: Avatar + Identity */}
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] flex items-center justify-center text-4xl">
+          {mood.emoji}
         </div>
-        <div>
-          <h3 className="text-[#ffd700] text-xs tracking-wider">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[#ffd700] text-sm tracking-wider truncate">
             {companion.nickname || `Star #${companion.token_id}`}
           </h3>
-          <p className="text-[#9966ff] text-[8px] uppercase">
-            {companion.constellation} {companion.aura ? `/ ${companion.aura}` : ''}
+          <p className="text-gray-400 text-[8px] mt-0.5">
+            LV.{companion.level} · <span style={{ color: mood.color }}>{mood.label}</span>
           </p>
+          {traits.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {traits.map((t) => (
+                <span key={t} className="text-[7px] px-1.5 py-0.5 rounded bg-[#9966ff]/15 text-[#9966ff] border border-[#9966ff]/30 uppercase">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-[8px]">
-        <div>
-          <p className="text-gray-500">BOND</p>
-          <p className="text-[#44ff88]">{companion.bond_score.toFixed(1)}</p>
+
+      {/* Stats */}
+      <div className="space-y-2">
+        <StatBar label="BOND" value={companion.bond_score} max={100} color="#ff66aa" />
+        <StatBar label="XP" value={companion.total_xp} max={companion.level * 100} color="#ffd700" />
+      </div>
+
+      {/* Current Activity */}
+      <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
+        <p className="text-gray-500 text-[7px] mb-1">CURRENT ACTIVITY</p>
+        <p className="text-white text-[10px] uppercase tracking-wide">{companion.current_activity}</p>
+        <p className="text-gray-600 text-[7px]">{companion.total_interactions} total interactions</p>
+      </div>
+
+      {/* Latest Journal Snippet */}
+      {latestJournal && (
+        <div className="border-l-2 border-[#9966ff]/40 pl-2">
+          <p className="text-gray-400 text-[8px] italic">&ldquo;{latestJournal.content}&rdquo;</p>
+          <p className="text-gray-600 text-[6px] mt-0.5">{new Date(latestJournal.created_at).toLocaleDateString()}</p>
         </div>
-        <div>
-          <p className="text-gray-500">INTERACTIONS</p>
-          <p className="text-[#44ff88]">{companion.total_interactions}</p>
-        </div>
-        <div>
-          <p className="text-gray-500">ACTIVITY</p>
-          <p className="text-white uppercase">{companion.current_activity}</p>
-        </div>
-        <div>
-          <p className="text-gray-500">LEVEL</p>
-          <p className="text-[#ffd700]">{companion.level}</p>
-        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-3 gap-2">
+        {([['feed', '🍎', 'Feed'], ['pet', '✋', 'Pet'], ['talk', '💬', 'Talk']] as const).map(([action, icon, label]) => (
+          <button
+            key={action}
+            onClick={() => onInteract(action)}
+            disabled={interacting !== null}
+            className="pixel-card p-2 text-center hover:border-[#ffd700]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
+          >
+            <span className="text-lg block group-hover:scale-110 transition-transform">
+              {interacting === action ? '⏳' : icon}
+            </span>
+            <span className="text-[7px] text-gray-400 group-hover:text-[#ffd700] transition-colors">{label}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -138,6 +205,7 @@ function HolderSanctuary() {
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [interacting, setInteracting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!address) return;
@@ -159,6 +227,33 @@ function HolderSanctuary() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [address]);
+
+  const handleInteract = async (action: 'feed' | 'pet' | 'talk') => {
+    if (!address || !companion || interacting) return;
+    setInteracting(action);
+    try {
+      const res = await fetch('/api/sanctuary/companion/interact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, token_id: companion.token_id, action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCompanion((prev) => prev ? {
+          ...prev,
+          bond_score: data.companion.bond_score,
+          total_interactions: data.companion.total_interactions,
+        } : null);
+        if (data.journal) {
+          setJournal((prev) => [data.journal, ...prev].slice(0, 10));
+        }
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setInteracting(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -185,7 +280,12 @@ function HolderSanctuary() {
       <div className="grid md:grid-cols-2 gap-6">
         {companion ? (
           <>
-            <CompanionPanel companion={companion} />
+            <CompanionPanel
+              companion={companion}
+              latestJournal={journal[0] ?? null}
+              onInteract={handleInteract}
+              interacting={interacting}
+            />
             <JournalPanel entries={journal} />
           </>
         ) : (

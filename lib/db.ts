@@ -605,6 +605,9 @@ function initializeDatabase(database: Database.Database): void {
 
   // Insert default quests if none exist
   insertDefaultQuests(database);
+
+  // Sanctuary tables
+  initializeSanctuary(database);
 }
 
 /**
@@ -5530,23 +5533,288 @@ export function getUserLikeStatus(userAddress: string, targetId: string, targetT
 export function getUserLikeStatuses(userAddress: string, targetIds: string[], targetType: 'thread' | 'reply'): Map<string, ForumLike> {
   const db = getDatabase();
   const result = new Map<string, ForumLike>();
-  
+
   if (targetIds.length === 0) return result;
-  
+
   try {
     const placeholders = targetIds.map(() => '?').join(',');
     const stmt = db.prepare(`
-      SELECT * FROM forum_likes 
+      SELECT * FROM forum_likes
       WHERE user_address = ? AND target_type = ? AND target_id IN (${placeholders})
     `);
     const likes = stmt.all(userAddress.toLowerCase(), targetType, ...targetIds) as ForumLike[];
-    
+
     for (const like of likes) {
       result.set(like.target_id, like);
     }
-    
+
     return result;
   } catch {
     return result;
   }
+}
+
+// ============================================================
+// Sanctuary — Companion, Journal, Map
+// ============================================================
+
+export interface SanctuaryCompanion {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  is_active: number;
+  nickname: string | null;
+  current_activity: string;
+  activity_started_at: string | null;
+  activity_ends_at: string | null;
+  bond_score: number;
+  total_interactions: number;
+  equipped_cosmetics: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SanctuaryCompanionWithMeta extends SanctuaryCompanion {
+  constellation: string | null;
+  aura: string | null;
+  form: string | null;
+  mood: string | null;
+  total_xp: number;
+  level: number;
+}
+
+export interface SanctuaryJournalEntry {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  entry_type: string;
+  content: string;
+  metadata: string;
+  created_at: string;
+}
+
+export interface SanctuaryMapLocation {
+  id: number;
+  name: string;
+  description: string | null;
+  max_capacity: number;
+  unlock_level: number;
+  position_x: number;
+  position_y: number;
+}
+
+function initializeSanctuary(database: Database.Database): void {
+  const sqlPath = path.join(process.cwd(), 'scripts', 'init-sanctuary.sql');
+  if (fs.existsSync(sqlPath)) {
+    const sql = fs.readFileSync(sqlPath, 'utf-8');
+    database.exec(sql);
+  }
+  seedSanctuaryMapLocations(database);
+}
+
+function seedSanctuaryMapLocations(database: Database.Database): void {
+  const countStmt = database.prepare('SELECT COUNT(*) as count FROM sanctuary_map_locations');
+  const { count } = countStmt.get() as { count: number };
+  if (count > 0) return;
+
+  const locations = [
+    { name: 'Hot Springs', description: 'A relaxing place for tired Skrumpeys to unwind.', position_x: 0.2, position_y: 0.3, unlock_level: 1 },
+    { name: 'Training Grounds', description: 'Practice arena where Skrumpeys sharpen their skills.', position_x: 0.7, position_y: 0.2, unlock_level: 1 },
+    { name: 'Star Garden', description: 'A mystical garden where constellations bloom.', position_x: 0.5, position_y: 0.5, unlock_level: 2 },
+    { name: 'Cosmic Library', description: 'Ancient texts and forgotten lore.', position_x: 0.8, position_y: 0.6, unlock_level: 3 },
+    { name: 'Nebula Kitchen', description: 'Cook up cosmic treats for your companion.', position_x: 0.3, position_y: 0.7, unlock_level: 2 },
+    { name: 'Dream Hollow', description: 'Where Skrumpeys rest and dream of adventures.', position_x: 0.1, position_y: 0.8, unlock_level: 1 },
+    { name: 'Aura Forge', description: 'Channel aura energy into powerful bonds.', position_x: 0.9, position_y: 0.4, unlock_level: 5 },
+    { name: 'Observatory', description: 'Gaze at the stars and discover hidden constellations.', position_x: 0.5, position_y: 0.1, unlock_level: 4 },
+  ];
+
+  const insert = database.prepare(`
+    INSERT INTO sanctuary_map_locations (name, description, position_x, position_y, unlock_level)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  for (const loc of locations) {
+    insert.run(loc.name, loc.description, loc.position_x, loc.position_y, loc.unlock_level);
+  }
+}
+
+export function getSanctuaryCompanion(walletAddress: string, tokenId: number): SanctuaryCompanion | null {
+  const db = getDatabase();
+  const stmt = db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?');
+  return (stmt.get(walletAddress.toLowerCase(), tokenId) as SanctuaryCompanion) || null;
+}
+
+export function getActiveCompanion(walletAddress: string): SanctuaryCompanionWithMeta | null {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+           COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
+    FROM sanctuary_companions sc
+    JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
+    LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
+    WHERE sc.wallet_address = ? AND sc.is_active = 1
+  `);
+  return (stmt.get(walletAddress.toLowerCase()) as SanctuaryCompanionWithMeta) || null;
+}
+
+export function getAllCompanions(walletAddress: string): SanctuaryCompanionWithMeta[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+           COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
+    FROM sanctuary_companions sc
+    JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
+    LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
+    WHERE sc.wallet_address = ?
+    ORDER BY sc.is_active DESC, sc.updated_at DESC
+  `);
+  return stmt.all(walletAddress.toLowerCase()) as SanctuaryCompanionWithMeta[];
+}
+
+export function selectCompanion(walletAddress: string, tokenId: number): SanctuaryCompanion {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    db.prepare('UPDATE sanctuary_companions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND is_active = 1')
+      .run(addr);
+
+    const existing = db.prepare('SELECT id FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?')
+      .get(addr, tokenId) as { id: number } | undefined;
+
+    if (existing) {
+      db.prepare('UPDATE sanctuary_companions SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO sanctuary_companions (wallet_address, token_id, is_active, current_activity, bond_score, total_interactions)
+        VALUES (?, ?, 1, 'lounging', 0.0, 0)
+      `).run(addr, tokenId);
+
+      addJournalEntry(addr, tokenId, 'system', 'Companion awakened in the Sanctuary for the first time.');
+    }
+
+    return db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?')
+      .get(addr, tokenId) as SanctuaryCompanion;
+  });
+
+  return txn();
+}
+
+export function switchCompanion(walletAddress: string, newTokenId: number): SanctuaryCompanion {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const current = db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1')
+      .get(addr) as SanctuaryCompanion | undefined;
+
+    if (current) {
+      db.prepare('UPDATE sanctuary_companions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(current.id);
+      addJournalEntry(addr, current.token_id, 'system', 'Companion resting while another takes the lead.');
+    }
+
+    const existing = db.prepare('SELECT id FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?')
+      .get(addr, newTokenId) as { id: number } | undefined;
+
+    if (existing) {
+      db.prepare('UPDATE sanctuary_companions SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO sanctuary_companions (wallet_address, token_id, is_active, current_activity, bond_score, total_interactions)
+        VALUES (?, ?, 1, 'lounging', 0.0, 0)
+      `).run(addr, newTokenId);
+    }
+
+    addJournalEntry(addr, newTokenId, 'system', 'Companion activated as the new lead.');
+
+    return db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?')
+      .get(addr, newTokenId) as SanctuaryCompanion;
+  });
+
+  return txn();
+}
+
+export function interactWithCompanion(
+  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk'
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const bondGain: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2 };
+  const messages: Record<string, string> = {
+    feed: 'Enjoyed a tasty cosmic treat. Bond strengthened!',
+    pet: 'Received gentle pats. Feeling cozy and loved.',
+    talk: 'Had a heartfelt conversation with their owner.',
+  };
+
+  const txn = db.transaction(() => {
+    const comp = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+    ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+
+    if (!comp) throw new Error('No active companion found');
+
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET bond_score = MIN(bond_score + ?, 100.0),
+          total_interactions = total_interactions + 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(bondGain[action], comp.id);
+
+    const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action],
+      JSON.stringify({ action }));
+
+    const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
+      .get(comp.id) as SanctuaryCompanion;
+
+    return { companion: updated, journal };
+  });
+
+  return txn();
+}
+
+export function addJournalEntry(
+  walletAddress: string, tokenId: number, entryType: string, content: string, metadata: string = '{}'
+): SanctuaryJournalEntry {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT INTO sanctuary_journal (wallet_address, token_id, entry_type, content, metadata)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  const result = stmt.run(walletAddress.toLowerCase(), tokenId, entryType, content, metadata);
+  return db.prepare('SELECT * FROM sanctuary_journal WHERE id = ?').get(result.lastInsertRowid) as SanctuaryJournalEntry;
+}
+
+export function getJournalEntries(walletAddress: string, tokenId: number, limit: number = 20): SanctuaryJournalEntry[] {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT * FROM sanctuary_journal
+    WHERE wallet_address = ? AND token_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `);
+  return stmt.all(walletAddress.toLowerCase(), tokenId, limit) as SanctuaryJournalEntry[];
+}
+
+export function getSanctuaryMapLocations(): SanctuaryMapLocation[] {
+  const db = getDatabase();
+  return db.prepare('SELECT * FROM sanctuary_map_locations ORDER BY unlock_level, name').all() as SanctuaryMapLocation[];
+}
+
+export function getSanctuaryState(walletAddress: string): {
+  activeCompanion: SanctuaryCompanionWithMeta | null;
+  companions: SanctuaryCompanionWithMeta[];
+  recentJournal: SanctuaryJournalEntry[];
+} {
+  const addr = walletAddress.toLowerCase();
+  const activeCompanion = getActiveCompanion(addr);
+  const companions = getAllCompanions(addr);
+  const recentJournal = activeCompanion
+    ? getJournalEntries(addr, activeCompanion.token_id, 10)
+    : [];
+
+  return { activeCompanion, companions, recentJournal };
 }
