@@ -375,8 +375,11 @@ export async function POST(request: NextRequest) {
     // Handle different actions
     switch (action) {
       case 'enter': {
-        const { raffleId, discordBonus, engagementBonus } = body;
-        
+        const { raffleId } = body;
+        // NOTE: discordBonus / engagementBonus from the client body are
+        // intentionally ignored. Both bonuses are computed server-side in
+        // enterRaffle() from social_connections and tweet_engagements.
+
         if (!walletAddress || !raffleId) {
           return NextResponse.json(
             { success: false, error: 'Wallet address and raffle ID required' },
@@ -466,14 +469,13 @@ export async function POST(request: NextRequest) {
           }
         }
         
-        // Enter raffle with total balance for proper entry calculation
+        // Enter raffle with total balance for proper entry calculation.
+        // Bonuses are derived inside enterRaffle from verified server state.
         const entry = enterRaffle({
           raffleId,
           walletAddress,
           starCount,
           totalSkrumpeyBalance,
-          discordBonus,
-          engagementBonus,
         });
         
         if (!entry) {

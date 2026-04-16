@@ -3242,6 +3242,20 @@ export function createRaffle(data: {
     db.exec(`ALTER TABLE raffles ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0`);
   } catch { /* Column may already exist */ }
   
+  // Tweet engagement verification: populated by a trusted server-side job
+  // (raffle entry grants +1 engagement bonus only if a row exists here for
+  // the caller's wallet + the raffle's tweet_url). Never written from
+  // request handlers that trust client input.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tweet_engagements (
+      wallet_address TEXT NOT NULL,
+      tweet_url TEXT NOT NULL,
+      verified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      verified_by TEXT,
+      PRIMARY KEY (wallet_address, tweet_url)
+    )
+  `);
+
   // Create raffle entries table if it doesn't exist
   // Note: Added 'skrumpey_holder' tier for public raffles
   db.exec(`
@@ -3474,13 +3488,28 @@ export function getRafflesNeedingDraw(): Raffle[] {
  *   - Star holders = 5 base + tier bonus (flat, not per star)
  *   - Total = regularSkrumpeys + (isStarHolder ? 5 + tierBonus : 0)
  */
+export function hasVerifiedTweetEngagement(
+  walletAddress: string,
+  tweetUrl: string
+): boolean {
+  const db = getDatabase();
+  try {
+    const row = db
+      .prepare(
+        `SELECT 1 FROM tweet_engagements WHERE wallet_address = ? AND tweet_url = ? LIMIT 1`
+      )
+      .get(walletAddress.toLowerCase(), tweetUrl);
+    return !!row;
+  } catch {
+    return false;
+  }
+}
+
 export function enterRaffle(data: {
   raffleId: string;
   walletAddress: string;
   starCount: number;
   totalSkrumpeyBalance?: number; // Total Skrumpeys from Magic Eden (includes Stars)
-  discordBonus?: boolean;
-  engagementBonus?: boolean;
 }): RaffleEntry | null {
   const db = getDatabase();
   const normalizedAddress = data.walletAddress.toLowerCase();
@@ -3529,13 +3558,20 @@ export function enterRaffle(data: {
     baseEntries = tierInfo.entries;
   }
   
-  // Calculate total entries (base + engagement bonus for Like & RT)
+  // Calculate total entries (base + server-verified bonuses).
+  // SECURITY: bonuses are computed server-side from durable state —
+  // social_connections for Discord, tweet_engagements for Like & RT.
+  // Never trust client-supplied `discordBonus`/`engagementBonus` flags.
   let totalEntries = baseEntries;
-  // Discord bonus is deprecated, but keep for backwards compatibility
-  const discordBonus = data.discordBonus && raffle.discord_bonus_enabled ? 1 : 0;
-  // Engagement bonus: +1 for liking & retweeting the tweet (if tweet_url is set)
-  const engagementBonus = data.engagementBonus && raffle.tweet_url ? 1 : 0;
-  
+
+  const social = checkSocialConnections(normalizedAddress);
+  const discordBonus =
+    raffle.discord_bonus_enabled && social.hasDiscord ? 1 : 0;
+  const engagementBonus =
+    raffle.tweet_url && hasVerifiedTweetEngagement(normalizedAddress, raffle.tweet_url)
+      ? 1
+      : 0;
+
   if (discordBonus) {
     totalEntries += 1;
   }
