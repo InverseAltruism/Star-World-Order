@@ -29,7 +29,9 @@ function isValidWalletAddress(address: string): boolean {
 }
 
 /**
- * GET - Retrieve social connections for a wallet address
+ * GET - Retrieve social connections for a wallet address.
+ * Authenticated owner gets full connection details.
+ * Non-owner / unauthenticated callers get boolean flags only.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -50,26 +52,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const auth = await verifyWalletAccess(request, walletAddress);
+    const isOwner = auth.valid;
+
     const db = getDatabase();
     const stmt = db.prepare(`
-      SELECT id, wallet_address, platform, platform_user_id, username, 
+      SELECT id, wallet_address, platform, platform_user_id, username,
              display_name, avatar_url, connected_at, updated_at
-      FROM social_connections 
+      FROM social_connections
       WHERE wallet_address = ?
       ORDER BY platform
     `);
-    
+
     const connections = stmt.all(walletAddress.toLowerCase()) as SocialConnectionRecord[];
 
-    // Transform to a more friendly format
-    const result = {
-      discord: connections.find(c => c.platform === 'discord') || null,
-      x: connections.find(c => c.platform === 'x') || null,
-    };
+    if (isOwner) {
+      const result = {
+        discord: connections.find(c => c.platform === 'discord') || null,
+        x: connections.find(c => c.platform === 'x') || null,
+      };
+
+      return NextResponse.json({
+        success: true,
+        connections: result,
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      connections: result,
+      connections: {
+        discord: connections.some(c => c.platform === 'discord'),
+        x: connections.some(c => c.platform === 'x'),
+      },
     });
   } catch (err) {
     console.error('Failed to get social connections:', err);
