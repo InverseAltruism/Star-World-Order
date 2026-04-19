@@ -46,6 +46,7 @@ import {
 } from '@/lib/voteSignature';
 import { verifyAdminAccess } from '@/lib/adminAuth';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
 
 /**
  * GET /api/governance
@@ -331,6 +332,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Verify proposer holds at least one Star Skrumpey
+      const proposerStars = await checkStarOwnershipBatched(proposerAddress);
+      if (proposerStars.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'You must hold at least one Star Skrumpey to create proposals' },
+          { status: 403 }
+        );
+      }
+
       // Validate voting duration (1-4 weeks)
       const duration = parseInt(votingDurationWeeks, 10) || 1;
       if (duration < 1 || duration > 4) {
@@ -415,7 +425,7 @@ export async function POST(request: NextRequest) {
 
     // Cast a vote
     if (action === 'vote') {
-      const { proposalId, voterAddress, support, votingPower, reason, signature, nonce, signatureVersion, typedData } = body;
+      const { proposalId, voterAddress, support, reason, signature, nonce, signatureVersion } = body;
 
       // Strict input validation
       if (!proposalId || !voterAddress || support === undefined) {
@@ -535,10 +545,27 @@ export async function POST(request: NextRequest) {
       }
 
       // Signature is valid, proceed with vote
-      logger.info('Governance: Valid signature verified', { 
-        proposalId, 
+      logger.info('Governance: Valid signature verified', {
+        proposalId,
         voterAddress: normalizedVoterAddress.slice(0, 10) + '...',
         version
+      });
+
+      // Server-side voting power verification: 1 Star Skrumpey = 1 Vote
+      // NEVER trust client-supplied votingPower
+      const voterStars = await checkStarOwnershipBatched(normalizedVoterAddress);
+      const verifiedVotingPower = voterStars.length;
+
+      if (verifiedVotingPower === 0) {
+        return NextResponse.json(
+          { success: false, error: 'You must hold at least one Star Skrumpey to vote' },
+          { status: 403 }
+        );
+      }
+
+      logger.info('Governance: Voting power verified on-chain', {
+        voterAddress: normalizedVoterAddress.slice(0, 10) + '...',
+        verifiedVotingPower,
       });
 
       // Store vote with signature data
@@ -546,7 +573,7 @@ export async function POST(request: NextRequest) {
         proposalId,
         voterAddress: normalizedVoterAddress,
         support: supportValue,
-        votingPower: parseInt(votingPower, 10) || 1,
+        votingPower: verifiedVotingPower,
         reason,
         signature,
         signatureVersion: version,
