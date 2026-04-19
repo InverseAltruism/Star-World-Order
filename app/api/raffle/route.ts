@@ -42,19 +42,20 @@ import { getResilientClient } from '@/lib/rpcClient';
 async function autoDrawEndedRaffles(): Promise<void> {
   try {
     const rafflesToDraw = getRafflesNeedingDraw();
-    
+
     if (rafflesToDraw.length === 0) return;
-    
-    // Get a block hash for randomness
-    let blockHash: string;
+
+    // Fetch block hash as optional additional entropy (not the sole source)
+    let blockHash: string | undefined;
     try {
       const client = await getResilientClient();
       const block = await client.getBlock({ blockTag: 'latest' });
-      blockHash = block.hash || `fallback-${Date.now()}-${Math.random().toString(36)}`;
+      blockHash = block.hash || undefined;
     } catch {
-      blockHash = `fallback-${Date.now()}-${Math.random().toString(36)}`;
+      // drawRaffleWinner uses server-side CSPRNG as primary entropy;
+      // block hash is supplementary, so failing to fetch it is safe.
     }
-    
+
     // Draw each raffle
     for (const raffle of rafflesToDraw) {
       const entries = getRaffleEntries(raffle.id);
@@ -599,19 +600,18 @@ export async function POST(request: NextRequest) {
       }
       
       case 'draw': {
-        const { raffleId, blockHash } = body;
-        
+        const { raffleId } = body;
+
         if (!raffleId) {
           return NextResponse.json(
             { success: false, error: 'Raffle ID required' },
             { status: 400 }
           );
         }
-        
-        // Use provided block hash or generate a pseudo-random one
-        const seed = blockHash || `${Date.now()}-${Math.random().toString(36)}`;
-        
-        const result = drawRaffleWinner(raffleId, seed);
+
+        // Entropy is generated server-side inside drawRaffleWinner;
+        // no client-supplied seed is accepted.
+        const result = drawRaffleWinner(raffleId);
         
         if (!result.success) {
           return NextResponse.json(

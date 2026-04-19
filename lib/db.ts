@@ -3634,31 +3634,40 @@ export function getRaffleTotalEntries(raffleId: string): { participants: number;
 }
 
 /**
- * Draw a winner for a raffle using verifiable randomness
- * Uses block hash + raffle ID + timestamp as seed
+ * Draw a winner for a raffle using combined entropy.
+ *
+ * Entropy sources:
+ *  1. crypto.randomBytes(32) — server-side CSPRNG (unpredictable)
+ *  2. SHA-256 of all entry wallet addresses + counts (tamper-evident)
+ *  3. Raffle ID + timestamp (context binding)
+ *  4. Optional block hash (additional public entropy when available)
+ *
+ * The seed string is stored in the database for auditability.
+ * Because the server secret bytes are included, no external party
+ * can predict or pre-compute the outcome.
  */
-export function drawRaffleWinner(raffleId: string, blockHash: string): {
+export function drawRaffleWinner(raffleId: string, blockHash?: string): {
   success: boolean;
   winner?: RaffleEntry;
   seed?: string;
   error?: string;
 } {
   const db = getDatabase();
-  
+
   const raffle = getRaffleById(raffleId);
   if (!raffle) {
     return { success: false, error: 'Raffle not found' };
   }
-  
+
   if (raffle.winner_address) {
     return { success: false, error: 'Winner already drawn' };
   }
-  
+
   const entries = getRaffleEntries(raffleId);
   if (entries.length === 0) {
     return { success: false, error: 'No entries in raffle' };
   }
-  
+
   // Create weighted entry pool
   const entryPool: RaffleEntry[] = [];
   for (const entry of entries) {
@@ -3666,31 +3675,46 @@ export function drawRaffleWinner(raffleId: string, blockHash: string): {
       entryPool.push(entry);
     }
   }
-  
-  // Generate verifiable seed
+
+  // --- Combined entropy seed ---
+  // 1. Server-side CSPRNG — unpredictable, not derivable from public data
+  const serverSecret = crypto.randomBytes(32).toString('hex');
+
+  // 2. Entry-data hash — commits to the exact participant set
+  const entryDataString = entries
+    .map(e => `${e.wallet_address}:${e.entries_count}`)
+    .sort()
+    .join('|');
+  const entryHash = crypto.createHash('sha256').update(entryDataString).digest('hex');
+
+  // 3. Context binding
   const timestamp = Date.now().toString();
-  const seedString = `${blockHash}-${raffleId}-${timestamp}-${entries.length}`;
-  
+
+  // 4. Optional block hash (public chain entropy when available)
+  const chainEntropy = blockHash || 'no-block';
+
+  const seedString = `${serverSecret}-${entryHash}-${raffleId}-${timestamp}-${chainEntropy}-${entries.length}`;
+
   // Use cryptographically secure hash for verifiable randomness
   const hashBuffer = crypto.createHash('sha256').update(seedString).digest();
   // Read first 4 bytes as unsigned 32-bit integer for winner index
   const hashNumber = hashBuffer.readUInt32BE(0);
-  
+
   // Select winner using the hash
   const winnerIndex = hashNumber % entryPool.length;
   const winner = entryPool[winnerIndex];
-  
+
   // Update raffle with winner
   db.prepare(`
     UPDATE raffles
-    SET 
+    SET
       status = 'drawn',
       winner_address = ?,
       winner_drawn_at = CURRENT_TIMESTAMP,
       winner_draw_seed = ?
     WHERE id = ?
   `).run(winner.wallet_address, seedString, raffleId);
-  
+
   return {
     success: true,
     winner,
