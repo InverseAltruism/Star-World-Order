@@ -536,6 +536,20 @@ function initializeDatabase(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_governance_nonces_expires ON governance_nonces(status, expires_at);
   `);
 
+  // Admin auth nonces table - persists consumed admin-auth nonces across process
+  // restarts and serverless instances so a signed admin message cannot be
+  // replayed within its TTL window.
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS admin_nonces (
+      nonce TEXT PRIMARY KEY,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+    )
+  `);
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_admin_nonces_expires ON admin_nonces(expires_at);
+  `);
+
   // ============================================================
   // FORUM TABLES (Database-backed with likes and edits)
   // ============================================================
@@ -5166,6 +5180,34 @@ export function getGovernanceNonceByValue(nonce: string): GovernanceNonce | null
   const db = getDatabase();
   const stmt = db.prepare('SELECT * FROM governance_nonces WHERE nonce = ?');
   return stmt.get(nonce) as GovernanceNonce | null;
+}
+
+// ============================================================
+// Admin Nonce Management (replay protection for admin auth)
+// ============================================================
+
+/**
+ * Atomically claim an admin-auth nonce. Returns true on first use, false if
+ * the nonce has already been consumed within its TTL window.
+ * Uses INSERT OR IGNORE so concurrent requests can't both succeed.
+ */
+export function claimAdminNonce(nonce: string, expiresAtMs: number): boolean {
+  const db = getDatabase();
+  const stmt = db.prepare(
+    'INSERT OR IGNORE INTO admin_nonces (nonce, expires_at) VALUES (?, ?)'
+  );
+  const result = stmt.run(nonce, expiresAtMs);
+  return result.changes === 1;
+}
+
+/**
+ * Delete admin nonces whose TTL has elapsed. Returns count removed.
+ */
+export function pruneExpiredAdminNonces(nowMs: number = Date.now()): number {
+  const db = getDatabase();
+  const stmt = db.prepare('DELETE FROM admin_nonces WHERE expires_at <= ?');
+  const result = stmt.run(nowMs);
+  return result.changes;
 }
 
 // ============================================================================
