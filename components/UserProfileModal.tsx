@@ -60,6 +60,8 @@ interface UserProfileData {
   xp?: number;
   discordUsername?: string | null;
   xUsername?: string | null;
+  hasDiscord?: boolean;
+  hasX?: boolean;
   starCount?: number;
   displayedBadges?: string[];
 }
@@ -163,8 +165,10 @@ export default function UserProfileModal({
         bio: profileData.profile?.bio,
         avatarTokenId: avatarTokenId,
         displayedBadges: profileData.profile?.displayed_badges ? JSON.parse(profileData.profile.displayed_badges) : [],
-        discordUsername: socialData.connections?.discord?.username || null,
-        xUsername: socialData.connections?.x?.username || null,
+        discordUsername: typeof socialData.connections?.discord === 'object' ? socialData.connections.discord?.username || null : null,
+        xUsername: typeof socialData.connections?.x === 'object' ? socialData.connections.x?.username || null : null,
+        hasDiscord: typeof socialData.connections?.discord === 'boolean' ? socialData.connections.discord : !!socialData.connections?.discord,
+        hasX: typeof socialData.connections?.x === 'boolean' ? socialData.connections.x : !!socialData.connections?.x,
         level: xpData.xp?.level || 1,
         xp: xpData.xp?.total_xp || 0,
         starCount: profileData.starCount || 0,
@@ -384,18 +388,18 @@ export default function UserProfileModal({
             )}
 
             {/* Social Connections */}
-            {(profile?.discordUsername || profile?.xUsername) && (
+            {(profile?.discordUsername || profile?.xUsername || profile?.hasDiscord || profile?.hasX) && (
               <div className="mb-4 flex justify-center gap-4">
-                {profile.discordUsername && (
+                {(profile.discordUsername || profile.hasDiscord) && (
                   <div className="flex items-center gap-2 text-xs bg-[#5865F2]/20 px-3 py-2 rounded-lg border border-[#5865F2]/30">
                     <span className="text-[#5865F2]">Discord:</span>
-                    <span className="text-white">{profile.discordUsername}</span>
+                    <span className="text-white">{profile.discordUsername || 'Connected'}</span>
                   </div>
                 )}
-                {profile.xUsername && (
+                {(profile.xUsername || profile.hasX) && (
                   <div className="flex items-center gap-2 text-xs bg-white/10 px-3 py-2 rounded-lg border border-white/20">
                     <span className="text-gray-400">𝕏:</span>
-                    <span className="text-white">@{profile.xUsername}</span>
+                    <span className="text-white">{profile.xUsername ? `@${profile.xUsername}` : 'Connected'}</span>
                   </div>
                 )}
               </div>
