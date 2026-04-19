@@ -4669,7 +4669,7 @@ export function castGovernanceVote(data: {
     message?: string; // EIP-191 only
     timestamp: number;
     nonce: string;
-    typedData?: any; // EIP-712 only (JSON stringified)
+    typedData?: Record<string, unknown>; // EIP-712 only (JSON stringified)
   };
 }): { success: boolean; error?: string; vote?: GovernanceVote } {
   const db = getDatabase();

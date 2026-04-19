@@ -1,6 +1,31 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { WALLETS, TOKENS, NON_STAR_TOKEN, createSanctuaryDb, createSeededDb } from './fixtures';
+import { WALLETS, TOKENS, NON_STAR_TOKEN, createSeededDb } from './fixtures';
+
+interface SanctuaryCompanionRow {
+  wallet_address: string;
+  token_id: number;
+  is_active: number;
+  current_activity: string;
+  bond_score: number;
+  total_interactions: number;
+}
+
+interface CompanionWithMetadataRow extends SanctuaryCompanionRow {
+  constellation: string;
+  aura: string;
+  form: string;
+  mood: string;
+  total_xp: number;
+  level: number;
+}
+
+interface JournalRow {
+  wallet_address: string;
+  token_id: number;
+  entry_type: string;
+  content: string;
+}
 
 describe('Wallet Ownership', () => {
   let db: Database.Database;
@@ -12,14 +37,14 @@ describe('Wallet Ownership', () => {
   it('holder can see their companions', () => {
     const companions = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ?'
-    ).all(WALLETS.alice) as any[];
+    ).all(WALLETS.alice) as SanctuaryCompanionRow[];
     expect(companions.length).toBe(2);
   });
 
   it('non-holder has no companions', () => {
     const companions = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ?'
-    ).all(WALLETS.unauthorized) as any[];
+    ).all(WALLETS.unauthorized) as SanctuaryCompanionRow[];
     expect(companions.length).toBe(0);
   });
 
@@ -57,21 +82,21 @@ describe('Companion State', () => {
   it('active companion has correct initial state', () => {
     const active = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1'
-    ).get(WALLETS.alice) as any;
+    ).get(WALLETS.alice) as SanctuaryCompanionRow | undefined;
     expect(active).toBeTruthy();
-    expect(active.token_id).toBe(TOKENS.aether.id);
-    expect(active.current_activity).toBe('exploring');
-    expect(active.bond_score).toBe(3.5);
-    expect(active.total_interactions).toBe(15);
+    expect(active!.token_id).toBe(TOKENS.aether.id);
+    expect(active!.current_activity).toBe('exploring');
+    expect(active!.bond_score).toBe(3.5);
+    expect(active!.total_interactions).toBe(15);
   });
 
   it('inactive companion preserves its state', () => {
     const inactive = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
-    ).get(WALLETS.alice, TOKENS.spectra.id) as any;
-    expect(inactive.is_active).toBe(0);
-    expect(inactive.bond_score).toBe(1.2);
-    expect(inactive.total_interactions).toBe(4);
+    ).get(WALLETS.alice, TOKENS.spectra.id) as SanctuaryCompanionRow | undefined;
+    expect(inactive!.is_active).toBe(0);
+    expect(inactive!.bond_score).toBe(1.2);
+    expect(inactive!.total_interactions).toBe(4);
   });
 
   it('bond_score defaults to 0 for new companions', () => {
@@ -81,10 +106,10 @@ describe('Companion State', () => {
 
     const comp = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
-    ).get(WALLETS.charlie, TOKENS.nebulu.id) as any;
-    expect(comp.bond_score).toBe(0.0);
-    expect(comp.total_interactions).toBe(0);
-    expect(comp.current_activity).toBe('lounging');
+    ).get(WALLETS.charlie, TOKENS.nebulu.id) as SanctuaryCompanionRow | undefined;
+    expect(comp!.bond_score).toBe(0.0);
+    expect(comp!.total_interactions).toBe(0);
+    expect(comp!.current_activity).toBe('lounging');
   });
 
   it('companion with metadata join returns constellation info', () => {
@@ -95,12 +120,12 @@ describe('Companion State', () => {
       JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
       LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
       WHERE sc.wallet_address = ? AND sc.is_active = 1
-    `).get(WALLETS.alice) as any;
+    `).get(WALLETS.alice) as CompanionWithMetadataRow | undefined;
 
-    expect(row.constellation).toBe('aether');
-    expect(row.aura).toBe('mystic');
-    expect(row.total_xp).toBe(500);
-    expect(row.level).toBe(5);
+    expect(row!.constellation).toBe('aether');
+    expect(row!.aura).toBe('mystic');
+    expect(row!.total_xp).toBe(500);
+    expect(row!.level).toBe(5);
   });
 });
 
@@ -119,14 +144,14 @@ describe('Companion Switching', () => {
 
     const active = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1'
-    ).all(WALLETS.alice) as any[];
+    ).all(WALLETS.alice) as SanctuaryCompanionRow[];
     expect(active.length).toBe(1);
     expect(active[0].token_id).toBe(TOKENS.spectra.id);
 
     const old = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
-    ).get(WALLETS.alice, TOKENS.aether.id) as any;
-    expect(old.is_active).toBe(0);
+    ).get(WALLETS.alice, TOKENS.aether.id) as SanctuaryCompanionRow | undefined;
+    expect(old!.is_active).toBe(0);
   });
 
   it('preserves bond_score and interactions on switch', () => {
@@ -142,10 +167,10 @@ describe('Companion Switching', () => {
 
     const restored = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
-    ).get(WALLETS.alice, TOKENS.aether.id) as any;
-    expect(restored.bond_score).toBe(3.5);
-    expect(restored.total_interactions).toBe(15);
-    expect(restored.is_active).toBe(1);
+    ).get(WALLETS.alice, TOKENS.aether.id) as SanctuaryCompanionRow | undefined;
+    expect(restored!.bond_score).toBe(3.5);
+    expect(restored!.total_interactions).toBe(15);
+    expect(restored!.is_active).toBe(1);
   });
 
   it('switching to new token creates companion with defaults', () => {
@@ -157,10 +182,10 @@ describe('Companion Switching', () => {
 
     const newComp = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
-    ).get(WALLETS.alice, TOKENS.nebulu.id) as any;
-    expect(newComp.is_active).toBe(1);
-    expect(newComp.bond_score).toBe(0.0);
-    expect(newComp.current_activity).toBe('lounging');
+    ).get(WALLETS.alice, TOKENS.nebulu.id) as SanctuaryCompanionRow | undefined;
+    expect(newComp!.is_active).toBe(1);
+    expect(newComp!.bond_score).toBe(0.0);
+    expect(newComp!.current_activity).toBe('lounging');
   });
 
   it('switching does not affect other wallets', () => {
@@ -171,9 +196,9 @@ describe('Companion Switching', () => {
 
     const bobActive = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1'
-    ).get(WALLETS.bob) as any;
+    ).get(WALLETS.bob) as SanctuaryCompanionRow | undefined;
     expect(bobActive).toBeTruthy();
-    expect(bobActive.token_id).toBe(TOKENS.solveil.id);
+    expect(bobActive!.token_id).toBe(TOKENS.solveil.id);
   });
 });
 
@@ -219,12 +244,12 @@ describe('Unauthorized Access Cases', () => {
   it('querying non-existent wallet returns empty', () => {
     const companions = db.prepare(
       'SELECT * FROM sanctuary_companions WHERE wallet_address = ?'
-    ).all(WALLETS.unauthorized) as any[];
+    ).all(WALLETS.unauthorized) as SanctuaryCompanionRow[];
     expect(companions.length).toBe(0);
 
     const journal = db.prepare(
       'SELECT * FROM sanctuary_journal WHERE wallet_address = ?'
-    ).all(WALLETS.unauthorized) as any[];
+    ).all(WALLETS.unauthorized) as JournalRow[];
     expect(journal.length).toBe(0);
   });
 
