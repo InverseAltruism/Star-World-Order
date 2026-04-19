@@ -27,16 +27,19 @@ import { getResilientClient } from '@/lib/rpcClient';
 import { validateCronSecret } from '@/lib/cronAuth';
 
 /**
- * Get a recent block hash from the blockchain for randomness seed
+ * Fetch a recent block hash as optional additional entropy.
+ * Returns undefined if the chain is unreachable — drawRaffleWinner
+ * uses server-side CSPRNG as its primary entropy source, so this
+ * is supplementary, not required.
  */
-async function getBlockHash(): Promise<string> {
+async function getBlockHash(): Promise<string | undefined> {
   try {
     const client = await getResilientClient();
     const block = await client.getBlock({ blockTag: 'latest' });
-    return block.hash || `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    return block.hash || undefined;
   } catch (error) {
-    logger.warn('Failed to get block hash, using fallback', { error: String(error) });
-    return `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    logger.warn('Failed to get block hash, draw will use server-side entropy only', { error: String(error) });
+    return undefined;
   }
 }
 
