@@ -410,6 +410,112 @@ body::before {
 }
 
 /* ============================================
+   Star Sanctuary — Sprite & Asset Integration
+   ============================================ */
+
+.sanctuary-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.sanctuary-sprite-sm {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.sanctuary-sprite-lg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.sanctuary-map-bg {
+  background-image: var(--sanctuary-map-bg, none);
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+}
+
+.sanctuary-location-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+@keyframes sanctuaryIdleBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes sanctuaryHappyBounce {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-4px) scale(1.05); }
+  60% { transform: translateY(-1px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes sanctuarySleepySway {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  50% { transform: translateX(1px) rotate(2deg); }
+}
+
+@keyframes sanctuarySparkle {
+  0% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes sanctuaryStarTwinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes sanctuaryGlowPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--glow-color, #b088ff); }
+  50% { box-shadow: 0 0 16px var(--glow-color, #b088ff), 0 0 24px var(--glow-color, #b088ff); }
+}
+
+@keyframes sanctuaryBarFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.sanctuary-idle {
+  animation: sanctuaryIdleBob 2s ease-in-out infinite;
+}
+
+.sanctuary-happy {
+  animation: sanctuaryHappyBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sanctuary-sleepy {
+  animation: sanctuarySleepySway 3s ease-in-out infinite;
+}
+
+.sanctuary-sparkle {
+  animation: sanctuarySparkle 1.5s ease-in-out;
+}
+
+.sanctuary-twinkle {
+  animation: sanctuaryStarTwinkle 3s ease-in-out infinite;
+}
+
+.sanctuary-glow {
+  animation: sanctuaryGlowPulse 2s ease-in-out infinite;
+}
+
+/* ============================================
    Cozy Gaming Station Loading Experience
    ============================================ */
 
