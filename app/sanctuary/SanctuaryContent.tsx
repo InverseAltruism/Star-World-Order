@@ -87,6 +87,36 @@ const LOCATION_ICONS: Record<string, string> = {
   'Observatory': '🔭',
 };
 
+const LOCATION_SLUGS: Record<string, string> = {
+  'Hot Springs': 'hot-springs',
+  'Training Grounds': 'training-grounds',
+  'Star Garden': 'star-garden',
+  'Cosmic Library': 'cosmic-library',
+  'Nebula Kitchen': 'nebula-kitchen',
+  'Dream Hollow': 'dream-hollow',
+  'Aura Forge': 'aura-forge',
+  'Observatory': 'observatory',
+};
+
+function LocationIcon({ name, className }: { name: string; className?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const slug = LOCATION_SLUGS[name];
+  const emoji = LOCATION_ICONS[name] ?? '📍';
+
+  if (!slug || imgError) {
+    return <span className={className}>{emoji}</span>;
+  }
+
+  return (
+    <img
+      src={`/sanctuary/locations/${slug}.png`}
+      alt={name}
+      className={`sanctuary-location-icon ${className ?? ''}`}
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
 function PublicWorldView({
   locations,
   companionsAtLocations,
@@ -210,6 +240,57 @@ const MOOD_CONFIG: Record<string, { emoji: string; label: string; color: string 
 };
 const DEFAULT_MOOD = { emoji: '🐸', label: 'Neutral', color: '#888' };
 
+const MOOD_ANIMATION: Record<string, string> = {
+  happy: 'sanctuary-idle',
+  excited: 'sanctuary-happy',
+  calm: 'sanctuary-idle',
+  sleepy: 'sanctuary-sleepy',
+  curious: 'sanctuary-idle',
+};
+
+function CompanionSprite({
+  constellation,
+  mood,
+  size = 'md',
+}: {
+  constellation: string | null;
+  mood: string | null;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const [spriteError, setSpriteError] = useState(false);
+  const moodKey = mood ?? 'idle';
+  const spritePath = constellation
+    ? `/sanctuary/companions/${constellation.toLowerCase()}/${moodKey}.png`
+    : null;
+
+  const sizeClass = size === 'sm' ? 'sanctuary-sprite-sm' : size === 'lg' ? 'sanctuary-sprite-lg' : 'sanctuary-sprite';
+  const animClass = MOOD_ANIMATION[moodKey] ?? 'sanctuary-idle';
+  const moodConfig = MOOD_CONFIG[moodKey] ?? DEFAULT_MOOD;
+
+  if (!spritePath || spriteError) {
+    return (
+      <div className={`flex items-center justify-center ${animClass} ${
+        size === 'sm' ? 'w-12 h-12' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16'
+      } rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] text-4xl`}>
+        {moodConfig.emoji}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex items-center justify-center ${animClass} ${
+      size === 'sm' ? 'w-12 h-12' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16'
+    } rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e]`}>
+      <img
+        src={spritePath}
+        alt={`${constellation} Skrumpey (${moodKey})`}
+        className={sizeClass}
+        onError={() => setSpriteError(true)}
+      />
+    </div>
+  );
+}
+
 function StatBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const pct = Math.min((value / max) * 100, 100);
   return (
@@ -284,8 +365,8 @@ function CompanionPanel({
   return (
     <div className="pixel-card p-6 space-y-4">
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] flex items-center justify-center text-4xl">
-          {mood.emoji}
+        <div className="flex-shrink-0">
+          <CompanionSprite constellation={companion.constellation} mood={companion.mood} />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[#ffd700] text-sm tracking-wider truncate">
