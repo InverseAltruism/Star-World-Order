@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { switchCompanion } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
-import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
+import { fetchUserSkrumpeys, hasStarSkrumpey } from '@/lib/starSkrumpey';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,17 +20,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
 
-    const ownedTokens = await checkStarOwnershipBatched(walletAddress);
+    const ownedTokens = await fetchUserSkrumpeys(walletAddress);
     const ownsToken = ownedTokens.some(t => t.tokenId === tokenId);
     if (!ownsToken) {
       return NextResponse.json(
-        { success: false, error: 'You do not own this Star Skrumpey' },
+        { success: false, error: 'You do not own this Skrumpey' },
         { status: 403 }
       );
     }
 
+    const isStar = hasStarSkrumpey(ownedTokens);
     const companion = switchCompanion(walletAddress, tokenId);
-    return NextResponse.json({ success: true, companion });
+    return NextResponse.json({ success: true, companion, isStar });
   } catch (error) {
     console.error('Sanctuary companion switch error:', error);
     return NextResponse.json({ success: false, error: 'Failed to switch companion' }, { status: 500 });
