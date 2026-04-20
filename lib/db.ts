@@ -5870,6 +5870,159 @@ export function getSanctuaryMapLocations(): SanctuaryMapLocation[] {
   return db.prepare('SELECT * FROM sanctuary_map_locations ORDER BY unlock_level, name').all() as SanctuaryMapLocation[];
 }
 
+const ACTIVITY_DURATIONS: Record<string, number> = {
+  'Hot Springs': 60,
+  'Training Grounds': 120,
+  'Star Garden': 90,
+  'Cosmic Library': 180,
+  'Nebula Kitchen': 45,
+  'Dream Hollow': 30,
+  'Aura Forge': 240,
+  'Observatory': 150,
+};
+
+const ACTIVITY_BOND_REWARDS: Record<string, number> = {
+  'Hot Springs': 2.0,
+  'Training Grounds': 3.0,
+  'Star Garden': 2.5,
+  'Cosmic Library': 3.5,
+  'Nebula Kitchen': 1.5,
+  'Dream Hollow': 1.0,
+  'Aura Forge': 5.0,
+  'Observatory': 4.0,
+};
+
+export function sendToActivity(
+  walletAddress: string, tokenId: number, locationId: number
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const comp = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+    ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+
+    if (!comp) throw new Error('No active companion found');
+
+    if (comp.activity_ends_at) {
+      const endsAt = new Date(comp.activity_ends_at + 'Z').getTime();
+      if (endsAt > Date.now()) {
+        throw new Error('Companion is already on an activity');
+      }
+    }
+
+    const location = db.prepare(
+      'SELECT * FROM sanctuary_map_locations WHERE id = ?'
+    ).get(locationId) as SanctuaryMapLocation | undefined;
+
+    if (!location) throw new Error('Location not found');
+
+    const durationMinutes = ACTIVITY_DURATIONS[location.name] ?? 60;
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + durationMinutes * 60 * 1000);
+
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = ?,
+          activity_started_at = ?,
+          activity_ends_at = ?,
+          total_interactions = total_interactions + 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      `exploring:${location.name}`,
+      now.toISOString().replace('T', ' ').slice(0, 19),
+      endsAt.toISOString().replace('T', ' ').slice(0, 19),
+      comp.id
+    );
+
+    const journal = addJournalEntry(addr, tokenId, 'activity',
+      `Set off to explore ${location.name}. ${location.description ?? ''} (${durationMinutes}m)`,
+      JSON.stringify({ action: 'send_to_activity', location_id: locationId, location_name: location.name, duration_minutes: durationMinutes }));
+
+    const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
+      .get(comp.id) as SanctuaryCompanion;
+
+    return { companion: updated, journal };
+  });
+
+  return txn();
+}
+
+export function completeActivity(
+  walletAddress: string, tokenId: number
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } | null {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const comp = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+    ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+
+    if (!comp || !comp.activity_ends_at) return null;
+
+    const endsAt = new Date(comp.activity_ends_at + 'Z').getTime();
+    if (endsAt > Date.now()) return null;
+
+    const activityName = comp.current_activity.startsWith('exploring:')
+      ? comp.current_activity.slice('exploring:'.length)
+      : comp.current_activity;
+
+    const bondReward = ACTIVITY_BOND_REWARDS[activityName] ?? 1.0;
+
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = 'lounging',
+          activity_started_at = NULL,
+          activity_ends_at = NULL,
+          bond_score = MIN(bond_score + ?, 100.0),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(bondReward, comp.id);
+
+    const journal = addJournalEntry(addr, tokenId, 'activity',
+      `Returned from ${activityName} feeling refreshed! Bond +${bondReward.toFixed(1)}`,
+      JSON.stringify({ action: 'complete_activity', location_name: activityName, bond_reward: bondReward }));
+
+    const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
+      .get(comp.id) as SanctuaryCompanion;
+
+    return { companion: updated, journal };
+  });
+
+  return txn();
+}
+
+export function getCompanionsAtLocations(): { location_name: string; count: number; companions: { token_id: number; nickname: string | null }[] }[] {
+  const db = getDatabase();
+  const rows = db.prepare(`
+    SELECT sc.current_activity, sc.token_id, sc.nickname, sc.activity_ends_at
+    FROM sanctuary_companions sc
+    WHERE sc.current_activity LIKE 'exploring:%'
+      AND sc.is_active = 1
+    ORDER BY sc.current_activity
+  `).all() as { current_activity: string; token_id: number; nickname: string | null; activity_ends_at: string | null }[];
+
+  const grouped: Record<string, { token_id: number; nickname: string | null }[]> = {};
+  for (const row of rows) {
+    if (row.activity_ends_at) {
+      const endsAt = new Date(row.activity_ends_at + 'Z').getTime();
+      if (endsAt < Date.now()) continue;
+    }
+    const locName = row.current_activity.slice('exploring:'.length);
+    if (!grouped[locName]) grouped[locName] = [];
+    grouped[locName].push({ token_id: row.token_id, nickname: row.nickname });
+  }
+
+  return Object.entries(grouped).map(([location_name, companions]) => ({
+    location_name,
+    count: companions.length,
+    companions,
+  }));
+}
+
 export function getSanctuaryState(walletAddress: string): {
   activeCompanion: SanctuaryCompanionWithMeta | null;
   companions: SanctuaryCompanionWithMeta[];

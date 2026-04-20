@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import AccessGate from '@/components/AccessGate';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
@@ -10,6 +10,8 @@ interface Companion {
   nickname: string | null;
   is_active: number;
   current_activity: string;
+  activity_started_at: string | null;
+  activity_ends_at: string | null;
   bond_score: number;
   total_interactions: number;
   constellation: string | null;
@@ -36,32 +38,127 @@ interface JournalEntry {
   created_at: string;
 }
 
-function PublicWorldView({ locations }: { locations: MapLocation[] }) {
+interface LocationCompanions {
+  location_name: string;
+  count: number;
+  companions: { token_id: number; nickname: string | null }[];
+}
+
+const LOCATION_ICONS: Record<string, string> = {
+  'Hot Springs': '♨️',
+  'Training Grounds': '⚔️',
+  'Star Garden': '🌸',
+  'Cosmic Library': '📚',
+  'Nebula Kitchen': '🍳',
+  'Dream Hollow': '💤',
+  'Aura Forge': '🔥',
+  'Observatory': '🔭',
+};
+
+function PublicWorldView({
+  locations,
+  companionsAtLocations,
+  selectedLocation,
+  onSelectLocation,
+  companionLevel,
+}: {
+  locations: MapLocation[];
+  companionsAtLocations: LocationCompanions[];
+  selectedLocation: number | null;
+  onSelectLocation?: (id: number) => void;
+  companionLevel?: number;
+}) {
+  const companionMap = new Map(
+    companionsAtLocations.map((c) => [c.location_name, c])
+  );
+
   return (
     <div className="pixel-card p-6">
       <h2 className="text-[#ffd700] text-sm tracking-wider mb-4">
         SANCTUARY WORLD MAP
       </h2>
       <div className="relative w-full aspect-[16/9] bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg overflow-hidden">
-        {locations.map((loc) => (
-          <div
-            key={loc.id}
-            className="absolute group"
-            style={{
-              left: `${loc.position_x * 100}%`,
-              top: `${loc.position_y * 100}%`,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <div className="w-3 h-3 rounded-full bg-[#9966ff]/60 border border-[#9966ff] group-hover:bg-[#ffd700] transition-colors cursor-pointer" />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <div className="pixel-card p-2 whitespace-nowrap">
-                <p className="text-[#ffd700] text-[8px]">{loc.name}</p>
-                <p className="text-gray-400 text-[6px]">Lv.{loc.unlock_level}</p>
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute w-px h-full left-1/4 bg-[#9966ff]/30" />
+          <div className="absolute w-px h-full left-1/2 bg-[#9966ff]/30" />
+          <div className="absolute w-px h-full left-3/4 bg-[#9966ff]/30" />
+          <div className="absolute w-full h-px top-1/3 bg-[#9966ff]/30" />
+          <div className="absolute w-full h-px top-2/3 bg-[#9966ff]/30" />
+        </div>
+
+        {locations.map((loc) => {
+          const locCompanions = companionMap.get(loc.name);
+          const count = locCompanions?.count ?? 0;
+          const isSelected = selectedLocation === loc.id;
+          const isLocked = companionLevel !== undefined && companionLevel < loc.unlock_level;
+          const icon = LOCATION_ICONS[loc.name] ?? '📍';
+
+          return (
+            <div
+              key={loc.id}
+              className="absolute group"
+              style={{
+                left: `${loc.position_x * 100}%`,
+                top: `${loc.position_y * 100}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <button
+                onClick={() => onSelectLocation?.(loc.id)}
+                disabled={isLocked && !!onSelectLocation}
+                className={`
+                  relative w-10 h-10 rounded-lg flex items-center justify-center text-lg
+                  transition-all duration-300 border-2
+                  ${isSelected
+                    ? 'bg-[#ffd700]/20 border-[#ffd700] scale-125 shadow-[0_0_15px_rgba(255,215,0,0.3)]'
+                    : isLocked
+                      ? 'bg-[#1a1a2e] border-[#2a2a4e] opacity-40 cursor-not-allowed'
+                      : 'bg-[#1a1a2e]/80 border-[#9966ff]/40 hover:border-[#ffd700]/60 hover:bg-[#1a1a2e] cursor-pointer hover:scale-110'
+                  }
+                `}
+              >
+                <span className={isLocked ? 'grayscale' : ''}>{icon}</span>
+                {count > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#ff66aa] rounded-full text-[7px] flex items-center justify-center text-white font-bold border border-[#0a0a15]">
+                    {count}
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <div className="pixel-card p-2.5 whitespace-nowrap">
+                  <p className="text-[#ffd700] text-[9px] font-bold">{loc.name}</p>
+                  {loc.description && (
+                    <p className="text-gray-400 text-[7px] max-w-[140px] whitespace-normal mt-0.5">{loc.description}</p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-[7px] ${isLocked ? 'text-red-400' : 'text-[#44ff88]'}`}>
+                      {isLocked ? '🔒' : '✅'} Lv.{loc.unlock_level}
+                    </span>
+                    {count > 0 && (
+                      <span className="text-[7px] text-[#ff66aa]">
+                        {count} 🐸
+                      </span>
+                    )}
+                  </div>
+                  {locCompanions && locCompanions.companions.length > 0 && (
+                    <div className="mt-1 border-t border-[#2a2a4e] pt-1">
+                      {locCompanions.companions.slice(0, 3).map((c) => (
+                        <p key={c.token_id} className="text-[6px] text-gray-500">
+                          {c.nickname || `Star #${c.token_id}`}
+                        </p>
+                      ))}
+                      {locCompanions.companions.length > 3 && (
+                        <p className="text-[6px] text-gray-600">+{locCompanions.companions.length - 3} more</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
         {locations.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-gray-500 text-[10px]">LOADING WORLD...</p>
@@ -96,23 +193,62 @@ function StatBar({ label, value, max, color }: { label: string; value: number; m
   );
 }
 
+function ActivityTimer({ endsAt }: { endsAt: string }) {
+  const [remaining, setRemaining] = useState('');
+
+  useEffect(() => {
+    const update = () => {
+      const end = new Date(endsAt + 'Z').getTime();
+      const diff = end - Date.now();
+      if (diff <= 0) {
+        setRemaining('COMPLETE!');
+        return;
+      }
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setRemaining(hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m ${secs}s`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [endsAt]);
+
+  const isComplete = remaining === 'COMPLETE!';
+
+  return (
+    <span className={`text-[9px] ${isComplete ? 'text-[#44ff88] animate-pulse' : 'text-[#ffd700]'}`}>
+      {isComplete ? '✅ ' : '⏱ '}{remaining}
+    </span>
+  );
+}
+
 function CompanionPanel({
   companion,
   latestJournal,
+  locations,
   onInteract,
+  onSendToActivity,
+  onCompleteActivity,
   interacting,
 }: {
   companion: Companion;
   latestJournal: JournalEntry | null;
+  locations: MapLocation[];
   onInteract: (action: 'feed' | 'pet' | 'talk') => void;
+  onSendToActivity: (locationId: number) => void;
+  onCompleteActivity: () => void;
   interacting: string | null;
 }) {
+  const [showLocations, setShowLocations] = useState(false);
   const mood = MOOD_CONFIG[companion.mood ?? ''] ?? DEFAULT_MOOD;
   const traits = [companion.constellation, companion.aura, companion.form].filter(Boolean);
+  const isOnActivity = companion.current_activity.startsWith('exploring:');
+  const activityDone = isOnActivity && companion.activity_ends_at
+    && new Date(companion.activity_ends_at + 'Z').getTime() <= Date.now();
 
   return (
     <div className="pixel-card p-6 space-y-4">
-      {/* Header: Avatar + Identity */}
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] flex items-center justify-center text-4xl">
           {mood.emoji}
@@ -136,20 +272,35 @@ function CompanionPanel({
         </div>
       </div>
 
-      {/* Stats */}
       <div className="space-y-2">
         <StatBar label="BOND" value={companion.bond_score} max={100} color="#ff66aa" />
         <StatBar label="XP" value={companion.total_xp} max={companion.level * 100} color="#ffd700" />
       </div>
 
-      {/* Current Activity */}
       <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
         <p className="text-gray-500 text-[7px] mb-1">CURRENT ACTIVITY</p>
-        <p className="text-white text-[10px] uppercase tracking-wide">{companion.current_activity}</p>
-        <p className="text-gray-600 text-[7px]">{companion.total_interactions} total interactions</p>
+        <div className="flex items-center justify-between">
+          <p className="text-white text-[10px] uppercase tracking-wide">
+            {isOnActivity
+              ? `🗺️ ${companion.current_activity.slice('exploring:'.length)}`
+              : companion.current_activity}
+          </p>
+          {isOnActivity && companion.activity_ends_at && (
+            <ActivityTimer endsAt={companion.activity_ends_at} />
+          )}
+        </div>
+        {activityDone && (
+          <button
+            onClick={onCompleteActivity}
+            disabled={interacting !== null}
+            className="mt-2 w-full py-1.5 bg-[#44ff88]/20 border border-[#44ff88]/40 rounded text-[#44ff88] text-[9px] hover:bg-[#44ff88]/30 transition-colors disabled:opacity-40"
+          >
+            🎉 WELCOME BACK
+          </button>
+        )}
+        <p className="text-gray-600 text-[7px] mt-1">{companion.total_interactions} total interactions</p>
       </div>
 
-      {/* Latest Journal Snippet */}
       {latestJournal && (
         <div className="border-l-2 border-[#9966ff]/40 pl-2">
           <p className="text-gray-400 text-[8px] italic">&ldquo;{latestJournal.content}&rdquo;</p>
@@ -157,13 +308,12 @@ function CompanionPanel({
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {([['feed', '🍎', 'Feed'], ['pet', '✋', 'Pet'], ['talk', '💬', 'Talk']] as const).map(([action, icon, label]) => (
           <button
             key={action}
             onClick={() => onInteract(action)}
-            disabled={interacting !== null}
+            disabled={interacting !== null || isOnActivity}
             className="pixel-card p-2 text-center hover:border-[#ffd700]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
           >
             <span className="text-lg block group-hover:scale-110 transition-transform">
@@ -172,7 +322,52 @@ function CompanionPanel({
             <span className="text-[7px] text-gray-400 group-hover:text-[#ffd700] transition-colors">{label}</span>
           </button>
         ))}
+        <button
+          onClick={() => setShowLocations(!showLocations)}
+          disabled={interacting !== null || isOnActivity}
+          className="pixel-card p-2 text-center hover:border-[#ffd700]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
+        >
+          <span className="text-lg block group-hover:scale-110 transition-transform">
+            {interacting === 'send' ? '⏳' : '🗺️'}
+          </span>
+          <span className="text-[7px] text-gray-400 group-hover:text-[#ffd700] transition-colors">Send</span>
+        </button>
       </div>
+
+      {showLocations && !isOnActivity && (
+        <div className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3 space-y-1.5">
+          <p className="text-gray-500 text-[7px] mb-2">SEND TO LOCATION:</p>
+          {locations.map((loc) => {
+            const locked = companion.level < loc.unlock_level;
+            const icon = LOCATION_ICONS[loc.name] ?? '📍';
+            return (
+              <button
+                key={loc.id}
+                onClick={() => { onSendToActivity(loc.id); setShowLocations(false); }}
+                disabled={locked || interacting !== null}
+                className={`
+                  w-full text-left px-3 py-2 rounded-lg border transition-colors flex items-center gap-2
+                  ${locked
+                    ? 'border-[#2a2a4e] opacity-40 cursor-not-allowed'
+                    : 'border-[#2a2a4e] hover:border-[#ffd700]/40 hover:bg-[#1a1a2e] cursor-pointer'
+                  }
+                `}
+              >
+                <span className="text-sm">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-[9px]">{loc.name}</p>
+                  {loc.description && (
+                    <p className="text-gray-500 text-[7px] truncate">{loc.description}</p>
+                  )}
+                </div>
+                <span className={`text-[7px] ${locked ? 'text-red-400' : 'text-gray-500'}`}>
+                  {locked ? `🔒 Lv.${loc.unlock_level}` : `Lv.${loc.unlock_level}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -185,14 +380,20 @@ function JournalPanel({ entries }: { entries: JournalEntry[] }) {
         <p className="text-gray-500 text-[8px]">No entries yet.</p>
       ) : (
         <div className="space-y-2 max-h-48 overflow-y-auto">
-          {entries.map((entry) => (
-            <div key={entry.id} className="border-l-2 border-[#2a2a4e] pl-2">
-              <p className="text-white text-[8px]">{entry.content}</p>
-              <p className="text-gray-600 text-[6px]">
-                {entry.entry_type} — {new Date(entry.created_at).toLocaleDateString()}
-              </p>
-            </div>
-          ))}
+          {entries.map((entry) => {
+            const typeIcon = entry.entry_type === 'activity' ? '🗺️'
+              : entry.entry_type === 'interaction' ? '💫'
+              : entry.entry_type === 'system' ? '⚙️'
+              : '📜';
+            return (
+              <div key={entry.id} className="border-l-2 border-[#2a2a4e] pl-2">
+                <p className="text-white text-[8px]">{typeIcon} {entry.content}</p>
+                <p className="text-gray-600 text-[6px]">
+                  {entry.entry_type} — {new Date(entry.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -203,30 +404,33 @@ function HolderSanctuary() {
   const { address } = useAccount();
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [locations, setLocations] = useState<MapLocation[]>([]);
+  const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [interacting, setInteracting] = useState<string | null>(null);
+  const [selectedMapLocation, setSelectedMapLocation] = useState<number | null>(null);
+
+  const refreshState = useCallback(async () => {
+    if (!address) return;
+    const [stateData, mapData] = await Promise.all([
+      fetch(`/api/sanctuary/state?address=${address}`).then(r => r.json()),
+      fetch('/api/sanctuary/map').then(r => r.json()),
+    ]);
+    if (stateData.success) {
+      setCompanion(stateData.activeCompanion ?? null);
+      setJournal(stateData.recentJournal ?? []);
+    }
+    if (mapData.success) {
+      setLocations(mapData.locations ?? []);
+      setCompanionsAtLocations(mapData.companionsAtLocations ?? []);
+    }
+  }, [address]);
 
   useEffect(() => {
     if (!address) return;
     setLoading(true);
-
-    Promise.all([
-      fetch(`/api/sanctuary/state?address=${address}`).then(r => r.json()),
-      fetch('/api/sanctuary/map').then(r => r.json()),
-    ])
-      .then(([stateData, mapData]) => {
-        if (stateData.success) {
-          setCompanion(stateData.activeCompanion ?? null);
-          setJournal(stateData.recentJournal ?? []);
-        }
-        if (mapData.success) {
-          setLocations(mapData.locations ?? []);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [address]);
+    refreshState().catch(() => {}).finally(() => setLoading(false));
+  }, [address, refreshState]);
 
   const handleInteract = async (action: 'feed' | 'pet' | 'talk') => {
     if (!address || !companion || interacting) return;
@@ -255,6 +459,66 @@ function HolderSanctuary() {
     }
   };
 
+  const handleSendToActivity = async (locationId: number) => {
+    if (!address || !companion || interacting) return;
+    setInteracting('send');
+    try {
+      const res = await fetch('/api/sanctuary/companion/send-to-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, token_id: companion.token_id, location_id: locationId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCompanion((prev) => prev ? {
+          ...prev,
+          current_activity: data.companion.current_activity,
+          activity_started_at: data.companion.activity_started_at,
+          activity_ends_at: data.companion.activity_ends_at,
+          total_interactions: data.companion.total_interactions,
+        } : null);
+        if (data.journal) {
+          setJournal((prev) => [data.journal, ...prev].slice(0, 10));
+        }
+        await refreshState();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setInteracting(null);
+    }
+  };
+
+  const handleCompleteActivity = async () => {
+    if (!address || !companion || interacting) return;
+    setInteracting('complete');
+    try {
+      const res = await fetch('/api/sanctuary/companion/complete-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, token_id: companion.token_id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCompanion((prev) => prev ? {
+          ...prev,
+          current_activity: data.companion.current_activity,
+          activity_started_at: data.companion.activity_started_at,
+          activity_ends_at: data.companion.activity_ends_at,
+          bond_score: data.companion.bond_score,
+        } : null);
+        if (data.journal) {
+          setJournal((prev) => [data.journal, ...prev].slice(0, 10));
+        }
+        await refreshState();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setInteracting(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -275,7 +539,13 @@ function HolderSanctuary() {
         <p className="text-gray-400 text-[10px]">Your companion awaits</p>
       </div>
 
-      <PublicWorldView locations={locations} />
+      <PublicWorldView
+        locations={locations}
+        companionsAtLocations={companionsAtLocations}
+        selectedLocation={selectedMapLocation}
+        onSelectLocation={setSelectedMapLocation}
+        companionLevel={companion?.level}
+      />
 
       <div className="grid md:grid-cols-2 gap-6">
         {companion ? (
@@ -283,7 +553,10 @@ function HolderSanctuary() {
             <CompanionPanel
               companion={companion}
               latestJournal={journal[0] ?? null}
+              locations={locations}
               onInteract={handleInteract}
+              onSendToActivity={handleSendToActivity}
+              onCompleteActivity={handleCompleteActivity}
               interacting={interacting}
             />
             <JournalPanel entries={journal} />
@@ -303,13 +576,17 @@ function HolderSanctuary() {
 
 export default function SanctuaryContent() {
   const [locations, setLocations] = useState<MapLocation[]>([]);
+  const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
   const { hasAccess, isConnected } = useDAOAccess();
 
   useEffect(() => {
     fetch('/api/sanctuary/map')
       .then(r => r.json())
       .then(data => {
-        if (data.success) setLocations(data.locations ?? []);
+        if (data.success) {
+          setLocations(data.locations ?? []);
+          setCompanionsAtLocations(data.companionsAtLocations ?? []);
+        }
       })
       .catch(() => {});
   }, []);
@@ -330,7 +607,11 @@ export default function SanctuaryContent() {
           </h1>
           <p className="text-gray-400 text-[10px]">A world for Star Skrumpey holders</p>
         </div>
-        <PublicWorldView locations={locations} />
+        <PublicWorldView
+          locations={locations}
+          companionsAtLocations={companionsAtLocations}
+          selectedLocation={null}
+        />
         <AccessGate
           title="SANCTUARY LOCKED"
           message="Hold a Star Skrumpey to unlock your companion and interact with the sanctuary."
