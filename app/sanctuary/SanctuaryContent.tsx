@@ -372,28 +372,153 @@ function CompanionPanel({
   );
 }
 
-function JournalPanel({ entries }: { entries: JournalEntry[] }) {
+const ENTRY_TYPE_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
+  activity: { icon: '🗺️', label: 'Activity', color: '#44ff88' },
+  interaction: { icon: '💫', label: 'Interaction', color: '#ff66aa' },
+  system: { icon: '⚙️', label: 'System', color: '#888' },
+  quest: { icon: '⚔️', label: 'Quest', color: '#ffd700' },
+  achievement: { icon: '🏆', label: 'Achievement', color: '#9966ff' },
+};
+
+function JournalEntryRow({ entry }: { entry: JournalEntry }) {
+  const config = ENTRY_TYPE_CONFIG[entry.entry_type] ?? { icon: '📜', label: entry.entry_type, color: '#666' };
+  const date = new Date(entry.created_at + 'Z');
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+  return (
+    <div className="border-l-2 pl-2 py-1" style={{ borderColor: config.color + '60' }}>
+      <p className="text-white text-[8px]">{config.icon} {entry.content}</p>
+      <p className="text-gray-600 text-[6px] mt-0.5">
+        <span style={{ color: config.color }} className="opacity-70">{config.label}</span>
+        {' — '}{dateStr} {timeStr}
+      </p>
+    </div>
+  );
+}
+
+function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; address?: string; tokenId?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const [fullEntries, setFullEntries] = useState<JournalEntry[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
+
+  const fetchJournal = useCallback(async (p: number, type: string | null) => {
+    if (!address || !tokenId) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ address, token_id: String(tokenId), page: String(p), limit: '15' });
+      if (type) params.set('type', type);
+      if (p === 1) params.set('stats', 'true');
+      const res = await fetch(`/api/sanctuary/companion/journal?${params}`);
+      const data = await res.json();
+      if (data.success) {
+        setFullEntries(data.entries);
+        setPage(data.page);
+        setTotalPages(data.totalPages);
+        setTotal(data.total);
+        if (data.stats) setStats(data.stats.byType);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [address, tokenId]);
+
+  const handleExpand = () => {
+    if (!expanded) {
+      setExpanded(true);
+      fetchJournal(1, null);
+    } else {
+      setExpanded(false);
+    }
+  };
+
+  const handleFilterChange = (type: string | null) => {
+    setTypeFilter(type);
+    setPage(1);
+    fetchJournal(1, type);
+  };
+
+  const displayEntries = expanded ? fullEntries : entries;
+
   return (
     <div className="pixel-card p-6">
-      <h3 className="text-[#ffd700] text-xs tracking-wider mb-3">JOURNAL</h3>
-      {entries.length === 0 ? (
-        <p className="text-gray-500 text-[8px]">No entries yet.</p>
-      ) : (
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {entries.map((entry) => {
-            const typeIcon = entry.entry_type === 'activity' ? '🗺️'
-              : entry.entry_type === 'interaction' ? '💫'
-              : entry.entry_type === 'system' ? '⚙️'
-              : '📜';
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[#ffd700] text-xs tracking-wider">JOURNAL</h3>
+        {address && tokenId && entries.length > 0 && (
+          <button
+            onClick={handleExpand}
+            className="text-[7px] text-[#9966ff] hover:text-[#bb88ff] transition-colors"
+          >
+            {expanded ? 'COLLAPSE' : 'VIEW FULL HISTORY'}
+          </button>
+        )}
+      </div>
+
+      {expanded && stats && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          <button
+            onClick={() => handleFilterChange(null)}
+            className={`text-[7px] px-1.5 py-0.5 rounded border transition-colors ${
+              !typeFilter ? 'border-[#ffd700]/50 text-[#ffd700] bg-[#ffd700]/10' : 'border-[#2a2a4e] text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            ALL ({total})
+          </button>
+          {Object.entries(ENTRY_TYPE_CONFIG).map(([type, config]) => {
+            const count = stats[type] ?? 0;
+            if (count === 0) return null;
             return (
-              <div key={entry.id} className="border-l-2 border-[#2a2a4e] pl-2">
-                <p className="text-white text-[8px]">{typeIcon} {entry.content}</p>
-                <p className="text-gray-600 text-[6px]">
-                  {entry.entry_type} — {new Date(entry.created_at).toLocaleDateString()}
-                </p>
-              </div>
+              <button
+                key={type}
+                onClick={() => handleFilterChange(type)}
+                className={`text-[7px] px-1.5 py-0.5 rounded border transition-colors ${
+                  typeFilter === type ? 'bg-white/5' : 'hover:text-gray-300'
+                }`}
+                style={{
+                  borderColor: typeFilter === type ? config.color + '80' : '#2a2a4e',
+                  color: typeFilter === type ? config.color : '#888',
+                }}
+              >
+                {config.icon} {config.label} ({count})
+              </button>
             );
           })}
+        </div>
+      )}
+
+      {displayEntries.length === 0 ? (
+        <p className="text-gray-500 text-[8px]">{loading ? 'Loading...' : 'No entries yet.'}</p>
+      ) : (
+        <div className={`space-y-2 overflow-y-auto ${expanded ? 'max-h-96' : 'max-h-48'}`}>
+          {displayEntries.map((entry) => (
+            <JournalEntryRow key={entry.id} entry={entry} />
+          ))}
+        </div>
+      )}
+
+      {expanded && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#2a2a4e]">
+          <button
+            onClick={() => { const p = page - 1; setPage(p); fetchJournal(p, typeFilter); }}
+            disabled={page <= 1 || loading}
+            className="text-[7px] text-[#9966ff] disabled:text-gray-700 disabled:cursor-not-allowed"
+          >
+            PREV
+          </button>
+          <span className="text-gray-500 text-[7px]">
+            {page} / {totalPages}
+          </span>
+          <button
+            onClick={() => { const p = page + 1; setPage(p); fetchJournal(p, typeFilter); }}
+            disabled={page >= totalPages || loading}
+            className="text-[7px] text-[#9966ff] disabled:text-gray-700 disabled:cursor-not-allowed"
+          >
+            NEXT
+          </button>
         </div>
       )}
     </div>
@@ -559,7 +684,7 @@ function HolderSanctuary() {
               onCompleteActivity={handleCompleteActivity}
               interacting={interacting}
             />
-            <JournalPanel entries={journal} />
+            <JournalPanel entries={journal} address={address} tokenId={companion.token_id} />
           </>
         ) : (
           <div className="pixel-card p-6 md:col-span-2 text-center">

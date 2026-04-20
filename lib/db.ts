@@ -5865,6 +5865,69 @@ export function getJournalEntries(walletAddress: string, tokenId: number, limit:
   return stmt.all(walletAddress.toLowerCase(), tokenId, limit) as SanctuaryJournalEntry[];
 }
 
+export function getJournalEntriesPaginated(
+  walletAddress: string, tokenId: number,
+  options: { page?: number; limit?: number; type?: string; before?: string }
+): { entries: SanctuaryJournalEntry[]; total: number; page: number; totalPages: number } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const page = Math.max(1, options.page ?? 1);
+  const limit = Math.min(50, Math.max(1, options.limit ?? 20));
+  const offset = (page - 1) * limit;
+
+  const conditions = ['wallet_address = ?', 'token_id = ?'];
+  const params: (string | number)[] = [addr, tokenId];
+
+  if (options.type) {
+    conditions.push('entry_type = ?');
+    params.push(options.type);
+  }
+  if (options.before) {
+    conditions.push('created_at < ?');
+    params.push(options.before);
+  }
+
+  const where = conditions.join(' AND ');
+
+  const total = (db.prepare(`SELECT COUNT(*) as count FROM sanctuary_journal WHERE ${where}`).get(...params) as { count: number }).count;
+
+  const entries = db.prepare(`
+    SELECT * FROM sanctuary_journal WHERE ${where}
+    ORDER BY created_at DESC LIMIT ? OFFSET ?
+  `).all(...params, limit, offset) as SanctuaryJournalEntry[];
+
+  return { entries, total, page, totalPages: Math.ceil(total / limit) || 1 };
+}
+
+export interface JournalStats {
+  total: number;
+  byType: Record<string, number>;
+  firstEntry: string | null;
+  lastEntry: string | null;
+}
+
+export function getJournalStats(walletAddress: string, tokenId: number): JournalStats {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const total = (db.prepare(
+    'SELECT COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+  ).get(addr, tokenId) as { count: number }).count;
+
+  const typeCounts = db.prepare(
+    'SELECT entry_type, COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? GROUP BY entry_type'
+  ).all(addr, tokenId) as { entry_type: string; count: number }[];
+
+  const byType: Record<string, number> = {};
+  for (const row of typeCounts) byType[row.entry_type] = row.count;
+
+  const range = db.prepare(
+    'SELECT MIN(created_at) as first_entry, MAX(created_at) as last_entry FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+  ).get(addr, tokenId) as { first_entry: string | null; last_entry: string | null };
+
+  return { total, byType, firstEntry: range.first_entry, lastEntry: range.last_entry };
+}
+
 export function getSanctuaryMapLocations(): SanctuaryMapLocation[] {
   const db = getDatabase();
   return db.prepare('SELECT * FROM sanctuary_map_locations ORDER BY unlock_level, name').all() as SanctuaryMapLocation[];
