@@ -285,6 +285,77 @@ describe('Map Locations', () => {
   });
 });
 
+describe('Journal Pagination & Stats', () => {
+  let db: Database.Database;
+
+  beforeAll(() => {
+    db = createTestDb();
+    db.prepare('INSERT INTO sanctuary_companions (wallet_address, token_id, is_active) VALUES (?, ?, ?)').run('0xpager', 3, 1);
+
+    const types = ['system', 'interaction', 'activity', 'quest', 'achievement'];
+    const insert = db.prepare("INSERT INTO sanctuary_journal (wallet_address, token_id, entry_type, content, created_at) VALUES (?, ?, ?, ?, ?)");
+    for (let i = 0; i < 35; i++) {
+      const type = types[i % types.length];
+      const ts = `2026-04-${String(1 + i).padStart(2, '0')} 12:00:00`;
+      insert.run('0xpager', 3, type, `Entry ${i + 1}`, ts);
+    }
+  });
+
+  it('paginates journal entries', () => {
+    const page1 = db.prepare(
+      'SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).all('0xpager', 3, 10, 0) as any[];
+    const page2 = db.prepare(
+      'SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).all('0xpager', 3, 10, 10) as any[];
+
+    expect(page1.length).toBe(10);
+    expect(page2.length).toBe(10);
+    expect(page1[0].content).not.toBe(page2[0].content);
+  });
+
+  it('filters by entry_type', () => {
+    const quests = db.prepare(
+      "SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? AND entry_type = ? ORDER BY created_at DESC"
+    ).all('0xpager', 3, 'quest') as any[];
+
+    expect(quests.length).toBe(7);
+    for (const q of quests) expect(q.entry_type).toBe('quest');
+  });
+
+  it('computes journal stats by type', () => {
+    const typeCounts = db.prepare(
+      'SELECT entry_type, COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? GROUP BY entry_type'
+    ).all('0xpager', 3) as { entry_type: string; count: number }[];
+
+    const byType: Record<string, number> = {};
+    for (const row of typeCounts) byType[row.entry_type] = row.count;
+
+    expect(byType.system).toBe(7);
+    expect(byType.interaction).toBe(7);
+    expect(byType.activity).toBe(7);
+    expect(byType.quest).toBe(7);
+    expect(byType.achievement).toBe(7);
+  });
+
+  it('returns correct total count', () => {
+    const total = db.prepare(
+      'SELECT COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+    ).get('0xpager', 3) as { count: number };
+
+    expect(total.count).toBe(35);
+  });
+
+  it('computes first and last entry dates', () => {
+    const range = db.prepare(
+      'SELECT MIN(created_at) as first_entry, MAX(created_at) as last_entry FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+    ).get('0xpager', 3) as { first_entry: string; last_entry: string };
+
+    expect(range.first_entry).toContain('2026-04-01');
+    expect(range.last_entry).toBeTruthy();
+  });
+});
+
 describe('Send to Activity', () => {
   let db: Database.Database;
 
