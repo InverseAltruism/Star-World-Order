@@ -5805,6 +5805,8 @@ export function switchCompanion(walletAddress: string, newTokenId: number): Sanc
 const DAILY_INTERACTION_CAP = 15;
 const INTERACTION_BOND: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2 };
 const INTERACTION_XP: Record<string, number> = { feed: 3, pet: 2, talk: 2 };
+const STAR_HOLDER_XP_MULTIPLIER = 1.5;
+const STAR_HOLDER_BOND_MULTIPLIER = 1.25;
 
 function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: string, tokenId: number): number {
   const todayStart = new Date();
@@ -5818,8 +5820,9 @@ function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: stri
 }
 
 export function interactWithCompanion(
-  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk'
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number } {
+  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk',
+  options?: { isStar?: boolean }
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
@@ -5841,8 +5844,9 @@ export function interactWithCompanion(
       throw new Error('Daily interaction limit reached. Come back tomorrow!');
     }
 
-    const bondGain = INTERACTION_BOND[action];
-    const xpGain = INTERACTION_XP[action];
+    const starBonus = options?.isStar ?? false;
+    const bondGain = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+    const xpGain = Math.round(INTERACTION_XP[action] * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
 
     db.prepare(`
       UPDATE sanctuary_companions
@@ -5854,13 +5858,14 @@ export function interactWithCompanion(
 
     addUserXP(addr, xpGain);
 
-    const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action],
-      JSON.stringify({ action, bond: bondGain, xp: xpGain }));
+    const bonusTag = starBonus ? ' (Star Bonus!)' : '';
+    const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action] + bonusTag,
+      JSON.stringify({ action, bond: bondGain, xp: xpGain, starBonus }));
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
 
-    return { companion: updated, journal, dailyRemaining: DAILY_INTERACTION_CAP - dailyCount - 1 };
+    return { companion: updated, journal, dailyRemaining: DAILY_INTERACTION_CAP - dailyCount - 1, starBonus };
   });
 
   return txn();
@@ -6049,8 +6054,9 @@ export function sendToActivity(
 }
 
 export function completeActivity(
-  walletAddress: string, tokenId: number
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } | null {
+  walletAddress: string, tokenId: number,
+  options?: { isStar?: boolean }
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; starBonus: boolean } | null {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
@@ -6068,8 +6074,9 @@ export function completeActivity(
       ? comp.current_activity.slice('exploring:'.length)
       : comp.current_activity;
 
-    const bondReward = ACTIVITY_BOND_REWARDS[activityName] ?? 1.0;
-    const xpReward = ACTIVITY_XP_REWARDS[activityName] ?? 5;
+    const starBonus = options?.isStar ?? false;
+    const bondReward = (ACTIVITY_BOND_REWARDS[activityName] ?? 1.0) * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+    const xpReward = Math.round((ACTIVITY_XP_REWARDS[activityName] ?? 5) * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
 
     db.prepare(`
       UPDATE sanctuary_companions
@@ -6083,14 +6090,15 @@ export function completeActivity(
 
     addUserXP(addr, xpReward);
 
+    const bonusTag = starBonus ? ' (Star Bonus!)' : '';
     const journal = addJournalEntry(addr, tokenId, 'activity',
-      `Returned from ${activityName} feeling refreshed! Bond +${bondReward.toFixed(1)}, XP +${xpReward}`,
-      JSON.stringify({ action: 'complete_activity', location_name: activityName, bond_reward: bondReward, xp_reward: xpReward }));
+      `Returned from ${activityName} feeling refreshed! Bond +${bondReward.toFixed(1)}, XP +${xpReward}${bonusTag}`,
+      JSON.stringify({ action: 'complete_activity', location_name: activityName, bond_reward: bondReward, xp_reward: xpReward, starBonus }));
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
 
-    return { companion: updated, journal };
+    return { companion: updated, journal, starBonus };
   });
 
   return txn();
@@ -6137,4 +6145,49 @@ export function getSanctuaryState(walletAddress: string): {
     : [];
 
   return { activeCompanion, companions, recentJournal };
+}
+
+// Expedition stubs — tables exist but functions not yet implemented
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getAvailableExpeditions(_walletAddress: string) {
+  return [];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getActiveExpeditionRun(_walletAddress: string) {
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getExpeditionHistory(_walletAddress: string) {
+  return [];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function startExpedition(_walletAddress: string, _tokenId: number, _expeditionId: number): Record<string, unknown> {
+  throw new Error('Expeditions not yet implemented');
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function completeExpedition(_walletAddress: string, _tokenId: number): Record<string, unknown> | null {
+  return null;
+}
+
+export function getPublicActivityFeed(limit: number, before?: string) {
+  const db = getDatabase();
+  const conditions = ['1=1'];
+  const params: (string | number)[] = [];
+  if (before) {
+    conditions.push('sj.created_at < ?');
+    params.push(before);
+  }
+  params.push(limit);
+  return db.prepare(`
+    SELECT sj.*, sc.nickname
+    FROM sanctuary_journal sj
+    LEFT JOIN sanctuary_companions sc ON sc.wallet_address = sj.wallet_address AND sc.token_id = sj.token_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY sj.created_at DESC
+    LIMIT ?
+  `).all(...params) as (SanctuaryJournalEntry & { nickname: string | null })[];
 }

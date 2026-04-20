@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { interactWithCompanion } from '@/lib/db';
+import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 
 const VALID_ACTIONS = ['feed', 'pet', 'talk'] as const;
 
@@ -22,7 +23,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = interactWithCompanion(address, token_id, action);
+    const isStar = isStarSkrumpeyId(token_id);
+    const result = interactWithCompanion(address, token_id, action, { isStar });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to interact';

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
-import AccessGate from '@/components/AccessGate';
+import SkrumpeyAccessGate from '@/components/SkrumpeyAccessGate';
+import { useSkrumpeyAccess } from '@/lib/hooks/useSkrumpeyAccess';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 
 interface Companion {
@@ -145,7 +146,7 @@ function PublicWorldView({
                     <div className="mt-1 border-t border-[#2a2a4e] pt-1">
                       {locCompanions.companions.slice(0, 3).map((c) => (
                         <p key={c.token_id} className="text-[6px] text-gray-500">
-                          {c.nickname || `Star #${c.token_id}`}
+                          {c.nickname || `Skrumpey #${c.token_id}`}
                         </p>
                       ))}
                       {locCompanions.companions.length > 3 && (
@@ -257,7 +258,7 @@ function CompanionPanel({
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[#ffd700] text-sm tracking-wider truncate">
-            {companion.nickname || `Star #${companion.token_id}`}
+            {companion.nickname || `Skrumpey #${companion.token_id}`}
           </h3>
           <p className="text-gray-400 text-[8px] mt-0.5">
             LV.{companion.level} · <span style={{ color: mood.color }}>{mood.label}</span>
@@ -531,8 +532,19 @@ function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; 
   );
 }
 
+function StarBadge() {
+  return (
+    <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ffd700]/15 border border-[#ffd700]/40">
+      <span className="text-[8px]">⭐</span>
+      <span className="text-[7px] text-[#ffd700] tracking-wider font-bold">STAR HOLDER</span>
+      <span className="text-[7px] text-[#ffd700]/70">1.5x XP · 1.25x Bond</span>
+    </div>
+  );
+}
+
 function HolderSanctuary() {
   const { address } = useAccount();
+  const { hasAccess: hasStar } = useDAOAccess();
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
@@ -669,9 +681,10 @@ function HolderSanctuary() {
           className="text-lg text-[#ffd700] tracking-widest mb-1"
           style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
         >
-          STAR SANCTUARY
+          SKRUMPEY SANCTUARY
         </h1>
         <p className="text-gray-400 text-[10px]">Your companion awaits</p>
+        {hasStar && <div className="mt-2"><StarBadge /></div>}
       </div>
 
       <PublicWorldView
@@ -701,7 +714,7 @@ function HolderSanctuary() {
           <div className="pixel-card p-6 md:col-span-2 text-center">
             <p className="text-[#9966ff] text-xs mb-2">NO COMPANION SELECTED</p>
             <p className="text-gray-400 text-[8px]">
-              Select a Star Skrumpey to begin your sanctuary journey.
+              Select a Skrumpey to begin your sanctuary journey.
             </p>
           </div>
         )}
@@ -713,7 +726,7 @@ function HolderSanctuary() {
 export default function SanctuaryContent() {
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
-  const { hasAccess, isConnected } = useDAOAccess();
+  const { hasAccess, isConnected } = useSkrumpeyAccess();
 
   useEffect(() => {
     fetch('/api/sanctuary/map')
@@ -739,21 +752,21 @@ export default function SanctuaryContent() {
             className="text-lg text-[#ffd700] tracking-widest mb-1"
             style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
           >
-            STAR SANCTUARY
+            SKRUMPEY SANCTUARY
           </h1>
-          <p className="text-gray-400 text-[10px]">A world for Star Skrumpey holders</p>
+          <p className="text-gray-400 text-[10px]">A world for all Skrumpey holders</p>
         </div>
         <PublicWorldView
           locations={locations}
           companionsAtLocations={companionsAtLocations}
           selectedLocation={null}
         />
-        <AccessGate
+        <SkrumpeyAccessGate
           title="SANCTUARY LOCKED"
-          message="Hold a Star Skrumpey to unlock your companion and interact with the sanctuary."
+          message="Hold any Skrumpey to unlock your companion and interact with the sanctuary. Star Skrumpey holders earn 1.5x XP and 1.25x Bond!"
         >
           <></>
-        </AccessGate>
+        </SkrumpeyAccessGate>
       </div>
     );
   }
