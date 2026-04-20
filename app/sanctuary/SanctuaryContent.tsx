@@ -231,6 +231,7 @@ function CompanionPanel({
   onSendToActivity,
   onCompleteActivity,
   interacting,
+  interactError,
 }: {
   companion: Companion;
   latestJournal: JournalEntry | null;
@@ -239,6 +240,7 @@ function CompanionPanel({
   onSendToActivity: (locationId: number) => void;
   onCompleteActivity: () => void;
   interacting: string | null;
+  interactError?: string | null;
 }) {
   const [showLocations, setShowLocations] = useState(false);
   const mood = MOOD_CONFIG[companion.mood ?? ''] ?? DEFAULT_MOOD;
@@ -333,6 +335,10 @@ function CompanionPanel({
           <span className="text-[7px] text-gray-400 group-hover:text-[#ffd700] transition-colors">Send</span>
         </button>
       </div>
+
+      {interactError && (
+        <p className="text-red-400 text-[7px] text-center">{interactError}</p>
+      )}
 
       {showLocations && !isOnActivity && (
         <div className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3 space-y-1.5">
@@ -534,6 +540,7 @@ function HolderSanctuary() {
   const [loading, setLoading] = useState(true);
   const [interacting, setInteracting] = useState<string | null>(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState<number | null>(null);
+  const [interactError, setInteractError] = useState<string | null>(null);
 
   const refreshState = useCallback(async () => {
     if (!address) return;
@@ -560,6 +567,7 @@ function HolderSanctuary() {
   const handleInteract = async (action: 'feed' | 'pet' | 'talk') => {
     if (!address || !companion || interacting) return;
     setInteracting(action);
+    setInteractError(null);
     try {
       const res = await fetch('/api/sanctuary/companion/interact', {
         method: 'POST',
@@ -576,6 +584,8 @@ function HolderSanctuary() {
         if (data.journal) {
           setJournal((prev) => [data.journal, ...prev].slice(0, 10));
         }
+      } else if (res.status === 429) {
+        setInteractError(data.error);
       }
     } catch {
       // silently fail
@@ -683,6 +693,7 @@ function HolderSanctuary() {
               onSendToActivity={handleSendToActivity}
               onCompleteActivity={handleCompleteActivity}
               interacting={interacting}
+              interactError={interactError}
             />
             <JournalPanel entries={journal} address={address} tokenId={companion.token_id} />
           </>

@@ -5802,13 +5802,27 @@ export function switchCompanion(walletAddress: string, newTokenId: number): Sanc
   return txn();
 }
 
+const DAILY_INTERACTION_CAP = 15;
+const INTERACTION_BOND: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2 };
+const INTERACTION_XP: Record<string, number> = { feed: 3, pet: 2, talk: 2 };
+
+function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: string, tokenId: number): number {
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const result = db.prepare(`
+    SELECT COUNT(*) as count FROM sanctuary_journal
+    WHERE wallet_address = ? AND token_id = ? AND entry_type = 'interaction'
+      AND created_at >= ?
+  `).get(addr, tokenId, todayStart.toISOString().replace('T', ' ').slice(0, 19)) as { count: number };
+  return result.count;
+}
+
 export function interactWithCompanion(
   walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk'
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } {
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number } {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
-  const bondGain: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2 };
   const messages: Record<string, string> = {
     feed: 'Enjoyed a tasty cosmic treat. Bond strengthened!',
     pet: 'Received gentle pats. Feeling cozy and loved.',
@@ -5822,21 +5836,31 @@ export function interactWithCompanion(
 
     if (!comp) throw new Error('No active companion found');
 
+    const dailyCount = getDailyInteractionCount(db, addr, tokenId);
+    if (dailyCount >= DAILY_INTERACTION_CAP) {
+      throw new Error('Daily interaction limit reached. Come back tomorrow!');
+    }
+
+    const bondGain = INTERACTION_BOND[action];
+    const xpGain = INTERACTION_XP[action];
+
     db.prepare(`
       UPDATE sanctuary_companions
       SET bond_score = MIN(bond_score + ?, 100.0),
           total_interactions = total_interactions + 1,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(bondGain[action], comp.id);
+    `).run(bondGain, comp.id);
+
+    addUserXP(addr, xpGain);
 
     const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action],
-      JSON.stringify({ action }));
+      JSON.stringify({ action, bond: bondGain, xp: xpGain }));
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
 
-    return { companion: updated, journal };
+    return { companion: updated, journal, dailyRemaining: DAILY_INTERACTION_CAP - dailyCount - 1 };
   });
 
   return txn();
@@ -5945,14 +5969,25 @@ const ACTIVITY_DURATIONS: Record<string, number> = {
 };
 
 const ACTIVITY_BOND_REWARDS: Record<string, number> = {
+  'Dream Hollow': 0.8,
+  'Nebula Kitchen': 1.2,
   'Hot Springs': 2.0,
-  'Training Grounds': 3.0,
-  'Star Garden': 2.5,
-  'Cosmic Library': 3.5,
-  'Nebula Kitchen': 1.5,
-  'Dream Hollow': 1.0,
-  'Aura Forge': 5.0,
-  'Observatory': 4.0,
+  'Star Garden': 2.8,
+  'Training Grounds': 4.0,
+  'Observatory': 5.5,
+  'Cosmic Library': 6.5,
+  'Aura Forge': 9.0,
+};
+
+const ACTIVITY_XP_REWARDS: Record<string, number> = {
+  'Dream Hollow': 5,
+  'Nebula Kitchen': 8,
+  'Hot Springs': 12,
+  'Star Garden': 15,
+  'Training Grounds': 20,
+  'Observatory': 25,
+  'Cosmic Library': 30,
+  'Aura Forge': 40,
 };
 
 export function sendToActivity(
@@ -6034,6 +6069,7 @@ export function completeActivity(
       : comp.current_activity;
 
     const bondReward = ACTIVITY_BOND_REWARDS[activityName] ?? 1.0;
+    const xpReward = ACTIVITY_XP_REWARDS[activityName] ?? 5;
 
     db.prepare(`
       UPDATE sanctuary_companions
@@ -6045,9 +6081,11 @@ export function completeActivity(
       WHERE id = ?
     `).run(bondReward, comp.id);
 
+    addUserXP(addr, xpReward);
+
     const journal = addJournalEntry(addr, tokenId, 'activity',
-      `Returned from ${activityName} feeling refreshed! Bond +${bondReward.toFixed(1)}`,
-      JSON.stringify({ action: 'complete_activity', location_name: activityName, bond_reward: bondReward }));
+      `Returned from ${activityName} feeling refreshed! Bond +${bondReward.toFixed(1)}, XP +${xpReward}`,
+      JSON.stringify({ action: 'complete_activity', location_name: activityName, bond_reward: bondReward, xp_reward: xpReward }));
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
