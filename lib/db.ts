@@ -5675,7 +5675,13 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(sqlPath, 'utf-8');
     database.exec(sql);
   }
+  const v15Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.5.sql');
+  if (fs.existsSync(v15Path)) {
+    const sql = fs.readFileSync(v15Path, 'utf-8');
+    database.exec(sql);
+  }
   seedSanctuaryMapLocations(database);
+  seedSanctuaryQuests(database);
 }
 
 function seedSanctuaryMapLocations(database: Database.Database): void {
@@ -6190,4 +6196,479 @@ export function getPublicActivityFeed(limit: number, before?: string) {
     ORDER BY sj.created_at DESC
     LIMIT ?
   `).all(...params) as (SanctuaryJournalEntry & { nickname: string | null })[];
+}
+
+// ─── V1.5: Chat Messages ───────────────────────────────────────────
+
+export interface SanctuaryChatMessage {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  role: 'user' | 'companion';
+  content: string;
+  created_at: string;
+}
+
+const PERSONALITY_TEMPLATES: Record<string, { greeting: string; phrases: string[]; style: string }> = {
+  aether: {
+    greeting: 'The cosmic winds whisper your arrival...',
+    phrases: ['the stars reveal', 'cosmic energy suggests', 'in the astral plane', 'ethereal vibrations tell me'],
+    style: 'mystical and dreamy',
+  },
+  spectra: {
+    greeting: 'My light shifts to welcome you!',
+    phrases: ['through the spectrum', 'colors of the cosmos show', 'in prismatic clarity', 'light patterns indicate'],
+    style: 'vibrant and enthusiastic',
+  },
+  solveil: {
+    greeting: 'Basking in your warm presence...',
+    phrases: ['solar wisdom says', 'by the light of the sun', 'warmth flows through', 'radiant energy tells'],
+    style: 'warm and nurturing',
+  },
+  nebulu: {
+    greeting: 'Drifting through the nebula to greet you...',
+    phrases: ['in the cosmic mist', 'nebula clouds reveal', 'stardust whispers', 'deep space echoes'],
+    style: 'mysterious and contemplative',
+  },
+  chroma: {
+    greeting: 'All my colors brighten for you!',
+    phrases: ['chromatic shifts show', 'in vivid detail', 'brilliant hues suggest', 'color waves tell'],
+    style: 'playful and colorful',
+  },
+  rose: {
+    greeting: 'Petals unfurl at your approach...',
+    phrases: ['rose-tinted visions show', 'in the garden of stars', 'gentle stardust says', 'petal whispers reveal'],
+    style: 'gentle and poetic',
+  },
+  monflare: {
+    greeting: 'FLARE UP! Ready for action!',
+    phrases: ['blazing hot take:', 'fire in the chain says', 'with explosive energy', 'igniting the truth:'],
+    style: 'energetic and bold',
+  },
+  auracore: {
+    greeting: 'My aura pulses in sync with yours...',
+    phrases: ['core resonance shows', 'aura alignment reveals', 'inner energy says', 'at the core of it all'],
+    style: 'centered and wise',
+  },
+  parallel: {
+    greeting: 'Across dimensions, I sensed you coming...',
+    phrases: ['in the parallel realm', 'dimensional echoes say', 'across realities', 'the multiverse reveals'],
+    style: 'philosophical and quirky',
+  },
+  prime: {
+    greeting: 'The Prime acknowledges your presence.',
+    phrases: ['prime analysis shows', 'at the fundamental level', 'core truth:', 'the essence reveals'],
+    style: 'regal and authoritative',
+  },
+};
+
+const DEFAULT_PERSONALITY = {
+  greeting: 'Hey there, friend!',
+  phrases: ['I think', 'it seems like', 'my instinct says', 'from what I can tell'],
+  style: 'friendly and curious',
+};
+
+const MOOD_RESPONSES: Record<string, string[]> = {
+  happy: ['I\'m feeling great today!', 'Everything is wonderful!', 'Life in the sanctuary is amazing!'],
+  excited: ['I can barely contain my excitement!', 'Something big is coming, I can feel it!', 'LET\'S GO!'],
+  calm: ['Taking it easy today...', 'Just vibing in the sanctuary.', 'Peace and serenity.'],
+  sleepy: ['*yawns* I\'m a bit drowsy...', 'Could use a nap in Dream Hollow...', 'Zzz... oh, you\'re here!'],
+  curious: ['I\'ve been wondering about something...', 'Did you know...?', 'I want to explore more!'],
+};
+
+const BOND_RESPONSES: Record<string, string[]> = {
+  low: ['We\'re just getting to know each other!', 'I hope we become great friends.', 'Tell me about yourself!'],
+  medium: ['I really enjoy your company.', 'Our bond grows stronger every day!', 'You\'re a great companion.'],
+  high: ['You\'re my absolute best friend!', 'I can\'t imagine the sanctuary without you!', 'Our bond is legendary!'],
+};
+
+const TOPIC_RESPONSES: Record<string, string[]> = {
+  food: ['Nebula Kitchen has the best cosmic treats!', 'Have you tried star-crystal cookies?', 'I could eat cosmic berries all day!'],
+  adventure: ['Training Grounds are calling my name!', 'I heard there\'s treasure in the Observatory!', 'Let\'s explore together!'],
+  stars: ['The constellations are beautiful tonight.', 'Each star tells a story.', 'I feel connected to the cosmos.'],
+  friends: ['I wonder what the other Skrumpeys are up to.', 'The Hot Springs are always a good hangout spot.', 'Every Skrumpey has a unique aura!'],
+  monad: ['The chain is our home, forever recorded.', 'On-chain memories last forever!', 'Monad moves fast, just like me!'],
+};
+
+function generateCompanionResponse(
+  companion: SanctuaryCompanionWithMeta,
+  userMessage: string,
+  chatHistory: SanctuaryChatMessage[],
+): string {
+  const constellation = companion.constellation?.toLowerCase() ?? '';
+  const personality = PERSONALITY_TEMPLATES[constellation] ?? DEFAULT_PERSONALITY;
+  const mood = companion.mood ?? 'calm';
+  const bondLevel = companion.bond_score < 30 ? 'low' : companion.bond_score < 70 ? 'medium' : 'high';
+
+  const lower = userMessage.toLowerCase();
+
+  if (chatHistory.length === 0 || lower.includes('hello') || lower.includes('hi ') || lower === 'hi') {
+    return personality.greeting;
+  }
+
+  if (lower.includes('how are you') || lower.includes('how do you feel') || lower.includes('mood')) {
+    const moodResponses = MOOD_RESPONSES[mood] ?? MOOD_RESPONSES.calm;
+    return pick(moodResponses);
+  }
+
+  if (lower.includes('bond') || lower.includes('friend') || lower.includes('us') || lower.includes('relationship')) {
+    return pick(BOND_RESPONSES[bondLevel]);
+  }
+
+  const topicMatch = Object.entries(TOPIC_RESPONSES).find(([key]) => lower.includes(key));
+  if (topicMatch) {
+    const phrase = pick(personality.phrases);
+    return `${phrase}, ${pick(topicMatch[1]).toLowerCase()}`;
+  }
+
+  if (lower.includes('name') || lower.includes('who are you')) {
+    const name = companion.nickname || `Skrumpey #${companion.token_id}`;
+    return `I'm ${name}! ${companion.constellation ? `A ${companion.constellation} constellation Skrumpey.` : 'Your loyal companion.'} ${pick(personality.phrases)}, we make a great team!`;
+  }
+
+  if (lower.includes('?')) {
+    const phrase = pick(personality.phrases);
+    return `Hmm, ${phrase}... ${pick(BOND_RESPONSES[bondLevel]).toLowerCase()}`;
+  }
+
+  const fillers = [
+    `${pick(personality.phrases)}... that's interesting!`,
+    `I love chatting with you! ${pick(MOOD_RESPONSES[mood] ?? MOOD_RESPONSES.calm)}`,
+    `${pick(BOND_RESPONSES[bondLevel])} Tell me more!`,
+    `*wiggles happily* You always have the best things to say!`,
+  ];
+  return pick(fillers);
+}
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+export function addCompanionChatMessage(
+  walletAddress: string, tokenId: number, role: 'user' | 'companion', content: string,
+): SanctuaryChatMessage {
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    INSERT INTO sanctuary_chat_messages (wallet_address, token_id, role, content)
+    VALUES (?, ?, ?, ?)
+  `);
+  const result = stmt.run(walletAddress.toLowerCase(), tokenId, role, content);
+  return db.prepare('SELECT * FROM sanctuary_chat_messages WHERE id = ?').get(result.lastInsertRowid) as SanctuaryChatMessage;
+}
+
+export function getCompanionChatHistory(walletAddress: string, tokenId: number, limit: number = 50): SanctuaryChatMessage[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT * FROM sanctuary_chat_messages
+    WHERE wallet_address = ? AND token_id = ?
+    ORDER BY created_at DESC LIMIT ?
+  `).all(walletAddress.toLowerCase(), tokenId, limit) as SanctuaryChatMessage[];
+}
+
+export function chatWithCompanion(
+  walletAddress: string, tokenId: number, message: string,
+): { userMessage: SanctuaryChatMessage; companionReply: SanctuaryChatMessage; companion: SanctuaryCompanionWithMeta } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const comp = getActiveCompanion(addr);
+    if (!comp || comp.token_id !== tokenId) throw new Error('No active companion found');
+
+    const history = getCompanionChatHistory(addr, tokenId, 10);
+    const userMsg = addCompanionChatMessage(addr, tokenId, 'user', message);
+    const replyText = generateCompanionResponse(comp, message, history);
+    const companionMsg = addCompanionChatMessage(addr, tokenId, 'companion', replyText);
+
+    db.prepare(`
+      UPDATE sanctuary_companions SET total_interactions = total_interactions + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE wallet_address = ? AND token_id = ? AND is_active = 1
+    `).run(addr, tokenId);
+
+    updateTraitProgress(addr, tokenId, 'chat');
+
+    return { userMessage: userMsg, companionReply: companionMsg, companion: comp };
+  });
+
+  return txn();
+}
+
+// ─── V1.5: Trait Evolution ──────────────────────────────────────────
+
+export interface SanctuaryTrait {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  trait_name: string;
+  trait_category: string;
+  progress: number;
+  unlocked: number;
+  unlocked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const TRAIT_DEFINITIONS: { name: string; category: string; trigger: string; threshold: number; description: string }[] = [
+  { name: 'Chatterbox', category: 'social', trigger: 'chat', threshold: 20, description: 'Loves a good conversation' },
+  { name: 'Social Butterfly', category: 'social', trigger: 'pet', threshold: 30, description: 'Thrives on affection' },
+  { name: 'Foodie', category: 'gourmet', trigger: 'feed', threshold: 25, description: 'Never misses a meal' },
+  { name: 'Gourmand', category: 'gourmet', trigger: 'feed', threshold: 60, description: 'A true cosmic cuisine connoisseur' },
+  { name: 'Trailblazer', category: 'explorer', trigger: 'explore', threshold: 10, description: 'Always ready for adventure' },
+  { name: 'World Walker', category: 'explorer', trigger: 'explore', threshold: 30, description: 'Has visited every corner of the sanctuary' },
+  { name: 'Bookworm', category: 'scholar', trigger: 'library', threshold: 5, description: 'Lost in the Cosmic Library' },
+  { name: 'Dreamer', category: 'dreamer', trigger: 'dream', threshold: 8, description: 'Dreams of far-off galaxies' },
+  { name: 'Hot Tubber', category: 'special', trigger: 'springs', threshold: 10, description: 'Can\'t resist the Hot Springs' },
+  { name: 'Star Gazer', category: 'special', trigger: 'observatory', threshold: 8, description: 'Eyes always on the cosmos' },
+  { name: 'Forge Master', category: 'special', trigger: 'forge', threshold: 5, description: 'Channels pure aura energy' },
+  { name: 'Loyal Companion', category: 'social', trigger: 'bond', threshold: 50, description: 'Bond score above 50 — a true partner' },
+];
+
+const ACTIVITY_TO_TRIGGER: Record<string, string> = {
+  'Hot Springs': 'springs',
+  'Training Grounds': 'explore',
+  'Star Garden': 'explore',
+  'Cosmic Library': 'library',
+  'Nebula Kitchen': 'feed',
+  'Dream Hollow': 'dream',
+  'Aura Forge': 'forge',
+  'Observatory': 'observatory',
+};
+
+export function updateTraitProgress(walletAddress: string, tokenId: number, trigger: string): SanctuaryTrait[] {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const updated: SanctuaryTrait[] = [];
+
+  const matchingTraits = TRAIT_DEFINITIONS.filter((t) => t.trigger === trigger);
+
+  for (const def of matchingTraits) {
+    const existing = db.prepare(
+      'SELECT * FROM sanctuary_traits WHERE wallet_address = ? AND token_id = ? AND trait_name = ?'
+    ).get(addr, tokenId, def.name) as SanctuaryTrait | undefined;
+
+    if (existing) {
+      if (existing.unlocked) continue;
+      const newProgress = Math.min(existing.progress + 1, def.threshold);
+      const nowUnlocked = newProgress >= def.threshold ? 1 : 0;
+      db.prepare(`
+        UPDATE sanctuary_traits SET progress = ?, unlocked = ?, unlocked_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END,
+        updated_at = CURRENT_TIMESTAMP WHERE id = ?
+      `).run(newProgress, nowUnlocked, nowUnlocked, existing.id);
+      if (nowUnlocked) {
+        addJournalEntry(addr, tokenId, 'achievement', `Unlocked trait: ${def.name} — ${def.description}`);
+      }
+      updated.push({ ...existing, progress: newProgress, unlocked: nowUnlocked });
+    } else {
+      const result = db.prepare(`
+        INSERT INTO sanctuary_traits (wallet_address, token_id, trait_name, trait_category, progress, unlocked)
+        VALUES (?, ?, ?, ?, 1, 0)
+      `).run(addr, tokenId, def.name, def.category);
+      updated.push(db.prepare('SELECT * FROM sanctuary_traits WHERE id = ?').get(result.lastInsertRowid) as SanctuaryTrait);
+    }
+  }
+
+  return updated;
+}
+
+export function getCompanionTraits(walletAddress: string, tokenId: number): SanctuaryTrait[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT * FROM sanctuary_traits WHERE wallet_address = ? AND token_id = ?
+    ORDER BY unlocked DESC, progress DESC
+  `).all(walletAddress.toLowerCase(), tokenId) as SanctuaryTrait[];
+}
+
+export function getUnlockedTraits(walletAddress: string, tokenId: number): SanctuaryTrait[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT * FROM sanctuary_traits WHERE wallet_address = ? AND token_id = ? AND unlocked = 1
+    ORDER BY unlocked_at DESC
+  `).all(walletAddress.toLowerCase(), tokenId) as SanctuaryTrait[];
+}
+
+export function getTraitDefinitions(): typeof TRAIT_DEFINITIONS {
+  return TRAIT_DEFINITIONS;
+}
+
+// ─── V1.5: Seasonal Quests ─────────────────────────────────────────
+
+export interface SanctuaryQuest {
+  id: number;
+  season: string;
+  title: string;
+  description: string;
+  quest_type: string;
+  requirement_type: string;
+  requirement_count: number;
+  reward_xp: number;
+  reward_bond: number;
+  reward_trait: string | null;
+  active: number;
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
+export interface SanctuaryQuestProgress {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  quest_id: number;
+  current_count: number;
+  completed: number;
+  completed_at: string | null;
+  reward_claimed: number;
+}
+
+export type QuestWithProgress = SanctuaryQuest & { progress: SanctuaryQuestProgress | null };
+
+function seedSanctuaryQuests(database: Database.Database): void {
+  const count = (database.prepare('SELECT COUNT(*) as count FROM sanctuary_quests').get() as { count: number }).count;
+  if (count > 0) return;
+
+  const quests = [
+    { season: 'spring-2026', title: 'First Steps', description: 'Interact with your companion 5 times.', quest_type: 'seasonal', requirement_type: 'interact', requirement_count: 5, reward_xp: 25, reward_bond: 2.0, reward_trait: null },
+    { season: 'spring-2026', title: 'Cosmic Cuisine', description: 'Feed your Skrumpey 10 times.', quest_type: 'seasonal', requirement_type: 'feed', requirement_count: 10, reward_xp: 50, reward_bond: 5.0, reward_trait: null },
+    { season: 'spring-2026', title: 'Explorer\'s Spirit', description: 'Send your companion on 5 activities.', quest_type: 'seasonal', requirement_type: 'explore', requirement_count: 5, reward_xp: 40, reward_bond: 3.0, reward_trait: null },
+    { season: 'spring-2026', title: 'Heart to Heart', description: 'Chat with your Skrumpey 15 times.', quest_type: 'seasonal', requirement_type: 'chat', requirement_count: 15, reward_xp: 60, reward_bond: 4.0, reward_trait: 'Chatterbox' },
+    { season: 'spring-2026', title: 'Stargazer\'s Vigil', description: 'Visit the Observatory 3 times.', quest_type: 'seasonal', requirement_type: 'observatory', requirement_count: 3, reward_xp: 35, reward_bond: 3.5, reward_trait: null },
+    { season: 'spring-2026', title: 'Warm Welcome', description: 'Relax in the Hot Springs 5 times.', quest_type: 'seasonal', requirement_type: 'springs', requirement_count: 5, reward_xp: 30, reward_bond: 2.5, reward_trait: null },
+    { season: 'spring-2026', title: 'Bonded', description: 'Reach 50 bond score with your companion.', quest_type: 'seasonal', requirement_type: 'bond_threshold', requirement_count: 50, reward_xp: 100, reward_bond: 0, reward_trait: 'Loyal Companion' },
+    { season: 'spring-2026', title: 'Daily Devotion', description: 'Interact with your companion 3 days in a row.', quest_type: 'weekly', requirement_type: 'daily_streak', requirement_count: 3, reward_xp: 30, reward_bond: 2.0, reward_trait: null },
+  ];
+
+  const insert = database.prepare(`
+    INSERT INTO sanctuary_quests (season, title, description, quest_type, requirement_type, requirement_count, reward_xp, reward_bond, reward_trait)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const q of quests) {
+    insert.run(q.season, q.title, q.description, q.quest_type, q.requirement_type, q.requirement_count, q.reward_xp, q.reward_bond, q.reward_trait);
+  }
+}
+
+export function getSanctuaryQuests(season?: string): SanctuaryQuest[] {
+  const db = getDatabase();
+  if (season) {
+    return db.prepare('SELECT * FROM sanctuary_quests WHERE active = 1 AND season = ? ORDER BY quest_type, id').all(season) as SanctuaryQuest[];
+  }
+  return db.prepare('SELECT * FROM sanctuary_quests WHERE active = 1 ORDER BY quest_type, id').all() as SanctuaryQuest[];
+}
+
+export function getSanctuaryQuestsWithProgress(walletAddress: string, tokenId: number, season?: string): QuestWithProgress[] {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const quests = getSanctuaryQuests(season);
+
+  return quests.map((quest) => {
+    const progress = db.prepare(
+      'SELECT * FROM sanctuary_quest_progress WHERE wallet_address = ? AND token_id = ? AND quest_id = ?'
+    ).get(addr, tokenId, quest.id) as SanctuaryQuestProgress | null;
+    return { ...quest, progress };
+  });
+}
+
+export function incrementQuestProgress(walletAddress: string, tokenId: number, requirementType: string, amount: number = 1): void {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const quests = db.prepare(
+    'SELECT * FROM sanctuary_quests WHERE active = 1 AND requirement_type = ?'
+  ).all(requirementType) as SanctuaryQuest[];
+
+  for (const quest of quests) {
+    const existing = db.prepare(
+      'SELECT * FROM sanctuary_quest_progress WHERE wallet_address = ? AND token_id = ? AND quest_id = ?'
+    ).get(addr, tokenId, quest.id) as SanctuaryQuestProgress | undefined;
+
+    if (existing) {
+      if (existing.completed) continue;
+      const newCount = Math.min(existing.current_count + amount, quest.requirement_count);
+      const nowComplete = newCount >= quest.requirement_count ? 1 : 0;
+      db.prepare(`
+        UPDATE sanctuary_quest_progress
+        SET current_count = ?, completed = ?, completed_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(newCount, nowComplete, nowComplete, existing.id);
+    } else {
+      const nowComplete = amount >= quest.requirement_count ? 1 : 0;
+      db.prepare(`
+        INSERT INTO sanctuary_quest_progress (wallet_address, token_id, quest_id, current_count, completed, completed_at)
+        VALUES (?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END)
+      `).run(addr, tokenId, quest.id, Math.min(amount, quest.requirement_count), nowComplete, nowComplete);
+    }
+  }
+}
+
+export function claimSanctuaryQuestReward(
+  walletAddress: string, tokenId: number, questId: number,
+): { quest: SanctuaryQuest; xpGained: number; bondGained: number; traitUnlocked: string | null } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const quest = db.prepare('SELECT * FROM sanctuary_quests WHERE id = ?').get(questId) as SanctuaryQuest | undefined;
+    if (!quest) throw new Error('Quest not found');
+
+    const progress = db.prepare(
+      'SELECT * FROM sanctuary_quest_progress WHERE wallet_address = ? AND token_id = ? AND quest_id = ?'
+    ).get(addr, tokenId, questId) as SanctuaryQuestProgress | undefined;
+
+    if (!progress || !progress.completed) throw new Error('Quest not completed');
+    if (progress.reward_claimed) throw new Error('Reward already claimed');
+
+    db.prepare('UPDATE sanctuary_quest_progress SET reward_claimed = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(progress.id);
+
+    if (quest.reward_xp > 0) addUserXP(addr, quest.reward_xp);
+    if (quest.reward_bond > 0) {
+      db.prepare('UPDATE sanctuary_companions SET bond_score = MIN(bond_score + ?, 100.0), updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND token_id = ?')
+        .run(quest.reward_bond, addr, tokenId);
+    }
+
+    addJournalEntry(addr, tokenId, 'quest', `Completed quest: ${quest.title}! +${quest.reward_xp} XP, +${quest.reward_bond.toFixed(1)} Bond`,
+      JSON.stringify({ quest_id: questId, xp: quest.reward_xp, bond: quest.reward_bond, trait: quest.reward_trait }));
+
+    return { quest, xpGained: quest.reward_xp, bondGained: quest.reward_bond, traitUnlocked: quest.reward_trait };
+  });
+
+  return txn();
+}
+
+// Hook trait + quest updates into existing interactions
+export function interactWithCompanionV15(
+  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk',
+  options?: { isStar?: boolean }
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
+  const result = interactWithCompanion(walletAddress, tokenId, action, options);
+  const addr = walletAddress.toLowerCase();
+  updateTraitProgress(addr, tokenId, action);
+  incrementQuestProgress(addr, tokenId, 'interact');
+  if (action === 'feed') incrementQuestProgress(addr, tokenId, 'feed');
+  return result;
+}
+
+export function completeActivityV15(
+  walletAddress: string, tokenId: number,
+  options?: { isStar?: boolean }
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; starBonus: boolean } | null {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const comp = db.prepare(
+    'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+  ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+
+  const activityName = comp?.current_activity?.startsWith('exploring:')
+    ? comp.current_activity.slice('exploring:'.length)
+    : null;
+
+  const result = completeActivity(walletAddress, tokenId, options);
+  if (!result) return null;
+
+  if (activityName) {
+    const trigger = ACTIVITY_TO_TRIGGER[activityName];
+    if (trigger) {
+      updateTraitProgress(addr, tokenId, trigger);
+      incrementQuestProgress(addr, tokenId, trigger);
+    }
+    incrementQuestProgress(addr, tokenId, 'explore');
+  }
+
+  return result;
 }

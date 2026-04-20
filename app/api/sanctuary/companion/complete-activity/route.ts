@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { completeActivity } from '@/lib/db';
+import { completeActivityV15 } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isStar = isStarSkrumpeyId(token_id);
-    const result = completeActivity(address, token_id, { isStar });
+    const result = completeActivityV15(address, token_id, { isStar });
     if (!result) {
       return NextResponse.json(
         { success: false, error: 'No activity to complete (still in progress or none active)' },
