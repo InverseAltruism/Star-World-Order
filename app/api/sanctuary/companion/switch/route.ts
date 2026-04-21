@@ -33,13 +33,18 @@ export async function POST(request: NextRequest) {
     const metadata = getStarSkrumpeyMetadata(tokenId);
     const companion = switchCompanion(walletAddress, tokenId);
 
+    let traits: Record<string, string> = {};
+    if (metadata?.attributes_json) {
+      try { traits = JSON.parse(metadata.attributes_json); } catch { /* malformed — skip */ }
+    }
+
     return NextResponse.json({
       success: true,
       companion,
       isStar,
       metadata: metadata ? {
         image: metadata.image_url,
-        traits: metadata.attributes_json ? JSON.parse(metadata.attributes_json) : {},
+        traits,
         rarityRank: metadata.rarity_rank,
       } : null,
     });
