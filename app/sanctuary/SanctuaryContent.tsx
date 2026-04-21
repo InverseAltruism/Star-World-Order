@@ -412,16 +412,19 @@ function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; 
   const [total, setTotal] = useState(0);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [journalError, setJournalError] = useState<string | null>(null);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
 
   const fetchJournal = useCallback(async (p: number, type: string | null) => {
     if (!address || !tokenId) return;
     setLoading(true);
+    setJournalError(null);
     try {
-      const params = new URLSearchParams({ address, token_id: String(tokenId), page: String(p), limit: '15' });
-      if (type) params.set('type', type);
-      if (p === 1) params.set('stats', 'true');
-      const res = await fetch(`/api/sanctuary/companion/journal?${params}`);
+      const res = await fetch(`/api/sanctuary/companion/journal?${new URLSearchParams({
+        address, token_id: String(tokenId), page: String(p), limit: '15',
+        ...(type ? { type } : {}),
+        ...(p === 1 ? { stats: 'true' } : {}),
+      })}`);
       const data = await res.json();
       if (data.success) {
         setFullEntries(data.entries);
@@ -430,7 +433,9 @@ function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; 
         setTotal(data.total);
         if (data.stats) setStats(data.stats.byType);
       }
-    } catch { /* ignore */ }
+    } catch {
+      setJournalError('Failed to load journal');
+    }
     setLoading(false);
   }, [address, tokenId]);
 
@@ -497,7 +502,17 @@ function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; 
         </div>
       )}
 
-      {displayEntries.length === 0 ? (
+      {journalError ? (
+        <div className="flex items-center gap-2">
+          <p className="text-red-400 text-[8px]">{journalError}</p>
+          <button
+            onClick={() => fetchJournal(page, typeFilter)}
+            className="text-[7px] text-[#9966ff] hover:text-[#bb88ff] transition-colors"
+          >
+            RETRY
+          </button>
+        </div>
+      ) : displayEntries.length === 0 ? (
         <p className="text-gray-500 text-[8px]">{loading ? 'Loading...' : 'No entries yet.'}</p>
       ) : (
         <div className={`space-y-2 overflow-y-auto ${expanded ? 'max-h-96' : 'max-h-48'}`}>
@@ -553,9 +568,11 @@ function HolderSanctuary() {
   const [interacting, setInteracting] = useState<string | null>(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState<number | null>(null);
   const [interactError, setInteractError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refreshState = useCallback(async () => {
     if (!address) return;
+    setLoadError(null);
     const [stateData, mapData] = await Promise.all([
       fetch(`/api/sanctuary/state?address=${address}`).then(r => r.json()),
       fetch('/api/sanctuary/map').then(r => r.json()),
@@ -573,7 +590,9 @@ function HolderSanctuary() {
   useEffect(() => {
     if (!address) return;
     setLoading(true);
-    refreshState().catch(() => {}).finally(() => setLoading(false));
+    refreshState()
+      .catch(() => setLoadError('Failed to load sanctuary data'))
+      .finally(() => setLoading(false));
   }, [address, refreshState]);
 
   const handleInteract = async (action: 'feed' | 'pet' | 'talk') => {
@@ -600,7 +619,7 @@ function HolderSanctuary() {
         setInteractError(data.error);
       }
     } catch {
-      // silently fail
+      setInteractError('Network error — please try again');
     } finally {
       setInteracting(null);
     }
@@ -630,7 +649,7 @@ function HolderSanctuary() {
         await refreshState();
       }
     } catch {
-      // silently fail
+      setInteractError('Network error — please try again');
     } finally {
       setInteracting(null);
     }
@@ -660,7 +679,7 @@ function HolderSanctuary() {
         await refreshState();
       }
     } catch {
-      // silently fail
+      setInteractError('Network error — please try again');
     } finally {
       setInteracting(null);
     }
@@ -670,6 +689,25 @@ function HolderSanctuary() {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <p className="text-[#ffd700] text-xs animate-pulse">ENTERING SANCTUARY...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
+        <p className="text-red-400 text-xs">{loadError}</p>
+        <button
+          onClick={() => {
+            setLoading(true);
+            refreshState()
+              .catch(() => setLoadError('Failed to load sanctuary data'))
+              .finally(() => setLoading(false));
+          }}
+          className="px-4 py-2 bg-[#9966ff]/20 border border-[#9966ff]/40 rounded text-[#9966ff] text-[10px] hover:bg-[#9966ff]/30 transition-colors"
+        >
+          RETRY
+        </button>
       </div>
     );
   }
@@ -726,9 +764,11 @@ function HolderSanctuary() {
 export default function SanctuaryContent() {
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
+  const [mapError, setMapError] = useState<string | null>(null);
   const { hasAccess, isConnected } = useSkrumpeyAccess();
 
-  useEffect(() => {
+  const fetchMap = useCallback(() => {
+    setMapError(null);
     fetch('/api/sanctuary/map')
       .then(r => r.json())
       .then(data => {
@@ -737,8 +777,12 @@ export default function SanctuaryContent() {
           setCompanionsAtLocations(data.companionsAtLocations ?? []);
         }
       })
-      .catch(() => {});
+      .catch(() => setMapError('Failed to load world map'));
   }, []);
+
+  useEffect(() => {
+    fetchMap();
+  }, [fetchMap]);
 
   const devModeActive = process.env.NODE_ENV === 'development' &&
     process.env.NEXT_PUBLIC_DEV_ACCESS_ENABLED === 'true';
@@ -756,11 +800,23 @@ export default function SanctuaryContent() {
           </h1>
           <p className="text-gray-400 text-[10px]">A world for all Skrumpey holders</p>
         </div>
-        <PublicWorldView
-          locations={locations}
-          companionsAtLocations={companionsAtLocations}
-          selectedLocation={null}
-        />
+        {mapError ? (
+          <div className="pixel-card p-6 text-center">
+            <p className="text-red-400 text-[10px] mb-2">{mapError}</p>
+            <button
+              onClick={fetchMap}
+              className="px-4 py-2 bg-[#9966ff]/20 border border-[#9966ff]/40 rounded text-[#9966ff] text-[10px] hover:bg-[#9966ff]/30 transition-colors"
+            >
+              RETRY
+            </button>
+          </div>
+        ) : (
+          <PublicWorldView
+            locations={locations}
+            companionsAtLocations={companionsAtLocations}
+            selectedLocation={null}
+          />
+        )}
         <SkrumpeyAccessGate
           title="SANCTUARY LOCKED"
           message="Hold any Skrumpey to unlock your companion and interact with the sanctuary. Star Skrumpey holders earn 1.5x XP and 1.25x Bond!"
