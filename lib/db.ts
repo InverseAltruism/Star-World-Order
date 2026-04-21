@@ -138,7 +138,7 @@ function initializeDatabase(database: Database.Database): void {
     // Column already exists, ignore error
   }
 
-  // Star Skrumpey metadata table - stores all NFT metadata from IPFS
+  // Star Skrumpey metadata table - stores all NFT metadata from corpus
   database.exec(`
     CREATE TABLE IF NOT EXISTS star_skrumpey_metadata (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,11 +152,32 @@ function initializeDatabase(database: Database.Database): void {
       eyes TEXT,
       form TEXT,
       mood TEXT,
+      hat TEXT,
+      gaze TEXT,
+      relic TEXT,
+      pet TEXT,
+      fit TEXT,
+      attitude TEXT,
+      scene TEXT,
+      extra TEXT,
+      submerged TEXT,
+      rarity_rank INTEGER,
+      rarity_score REAL,
+      trait_count INTEGER,
       attributes_json TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Add columns that may not exist yet (safe for existing DBs)
+  const metaCols = ['hat','gaze','relic','pet','fit','attitude','scene','extra','submerged','rarity_rank','rarity_score','trait_count'];
+  for (const col of metaCols) {
+    try {
+      const colType = ['rarity_rank','trait_count'].includes(col) ? 'INTEGER' : col === 'rarity_score' ? 'REAL' : 'TEXT';
+      database.exec(`ALTER TABLE star_skrumpey_metadata ADD COLUMN ${col} ${colType}`);
+    } catch { /* column already exists */ }
+  }
 
   // Holder snapshots table - stores historical holder counts over time
   // Used for holder count charts with 1H/1D time ranges
@@ -1161,6 +1182,18 @@ export interface StarSkrumpeyMetadata {
   eyes: string | null;
   form: string | null;
   mood: string | null;
+  hat: string | null;
+  gaze: string | null;
+  relic: string | null;
+  pet: string | null;
+  fit: string | null;
+  attitude: string | null;
+  scene: string | null;
+  extra: string | null;
+  submerged: string | null;
+  rarity_rank: number | null;
+  rarity_score: number | null;
+  trait_count: number | null;
   attributes_json: string | null;
   created_at: string;
   updated_at: string;
@@ -1306,6 +1339,53 @@ export function getTraitDistribution(traitType: 'aura' | 'background' | 'form'):
   }
   
   return distribution;
+}
+
+const VALID_TRAIT_COLUMNS = new Set([
+  'constellation','aura','background','eyes','form','mood',
+  'hat','gaze','relic','pet','fit','attitude','scene','extra','submerged',
+]);
+
+export function filterMetadataByTraits(
+  filters: Record<string, string>,
+  limit = 100,
+  offset = 0,
+): StarSkrumpeyMetadata[] {
+  const db = getDatabase();
+  const clauses: string[] = [];
+  const params: string[] = [];
+  for (const [col, val] of Object.entries(filters)) {
+    if (!VALID_TRAIT_COLUMNS.has(col.toLowerCase())) continue;
+    clauses.push(`${col.toLowerCase()} = ?`);
+    params.push(val);
+  }
+  const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+  return db.prepare(
+    `SELECT * FROM star_skrumpey_metadata ${where} ORDER BY rarity_rank ASC LIMIT ? OFFSET ?`
+  ).all(...params, limit, offset) as StarSkrumpeyMetadata[];
+}
+
+export function getMetadataTraitDistribution(traitColumn: string): Record<string, number> {
+  if (!VALID_TRAIT_COLUMNS.has(traitColumn.toLowerCase())) return {};
+  const db = getDatabase();
+  const col = traitColumn.toLowerCase();
+  const rows = db.prepare(`
+    SELECT ${col} as trait_value, COUNT(*) as count
+    FROM star_skrumpey_metadata WHERE ${col} IS NOT NULL
+    GROUP BY ${col} ORDER BY count DESC
+  `).all() as Array<{ trait_value: string; count: number }>;
+  const dist: Record<string, number> = {};
+  for (const r of rows) dist[r.trait_value] = r.count;
+  return dist;
+}
+
+export function getMetadataForTokenIds(tokenIds: number[]): StarSkrumpeyMetadata[] {
+  if (tokenIds.length === 0) return [];
+  const db = getDatabase();
+  const placeholders = tokenIds.map(() => '?').join(',');
+  return db.prepare(
+    `SELECT * FROM star_skrumpey_metadata WHERE token_id IN (${placeholders}) ORDER BY token_id`
+  ).all(...tokenIds) as StarSkrumpeyMetadata[];
 }
 
 // ============================================================
@@ -5645,6 +5725,12 @@ export interface SanctuaryCompanionWithMeta extends SanctuaryCompanion {
   aura: string | null;
   form: string | null;
   mood: string | null;
+  background: string | null;
+  eyes: string | null;
+  hat: string | null;
+  image_url: string | null;
+  rarity_rank: number | null;
+  attributes_json: string | null;
   total_xp: number;
   level: number;
 }
@@ -5682,6 +5768,64 @@ function initializeSanctuary(database: Database.Database): void {
   }
   seedSanctuaryMapLocations(database);
   seedSanctuaryQuests(database);
+  seedSkrumpeyMetadataFromCorpus(database);
+}
+
+function seedSkrumpeyMetadataFromCorpus(database: Database.Database): void {
+  const count = (database.prepare('SELECT COUNT(*) as count FROM star_skrumpey_metadata').get() as { count: number }).count;
+  if (count >= 3333) return;
+
+  const corpusPath = path.join(process.cwd(), 'data', 'sanctuary', 'skrumpey_sanctuary.json');
+  if (!fs.existsSync(corpusPath)) return;
+
+  const corpus = JSON.parse(fs.readFileSync(corpusPath, 'utf-8')) as Array<{
+    id: number; name: string; traits: Record<string, string>;
+    traitCount: number; rarityRank: number; rarityScore: number; image: string;
+  }>;
+
+  const description = "A collection of 3,333 pixel art pfpNFTs capturing Monad's spirit. Created by melo.";
+
+  const upsert = database.prepare(`
+    INSERT INTO star_skrumpey_metadata (
+      token_id, name, description, image_url,
+      constellation, aura, background, eyes, form, mood,
+      hat, gaze, relic, pet, fit, attitude, scene, extra, submerged,
+      rarity_rank, rarity_score, trait_count, attributes_json
+    ) VALUES (
+      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?
+    ) ON CONFLICT(token_id) DO UPDATE SET
+      name = excluded.name, image_url = excluded.image_url,
+      constellation = excluded.constellation, aura = excluded.aura,
+      background = excluded.background, eyes = excluded.eyes,
+      form = excluded.form, mood = excluded.mood,
+      hat = excluded.hat, gaze = excluded.gaze, relic = excluded.relic,
+      pet = excluded.pet, fit = excluded.fit, attitude = excluded.attitude,
+      scene = excluded.scene, extra = excluded.extra, submerged = excluded.submerged,
+      rarity_rank = excluded.rarity_rank, rarity_score = excluded.rarity_score,
+      trait_count = excluded.trait_count, attributes_json = excluded.attributes_json,
+      updated_at = CURRENT_TIMESTAMP
+  `);
+
+  const seedAll = database.transaction(() => {
+    for (const token of corpus) {
+      const t = token.traits;
+      upsert.run(
+        token.id, token.name, description, token.image,
+        t.constellation ?? null, t.aura ?? null, t.background ?? null,
+        t.eyes ?? null, t.form ?? null, t.mood ?? null,
+        t.hat ?? null, t.gaze ?? null, t.relic ?? null,
+        t.pet ?? null, t.fit ?? null, t.attitude ?? null,
+        t.scene ?? null, t.extra ?? null, t.submerged ?? null,
+        token.rarityRank, token.rarityScore, token.traitCount,
+        JSON.stringify(token.traits),
+      );
+    }
+  });
+
+  seedAll();
 }
 
 function seedSanctuaryMapLocations(database: Database.Database): void {
@@ -5719,9 +5863,11 @@ export function getActiveCompanion(walletAddress: string): SanctuaryCompanionWit
   const db = getDatabase();
   const stmt = db.prepare(`
     SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+           ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
+           ssm.rarity_rank, ssm.attributes_json,
            COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
     FROM sanctuary_companions sc
-    JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
+    LEFT JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
     LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
     WHERE sc.wallet_address = ? AND sc.is_active = 1
   `);
@@ -5732,9 +5878,11 @@ export function getAllCompanions(walletAddress: string): SanctuaryCompanionWithM
   const db = getDatabase();
   const stmt = db.prepare(`
     SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+           ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
+           ssm.rarity_rank, ssm.attributes_json,
            COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
     FROM sanctuary_companions sc
-    JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
+    LEFT JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
     LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
     WHERE sc.wallet_address = ?
     ORDER BY sc.is_active DESC, sc.updated_at DESC

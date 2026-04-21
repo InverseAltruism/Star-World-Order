@@ -1,0 +1,326 @@
+{
+  "1/1": {
+    "count": 30,
+    "unique_values": 30,
+    "values": {
+      "DN skrump": 1,
+      "DNtank": 1,
+      "abducted skrump": 1,
+      "alien skrump": 1,
+      "baby skrump": 1,
+      "beach skrump": 1,
+      "cheese skrump": 1,
+      "cig skrump": 1,
+      "cosmic skrump": 1,
+      "dark skrump": 1,
+      "earth": 1,
+      "evil skrump": 1,
+      "ghost": 1,
+      "ghost skrump": 1,
+      "glitch skrump": 1,
+      "golden skrump": 1,
+      "horde": 1,
+      "jail skrump": 1,
+      "lab skrump": 1,
+      "microskrump": 1,
+      "mini skrump": 1,
+      "mythic skrump": 1,
+      "pam pam": 1,
+      "sailor skrump": 1,
+      "skrumpepe": 1,
+      "star skrump": 1,
+      "template skrump": 1,
+      "tomato skrump": 1,
+      "tree skrump": 1,
+      "upside down skrump": 1
+    }
+  },
+  "attitude": {
+    "count": 409,
+    "unique_values": 7,
+    "values": {
+      "baby bottle": 46,
+      "bubblegum": 28,
+      "cig": 100,
+      "frost": 34,
+      "geekbar": 43,
+      "pacifier": 111,
+      "vape": 47
+    }
+  },
+  "aura": {
+    "count": 743,
+    "unique_values": 7,
+    "values": {
+      "aroma": 91,
+      "beam": 214,
+      "clouds": 87,
+      "globes": 88,
+      "mon": 117,
+      "radiance": 100,
+      "squiggle": 46
+    }
+  },
+  "background": {
+    "count": 3306,
+    "unique_values": 32,
+    "values": {
+      "bill": 77,
+      "blue dawn": 81,
+      "bulmba": 110,
+      "celestine": 145,
+      "dayglow": 110,
+      "dn mart": 97,
+      "dreamburst": 114,
+      "earth": 129,
+      "flora": 159,
+      "galaxy": 83,
+      "gazer": 100,
+      "glitch": 34,
+      "habibi": 115,
+      "heartveil": 135,
+      "india": 88,
+      "jungle": 62,
+      "lovewave": 104,
+      "maze": 97,
+      "metaverse": 62,
+      "mythic": 54,
+      "nads": 49,
+      "orange": 135,
+      "pink": 117,
+      "ringers": 100,
+      "roselight": 125,
+      "sawadee": 91,
+      "skrumpenza": 100,
+      "starrynight": 143,
+      "sultana": 73,
+      "tg hideout": 100,
+      "turquoise": 137,
+      "white": 180
+    }
+  },
+  "constellation": {
+    "count": 333,
+    "unique_values": 10,
+    "values": {
+      "aether": 52,
+      "auracore": 23,
+      "chroma": 42,
+      "monflare": 27,
+      "nebulu": 44,
+      "parallel": 10,
+      "prime": 1,
+      "rose": 36,
+      "solveil": 46,
+      "spectra": 52
+    }
+  },
+  "extra": {
+    "count": 545,
+    "unique_values": 4,
+    "values": {
+      "bubbles": 170,
+      "crying": 175,
+      "fence": 50,
+      "seaflora": 150
+    }
+  },
+  "eyes": {
+    "count": 3306,
+    "unique_values": 9,
+    "values": {
+      "angry": 294,
+      "babygaze": 459,
+      "big": 400,
+      "dork": 418,
+      "normie": 386,
+      "rage": 363,
+      "retard": 168,
+      "sadge": 408,
+      "waifu": 410
+    }
+  },
+  "fit": {
+    "count": 509,
+    "unique_values": 6,
+    "values": {
+      "flamingo": 111,
+      "niqab": 54,
+      "pyjama": 109,
+      "swan": 110,
+      "tuxedo": 6,
+      "twinkle": 119
+    }
+  },
+  "form": {
+    "count": 3306,
+    "unique_values": 27,
+    "values": {
+      "alien": 91,
+      "ape": 114,
+      "berry": 186,
+      "cryo": 100,
+      "divine": 27,
+      "frosty": 116,
+      "ghost": 10,
+      "glacier": 82,
+      "gold": 50,
+      "gray": 98,
+      "indigo": 227,
+      "lila": 142,
+      "mauve": 194,
+      "petal": 124,
+      "phasma": 131,
+      "pink gummy": 53,
+      "prismatic": 86,
+      "purple": 234,
+      "purple gummy": 210,
+      "shiny": 212,
+      "skeleton": 45,
+      "skull": 90,
+      "sparky": 167,
+      "super sayain": 50,
+      "twinkle": 178,
+      "violet": 190,
+      "zombie": 99
+    }
+  },
+  "gaze": {
+    "count": 1831,
+    "unique_values": 20,
+    "values": {
+      "3D glasses": 141,
+      "amber beam": 27,
+      "astronaut": 25,
+      "cool shades": 111,
+      "frost shades": 121,
+      "glasses": 79,
+      "goggles": 88,
+      "heart": 92,
+      "ice beam": 39,
+      "john w": 125,
+      "laser": 98,
+      "monocle": 103,
+      "purple viper": 112,
+      "red beam": 23,
+      "red glasses": 91,
+      "shades": 116,
+      "sweat": 130,
+      "tunez": 90,
+      "viper": 105,
+      "vision": 115
+    }
+  },
+  "hat": {
+    "count": 2353,
+    "unique_values": 37,
+    "values": {
+      "angel": 37,
+      "banana": 66,
+      "bbe monhat": 77,
+      "berry monhat": 79,
+      "black monhat": 65,
+      "bunny": 58,
+      "cat": 55,
+      "chicken": 63,
+      "conical": 67,
+      "crown": 23,
+      "dark monhat": 63,
+      "exclamation": 70,
+      "fez": 44,
+      "fisher": 67,
+      "flames": 47,
+      "gigabrain": 72,
+      "leaves": 43,
+      "mcdo": 60,
+      "mon power": 37,
+      "monhat": 224,
+      "okoru": 92,
+      "pineapple": 76,
+      "planthead": 61,
+      "plunger": 64,
+      "poop": 89,
+      "priest": 28,
+      "propeller": 65,
+      "purple monhat": 72,
+      "samantha": 27,
+      "sombrero": 85,
+      "sorcerer": 76,
+      "strawberry": 11,
+      "t-rex": 57,
+      "toaster": 75,
+      "tomatohead": 14,
+      "toy car": 73,
+      "traffic cone": 71
+    }
+  },
+  "mood": {
+    "count": 3261,
+    "unique_values": 11,
+    "values": {
+      "candy": 151,
+      "drool": 491,
+      "licky": 210,
+      "neutral": 527,
+      "normal": 626,
+      "rainbow": 114,
+      "rawr": 150,
+      "slime": 147,
+      "slurper": 178,
+      "teeth": 534,
+      "water": 133
+    }
+  },
+  "pet": {
+    "count": 500,
+    "unique_values": 5,
+    "values": {
+      "auric pet": 50,
+      "chill pet": 114,
+      "crown pet": 100,
+      "rose pet": 106,
+      "violet pet": 130
+    }
+  },
+  "relic": {
+    "count": 844,
+    "unique_values": 11,
+    "values": {
+      "ak47": 16,
+      "balloon": 103,
+      "flail": 50,
+      "gun": 67,
+      "heartflux": 108,
+      "lollipop": 78,
+      "mug": 50,
+      "samurai": 71,
+      "sword": 74,
+      "teddy": 156,
+      "torch": 71
+    }
+  },
+  "scene": {
+    "count": 481,
+    "unique_values": 11,
+    "values": {
+      "beach": 44,
+      "fire": 18,
+      "mon fire": 32,
+      "night sky": 35,
+      "psychedelic": 55,
+      "radiation": 55,
+      "rice paddies": 51,
+      "snow": 23,
+      "tropical": 56,
+      "ultra": 55,
+      "universe": 57
+    }
+  },
+  "submerged": {
+    "count": 150,
+    "unique_values": 1,
+    "values": {
+      "yes": 150
+    }
+  }
+}
