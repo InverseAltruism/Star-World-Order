@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { switchCompanion } from '@/lib/db';
+import { switchCompanion, getStarSkrumpeyMetadata } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
-import { fetchUserSkrumpeys, hasStarSkrumpey } from '@/lib/starSkrumpey';
+import { verifyTokenOwnership } from '@/lib/skrumpeyOwnership';
+import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
 
-    const ownedTokens = await fetchUserSkrumpeys(walletAddress);
-    const ownsToken = ownedTokens.some(t => t.tokenId === tokenId);
+    const ownsToken = await verifyTokenOwnership(walletAddress, tokenId);
     if (!ownsToken) {
       return NextResponse.json(
         { success: false, error: 'You do not own this Skrumpey' },
@@ -29,9 +29,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isStar = hasStarSkrumpey(ownedTokens);
+    const isStar = isStarSkrumpeyId(tokenId);
+    const metadata = getStarSkrumpeyMetadata(tokenId);
     const companion = switchCompanion(walletAddress, tokenId);
-    return NextResponse.json({ success: true, companion, isStar });
+
+    return NextResponse.json({
+      success: true,
+      companion,
+      isStar,
+      metadata: metadata ? {
+        image: metadata.image_url,
+        traits: metadata.attributes_json ? JSON.parse(metadata.attributes_json) : {},
+        rarityRank: metadata.rarity_rank,
+      } : null,
+    });
   } catch (error) {
     console.error('Sanctuary companion switch error:', error);
     return NextResponse.json({ success: false, error: 'Failed to switch companion' }, { status: 500 });

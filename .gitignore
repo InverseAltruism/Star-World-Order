@@ -55,4 +55,6 @@ next-env.d.ts
 
 # SQLite database files (use server-side db, not commit local copies)
 data/*.db
+data/corpus/
+__pycache__/
 test-nonce-security.js

@@ -19,6 +19,12 @@ interface Companion {
   aura: string | null;
   form: string | null;
   mood: string | null;
+  background: string | null;
+  eyes: string | null;
+  hat: string | null;
+  image_url: string | null;
+  rarity_rank: number | null;
+  attributes_json: string | null;
   total_xp: number;
   level: number;
 }
@@ -246,12 +252,15 @@ function CompanionSprite({
   constellation,
   mood,
   size = 'md',
+  nftImage,
 }: {
   constellation: string | null;
   mood: string | null;
   size?: 'sm' | 'md' | 'lg';
+  nftImage?: string | null;
 }) {
   const [spriteError, setSpriteError] = useState(false);
+  const [nftError, setNftError] = useState(false);
   const moodKey = mood ?? 'idle';
   const spritePath = constellation
     ? `/sanctuary/companions/${constellation.toLowerCase()}/${moodKey}.png`
@@ -260,12 +269,25 @@ function CompanionSprite({
   const sizeClass = size === 'sm' ? 'sanctuary-sprite-sm' : size === 'lg' ? 'sanctuary-sprite-lg' : 'sanctuary-sprite';
   const animClass = MOOD_ANIMATION[moodKey] ?? 'sanctuary-idle';
   const moodConfig = MOOD_CONFIG[moodKey] ?? DEFAULT_MOOD;
+  const sizePixels = size === 'sm' ? 'w-12 h-12' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16';
+
+  if ((!spritePath || spriteError) && nftImage && !nftError) {
+    return (
+      <div className={`${animClass} ${sizePixels} rounded-lg overflow-hidden border-2 border-[#2a2a4e]`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={nftImage}
+          alt="Skrumpey"
+          className="w-full h-full object-cover image-rendering-pixelated"
+          onError={() => setNftError(true)}
+        />
+      </div>
+    );
+  }
 
   if (!spritePath || spriteError) {
     return (
-      <div className={`flex items-center justify-center ${animClass} ${
-        size === 'sm' ? 'w-12 h-12' : size === 'lg' ? 'w-24 h-24' : 'w-16 h-16'
-      } rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] text-4xl`}>
+      <div className={`flex items-center justify-center ${animClass} ${sizePixels} rounded-lg bg-[#0a0a15] border-2 border-[#2a2a4e] text-4xl`}>
         {moodConfig.emoji}
       </div>
     );
@@ -360,7 +382,7 @@ function CompanionPanel({
     <div className="pixel-card p-6 space-y-4">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
-          <CompanionSprite constellation={companion.constellation} mood={companion.mood} />
+          <CompanionSprite constellation={companion.constellation} mood={companion.mood} nftImage={companion.image_url} />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[#ffd700] text-sm tracking-wider truncate">
