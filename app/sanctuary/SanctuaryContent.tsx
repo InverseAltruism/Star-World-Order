@@ -78,14 +78,8 @@ function PublicWorldView({
       <h2 className="text-[#ffd700] text-sm tracking-wider mb-4">
         SANCTUARY WORLD MAP
       </h2>
-      <div className="relative w-full aspect-[16/9] bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute w-px h-full left-1/4 bg-[#9966ff]/30" />
-          <div className="absolute w-px h-full left-1/2 bg-[#9966ff]/30" />
-          <div className="absolute w-px h-full left-3/4 bg-[#9966ff]/30" />
-          <div className="absolute w-full h-px top-1/3 bg-[#9966ff]/30" />
-          <div className="absolute w-full h-px top-2/3 bg-[#9966ff]/30" />
-        </div>
+      <div className="sanctuary-map-bg relative w-full aspect-[16/9] border-2 border-[#2a2a4e] rounded-lg overflow-hidden">
+        <div className="sanctuary-map-grid" />
 
         {locations.map((loc) => {
           const locCompanions = companionMap.get(loc.name);
