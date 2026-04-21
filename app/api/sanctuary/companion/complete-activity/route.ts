@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { completeActivity } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,11 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'address and token_id are required' },
         { status: 400 }
       );
+    }
+
+    const auth = await verifyWalletAccess(request, address);
+    if (!auth.valid) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
 
     const isStar = isStarSkrumpeyId(token_id);

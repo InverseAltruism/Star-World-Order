@@ -13,10 +13,6 @@ export interface CronAuthResult {
  * - Production: requires CRON_SECRET and matching Authorization header.
  */
 export function validateCronSecret(request: Request, jobName: string): CronAuthResult {
-  if (process.env.NODE_ENV === 'development') {
-    return { valid: true };
-  }
-
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     logger.error(`${jobName}: CRON_SECRET is not configured`);

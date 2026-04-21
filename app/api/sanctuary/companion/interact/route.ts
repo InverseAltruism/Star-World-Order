@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { interactWithCompanion } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 const VALID_ACTIONS = ['feed', 'pet', 'talk'] as const;
 
@@ -14,6 +15,11 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'address, token_id, and action are required' },
         { status: 400 }
       );
+    }
+
+    const auth = await verifyWalletAccess(request, address);
+    if (!auth.valid) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
 
     if (!VALID_ACTIONS.includes(action)) {

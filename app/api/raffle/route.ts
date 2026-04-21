@@ -467,14 +467,18 @@ export async function POST(request: NextRequest) {
           }
         }
         
+        // Server-side verification of bonus eligibility (H-1: don't trust client claims)
+        const verifiedDiscordBonus = discordBonus && socialConnections.hasDiscord;
+        const verifiedEngagementBonus = engagementBonus && socialConnections.hasX;
+
         // Enter raffle with total balance for proper entry calculation
         const entry = enterRaffle({
           raffleId,
           walletAddress,
           starCount,
           totalSkrumpeyBalance,
-          discordBonus,
-          engagementBonus,
+          discordBonus: verifiedDiscordBonus,
+          engagementBonus: verifiedEngagementBonus,
         });
         
         if (!entry) {
