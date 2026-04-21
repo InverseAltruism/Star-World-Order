@@ -37,14 +37,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         count: results.length,
-        tokens: results.map(m => ({
-          tokenId: m.token_id,
-          name: m.name,
-          image: m.image_url,
-          traits: m.attributes_json ? JSON.parse(m.attributes_json) : {},
-          rarityRank: m.rarity_rank,
-          rarityScore: m.rarity_score,
-        })),
+        tokens: results.map(m => {
+          let traits: Record<string, string> = {};
+          if (m.attributes_json) {
+            try { traits = JSON.parse(m.attributes_json); } catch { /* malformed — skip */ }
+          }
+          return {
+            tokenId: m.token_id,
+            name: m.name,
+            image: m.image_url,
+            traits,
+            rarityRank: m.rarity_rank,
+            rarityScore: m.rarity_score,
+          };
+        }),
       });
     }
 

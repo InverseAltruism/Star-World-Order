@@ -34,22 +34,33 @@ export async function GET(request: NextRequest) {
       const tVal = traitValue.toLowerCase();
       metadataList = metadataList.filter(m => {
         if (!m.attributes_json) return false;
-        const traits = JSON.parse(m.attributes_json) as Record<string, string>;
+        let traits: Record<string, string>;
+        try {
+          traits = JSON.parse(m.attributes_json) as Record<string, string>;
+        } catch {
+          return false;
+        }
         const val = traits[tType];
         return val !== undefined && val.toLowerCase() === tVal;
       });
     }
 
-    const owned = metadataList.map(m => ({
-      tokenId: m.token_id,
-      name: m.name,
-      image: m.image_url,
-      isStar: starIds.has(m.token_id) || isStarSkrumpeyId(m.token_id),
-      constellation: m.constellation,
-      traits: m.attributes_json ? JSON.parse(m.attributes_json) : {},
-      rarityRank: m.rarity_rank,
-      rarityScore: m.rarity_score,
-    }));
+    const owned = metadataList.map(m => {
+      let traits: Record<string, string> = {};
+      if (m.attributes_json) {
+        try { traits = JSON.parse(m.attributes_json); } catch { /* malformed — skip */ }
+      }
+      return {
+        tokenId: m.token_id,
+        name: m.name,
+        image: m.image_url,
+        isStar: starIds.has(m.token_id) || isStarSkrumpeyId(m.token_id),
+        constellation: m.constellation,
+        traits,
+        rarityRank: m.rarity_rank,
+        rarityScore: m.rarity_score,
+      };
+    });
 
     return NextResponse.json({
       success: true,
