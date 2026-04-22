@@ -104,6 +104,28 @@ const LOCATION_SLUGS: Record<string, string> = {
   'Observatory': 'observatory',
 };
 
+const ACTIVITY_DURATIONS: Record<string, number> = {
+  'Hot Springs': 60, 'Training Grounds': 120, 'Star Garden': 90,
+  'Cosmic Library': 180, 'Nebula Kitchen': 45, 'Dream Hollow': 30,
+  'Aura Forge': 240, 'Observatory': 150,
+};
+
+const ACTIVITY_REWARDS: Record<string, { xp: number; bond: number }> = {
+  'Dream Hollow': { xp: 5, bond: 0.8 }, 'Nebula Kitchen': { xp: 8, bond: 1.2 },
+  'Hot Springs': { xp: 12, bond: 2.0 }, 'Star Garden': { xp: 15, bond: 2.8 },
+  'Training Grounds': { xp: 20, bond: 4.0 }, 'Observatory': { xp: 25, bond: 5.5 },
+  'Cosmic Library': { xp: 30, bond: 6.5 }, 'Aura Forge': { xp: 40, bond: 9.0 },
+};
+
+function formatDuration(minutes: number): string {
+  if (minutes >= 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return `${minutes}m`;
+}
+
 function LocationIcon({ name, className }: { name: string; className?: string }) {
   const [imgError, setImgError] = useState(false);
   const slug = LOCATION_SLUGS[name];
@@ -129,12 +151,14 @@ function PublicWorldView({
   selectedLocation,
   onSelectLocation,
   companionLevel,
+  activeLocationName,
 }: {
   locations: MapLocation[];
   companionsAtLocations: LocationCompanions[];
   selectedLocation: number | null;
   onSelectLocation?: (id: number) => void;
   companionLevel?: number;
+  activeLocationName?: string | null;
 }) {
   const companionMap = new Map(
     companionsAtLocations.map((c) => [c.location_name, c])
@@ -165,6 +189,7 @@ function PublicWorldView({
           const count = locCompanions?.count ?? 0;
           const isSelected = selectedLocation === loc.id;
           const isLocked = companionLevel !== undefined && companionLevel < loc.unlock_level;
+          const isActiveLocation = activeLocationName === loc.name;
           const icon = LOCATION_ICONS[loc.name] ?? '📍';
 
           return (
@@ -192,6 +217,9 @@ function PublicWorldView({
                 `}
               >
                 <span className={isLocked ? 'grayscale' : ''}>{icon}</span>
+                {isActiveLocation && (
+                  <span className="absolute inset-0 rounded-lg border-2 border-[#00f7ff] animate-pulse shadow-[0_0_10px_rgba(0,247,255,0.4)]" />
+                )}
                 {count > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#ff66aa] rounded-full text-[7px] flex items-center justify-center text-white font-bold border border-[#0a0a15]">
                     {count}
@@ -215,6 +243,13 @@ function PublicWorldView({
                       </span>
                     )}
                   </div>
+                  {ACTIVITY_REWARDS[loc.name] && (
+                    <div className="flex items-center gap-2 mt-0.5 border-t border-[#2a2a4e] pt-1">
+                      <span className="text-[7px] text-[#00f7ff]">⏱ {formatDuration(ACTIVITY_DURATIONS[loc.name] ?? 60)}</span>
+                      <span className="text-[7px] text-[#ffd700]">+{ACTIVITY_REWARDS[loc.name].xp} XP</span>
+                      <span className="text-[7px] text-[#ff66aa]">+{ACTIVITY_REWARDS[loc.name].bond} Bond</span>
+                    </div>
+                  )}
                   {locCompanions && locCompanions.companions.length > 0 && (
                     <div className="mt-1 border-t border-[#2a2a4e] pt-1">
                       {locCompanions.companions.slice(0, 3).map((c) => (
@@ -340,6 +375,7 @@ function StatBar({ label, value, max, color, animateKey }: { label: string; valu
 
 function ActivityTimer({ endsAt }: { endsAt: string }) {
   const [remaining, setRemaining] = useState('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -347,6 +383,10 @@ function ActivityTimer({ endsAt }: { endsAt: string }) {
       const diff = end - Date.now();
       if (diff <= 0) {
         setRemaining('COMPLETE!');
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
         return;
       }
       const hrs = Math.floor(diff / 3600000);
@@ -355,8 +395,13 @@ function ActivityTimer({ endsAt }: { endsAt: string }) {
       setRemaining(hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m ${secs}s`);
     };
     update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(update, 1000);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [endsAt]);
 
   const isComplete = remaining === 'COMPLETE!';
@@ -451,9 +496,17 @@ function CompanionPanel({
           <button
             onClick={onCompleteActivity}
             disabled={interacting !== null}
-            className="mt-2 w-full py-1.5 bg-[#44ff88]/20 border border-[#44ff88]/40 rounded text-[#44ff88] text-[9px] hover:bg-[#44ff88]/30 transition-colors disabled:opacity-40"
+            className="mt-2 w-full py-2.5 bg-gradient-to-r from-[#44ff88]/20 via-[#00f7ff]/20 to-[#44ff88]/20 border border-[#44ff88]/60 rounded-lg text-[#44ff88] text-[10px] tracking-wider hover:from-[#44ff88]/30 hover:via-[#00f7ff]/30 hover:to-[#44ff88]/30 transition-all disabled:opacity-40 shadow-[0_0_15px_rgba(68,255,136,0.2)] hover:shadow-[0_0_25px_rgba(68,255,136,0.4)] animate-pulse"
           >
-            🎉 WELCOME BACK
+            {interacting === 'complete' ? (
+              <span>COLLECTING REWARDS...</span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <span className="text-sm">✨</span>
+                <span>ADVENTURE COMPLETE — COLLECT REWARDS</span>
+                <span className="text-sm">✨</span>
+              </span>
+            )}
           </button>
         )}
         <p className="text-gray-600 text-[7px] mt-1">{companion.total_interactions} total interactions</p>
@@ -524,6 +577,17 @@ function CompanionPanel({
                   {loc.description && (
                     <p className="text-gray-500 text-[7px] truncate">{loc.description}</p>
                   )}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[7px] text-[#00f7ff]">
+                      ⏱ {formatDuration(ACTIVITY_DURATIONS[loc.name] ?? 60)}
+                    </span>
+                    {ACTIVITY_REWARDS[loc.name] && (
+                      <>
+                        <span className="text-[7px] text-[#ffd700]">+{ACTIVITY_REWARDS[loc.name].xp} XP</span>
+                        <span className="text-[7px] text-[#ff66aa]">+{ACTIVITY_REWARDS[loc.name].bond} Bond</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <span className={`text-[7px] ${locked ? 'text-red-400' : 'text-gray-500'}`}>
                   {locked ? `🔒 Lv.${loc.unlock_level}` : `Lv.${loc.unlock_level}`}
@@ -1178,6 +1242,11 @@ function HolderSanctuary() {
         selectedLocation={selectedMapLocation}
         onSelectLocation={setSelectedMapLocation}
         companionLevel={companion?.level}
+        activeLocationName={
+          companion?.current_activity.startsWith('exploring:')
+            ? companion.current_activity.slice('exploring:'.length)
+            : null
+        }
       />
 
       <div className="grid md:grid-cols-2 gap-6">
