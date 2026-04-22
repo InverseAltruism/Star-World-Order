@@ -515,6 +515,44 @@ body::before {
   animation: sanctuaryGlowPulse 2s ease-in-out infinite;
 }
 
+.sanctuary-bar-fill {
+  animation: sanctuaryBarFill 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: left;
+}
+
+@keyframes sanctuaryTypingDots {
+  0%, 20% { opacity: 0.2; }
+  40% { opacity: 1; }
+  60%, 100% { opacity: 0.2; }
+}
+
+.sanctuary-typing-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #9966ff;
+  animation: sanctuaryTypingDots 1.4s ease-in-out infinite;
+}
+
+.sanctuary-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.sanctuary-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.sanctuary-map-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff;
+  animation: sanctuaryStarTwinkle 3s ease-in-out infinite;
+}
+
+.sanctuary-completion-sparkle {
+  display: inline-block;
+  animation: sanctuarySparkle 1.5s ease-in-out;
+  color: #44ff88;
+}
+
 /* ============================================
    Cozy Gaming Station Loading Experience
    ============================================ */

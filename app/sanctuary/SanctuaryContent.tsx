@@ -147,6 +147,18 @@ function PublicWorldView({
       </h2>
       <div className="sanctuary-map-bg relative w-full aspect-[16/9] border-2 border-[#2a2a4e] rounded-lg overflow-hidden">
         <div className="sanctuary-map-grid" />
+        {Array.from({ length: 12 }, (_, i) => (
+          <div
+            key={`star-${i}`}
+            className="sanctuary-map-star"
+            style={{
+              left: `${(7 + i * 8) % 97}%`,
+              top: `${(11 + i * 7 + (i % 3) * 13) % 90}%`,
+              animationDelay: `${(i * 0.5) % 3}s`,
+              opacity: 0.2 + (i % 4) * 0.15,
+            }}
+          />
+        ))}
 
         {locations.map((loc) => {
           const locCompanions = companionMap.get(loc.name);
@@ -307,7 +319,7 @@ function CompanionSprite({
   );
 }
 
-function StatBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+function StatBar({ label, value, max, color, animateKey }: { label: string; value: number; max: number; color: string; animateKey?: number }) {
   const pct = Math.min((value / max) * 100, 100);
   return (
     <div>
@@ -316,7 +328,11 @@ function StatBar({ label, value, max, color }: { label: string; value: number; m
         <span style={{ color }}>{value.toFixed(1)} / {max}</span>
       </div>
       <div className="h-1.5 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color }} />
+        <div
+          key={animateKey}
+          className={`h-full rounded-full transition-all duration-500 ${animateKey ? 'sanctuary-bar-fill' : ''}`}
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
       </div>
     </div>
   );
@@ -346,8 +362,8 @@ function ActivityTimer({ endsAt }: { endsAt: string }) {
   const isComplete = remaining === 'COMPLETE!';
 
   return (
-    <span className={`text-[9px] ${isComplete ? 'text-[#44ff88] animate-pulse' : 'text-[#ffd700]'}`}>
-      {isComplete ? '✅ ' : '⏱ '}{remaining}
+    <span className={`text-[9px] ${isComplete ? 'text-[#44ff88]' : 'text-[#ffd700]'}`}>
+      {isComplete ? <span className="sanctuary-completion-sparkle">✨ </span> : '⏱ '}{remaining}
     </span>
   );
 }
@@ -361,6 +377,7 @@ function CompanionPanel({
   onCompleteActivity,
   interacting,
   interactError,
+  lastSuccessAction,
 }: {
   companion: Companion;
   latestJournal: JournalEntry | null;
@@ -370,18 +387,28 @@ function CompanionPanel({
   onCompleteActivity: () => void;
   interacting: string | null;
   interactError?: string | null;
+  lastSuccessAction?: string | null;
 }) {
   const [showLocations, setShowLocations] = useState(false);
+  const [sparkleAction, setSparkleAction] = useState<string | null>(null);
   const mood = MOOD_CONFIG[companion.mood ?? ''] ?? DEFAULT_MOOD;
   const traits = [companion.constellation, companion.aura, companion.form].filter(Boolean);
   const isOnActivity = companion.current_activity.startsWith('exploring:');
   const activityDone = isOnActivity && companion.activity_ends_at
     && new Date(companion.activity_ends_at + 'Z').getTime() <= Date.now();
 
+  useEffect(() => {
+    if (lastSuccessAction) {
+      setSparkleAction(lastSuccessAction);
+      const timer = setTimeout(() => setSparkleAction(null), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [lastSuccessAction]);
+
   return (
-    <div className="pixel-card p-6 space-y-4">
+    <div className="pixel-card p-6 space-y-4 sanctuary-glow" style={{ '--glow-color': mood.color } as React.CSSProperties}>
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 sanctuary-twinkle">
           <CompanionSprite constellation={companion.constellation} mood={companion.mood} nftImage={companion.image_url} />
         </div>
         <div className="flex-1 min-w-0">
@@ -404,8 +431,8 @@ function CompanionPanel({
       </div>
 
       <div className="space-y-2">
-        <StatBar label="BOND" value={companion.bond_score} max={100} color="#ff66aa" />
-        <StatBar label="XP" value={companion.total_xp} max={companion.level * 100} color="#ffd700" />
+        <StatBar label="BOND" value={companion.bond_score} max={100} color="#ff66aa" animateKey={companion.total_interactions} />
+        <StatBar label="XP" value={companion.total_xp} max={companion.level * 100} color="#ffd700" animateKey={companion.total_interactions} />
       </div>
 
       <div className="bg-[#0a0a15] rounded-lg p-3 border border-[#2a2a4e]">
@@ -445,12 +472,15 @@ function CompanionPanel({
             key={action}
             onClick={() => onInteract(action)}
             disabled={interacting !== null || isOnActivity}
-            className="pixel-card p-2 text-center hover:border-[#ffd700]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
+            className="pixel-card p-2 text-center hover:border-[#ffd700]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group relative"
           >
             <span className="text-lg block group-hover:scale-110 transition-transform">
               {interacting === action ? '⏳' : icon}
             </span>
             <span className="text-[7px] text-gray-400 group-hover:text-[#ffd700] transition-colors">{label}</span>
+            {sparkleAction === action && (
+              <span className="sanctuary-sparkle absolute inset-0 flex items-center justify-center text-xl pointer-events-none">✨</span>
+            )}
           </button>
         ))}
         <button
@@ -747,8 +777,11 @@ function ChatPanel({ address, tokenId, companion }: { address: string; tokenId: 
         ))}
         {sending && (
           <div className="flex justify-start">
-            <div className="bg-[#1a1a2e] text-gray-500 border border-[#2a2a4e] px-2.5 py-1.5 rounded-lg text-[9px] animate-pulse">
-              {name} is thinking...
+            <div className="bg-[#1a1a2e] border border-[#2a2a4e] px-2.5 py-2 rounded-lg flex items-center gap-1.5">
+              <span className="text-[7px] text-[#ffd700]">{name}</span>
+              <span className="sanctuary-typing-dot" />
+              <span className="sanctuary-typing-dot" />
+              <span className="sanctuary-typing-dot" />
             </div>
           </div>
         )}
@@ -936,7 +969,7 @@ function QuestsPanel({ address, tokenId }: { address: string; tokenId: number })
             <div key={quest.id} className={`bg-[#0a0a15] rounded-lg border p-3 ${canClaim ? 'border-[#ffd700]/40' : 'border-[#2a2a4e] opacity-60'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[#44ff88] text-[8px] mr-1">✅</span>
+                  <span className="sanctuary-completion-sparkle text-[8px] mr-1">✨</span>
                   <span className="text-white text-[9px]">{quest.title}</span>
                 </div>
                 {canClaim ? (
@@ -981,6 +1014,7 @@ function HolderSanctuary() {
   const [selectedMapLocation, setSelectedMapLocation] = useState<number | null>(null);
   const [interactError, setInteractError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [lastSuccessAction, setLastSuccessAction] = useState<string | null>(null);
 
   const refreshState = useCallback(async () => {
     if (!address) return;
@@ -1027,6 +1061,7 @@ function HolderSanctuary() {
         if (data.journal) {
           setJournal((prev) => [data.journal, ...prev].slice(0, 10));
         }
+        setLastSuccessAction(action);
       } else if (res.status === 429) {
         setInteractError(data.error);
       }
@@ -1157,6 +1192,7 @@ function HolderSanctuary() {
               onCompleteActivity={handleCompleteActivity}
               interacting={interacting}
               interactError={interactError}
+              lastSuccessAction={lastSuccessAction}
             />
             <JournalPanel entries={journal} address={address} tokenId={companion.token_id} />
           </>
