@@ -182,6 +182,14 @@ function PublicWorldView({
         SANCTUARY WORLD MAP
       </h2>
       <div className="sanctuary-map-bg relative w-full aspect-[16/9] border-2 border-[#2a2a4e] rounded-lg overflow-hidden">
+        {/* Pixel-art map asset — CSS gradient fallback behind via .sanctuary-map-bg */}
+        <img
+          src="/sanctuary/map_bg.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover image-rendering-pixelated pointer-events-none"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
         <div className="sanctuary-map-grid" />
         {Array.from({ length: 12 }, (_, i) => (
           <div

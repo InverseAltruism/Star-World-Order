@@ -444,7 +444,7 @@ body::before {
 }
 
 .sanctuary-map-bg {
-  background-image: var(--sanctuary-map-bg, none);
+  background-image: var(--sanctuary-map-bg, url('/sanctuary/map_bg.png'));
   background-size: cover;
   background-position: center;
   image-rendering: pixelated;
