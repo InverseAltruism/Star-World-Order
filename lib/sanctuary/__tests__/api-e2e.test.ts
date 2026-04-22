@@ -44,10 +44,17 @@ const star = vi.hoisted(() => ({
   checkStarOwnershipBatched: vi.fn(),
 }));
 
+const rateLimit = vi.hoisted(() => ({
+  applyRateLimit: vi.fn().mockReturnValue(null),
+  checkRateLimit: vi.fn().mockReturnValue({ allowed: true }),
+  recordRequest: vi.fn(),
+}));
+
 vi.mock('@/lib/db', () => db);
 vi.mock('@/lib/walletAuth', () => walletAuth);
 vi.mock('@/lib/skrumpeyOwnership', () => ownership);
 vi.mock('@/lib/starSkrumpey', () => star);
+vi.mock('@/lib/sanctuary/rateLimit', () => rateLimit);
 
 // ─── Route handler imports ──────────────────────────────────────────
 
@@ -260,6 +267,7 @@ describe('GET /api/sanctuary/quests', () => {
 
 describe('POST /api/sanctuary/quests/claim', () => {
   it('claims reward successfully', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.claimSanctuaryQuestReward.mockReturnValue({ xp_gained: 100, new_level: 2 });
     const res = await questClaimPOST(
       post('/api/sanctuary/quests/claim', { address: ALICE, token_id: TOKEN, quest_id: 1 }),
@@ -277,7 +285,16 @@ describe('POST /api/sanctuary/quests/claim', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Missing auth' });
+    const res = await questClaimPOST(
+      post('/api/sanctuary/quests/claim', { address: ALICE, token_id: TOKEN, quest_id: 1 }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it('returns 404 when quest not found', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.claimSanctuaryQuestReward.mockImplementation(() => { throw new Error('Quest not found'); });
     const res = await questClaimPOST(
       post('/api/sanctuary/quests/claim', { address: ALICE, token_id: TOKEN, quest_id: 999 }),
@@ -286,6 +303,7 @@ describe('POST /api/sanctuary/quests/claim', () => {
   });
 
   it('returns 409 when quest not completed', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.claimSanctuaryQuestReward.mockImplementation(() => { throw new Error('Quest not completed yet'); });
     const res = await questClaimPOST(
       post('/api/sanctuary/quests/claim', { address: ALICE, token_id: TOKEN, quest_id: 1 }),
@@ -294,6 +312,7 @@ describe('POST /api/sanctuary/quests/claim', () => {
   });
 
   it('returns 409 when already claimed', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.claimSanctuaryQuestReward.mockImplementation(() => { throw new Error('Reward already claimed'); });
     const res = await questClaimPOST(
       post('/api/sanctuary/quests/claim', { address: ALICE, token_id: TOKEN, quest_id: 1 }),
@@ -343,6 +362,7 @@ describe('GET /api/sanctuary/companion', () => {
 
 describe('POST /api/sanctuary/companion/init', () => {
   it('initializes companion when token owned', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     ownership.verifyTokenOwnership.mockResolvedValue(true);
     db.selectCompanion.mockReturnValue({ token_id: TOKEN, is_active: 1 });
     const res = await initPOST(
@@ -360,7 +380,16 @@ describe('POST /api/sanctuary/companion/init', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Missing auth' });
+    const res = await initPOST(
+      post('/api/sanctuary/companion/init', { address: ALICE, token_id: TOKEN }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it('returns 403 when token not owned', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     ownership.verifyTokenOwnership.mockResolvedValue(false);
     const res = await initPOST(
       post('/api/sanctuary/companion/init', { address: ALICE, token_id: TOKEN }),
@@ -561,6 +590,7 @@ describe('GET /api/sanctuary/companion/chat', () => {
 
 describe('POST /api/sanctuary/companion/chat', () => {
   it('sends chat message and gets reply', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.chatWithCompanion.mockReturnValue({ reply: 'Hello traveler!', mood_change: 0.5 });
     const res = await chatPOST(
       post('/api/sanctuary/companion/chat', { address: ALICE, token_id: TOKEN, message: 'Hi there' }),
@@ -577,7 +607,16 @@ describe('POST /api/sanctuary/companion/chat', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Invalid signature' });
+    const res = await chatPOST(
+      post('/api/sanctuary/companion/chat', { address: ALICE, token_id: TOKEN, message: 'hi' }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it('returns 400 for whitespace-only message', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     const res = await chatPOST(
       post('/api/sanctuary/companion/chat', { address: ALICE, token_id: TOKEN, message: '   ' }),
     );
@@ -587,6 +626,7 @@ describe('POST /api/sanctuary/companion/chat', () => {
   });
 
   it('truncates message to 500 chars', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.chatWithCompanion.mockReturnValue({ reply: 'ok' });
     const longMsg = 'x'.repeat(600);
     await chatPOST(
@@ -597,6 +637,7 @@ describe('POST /api/sanctuary/companion/chat', () => {
   });
 
   it('returns 404 when no active companion', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.chatWithCompanion.mockImplementation(() => { throw new Error('No active companion found'); });
     const res = await chatPOST(
       post('/api/sanctuary/companion/chat', { address: ALICE, token_id: TOKEN, message: 'hi' }),
@@ -684,6 +725,7 @@ describe('POST /api/sanctuary/companion/interact', () => {
 
 describe('POST /api/sanctuary/companion/send-to-activity', () => {
   it('sends companion to activity', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.sendToActivity.mockReturnValue({ activity: 'exploring', started_at: '2026-01-01' });
     const res = await sendActivityPOST(
       post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '1' }),
@@ -700,7 +742,16 @@ describe('POST /api/sanctuary/companion/send-to-activity', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Expired' });
+    const res = await sendActivityPOST(
+      post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '1' }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it('returns 404 when no active companion', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.sendToActivity.mockImplementation(() => { throw new Error('No active companion'); });
     const res = await sendActivityPOST(
       post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '1' }),
@@ -709,6 +760,7 @@ describe('POST /api/sanctuary/companion/send-to-activity', () => {
   });
 
   it('returns 404 when location not found', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.sendToActivity.mockImplementation(() => { throw new Error('Location not found'); });
     const res = await sendActivityPOST(
       post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '999' }),
@@ -717,6 +769,7 @@ describe('POST /api/sanctuary/companion/send-to-activity', () => {
   });
 
   it('returns 409 when already on activity', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.sendToActivity.mockImplementation(() => { throw new Error('Companion is already on an activity'); });
     const res = await sendActivityPOST(
       post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '1' }),
@@ -731,6 +784,7 @@ describe('POST /api/sanctuary/companion/send-to-activity', () => {
 
 describe('POST /api/sanctuary/companion/complete-activity', () => {
   it('completes activity with star bonus', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     star.isStarSkrumpeyId.mockReturnValue(true);
     db.completeActivityV15.mockReturnValue({ xp_gained: 50, rewards: [] });
     const res = await completeActivityPOST(
@@ -749,7 +803,16 @@ describe('POST /api/sanctuary/companion/complete-activity', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Bad sig' });
+    const res = await completeActivityPOST(
+      post('/api/sanctuary/companion/complete-activity', { address: ALICE, token_id: TOKEN }),
+    );
+    expect(res.status).toBe(401);
+  });
+
   it('returns 409 when no activity to complete', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     star.isStarSkrumpeyId.mockReturnValue(false);
     db.completeActivityV15.mockReturnValue(null);
     const res = await completeActivityPOST(
@@ -818,6 +881,7 @@ describe('GET /api/sanctuary/companion/journal', () => {
 
 describe('Flow: init → interact → journal', () => {
   it('walks through companion lifecycle', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     ownership.verifyTokenOwnership.mockResolvedValue(true);
     db.selectCompanion.mockReturnValue({ token_id: TOKEN, is_active: 1, bond_score: 0 });
     const initRes = await initPOST(
@@ -851,6 +915,7 @@ describe('Flow: init → interact → journal', () => {
 
 describe('Flow: send to activity → complete activity', () => {
   it('sends companion then completes', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.sendToActivity.mockReturnValue({ activity: 'exploring', location: 'Hot Springs' });
     const sendRes = await sendActivityPOST(
       post('/api/sanctuary/companion/send-to-activity', { address: ALICE, token_id: TOKEN, location_id: '1' }),
@@ -874,6 +939,7 @@ describe('Flow: send to activity → complete activity', () => {
 
 describe('Flow: chat conversation', () => {
   it('sends message then retrieves history', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
     db.chatWithCompanion.mockReturnValue({ reply: 'Hello traveler!' });
     const sendRes = await chatPOST(
       post('/api/sanctuary/companion/chat', { address: ALICE, token_id: TOKEN, message: 'Hi friend' }),

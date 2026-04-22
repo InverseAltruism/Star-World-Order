@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendToActivity } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import { ethAddress, tokenId, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
 const bodySchema = z.object({
@@ -22,6 +24,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { address, token_id: tid, location_id } = parsed.data;
+
+    const auth = await verifyWalletAccess(request, address);
+    if (!auth.valid) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
+
+    const rateLimited = applyRateLimit(address, 'companion/send-to-activity');
+    if (rateLimited) return rateLimited;
+
     const result = sendToActivity(address, tid, location_id);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {

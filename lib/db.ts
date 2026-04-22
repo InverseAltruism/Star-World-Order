@@ -5766,6 +5766,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v15Path, 'utf-8');
     database.exec(sql);
   }
+  const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
+  if (fs.existsSync(rateLimitPath)) {
+    const sql = fs.readFileSync(rateLimitPath, 'utf-8');
+    database.exec(sql);
+  }
   seedSanctuaryMapLocations(database);
   seedSanctuaryQuests(database);
   seedSkrumpeyMetadataFromCorpus(database);
