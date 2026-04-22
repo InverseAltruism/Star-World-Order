@@ -84,11 +84,16 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
   useEffect(() => {
     async function fetchConnections() {
       if (!address) return;
-      
+
       try {
-        const response = await fetch(`/api/social-connections?wallet=${address}`);
+        const headers: Record<string, string> = {};
+        const walletAuthHeader = await getWalletAuthHeader(address);
+        if (walletAuthHeader) {
+          headers['x-wallet-auth'] = walletAuthHeader;
+        }
+        const response = await fetch(`/api/social-connections?wallet=${address}`, { headers });
         const data = await response.json();
-        
+
         if (data.success && data.connections) {
           const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
           setLocalConnections(fetchedConnections);
@@ -98,7 +103,7 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
         console.error('Failed to fetch social connections:', error);
       }
     }
-    
+
     fetchConnections();
   }, [address, onConnectionChange]);
 
@@ -116,16 +121,24 @@ export default function SocialConnect({ connections = [], onConnectionChange }: 
       window.history.replaceState({}, '', window.location.pathname);
       // Refresh connections
       if (address) {
-        fetch(`/api/social-connections?wallet=${address}`)
-          .then(res => res.json())
-          .then(data => {
+        (async () => {
+          try {
+            const headers: Record<string, string> = {};
+            const authHeader = await getWalletAuthHeader(address);
+            if (authHeader) {
+              headers['x-wallet-auth'] = authHeader;
+            }
+            const res = await fetch(`/api/social-connections?wallet=${address}`, { headers });
+            const data = await res.json();
             if (data.success && data.connections) {
               const fetchedConnections = transformDbConnections(data.connections as SocialConnectionResponse);
               setLocalConnections(fetchedConnections);
               onConnectionChange?.(fetchedConnections);
             }
-          })
-          .catch(console.error);
+          } catch (e) {
+            console.error('Failed to refresh connections:', e);
+          }
+        })();
       }
     } else if (error) {
       setMessage({ type: 'error', text: decodeURIComponent(error) });

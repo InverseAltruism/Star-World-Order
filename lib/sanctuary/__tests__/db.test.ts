@@ -284,3 +284,155 @@ describe('Map Locations', () => {
     }).toThrow();
   });
 });
+
+describe('Journal Pagination & Stats', () => {
+  let db: Database.Database;
+
+  beforeAll(() => {
+    db = createTestDb();
+    db.prepare('INSERT INTO sanctuary_companions (wallet_address, token_id, is_active) VALUES (?, ?, ?)').run('0xpager', 3, 1);
+
+    const types = ['system', 'interaction', 'activity', 'quest', 'achievement'];
+    const insert = db.prepare("INSERT INTO sanctuary_journal (wallet_address, token_id, entry_type, content, created_at) VALUES (?, ?, ?, ?, ?)");
+    for (let i = 0; i < 35; i++) {
+      const type = types[i % types.length];
+      const ts = `2026-04-${String(1 + i).padStart(2, '0')} 12:00:00`;
+      insert.run('0xpager', 3, type, `Entry ${i + 1}`, ts);
+    }
+  });
+
+  it('paginates journal entries', () => {
+    const page1 = db.prepare(
+      'SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).all('0xpager', 3, 10, 0) as any[];
+    const page2 = db.prepare(
+      'SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).all('0xpager', 3, 10, 10) as any[];
+
+    expect(page1.length).toBe(10);
+    expect(page2.length).toBe(10);
+    expect(page1[0].content).not.toBe(page2[0].content);
+  });
+
+  it('filters by entry_type', () => {
+    const quests = db.prepare(
+      "SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? AND entry_type = ? ORDER BY created_at DESC"
+    ).all('0xpager', 3, 'quest') as any[];
+
+    expect(quests.length).toBe(7);
+    for (const q of quests) expect(q.entry_type).toBe('quest');
+  });
+
+  it('computes journal stats by type', () => {
+    const typeCounts = db.prepare(
+      'SELECT entry_type, COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ? GROUP BY entry_type'
+    ).all('0xpager', 3) as { entry_type: string; count: number }[];
+
+    const byType: Record<string, number> = {};
+    for (const row of typeCounts) byType[row.entry_type] = row.count;
+
+    expect(byType.system).toBe(7);
+    expect(byType.interaction).toBe(7);
+    expect(byType.activity).toBe(7);
+    expect(byType.quest).toBe(7);
+    expect(byType.achievement).toBe(7);
+  });
+
+  it('returns correct total count', () => {
+    const total = db.prepare(
+      'SELECT COUNT(*) as count FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+    ).get('0xpager', 3) as { count: number };
+
+    expect(total.count).toBe(35);
+  });
+
+  it('computes first and last entry dates', () => {
+    const range = db.prepare(
+      'SELECT MIN(created_at) as first_entry, MAX(created_at) as last_entry FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+    ).get('0xpager', 3) as { first_entry: string; last_entry: string };
+
+    expect(range.first_entry).toContain('2026-04-01');
+    expect(range.last_entry).toBeTruthy();
+  });
+});
+
+describe('Send to Activity', () => {
+  let db: Database.Database;
+
+  beforeAll(() => {
+    db = createTestDb();
+
+    db.prepare('INSERT INTO sanctuary_map_locations (name, description, position_x, position_y, unlock_level) VALUES (?, ?, ?, ?, ?)')
+      .run('Hot Springs', 'Relaxing.', 0.2, 0.3, 1);
+    db.prepare('INSERT INTO sanctuary_map_locations (name, description, position_x, position_y, unlock_level) VALUES (?, ?, ?, ?, ?)')
+      .run('Training Grounds', 'Practice.', 0.7, 0.2, 1);
+
+    db.prepare('INSERT INTO sanctuary_companions (wallet_address, token_id, is_active, bond_score) VALUES (?, ?, ?, ?)')
+      .run('0xalice', 3, 1, 10.0);
+  });
+
+  it('sets activity with exploring: prefix and timer', () => {
+    const loc = db.prepare('SELECT id FROM sanctuary_map_locations WHERE name = ?').get('Hot Springs') as { id: number };
+
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = ?,
+          activity_started_at = datetime('now'),
+          activity_ends_at = datetime('now', '+60 minutes'),
+          total_interactions = total_interactions + 1
+      WHERE wallet_address = ? AND token_id = ? AND is_active = 1
+    `).run('exploring:Hot Springs', '0xalice', 3);
+
+    const comp = db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?').get('0xalice', 3) as any;
+    expect(comp.current_activity).toBe('exploring:Hot Springs');
+    expect(comp.activity_started_at).toBeTruthy();
+    expect(comp.activity_ends_at).toBeTruthy();
+    expect(comp.total_interactions).toBe(1);
+  });
+
+  it('records activity journal entry', () => {
+    db.prepare("INSERT INTO sanctuary_journal (wallet_address, token_id, entry_type, content, metadata) VALUES (?, ?, ?, ?, ?)")
+      .run('0xalice', 3, 'activity', 'Set off to explore Hot Springs.', '{"action":"send_to_activity","location_name":"Hot Springs"}');
+
+    const entry = db.prepare("SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND entry_type = 'activity' ORDER BY id DESC LIMIT 1")
+      .get('0xalice') as any;
+    expect(entry.content).toContain('Hot Springs');
+    expect(JSON.parse(entry.metadata).action).toBe('send_to_activity');
+  });
+
+  it('completing activity resets state and awards bond', () => {
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = 'lounging',
+          activity_started_at = NULL,
+          activity_ends_at = NULL,
+          bond_score = MIN(bond_score + 2.0, 100.0)
+      WHERE wallet_address = ? AND token_id = ?
+    `).run('0xalice', 3);
+
+    const comp = db.prepare('SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?').get('0xalice', 3) as any;
+    expect(comp.current_activity).toBe('lounging');
+    expect(comp.activity_started_at).toBeNull();
+    expect(comp.activity_ends_at).toBeNull();
+    expect(comp.bond_score).toBe(12.0);
+  });
+
+  it('companions at locations query works', () => {
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = 'exploring:Training Grounds',
+          activity_ends_at = datetime('now', '+120 minutes')
+      WHERE wallet_address = ? AND token_id = ?
+    `).run('0xalice', 3);
+
+    const rows = db.prepare(`
+      SELECT current_activity, token_id, nickname
+      FROM sanctuary_companions
+      WHERE current_activity LIKE 'exploring:%' AND is_active = 1
+    `).all() as any[];
+
+    expect(rows.length).toBe(1);
+    expect(rows[0].current_activity).toBe('exploring:Training Grounds');
+    expect(rows[0].token_id).toBe(3);
+  });
+});

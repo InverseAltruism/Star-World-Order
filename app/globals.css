@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@utility image-rendering-pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 :root {
   /* Synthwave color palette */
   --background: #0a0a1a;
@@ -407,6 +412,150 @@ body::before {
 
 .animate-glow-pulse {
   animation: glowPulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   Star Sanctuary — Sprite & Asset Integration
+   ============================================ */
+
+.sanctuary-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.sanctuary-sprite-sm {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.sanctuary-sprite-lg {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.sanctuary-map-bg {
+  background-image: var(--sanctuary-map-bg, url('/sanctuary/map_bg.png'));
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+}
+
+.sanctuary-location-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+@keyframes sanctuaryIdleBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes sanctuaryHappyBounce {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-4px) scale(1.05); }
+  60% { transform: translateY(-1px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes sanctuarySleepySway {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  50% { transform: translateX(1px) rotate(2deg); }
+}
+
+@keyframes sanctuarySparkle {
+  0% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes sanctuaryStarTwinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes sanctuaryGlowPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--glow-color, #b088ff); }
+  50% { box-shadow: 0 0 16px var(--glow-color, #b088ff), 0 0 24px var(--glow-color, #b088ff); }
+}
+
+@keyframes sanctuaryBarFill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.sanctuary-idle {
+  animation: sanctuaryIdleBob 2s ease-in-out infinite;
+}
+
+.sanctuary-happy {
+  animation: sanctuaryHappyBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sanctuary-sleepy {
+  animation: sanctuarySleepySway 3s ease-in-out infinite;
+}
+
+.sanctuary-sparkle {
+  animation: sanctuarySparkle 1.5s ease-in-out;
+}
+
+.sanctuary-twinkle {
+  animation: sanctuaryStarTwinkle 3s ease-in-out infinite;
+}
+
+.sanctuary-glow {
+  animation: sanctuaryGlowPulse 2s ease-in-out infinite;
+}
+
+.sanctuary-bar-fill {
+  animation: sanctuaryBarFill 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-origin: left;
+}
+
+@keyframes sanctuaryTypingDots {
+  0%, 20% { opacity: 0.2; }
+  40% { opacity: 1; }
+  60%, 100% { opacity: 0.2; }
+}
+
+.sanctuary-typing-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #9966ff;
+  animation: sanctuaryTypingDots 1.4s ease-in-out infinite;
+}
+
+.sanctuary-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.sanctuary-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.sanctuary-map-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff;
+  animation: sanctuaryStarTwinkle 3s ease-in-out infinite;
+}
+
+.sanctuary-completion-sparkle {
+  display: inline-block;
+  animation: sanctuarySparkle 1.5s ease-in-out;
+  color: #44ff88;
 }
 
 /* ============================================
@@ -2606,4 +2755,128 @@ a,
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+/* ── Sanctuary World Map Background ── */
+/* 720×405 pixel-art constellation map with 8 luminous location zones */
+.sanctuary-map-bg {
+  background:
+    /* Hot Springs (0.2, 0.3) — amber */
+    radial-gradient(ellipse 14% 22% at 20% 30%, rgba(255, 165, 0, 0.18) 0%, rgba(255, 140, 0, 0.06) 50%, transparent 100%),
+    radial-gradient(circle 3% at 20% 30%, rgba(255, 180, 50, 0.25) 0%, transparent 100%),
+    /* Training Grounds (0.7, 0.2) — crimson */
+    radial-gradient(ellipse 12% 18% at 70% 20%, rgba(255, 68, 102, 0.16) 0%, rgba(200, 40, 60, 0.05) 50%, transparent 100%),
+    radial-gradient(circle 3% at 70% 20%, rgba(255, 80, 100, 0.22) 0%, transparent 100%),
+    /* Star Garden (0.5, 0.5) — teal */
+    radial-gradient(ellipse 16% 20% at 50% 50%, rgba(32, 214, 180, 0.16) 0%, rgba(0, 200, 167, 0.05) 50%, transparent 100%),
+    radial-gradient(circle 4% at 50% 50%, rgba(50, 230, 200, 0.22) 0%, transparent 100%),
+    /* Cosmic Library (0.8, 0.6) — violet */
+    radial-gradient(ellipse 13% 19% at 80% 60%, rgba(153, 102, 255, 0.16) 0%, rgba(130, 80, 220, 0.05) 50%, transparent 100%),
+    radial-gradient(circle 3% at 80% 60%, rgba(160, 110, 255, 0.22) 0%, transparent 100%),
+    /* Nebula Kitchen (0.3, 0.7) — warm orange */
+    radial-gradient(ellipse 13% 18% at 30% 70%, rgba(255, 123, 0, 0.15) 0%, rgba(220, 100, 0, 0.05) 50%, transparent 100%),
+    radial-gradient(circle 3% at 30% 70%, rgba(255, 140, 30, 0.20) 0%, transparent 100%),
+    /* Dream Hollow (0.1, 0.8) — lavender */
+    radial-gradient(ellipse 14% 20% at 10% 80%, rgba(136, 136, 255, 0.14) 0%, rgba(100, 100, 220, 0.04) 50%, transparent 100%),
+    radial-gradient(circle 3% at 10% 80%, rgba(150, 150, 255, 0.20) 0%, transparent 100%),
+    /* Aura Forge (0.9, 0.4) — magenta */
+    radial-gradient(ellipse 12% 18% at 90% 40%, rgba(255, 0, 255, 0.14) 0%, rgba(200, 0, 200, 0.04) 50%, transparent 100%),
+    radial-gradient(circle 3% at 90% 40%, rgba(255, 50, 255, 0.20) 0%, transparent 100%),
+    /* Observatory (0.5, 0.1) — cyan */
+    radial-gradient(ellipse 14% 22% at 50% 10%, rgba(0, 255, 255, 0.14) 0%, rgba(0, 200, 220, 0.04) 50%, transparent 100%),
+    radial-gradient(circle 3% at 50% 10%, rgba(0, 255, 255, 0.20) 0%, transparent 100%),
+    /* Subtle nebula wisps */
+    radial-gradient(ellipse 40% 30% at 35% 45%, rgba(153, 102, 255, 0.03) 0%, transparent 100%),
+    radial-gradient(ellipse 35% 40% at 65% 55%, rgba(0, 200, 180, 0.02) 0%, transparent 100%);
+  background-color: #0a0a1a;
+  position: relative;
+}
+
+/* Star field dots via pseudo-element */
+.sanctuary-map-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    /* Bright 2px stars */
+    144px 32px 0 0 rgba(255, 255, 255, 0.50),
+    360px 16px 0 0 rgba(200, 220, 255, 0.45),
+    540px 81px 0 0 rgba(255, 240, 200, 0.40),
+    72px 121px 0 0 rgba(220, 200, 255, 0.45),
+    648px 162px 0 0 rgba(200, 255, 255, 0.42),
+    252px 243px 0 0 rgba(255, 220, 180, 0.38),
+    468px 324px 0 0 rgba(255, 255, 255, 0.44),
+    108px 364px 0 0 rgba(200, 230, 255, 0.40),
+    612px 283px 0 0 rgba(255, 200, 220, 0.36),
+    324px 364px 0 0 rgba(220, 255, 220, 0.38),
+    /* Dim 1px stars — scattered */
+    36px 20px 0 -0.5px rgba(255, 255, 255, 0.25),
+    90px 56px 0 -0.5px rgba(200, 200, 255, 0.22),
+    180px 81px 0 -0.5px rgba(255, 255, 255, 0.20),
+    216px 12px 0 -0.5px rgba(255, 220, 200, 0.22),
+    288px 60px 0 -0.5px rgba(200, 255, 255, 0.18),
+    396px 44px 0 -0.5px rgba(255, 255, 255, 0.24),
+    432px 97px 0 -0.5px rgba(220, 220, 255, 0.20),
+    504px 36px 0 -0.5px rgba(255, 255, 255, 0.22),
+    576px 56px 0 -0.5px rgba(200, 240, 255, 0.18),
+    684px 24px 0 -0.5px rgba(255, 255, 255, 0.20),
+    18px 162px 0 -0.5px rgba(255, 230, 200, 0.22),
+    54px 202px 0 -0.5px rgba(200, 200, 255, 0.18),
+    126px 178px 0 -0.5px rgba(255, 255, 255, 0.24),
+    162px 227px 0 -0.5px rgba(220, 255, 220, 0.20),
+    234px 154px 0 -0.5px rgba(255, 255, 255, 0.22),
+    306px 194px 0 -0.5px rgba(200, 220, 255, 0.18),
+    342px 130px 0 -0.5px rgba(255, 255, 255, 0.20),
+    414px 178px 0 -0.5px rgba(255, 200, 255, 0.22),
+    486px 146px 0 -0.5px rgba(255, 255, 255, 0.18),
+    558px 210px 0 -0.5px rgba(200, 255, 200, 0.20),
+    594px 130px 0 -0.5px rgba(255, 255, 255, 0.24),
+    666px 194px 0 -0.5px rgba(220, 200, 255, 0.20),
+    30px 283px 0 -0.5px rgba(255, 255, 255, 0.22),
+    102px 308px 0 -0.5px rgba(200, 255, 255, 0.18),
+    198px 340px 0 -0.5px rgba(255, 255, 255, 0.20),
+    270px 268px 0 -0.5px rgba(255, 220, 200, 0.24),
+    378px 300px 0 -0.5px rgba(255, 255, 255, 0.18),
+    450px 268px 0 -0.5px rgba(200, 200, 255, 0.22),
+    522px 348px 0 -0.5px rgba(255, 255, 255, 0.20),
+    630px 308px 0 -0.5px rgba(220, 240, 255, 0.18),
+    702px 340px 0 -0.5px rgba(255, 255, 255, 0.22),
+    48px 380px 0 -0.5px rgba(200, 220, 255, 0.20),
+    168px 396px 0 -0.5px rgba(255, 255, 255, 0.18),
+    312px 388px 0 -0.5px rgba(255, 200, 220, 0.24),
+    564px 380px 0 -0.5px rgba(255, 255, 255, 0.20),
+    660px 396px 0 -0.5px rgba(200, 255, 200, 0.18),
+    708px 100px 0 -0.5px rgba(255, 255, 255, 0.22);
+}
+
+/* Subtle twinkling animation for a few star dots */
+@keyframes sanctuaryStarTwinkle {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.sanctuary-map-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: sanctuaryStarTwinkle 3s ease-in-out infinite;
+  box-shadow:
+    144px 32px 0 0.5px rgba(255, 255, 255, 0.30),
+    540px 81px 0 0.5px rgba(255, 240, 200, 0.25),
+    648px 162px 0 0.5px rgba(200, 255, 255, 0.28),
+    324px 364px 0 0.5px rgba(220, 255, 220, 0.22);
+}
+
+/* Faint constellation grid lines */
+.sanctuary-map-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background:
+    linear-gradient(90deg, rgba(153, 102, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(153, 102, 255, 0.4) 1px, transparent 1px);
+  background-size: 25% 33.33%;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { interactWithCompanion } from '@/lib/db';
+import { interactWithCompanionV15 } from '@/lib/db';
+import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 
 const VALID_ACTIONS = ['feed', 'pet', 'talk'] as const;
@@ -32,11 +33,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = interactWithCompanion(resolvedAddress, token_id, action);
+    const isStar = isStarSkrumpeyId(token_id);
+    const result = interactWithCompanionV15(resolvedAddress, token_id, action, { isStar });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to interact';
-    const status = message.includes('No active companion') ? 404 : 500;
+    const status = message.includes('No active companion') ? 404
+      : message.includes('Daily interaction limit') ? 429
+      : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }
