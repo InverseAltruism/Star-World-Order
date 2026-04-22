@@ -22,6 +22,40 @@ Star World Order combines retro N64 aesthetics with modern Web3 governance. Thin
 
 These 333 pixel art creatures are your key to the cosmic realm. No Star? The order awaits your return.
 
+## SWO + Star Arena Shared Domain Setup
+
+Star World Order and Star Arena are intentionally served from the same domain:
+
+- **Primary SWO app**: `https://starworldorder.com/` (Next.js app, service on port `3080`)
+- **Star Arena app**: `https://starworldorder.com/Star-Arena/` (Vite static frontend + FastAPI backend)
+
+### URL Routing Model
+
+Inside the `starworldorder.com` NGINX server block:
+
+- `location /` proxies to the SWO app on `127.0.0.1:3080`
+- `location ^~ /Star-Arena/` serves Star Arena frontend files from `dashboard/dist`
+- `location ^~ /Star-Arena/api/` rewrites to `/api/*` and proxies to Star Arena API on `127.0.0.1:8001`
+- `location ^~ /Star-Arena/ws` rewrites to `/ws` and proxies WebSocket traffic to `127.0.0.1:8001`
+
+This keeps SWO as the root product while exposing Star Arena under a dedicated subpath without changing SWO URLs.
+
+### Why this does not break SWO
+
+- Star Arena only uses the `/Star-Arena` namespace.
+- SWO keeps ownership of `/` and all existing SWO routes.
+- Star Arena API is localhost-bound (`127.0.0.1:8001`) and reachable publicly only through NGINX subpath proxying.
+
+## Release Flow (Required)
+
+The operational flow remains:
+
+1. **Develop and validate in DEV first** (`/opt/star_world_order/DEV`)
+2. **Promote DEV changes to PROD** (`/opt/star_world_order/PROD`) after validation
+3. Deploy/restart PROD services
+
+Star Arena deployment is separate (`/opt/apps-granus/Star_Arena`) but integrated at the URL layer via NGINX under `/Star-Arena`.
+
 ## 🔒 Access
 
 To enter the Star World Order, you need:

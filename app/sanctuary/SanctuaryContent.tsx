@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import AccessGate from '@/components/AccessGate';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 interface Companion {
   token_id: number;
@@ -232,10 +233,15 @@ function HolderSanctuary() {
     if (!address || !companion || interacting) return;
     setInteracting(action);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) return;
       const res = await fetch('/api/sanctuary/companion/interact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, token_id: companion.token_id, action }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
+        body: JSON.stringify({ walletAddress: address, token_id: companion.token_id, action }),
       });
       const data = await res.json();
       if (data.success) {
