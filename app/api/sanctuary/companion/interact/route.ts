@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { interactWithCompanionV15 } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import { ethAddress, tokenId, interactAction, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
 const bodySchema = z.object({
@@ -36,6 +37,9 @@ export async function POST(request: NextRequest) {
         { status: 401 },
       );
     }
+
+    const rateLimited = applyRateLimit(resolvedAddress, 'companion/interact');
+    if (rateLimited) return rateLimited;
 
     const isStar = isStarSkrumpeyId(tid);
     const result = interactWithCompanionV15(resolvedAddress, tid, action, { isStar });

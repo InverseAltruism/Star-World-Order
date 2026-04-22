@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { chatWithCompanion, getCompanionChatHistory } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import { ethAddress, tokenId, paginationLimit, parseSearchParams, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
 const getSchema = z.object({
@@ -42,6 +44,14 @@ export async function POST(request: NextRequest) {
     }
 
     const { address, token_id: tid, message } = parsed.data;
+
+    const auth = await verifyWalletAccess(request, address);
+    if (!auth.valid) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
+
+    const rateLimited = applyRateLimit(address, 'companion/chat');
+    if (rateLimited) return rateLimited;
 
     if (!message) {
       return NextResponse.json({ success: false, error: 'Message cannot be empty' }, { status: 400 });

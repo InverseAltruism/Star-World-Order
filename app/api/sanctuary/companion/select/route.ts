@@ -4,6 +4,7 @@ import { selectCompanion, getStarSkrumpeyMetadata } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 import { verifyTokenOwnership } from '@/lib/skrumpeyOwnership';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import { ethAddress, tokenId, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
 const bodySchema = z.object({
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     if (!auth.valid) {
       return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
+
+    const rateLimited = applyRateLimit(walletAddress, 'companion/select');
+    if (rateLimited) return rateLimited;
 
     const ownsToken = await verifyTokenOwnership(walletAddress, tid);
     if (!ownsToken) {

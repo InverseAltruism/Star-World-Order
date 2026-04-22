@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { completeActivityV15 } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { verifyWalletAccess } from '@/lib/walletAuth';
+import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import { ethAddress, tokenId, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
 const bodySchema = z.object({
@@ -22,6 +24,14 @@ export async function POST(request: NextRequest) {
     }
 
     const { address, token_id: tid } = parsed.data;
+
+    const auth = await verifyWalletAccess(request, address);
+    if (!auth.valid) {
+      return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
+    }
+
+    const rateLimited = applyRateLimit(address, 'companion/complete-activity');
+    if (rateLimited) return rateLimited;
 
     const isStar = isStarSkrumpeyId(tid);
     const result = completeActivityV15(address, tid, { isStar });
