@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getActiveCompanion, getAllCompanions } from '@/lib/db';
+import { ethAddress, parseSearchParams, formatZodError } from '@/lib/sanctuary/validation';
+
+const querySchema = z.object({
+  address: ethAddress,
+  all: z.enum(['true', 'false']).optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
+    const parsed = parseSearchParams(querySchema, searchParams);
 
-    if (!address) {
-      return NextResponse.json({ success: false, error: 'Address is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: formatZodError(parsed.error) }, { status: 400 });
     }
 
-    const all = searchParams.get('all') === 'true';
+    const { address, all } = parsed.data;
 
-    if (all) {
+    if (all === 'true') {
       const companions = getAllCompanions(address);
       return NextResponse.json({ success: true, companions });
     }

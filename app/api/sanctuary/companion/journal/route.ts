@@ -1,46 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getActiveCompanion, getJournalEntriesPaginated, getJournalStats } from '@/lib/db';
+import { ethAddress, tokenId, paginationPage, paginationLimit, parseSearchParams, formatZodError } from '@/lib/sanctuary/validation';
+
+const querySchema = z.object({
+  address: ethAddress,
+  token_id: tokenId.optional(),
+  page: paginationPage,
+  limit: paginationLimit(100, 20),
+  type: z.string().optional(),
+  before: z.string().optional(),
+  stats: z.enum(['true', 'false']).optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
+    const parsed = parseSearchParams(querySchema, searchParams);
 
-    if (!address) {
-      return NextResponse.json({ success: false, error: 'Address is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: formatZodError(parsed.error) }, { status: 400 });
     }
 
-    const tokenIdParam = searchParams.get('token_id');
-    let tokenId: number;
+    const { address, token_id: tid, page, limit, type, before, stats } = parsed.data;
+    let resolvedTokenId: number;
 
-    if (tokenIdParam) {
-      tokenId = parseInt(tokenIdParam, 10);
-      if (isNaN(tokenId)) {
-        return NextResponse.json({ success: false, error: 'Invalid token_id' }, { status: 400 });
-      }
+    if (tid !== undefined) {
+      resolvedTokenId = tid;
     } else {
       const active = getActiveCompanion(address);
       if (!active) {
         return NextResponse.json({ success: false, error: 'No active companion' }, { status: 404 });
       }
-      tokenId = active.token_id;
+      resolvedTokenId = active.token_id;
     }
 
-    const page = parseInt(searchParams.get('page') ?? '1', 10);
-    const limit = parseInt(searchParams.get('limit') ?? '20', 10);
-    const type = searchParams.get('type') ?? undefined;
-    const before = searchParams.get('before') ?? undefined;
-    const includeStats = searchParams.get('stats') === 'true';
-
-    const result = getJournalEntriesPaginated(address, tokenId, { page, limit, type, before });
+    const result = getJournalEntriesPaginated(address, resolvedTokenId, { page, limit, type, before });
 
     const response: Record<string, unknown> = {
       success: true,
       ...result,
     };
 
-    if (includeStats) {
-      response.stats = getJournalStats(address, tokenId);
+    if (stats === 'true') {
+      response.stats = getJournalStats(address, resolvedTokenId);
     }
 
     return NextResponse.json(response);
