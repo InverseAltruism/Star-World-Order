@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import SkrumpeyAccessGate from '@/components/SkrumpeyAccessGate';
 import { useSkrumpeyAccess } from '@/lib/hooks/useSkrumpeyAccess';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 interface Companion {
   token_id: number;
@@ -88,6 +89,9 @@ interface OwnedSkrumpey {
   image: string;
   isStar: boolean;
   constellation: string | null;
+  traits: Record<string, string>;
+  rarityRank: number | null;
+  rarityScore: number | null;
 }
 
 const LOCATION_ICONS: Record<string, string> = {
@@ -1089,119 +1093,229 @@ function QuestsPanel({ address, tokenId }: { address: string; tokenId: number })
   );
 }
 
-function CompanionPicker({ address, onSelected }: { address: string; onSelected: () => void }) {
+function CompanionPicker({
+  address,
+  activeTokenId,
+  onSelect,
+}: {
+  address: string;
+  activeTokenId: number | null;
+  onSelect: (tokenId: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
   const [owned, setOwned] = useState<OwnedSkrumpey[]>([]);
-  const [pickerLoading, setPickerLoading] = useState(true);
-  const [pickerError, setPickerError] = useState<string | null>(null);
-  const [selecting, setSelecting] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [switching, setSwitching] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'star'>('all');
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setPickerLoading(true);
-    setPickerError(null);
-    fetch(`/api/sanctuary/companion/list-owned?address=${address}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) setOwned(data.owned ?? []);
-        else setPickerError('Failed to load your Skrumpeys');
-      })
-      .catch(() => setPickerError('Network error loading Skrumpeys'))
-      .finally(() => setPickerLoading(false));
+  const fetchOwned = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sanctuary/companion/list-owned?address=${address}`);
+      const data = await res.json();
+      if (data.success) {
+        setOwned(data.owned ?? []);
+      } else {
+        setError(data.error ?? 'Failed to load');
+      }
+    } catch {
+      setError('Network error');
+    } finally {
+      setLoading(false);
+    }
   }, [address]);
 
-  const selectSkrumpey = async (tokenId: number) => {
-    setSelecting(tokenId);
-    setPickerError(null);
+  useEffect(() => {
+    if (open && owned.length === 0 && !loading) {
+      fetchOwned();
+    }
+  }, [open, owned.length, loading, fetchOwned]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  const handleSelect = async (tokenId: number) => {
+    if (tokenId === activeTokenId || switching) return;
+    setSwitching(tokenId);
+    setError(null);
     try {
-      const res = await fetch('/api/sanctuary/companion/init', {
+      const authHeader = await getWalletAuthHeader(address);
+      if (!authHeader) {
+        setError('Wallet signature required');
+        setSwitching(null);
+        return;
+      }
+      const endpoint = activeTokenId
+        ? '/api/sanctuary/companion/switch'
+        : '/api/sanctuary/companion/select';
+      const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, token_id: tokenId }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': authHeader,
+        },
+        body: JSON.stringify({ walletAddress: address, tokenId }),
       });
       const data = await res.json();
       if (data.success) {
-        onSelected();
+        onSelect(tokenId);
+        setOpen(false);
       } else {
-        setPickerError(data.error ?? 'Failed to select companion');
+        setError(data.error ?? 'Failed to switch');
       }
     } catch {
-      setPickerError('Network error — please try again');
+      setError('Network error');
     } finally {
-      setSelecting(null);
+      setSwitching(null);
     }
   };
 
-  if (pickerLoading) {
-    return <p className="text-gray-500 text-[8px] animate-pulse">Loading your Skrumpeys...</p>;
-  }
+  const filtered = useMemo(
+    () => (filter === 'star' ? owned.filter((s) => s.isStar) : owned),
+    [owned, filter]
+  );
 
-  if (pickerError) {
-    return (
-      <div className="space-y-2">
-        <p className="text-red-400 text-[8px]">{pickerError}</p>
-        <button
-          onClick={() => {
-            setPickerLoading(true);
-            setPickerError(null);
-            fetch(`/api/sanctuary/companion/list-owned?address=${address}`)
-              .then((r) => r.json())
-              .then((data) => {
-                if (data.success) setOwned(data.owned ?? []);
-                else setPickerError('Failed to load your Skrumpeys');
-              })
-              .catch(() => setPickerError('Network error loading Skrumpeys'))
-              .finally(() => setPickerLoading(false));
-          }}
-          className="text-[7px] text-[#9966ff] hover:text-[#bb88ff] transition-colors"
-        >
-          RETRY
-        </button>
-      </div>
-    );
-  }
+  const starCount = useMemo(() => owned.filter((s) => s.isStar).length, [owned]);
 
-  if (owned.length === 0) {
+  if (!open) {
     return (
-      <div className="space-y-1">
-        <p className="text-gray-400 text-[8px]">You don&apos;t own any Skrumpeys yet.</p>
-        <p className="text-gray-600 text-[7px]">Get one on Magic Eden to start your sanctuary journey.</p>
-      </div>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#9966ff]/15 border border-[#9966ff]/40 text-[#bb88ff] text-[8px] tracking-wider hover:bg-[#9966ff]/25 hover:border-[#9966ff]/60 transition-all"
+      >
+        <span>🔄</span>
+        <span>{activeTokenId ? 'SWITCH COMPANION' : 'SELECT COMPANION'}</span>
+      </button>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-gray-400 text-[8px]">Choose a companion to awaken in the Sanctuary:</p>
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
-        {owned.map((s) => (
-          <button
-            key={s.tokenId}
-            onClick={() => selectSkrumpey(s.tokenId)}
-            disabled={selecting !== null}
-            className={`group relative rounded-lg border p-1.5 transition-all ${
-              selecting === s.tokenId
-                ? 'border-[#ffd700] bg-[#ffd700]/10'
-                : 'border-[#2a2a4e] hover:border-[#9966ff]/60 hover:bg-[#9966ff]/5'
-            } disabled:opacity-50`}
-          >
-            {s.image && (
-              <img
-                src={s.image}
-                alt={s.name}
-                className="w-full aspect-square rounded object-cover"
-              />
-            )}
-            <p className="text-[6px] text-gray-400 mt-1 truncate">{s.name}</p>
-            {s.isStar && (
-              <span className="absolute top-0.5 right-0.5 text-[6px]">⭐</span>
-            )}
-            {selecting === s.tokenId && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                <span className="text-[#ffd700] text-[7px] animate-pulse">AWAKENING...</span>
-              </div>
-            )}
-          </button>
-        ))}
+    <div ref={panelRef} className="pixel-card p-4 w-full max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[#ffd700] text-[10px] tracking-wider">
+          {activeTokenId ? 'SWITCH COMPANION' : 'SELECT YOUR COMPANION'}
+        </h3>
+        <button
+          onClick={() => setOpen(false)}
+          className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
+        >
+          ✕
+        </button>
       </div>
+
+      {starCount > 0 && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-2 py-0.5 rounded text-[7px] tracking-wider border transition-all ${
+              filter === 'all'
+                ? 'bg-[#9966ff]/25 border-[#9966ff]/60 text-[#bb88ff]'
+                : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:text-gray-400'
+            }`}
+          >
+            ALL ({owned.length})
+          </button>
+          <button
+            onClick={() => setFilter('star')}
+            className={`px-2 py-0.5 rounded text-[7px] tracking-wider border transition-all ${
+              filter === 'star'
+                ? 'bg-[#ffd700]/20 border-[#ffd700]/50 text-[#ffd700]'
+                : 'bg-transparent border-[#2a2a4e] text-gray-500 hover:text-gray-400'
+            }`}
+          >
+            ⭐ STARS ({starCount})
+          </button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8">
+          <p className="text-[#ffd700] text-[9px] animate-pulse">SCANNING WALLET...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="text-center py-4">
+          <p className="text-red-400 text-[9px] mb-2">{error}</p>
+          <button
+            onClick={fetchOwned}
+            className="px-3 py-1 bg-[#9966ff]/20 border border-[#9966ff]/40 rounded text-[#9966ff] text-[8px] hover:bg-[#9966ff]/30 transition-colors"
+          >
+            RETRY
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && (
+        <div className="text-center py-6">
+          <p className="text-gray-400 text-[9px]">
+            {filter === 'star' ? 'No Star Skrumpeys found' : 'No Skrumpeys found in wallet'}
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-[320px] overflow-y-auto pr-1">
+          {filtered.map((skrumpey) => {
+            const isActive = skrumpey.tokenId === activeTokenId;
+            const isSwitching = switching === skrumpey.tokenId;
+            return (
+              <button
+                key={skrumpey.tokenId}
+                onClick={() => handleSelect(skrumpey.tokenId)}
+                disabled={isActive || switching !== null}
+                className={`relative p-1.5 rounded-lg border-2 transition-all text-left group ${
+                  isActive
+                    ? 'border-[#ffd700] bg-[#ffd700]/10 shadow-[0_0_12px_rgba(255,215,0,0.2)]'
+                    : isSwitching
+                      ? 'border-[#9966ff] bg-[#9966ff]/10 animate-pulse'
+                      : 'border-[#2a2a4e] bg-[#0a0a15] hover:border-[#9966ff]/60 hover:bg-[#1a1a2e] cursor-pointer'
+                }`}
+              >
+                <div className="aspect-square rounded overflow-hidden mb-1 bg-[#0a0a15] border border-[#2a2a4e]">
+                  {skrumpey.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={skrumpey.image}
+                      alt={skrumpey.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl">🐸</div>
+                  )}
+                </div>
+                <p className="text-[7px] text-gray-300 truncate">{skrumpey.name}</p>
+                {skrumpey.constellation && (
+                  <p className="text-[6px] text-[#9966ff] truncate">{skrumpey.constellation}</p>
+                )}
+                {skrumpey.isStar && (
+                  <span className="absolute top-0.5 right-0.5 text-[8px]" title="Star Skrumpey">⭐</span>
+                )}
+                {isActive && (
+                  <span className="absolute top-0.5 left-0.5 text-[6px] text-[#ffd700] font-bold">ACTIVE</span>
+                )}
+                {isSwitching && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-lg">
+                    <span className="text-[8px] text-[#9966ff] animate-pulse">SWITCHING...</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1254,6 +1368,10 @@ function HolderSanctuary() {
       .catch(() => setLoadError('Failed to load sanctuary data'))
       .finally(() => setLoading(false));
   }, [address, refreshState]);
+
+  const handleCompanionSwitch = useCallback(async (_tokenId: number) => {
+    await refreshState();
+  }, [refreshState]);
 
   const handleInteract = async (action: 'feed' | 'pet' | 'talk') => {
     if (!address || !companion || interacting) return;
@@ -1383,7 +1501,16 @@ function HolderSanctuary() {
           SKRUMPEY SANCTUARY
         </h1>
         <p className="text-gray-400 text-[10px]">Your companion awaits</p>
-        {hasStar && <div className="mt-2"><StarBadge /></div>}
+        <div className="mt-2 flex items-center justify-center gap-3 flex-wrap">
+          {hasStar && <StarBadge />}
+          {address && (
+            <CompanionPicker
+              address={address}
+              activeTokenId={companion?.token_id ?? null}
+              onSelect={handleCompanionSwitch}
+            />
+          )}
+        </div>
       </div>
 
       <PublicWorldView
@@ -1415,23 +1542,19 @@ function HolderSanctuary() {
             />
             <JournalPanel entries={journal} address={address} tokenId={companion.token_id} />
           </>
-        ) : address ? (
+        ) : (
           <div className="pixel-card p-6 md:col-span-2 text-center space-y-3">
             <p className="text-[#9966ff] text-xs mb-2">NO COMPANION SELECTED</p>
-            <CompanionPicker
-              address={address}
-              onSelected={() => {
-                setLoading(true);
-                refreshState()
-                  .catch(() => setLoadError('Failed to load sanctuary data'))
-                  .finally(() => setLoading(false));
-              }}
-            />
-          </div>
-        ) : (
-          <div className="pixel-card p-6 md:col-span-2 text-center">
-            <p className="text-[#9966ff] text-xs mb-2">NO COMPANION SELECTED</p>
-            <p className="text-gray-400 text-[8px]">Connect your wallet to begin.</p>
+            <p className="text-gray-400 text-[8px]">
+              Select a Skrumpey to begin your sanctuary journey.
+            </p>
+            {address && (
+              <CompanionPicker
+                address={address}
+                activeTokenId={null}
+                onSelect={handleCompanionSwitch}
+              />
+            )}
           </div>
         )}
       </div>
