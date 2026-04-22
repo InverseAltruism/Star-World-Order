@@ -1,5 +1,5 @@
 import Header from '@/components/Header';
-import SanctuaryContent from './SanctuaryContent';
+import SanctuaryRouter from './SanctuaryRouter';
 
 export const metadata = {
   title: 'Sanctuary | Star World Order',
@@ -11,7 +11,7 @@ export default function SanctuaryPage() {
     <div className="min-h-screen">
       <Header />
       <main className="max-w-6xl mx-auto px-4 py-8">
-        <SanctuaryContent />
+        <SanctuaryRouter />
       </main>
     </div>
   );
