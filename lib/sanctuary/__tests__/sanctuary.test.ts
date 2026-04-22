@@ -260,3 +260,52 @@ describe('Unauthorized Access Cases', () => {
     expect(bobTryingAlice).toBeUndefined();
   });
 });
+
+describe('Empty States', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = createSeededDb();
+  });
+
+  it('wallet with no companions returns empty list', () => {
+    const companions = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ?'
+    ).all(WALLETS.charlie) as SanctuaryCompanionRow[];
+    expect(companions.length).toBe(0);
+  });
+
+  it('wallet with no active companion returns no active', () => {
+    db.prepare('UPDATE sanctuary_companions SET is_active = 0 WHERE wallet_address = ?')
+      .run(WALLETS.alice);
+    const active = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1'
+    ).get(WALLETS.alice) as SanctuaryCompanionRow | undefined;
+    expect(active).toBeUndefined();
+  });
+
+  it('companion with no journal entries returns empty journal', () => {
+    db.prepare(
+      "INSERT INTO sanctuary_companions (wallet_address, token_id, is_active) VALUES (?, ?, 1)"
+    ).run(WALLETS.charlie, TOKENS.nebulu.id);
+
+    const journal = db.prepare(
+      'SELECT * FROM sanctuary_journal WHERE wallet_address = ? AND token_id = ?'
+    ).all(WALLETS.charlie, TOKENS.nebulu.id) as JournalRow[];
+    expect(journal.length).toBe(0);
+  });
+
+  it('first companion selection initializes with defaults', () => {
+    db.prepare(
+      "INSERT INTO sanctuary_companions (wallet_address, token_id, is_active) VALUES (?, ?, 1)"
+    ).run(WALLETS.charlie, TOKENS.nebulu.id);
+
+    const comp = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND is_active = 1'
+    ).get(WALLETS.charlie) as SanctuaryCompanionRow;
+    expect(comp.token_id).toBe(TOKENS.nebulu.id);
+    expect(comp.bond_score).toBe(0.0);
+    expect(comp.total_interactions).toBe(0);
+    expect(comp.current_activity).toBe('lounging');
+  });
+});

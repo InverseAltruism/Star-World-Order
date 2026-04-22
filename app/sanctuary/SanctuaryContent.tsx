@@ -82,6 +82,14 @@ interface LocationCompanions {
   companions: { token_id: number; nickname: string | null }[];
 }
 
+interface OwnedSkrumpey {
+  tokenId: number;
+  name: string;
+  image: string;
+  isStar: boolean;
+  constellation: string | null;
+}
+
 const LOCATION_ICONS: Record<string, string> = {
   'Hot Springs': '♨️',
   'Training Grounds': '⚔️',
@@ -641,7 +649,15 @@ function JournalPanel({ entries, address, tokenId }: { entries: JournalEntry[]; 
           </button>
         </div>
       ) : displayEntries.length === 0 ? (
-        <p className="text-gray-500 text-[8px]">{loading ? 'Loading...' : 'No entries yet.'}</p>
+        loading ? (
+          <p className="text-gray-500 text-[8px]">Loading...</p>
+        ) : (
+          <div className="text-center py-4 space-y-1">
+            <p className="text-[#9966ff]/60 text-[10px]">📖</p>
+            <p className="text-gray-500 text-[8px]">Your companion&apos;s story hasn&apos;t begun yet.</p>
+            <p className="text-gray-600 text-[7px]">Feed, pet, or talk to your companion to create journal entries.</p>
+          </div>
+        )
       ) : (
         <div className={`space-y-2 overflow-y-auto ${expanded ? 'max-h-96' : 'max-h-48'}`}>
           {displayEntries.map((entry) => (
@@ -806,7 +822,14 @@ function TraitsPanel({ address, tokenId }: { address: string; tokenId: number })
       </div>
 
       {unlocked.length === 0 && inProgress.length === 0 && (
-        <p className="text-gray-600 text-[8px]">Interact with your companion to discover traits!</p>
+        <div className="text-center py-4 space-y-2 bg-[#9966ff]/5 rounded-lg border border-[#9966ff]/15 px-3">
+          <p className="text-[#9966ff]/60 text-sm">✨</p>
+          <p className="text-[#9966ff]/80 text-[9px] font-bold tracking-wider">TRAITS AWAITING DISCOVERY</p>
+          <p className="text-gray-400 text-[8px]">
+            Feed, pet, and talk to your companion to unlock unique personality traits.
+          </p>
+          <p className="text-gray-600 text-[7px]">Each interaction brings you closer to revealing hidden abilities.</p>
+        </div>
       )}
 
       {unlocked.length > 0 && (
@@ -860,13 +883,15 @@ const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
 
 function QuestsPanel({ address, tokenId }: { address: string; tokenId: number }) {
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [questsLoaded, setQuestsLoaded] = useState(false);
   const [claiming, setClaiming] = useState<number | null>(null);
 
   const loadQuests = useCallback(() => {
     fetch(`/api/sanctuary/quests?address=${address}&token_id=${tokenId}`)
       .then((r) => r.json())
       .then((data) => { if (data.success) setQuests(data.quests); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setQuestsLoaded(true));
   }, [address, tokenId]);
 
   useEffect(() => { loadQuests(); }, [loadQuests]);
@@ -896,7 +921,15 @@ function QuestsPanel({ address, tokenId }: { address: string; tokenId: number })
       </div>
 
       {quests.length === 0 && (
-        <p className="text-gray-600 text-[8px]">Loading quests...</p>
+        questsLoaded ? (
+          <div className="text-center py-3 space-y-1">
+            <p className="text-[#ffd700]/40 text-[10px]">🗺️</p>
+            <p className="text-gray-500 text-[8px]">No quests available right now.</p>
+            <p className="text-gray-600 text-[7px]">Check back soon — new quests appear each season.</p>
+          </div>
+        ) : (
+          <p className="text-gray-600 text-[8px]">Loading quests...</p>
+        )
       )}
 
       <div className="space-y-2">
@@ -954,6 +987,123 @@ function QuestsPanel({ address, tokenId }: { address: string; tokenId: number })
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function CompanionPicker({ address, onSelected }: { address: string; onSelected: () => void }) {
+  const [owned, setOwned] = useState<OwnedSkrumpey[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(true);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState<number | null>(null);
+
+  useEffect(() => {
+    setPickerLoading(true);
+    setPickerError(null);
+    fetch(`/api/sanctuary/companion/list-owned?address=${address}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setOwned(data.owned ?? []);
+        else setPickerError('Failed to load your Skrumpeys');
+      })
+      .catch(() => setPickerError('Network error loading Skrumpeys'))
+      .finally(() => setPickerLoading(false));
+  }, [address]);
+
+  const selectSkrumpey = async (tokenId: number) => {
+    setSelecting(tokenId);
+    setPickerError(null);
+    try {
+      const res = await fetch('/api/sanctuary/companion/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, token_id: tokenId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onSelected();
+      } else {
+        setPickerError(data.error ?? 'Failed to select companion');
+      }
+    } catch {
+      setPickerError('Network error — please try again');
+    } finally {
+      setSelecting(null);
+    }
+  };
+
+  if (pickerLoading) {
+    return <p className="text-gray-500 text-[8px] animate-pulse">Loading your Skrumpeys...</p>;
+  }
+
+  if (pickerError) {
+    return (
+      <div className="space-y-2">
+        <p className="text-red-400 text-[8px]">{pickerError}</p>
+        <button
+          onClick={() => {
+            setPickerLoading(true);
+            setPickerError(null);
+            fetch(`/api/sanctuary/companion/list-owned?address=${address}`)
+              .then((r) => r.json())
+              .then((data) => {
+                if (data.success) setOwned(data.owned ?? []);
+                else setPickerError('Failed to load your Skrumpeys');
+              })
+              .catch(() => setPickerError('Network error loading Skrumpeys'))
+              .finally(() => setPickerLoading(false));
+          }}
+          className="text-[7px] text-[#9966ff] hover:text-[#bb88ff] transition-colors"
+        >
+          RETRY
+        </button>
+      </div>
+    );
+  }
+
+  if (owned.length === 0) {
+    return (
+      <div className="space-y-1">
+        <p className="text-gray-400 text-[8px]">You don&apos;t own any Skrumpeys yet.</p>
+        <p className="text-gray-600 text-[7px]">Get one on Magic Eden to start your sanctuary journey.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-gray-400 text-[8px]">Choose a companion to awaken in the Sanctuary:</p>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+        {owned.map((s) => (
+          <button
+            key={s.tokenId}
+            onClick={() => selectSkrumpey(s.tokenId)}
+            disabled={selecting !== null}
+            className={`group relative rounded-lg border p-1.5 transition-all ${
+              selecting === s.tokenId
+                ? 'border-[#ffd700] bg-[#ffd700]/10'
+                : 'border-[#2a2a4e] hover:border-[#9966ff]/60 hover:bg-[#9966ff]/5'
+            } disabled:opacity-50`}
+          >
+            {s.image && (
+              <img
+                src={s.image}
+                alt={s.name}
+                className="w-full aspect-square rounded object-cover"
+              />
+            )}
+            <p className="text-[6px] text-gray-400 mt-1 truncate">{s.name}</p>
+            {s.isStar && (
+              <span className="absolute top-0.5 right-0.5 text-[6px]">⭐</span>
+            )}
+            {selecting === s.tokenId && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                <span className="text-[#ffd700] text-[7px] animate-pulse">AWAKENING...</span>
+              </div>
+            )}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -1160,12 +1310,23 @@ function HolderSanctuary() {
             />
             <JournalPanel entries={journal} address={address} tokenId={companion.token_id} />
           </>
+        ) : address ? (
+          <div className="pixel-card p-6 md:col-span-2 text-center space-y-3">
+            <p className="text-[#9966ff] text-xs mb-2">NO COMPANION SELECTED</p>
+            <CompanionPicker
+              address={address}
+              onSelected={() => {
+                setLoading(true);
+                refreshState()
+                  .catch(() => setLoadError('Failed to load sanctuary data'))
+                  .finally(() => setLoading(false));
+              }}
+            />
+          </div>
         ) : (
           <div className="pixel-card p-6 md:col-span-2 text-center">
             <p className="text-[#9966ff] text-xs mb-2">NO COMPANION SELECTED</p>
-            <p className="text-gray-400 text-[8px]">
-              Select a Skrumpey to begin your sanctuary journey.
-            </p>
+            <p className="text-gray-400 text-[8px]">Connect your wallet to begin.</p>
           </div>
         )}
       </div>
