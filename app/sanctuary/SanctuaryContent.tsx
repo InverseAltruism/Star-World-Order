@@ -1386,10 +1386,15 @@ function HolderSanctuary() {
     setInteracting(action);
     setInteractError(null);
     try {
+      const walletAuthHeader = await getWalletAuthHeader(address);
+      if (!walletAuthHeader) return;
       const res = await fetch('/api/sanctuary/companion/interact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, token_id: companion.token_id, action }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
+        body: JSON.stringify({ walletAddress: address, token_id: companion.token_id, action }),
       });
       const data = await res.json();
       if (data.success) {

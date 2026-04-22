@@ -1,18 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { interactWithCompanionV15 } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 const VALID_ACTIONS = ['feed', 'pet', 'talk'] as const;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { address, token_id, action } = body;
+    const { walletAddress, address: legacyAddress, token_id, action } = body;
+    const resolvedAddress = walletAddress || legacyAddress;
 
-    if (!address || token_id === undefined || !action) {
+    if (!resolvedAddress || token_id === undefined || !action) {
       return NextResponse.json(
-        { success: false, error: 'address, token_id, and action are required' },
+        { success: false, error: 'walletAddress, token_id, and action are required' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, resolvedAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
       );
     }
 
@@ -24,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const isStar = isStarSkrumpeyId(token_id);
-    const result = interactWithCompanionV15(address, token_id, action, { isStar });
+    const result = interactWithCompanionV15(resolvedAddress, token_id, action, { isStar });
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to interact';
