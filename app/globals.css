@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@utility image-rendering-pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 :root {
   /* Synthwave color palette */
   --background: #0a0a1a;
