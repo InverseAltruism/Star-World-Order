@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { completeActivityV15 } from '@/lib/db';
 import { isStarSkrumpeyId } from '@/lib/starSkrumpey';
+import { ethAddress, tokenId, parseBody, formatZodError } from '@/lib/sanctuary/validation';
+
+const bodySchema = z.object({
+  address: ethAddress,
+  token_id: tokenId,
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { address, token_id } = body;
+    const parsed = parseBody(bodySchema, body);
 
-    if (!address || token_id === undefined) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: 'address and token_id are required' },
-        { status: 400 }
+        { success: false, error: formatZodError(parsed.error) },
+        { status: 400 },
       );
     }
 
-    const isStar = isStarSkrumpeyId(token_id);
-    const result = completeActivityV15(address, token_id, { isStar });
+    const { address, token_id: tid } = parsed.data;
+
+    const isStar = isStarSkrumpeyId(tid);
+    const result = completeActivityV15(address, tid, { isStar });
     if (!result) {
       return NextResponse.json(
         { success: false, error: 'No activity to complete (still in progress or none active)' },
-        { status: 409 }
+        { status: 409 },
       );
     }
 

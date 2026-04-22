@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getSanctuaryQuestsWithProgress, getSanctuaryQuests } from '@/lib/db';
+import { ethAddress, tokenId, parseSearchParams, formatZodError } from '@/lib/sanctuary/validation';
+
+const querySchema = z.object({
+  address: ethAddress.optional(),
+  token_id: tokenId.optional(),
+  season: z.string().default('spring-2026'),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
-    const tokenId = searchParams.get('token_id');
-    const season = searchParams.get('season') ?? 'spring-2026';
+    const parsed = parseSearchParams(querySchema, searchParams);
 
-    if (!address || !tokenId) {
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: formatZodError(parsed.error) }, { status: 400 });
+    }
+
+    const { address, token_id: tid, season } = parsed.data;
+
+    if (!address || tid === undefined) {
       const quests = getSanctuaryQuests(season);
       return NextResponse.json({ success: true, quests, progress: null });
     }
 
-    const quests = getSanctuaryQuestsWithProgress(address, parseInt(tokenId, 10), season);
+    const quests = getSanctuaryQuestsWithProgress(address, tid, season);
     return NextResponse.json({ success: true, quests });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Failed to get quests' }, { status: 500 });

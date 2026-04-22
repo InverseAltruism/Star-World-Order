@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getMetadataForTokenIds } from '@/lib/db';
 import { checkSkrumpeyOwnership, checkStarOwnershipBatched, isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { getOwnedTokenIds } from '@/lib/skrumpeyOwnership';
+import { ethAddress, parseSearchParams, formatZodError } from '@/lib/sanctuary/validation';
+
+const querySchema = z.object({
+  address: ethAddress,
+  trait_type: z.string().optional(),
+  trait_value: z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
-    const traitFilter = searchParams.get('trait_type');
-    const traitValue = searchParams.get('trait_value');
+    const parsed = parseSearchParams(querySchema, searchParams);
 
-    if (!address) {
-      return NextResponse.json({ success: false, error: 'address is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: formatZodError(parsed.error) }, { status: 400 });
     }
+
+    const { address, trait_type: traitFilter, trait_value: traitValue } = parsed.data;
 
     const { hasSkrumpey, balance } = await checkSkrumpeyOwnership(address);
     if (!hasSkrumpey) {
@@ -22,8 +30,6 @@ export async function GET(request: NextRequest) {
     const starTokens = await checkStarOwnershipBatched(address);
     const starIds = new Set(starTokens.map(t => t.tokenId));
 
-    // For small balances, we can check all 3333 tokens efficiently via multicall.
-    // For large balances this is still fast since multicall batches.
     const allTokenIds = Array.from({ length: 3333 }, (_, i) => i + 1);
     const ownedIds = await getOwnedTokenIds(address, allTokenIds);
 
