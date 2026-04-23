@@ -5,6 +5,8 @@ import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
 import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
 import { ZoneSystem } from '../systems/ZoneSystem';
+import { OtherPlayersManager } from '../sprites/OtherPlayerSprite';
+import type { RemotePlayer } from '@/lib/colyseus/types';
 
 const CAMERA_ZOOM = 2;
 const TILE_SIZE = 16;
@@ -18,6 +20,7 @@ export class WorldScene extends Phaser.Scene {
   private zoneLabels: Phaser.GameObjects.Text[] = [];
   private clickMarker: Phaser.GameObjects.Graphics | null = null;
   private zoneSystem!: ZoneSystem;
+  private otherPlayers!: OtherPlayersManager;
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -71,6 +74,7 @@ export class WorldScene extends Phaser.Scene {
     this.zoneSystem = new ZoneSystem(map.widthInPixels, map.heightInPixels);
     this.drawZoneOverlays();
     this.setupCompanionClick();
+    this.setupOtherPlayers();
 
     EventBus.emit('scene-ready', this);
   }
@@ -205,6 +209,22 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  private setupOtherPlayers() {
+    this.otherPlayers = new OtherPlayersManager(this);
+
+    EventBus.on('remote-player-add', (player: RemotePlayer) => {
+      this.otherPlayers.addPlayer(player);
+    });
+
+    EventBus.on('remote-player-remove', (sessionId: string) => {
+      this.otherPlayers.removePlayer(sessionId);
+    });
+
+    EventBus.on('remote-player-update', (player: RemotePlayer) => {
+      this.otherPlayers.updatePlayer(player);
+    });
+  }
+
   update() {
     if (!this.player) return;
 
@@ -216,11 +236,16 @@ export class WorldScene extends Phaser.Scene {
 
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
     this.zoneSystem.update(this.player.x, this.player.y);
+    this.otherPlayers.update(this.cameras.main);
   }
 
   shutdown() {
     this.zoneSystem.destroy();
+    this.otherPlayers.destroy();
     EventBus.off('companion-mood');
     EventBus.off('companion-constellation');
+    EventBus.off('remote-player-add');
+    EventBus.off('remote-player-remove');
+    EventBus.off('remote-player-update');
   }
 }
