@@ -8,6 +8,10 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     EventBus.emit('boot-progress', { phase: 'loading' });
+
+    this.load.tilemapTiledJSON('world-map', '/sanctuary/world-map.json');
+    this.load.image('tileset', '/sanctuary/tileset.png');
+    this.load.image('player', '/sanctuary/player.png');
   }
 
   create() {
