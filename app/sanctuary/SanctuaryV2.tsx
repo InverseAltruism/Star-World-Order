@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import type { PhaserGameRef } from '@/components/sanctuary/PhaserGame';
 import { useAccount } from 'wagmi';
@@ -15,9 +15,41 @@ const CompanionHUD = dynamic(
   { ssr: false }
 );
 
+const CompanionMenu = dynamic(
+  () => import('@/components/sanctuary/overlays/CompanionMenu'),
+  { ssr: false }
+);
+
 export default function SanctuaryV2() {
   const gameRef = useRef<PhaserGameRef | null>(null);
   const { address, isConnected } = useAccount();
+  const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+
+    async function fetchActiveCompanion() {
+      try {
+        const res = await fetch(`/api/sanctuary/companion?address=${address}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.companion) {
+          setActiveTokenId(data.companion.token_id);
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
+    fetchActiveCompanion();
+    return () => { cancelled = true; };
+  }, [address, refreshKey]);
+
+  const handleInteracted = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const handleSceneReady = useCallback(() => {
     // Future: send wallet data to Phaser scene via EventBus
@@ -51,6 +83,7 @@ export default function SanctuaryV2() {
       <div className="relative bg-black/80 border border-[#00f7ff]/30 rounded-lg overflow-hidden shadow-[0_0_15px_rgba(0,247,255,0.15)]">
         <PhaserGame ref={gameRef} onSceneReady={handleSceneReady} />
         <CompanionHUD walletAddress={address} />
+        <CompanionMenu walletAddress={address} tokenId={activeTokenId} onInteracted={handleInteracted} />
       </div>
     </div>
   );
