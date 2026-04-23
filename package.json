@@ -16,14 +16,19 @@
     "compile": "node scripts/compile-contracts.js",
     "test:network": "node scripts/test-connection.js",
     "db:init": "mkdir -p data && sqlite3 data/swo.db < scripts/init-db.sql",
-    "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts"
+    "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts",
+    "colyseus:start": "npx tsx server/colyseus/index.ts",
+    "colyseus:dev": "npx tsx --watch server/colyseus/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@colyseus/schema": "^4.0.20",
     "@tanstack/react-query": "^5.90.12",
     "better-sqlite3": "^12.5.0",
+    "colyseus": "^0.17.10",
+    "colyseus.js": "^0.16.22",
     "easystarjs": "^0.4.4",
     "ethers": "^6.16.0",
     "next": "^16.0.10",
