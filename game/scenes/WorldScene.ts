@@ -70,6 +70,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.zoneSystem = new ZoneSystem(map.widthInPixels, map.heightInPixels);
     this.drawZoneOverlays();
+    this.setupCompanionClick();
 
     EventBus.emit('scene-ready', this);
   }
@@ -190,6 +191,18 @@ export class WorldScene extends Phaser.Scene {
     for (const zone of this.zoneSystem.getZones()) {
       gfx.strokeRect(zone.x, zone.y, zone.width, zone.height);
     }
+  }
+
+  private setupCompanionClick() {
+    this.companion.setInteractive({ useHandCursor: true });
+    this.companion.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const camera = this.cameras.main;
+      const canvas = this.game.canvas;
+      const screenX = (this.companion.x - camera.worldView.x) * camera.zoom + canvas.offsetLeft;
+      const screenY = (this.companion.y - camera.worldView.y) * camera.zoom + canvas.offsetTop;
+      EventBus.emit('companion-clicked', { screenX, screenY });
+      pointer.event.stopPropagation();
+    });
   }
 
   update() {
