@@ -3,6 +3,7 @@ import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
+import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
 import { ZoneSystem } from '../systems/ZoneSystem';
 
 const CAMERA_ZOOM = 2;
@@ -11,6 +12,7 @@ const TILE_SIZE = 16;
 export class WorldScene extends Phaser.Scene {
   private player!: PlayerSprite;
   private companion!: CompanionSprite;
+  private animSystem!: AnimationSystem;
   private finder!: EasyStar.js;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private zoneLabels: Phaser.GameObjects.Text[] = [];
@@ -48,8 +50,11 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    this.animSystem = new AnimationSystem(this);
+
     this.player = new PlayerSprite(this, spawnX, spawnY);
     this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
+    this.companion.setAnimationSystem(this.animSystem);
 
     this.physics.add.collider(this.player, this.collisionLayer);
     this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
@@ -61,11 +66,28 @@ export class WorldScene extends Phaser.Scene {
     this.setupPathfinding(map);
     this.setupClickToMove();
     this.addZoneLabels(objectLayer);
+    this.setupEventBridge();
 
     this.zoneSystem = new ZoneSystem(map.widthInPixels, map.heightInPixels);
     this.drawZoneOverlays();
 
     EventBus.emit('scene-ready', this);
+  }
+
+  private setupEventBridge() {
+    EventBus.on('companion-mood', (mood: string) => {
+      const validMoods: CompanionMood[] = ['happy', 'calm', 'sleepy', 'excited', 'curious', 'idle'];
+      if (validMoods.includes(mood as CompanionMood)) {
+        this.companion.setMood(mood as CompanionMood);
+      }
+    });
+
+    EventBus.on('companion-constellation', (constellation: string) => {
+      const lower = constellation.toLowerCase() as Constellation;
+      if ((CONSTELLATIONS as readonly string[]).includes(lower)) {
+        this.companion.setConstellation(lower);
+      }
+    });
   }
 
   private setupPathfinding(map: Phaser.Tilemaps.Tilemap) {
@@ -185,5 +207,7 @@ export class WorldScene extends Phaser.Scene {
 
   shutdown() {
     this.zoneSystem.destroy();
+    EventBus.off('companion-mood');
+    EventBus.off('companion-constellation');
   }
 }

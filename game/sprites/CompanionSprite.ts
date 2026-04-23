@@ -1,28 +1,28 @@
 import Phaser from 'phaser';
 import type { Direction } from './PlayerSprite';
+import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
 
 const LERP_FACTOR = 0.15;
 const FOLLOW_DISTANCE = 20;
+const MOVEMENT_THRESHOLD = 0.1;
 
-const CONSTELLATIONS = [
-  'aether', 'spectra', 'solveil', 'nebulu', 'chroma',
-  'rose', 'monflare', 'auracore', 'parallel', 'prime',
-] as const;
-
-export type Constellation = (typeof CONSTELLATIONS)[number];
-
+export type { Constellation };
 export { CONSTELLATIONS };
 
 export class CompanionSprite extends Phaser.GameObjects.Sprite {
   private followOffsetX = FOLLOW_DISTANCE;
   private followOffsetY = FOLLOW_DISTANCE / 2;
-  private bobPhase = 0;
+  private baseY = 0;
+  private animSystem: AnimationSystem | null = null;
+  private lastTime = 0;
+  private prevTextureKey = '';
 
   constructor(scene: Phaser.Scene, x: number, y: number, textureKey?: string) {
     super(scene, x, y, textureKey || 'companion-placeholder');
     scene.add.existing(this);
     this.setDepth(9);
     this.setScale(1.5);
+    this.baseY = y;
   }
 
   static loadConstellationAssets(scene: Phaser.Scene): void {
@@ -36,20 +36,16 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
 
     const g = scene.make.graphics();
 
-    // Magenta blob body
     g.fillStyle(0xff00ff, 1);
     g.fillCircle(8, 8, 5);
 
-    // Inner highlight
     g.fillStyle(0xff66ff, 1);
     g.fillCircle(7, 6, 2);
 
-    // Eyes
     g.fillStyle(0xffffff, 1);
     g.fillRect(6, 6, 2, 2);
     g.fillRect(10, 6, 2, 2);
 
-    // Pupils
     g.fillStyle(0x000000, 1);
     g.fillRect(7, 7, 1, 1);
     g.fillRect(11, 7, 1, 1);
@@ -58,7 +54,58 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     g.destroy();
   }
 
+  setAnimationSystem(system: AnimationSystem) {
+    this.animSystem = system;
+  }
+
+  setMood(mood: CompanionMood) {
+    if (!this.animSystem) return;
+    if (this.animSystem.setMood(mood)) {
+      this.refreshTexture();
+    }
+  }
+
+  async setConstellation(constellation: Constellation) {
+    if (!this.animSystem) {
+      const key = `companion-${constellation}`;
+      if (this.scene.textures.exists(key)) {
+        this.setTexture(key);
+      }
+      return;
+    }
+
+    this.animSystem.setConstellation(constellation);
+
+    if (!this.animSystem.isLoaded(constellation)) {
+      this.animSystem.loadConstellationTextures(constellation);
+      await this.animSystem.startLoad();
+    }
+
+    this.refreshTexture();
+  }
+
+  private refreshTexture() {
+    if (!this.animSystem) return;
+
+    const animKey = this.animSystem.getAnimationKey();
+    if (animKey && this.scene.anims.exists(animKey)) {
+      this.play(animKey, true);
+      this.prevTextureKey = '';
+      return;
+    }
+
+    const textureKey = this.animSystem.getTextureKey();
+    if (textureKey !== this.prevTextureKey) {
+      this.prevTextureKey = textureKey;
+      this.setTexture(textureKey);
+    }
+  }
+
   followPlayer(playerX: number, playerY: number, playerDirection?: Direction) {
+    const now = this.scene.time.now;
+    const delta = this.lastTime ? Math.min(now - this.lastTime, 50) : 16;
+    this.lastTime = now;
+
     let targetOffsetX = FOLLOW_DISTANCE;
     let targetOffsetY = FOLLOW_DISTANCE / 2;
 
@@ -81,25 +128,43 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
         break;
     }
 
-    // Smoothly transition the offset
     this.followOffsetX += (targetOffsetX - this.followOffsetX) * 0.05;
     this.followOffsetY += (targetOffsetY - this.followOffsetY) * 0.05;
 
     const targetX = playerX + this.followOffsetX;
     const targetY = playerY + this.followOffsetY;
 
+    const prevX = this.x;
+    const prevBaseY = this.baseY;
+
     this.x += (targetX - this.x) * LERP_FACTOR;
-    this.y += (targetY - this.y) * LERP_FACTOR;
+    this.baseY += (targetY - this.baseY) * LERP_FACTOR;
 
-    // Gentle floating bob
-    this.bobPhase += 0.05;
-    this.y += Math.sin(this.bobPhase) * 0.3;
-  }
+    const dx = this.x - prevX;
+    const dy = this.baseY - prevBaseY;
+    const isMoving = Math.abs(dx) > MOVEMENT_THRESHOLD || Math.abs(dy) > MOVEMENT_THRESHOLD;
 
-  setConstellation(constellation: Constellation): void {
-    const key = `companion-${constellation}`;
-    if (this.scene.textures.exists(key)) {
-      this.setTexture(key);
+    if (this.animSystem) {
+      const stateChanged = this.animSystem.setState(isMoving ? 'walk' : 'idle');
+
+      if (isMoving && playerDirection) {
+        this.animSystem.setWalkDirection(playerDirection);
+      }
+
+      const yOffset = this.animSystem.getYOffset(delta);
+      this.y = this.baseY + yOffset;
+
+      if (stateChanged) {
+        this.refreshTexture();
+      }
+    } else {
+      this.y = this.baseY + Math.sin(now * 0.003) * 0.3;
+    }
+
+    if (playerDirection === 'left') {
+      this.setFlipX(true);
+    } else if (playerDirection === 'right') {
+      this.setFlipX(false);
     }
   }
 
