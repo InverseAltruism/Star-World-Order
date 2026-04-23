@@ -1,16 +1,19 @@
 import Phaser from 'phaser';
+import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
+import { PlayerSprite } from '../sprites/PlayerSprite';
+import { CompanionSprite } from '../sprites/CompanionSprite';
 
-const PLAYER_SPEED = 120;
 const CAMERA_ZOOM = 2;
 const TILE_SIZE = 16;
 
 export class WorldScene extends Phaser.Scene {
-  private player!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasd!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
+  private player!: PlayerSprite;
+  private companion!: CompanionSprite;
+  private finder!: EasyStar.js;
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private zoneLabels: Phaser.GameObjects.Text[] = [];
+  private clickMarker: Phaser.GameObjects.Graphics | null = null;
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -25,10 +28,9 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    const groundLayer = map.createLayer('Ground', tileset, 0, 0);
-    const detailLayer = map.createLayer('Detail', tileset, 0, 0);
+    map.createLayer('Ground', tileset, 0, 0);
+    map.createLayer('Detail', tileset, 0, 0);
     this.collisionLayer = map.createLayer('Collision', tileset, 0, 0)!;
-
     this.collisionLayer.setCollisionByExclusion([-1, 0]);
 
     let spawnX = 20 * TILE_SIZE + TILE_SIZE / 2;
@@ -44,31 +46,88 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
-    this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
-    this.player.setCollideWorldBounds(true);
-    this.player.setDepth(10);
+    this.player = new PlayerSprite(this, spawnX, spawnY);
+    this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
 
     this.physics.add.collider(this.player, this.collisionLayer);
-
     this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setZoom(CAMERA_ZOOM);
 
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.wasd = {
-        W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-        A: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-        S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-        D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      };
-    }
-
+    this.setupPathfinding(map);
+    this.setupClickToMove();
     this.addZoneLabels(objectLayer);
 
     EventBus.emit('scene-ready', this);
+  }
+
+  private setupPathfinding(map: Phaser.Tilemaps.Tilemap) {
+    this.finder = new EasyStar.js();
+
+    const grid: number[][] = [];
+    for (let y = 0; y < map.height; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < map.width; x++) {
+        const tile = this.collisionLayer.getTileAt(x, y);
+        row.push(tile && tile.index > 0 ? 1 : 0);
+      }
+      grid.push(row);
+    }
+
+    this.finder.setGrid(grid);
+    this.finder.setAcceptableTiles([0]);
+    this.finder.enableDiagonals();
+    this.finder.setIterationsPerCalculation(100);
+  }
+
+  private setupClickToMove() {
+    this.clickMarker = this.add.graphics();
+    this.clickMarker.setDepth(5);
+
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) return;
+
+      const tileX = Math.floor(pointer.worldX / TILE_SIZE);
+      const tileY = Math.floor(pointer.worldY / TILE_SIZE);
+
+      const collisionTile = this.collisionLayer.getTileAt(tileX, tileY);
+      if (collisionTile && collisionTile.index > 0) return;
+
+      this.showClickMarker(pointer.worldX, pointer.worldY);
+
+      const playerTile = this.player.getTilePos();
+      this.finder.findPath(
+        playerTile.x,
+        playerTile.y,
+        tileX,
+        tileY,
+        (path) => {
+          if (path && path.length > 1) {
+            this.player.setPath(path);
+          }
+        }
+      );
+      this.finder.calculate();
+    });
+  }
+
+  private showClickMarker(x: number, y: number) {
+    if (!this.clickMarker) return;
+    this.clickMarker.clear();
+    this.clickMarker.lineStyle(1, 0xffd700, 0.8);
+    this.clickMarker.strokeCircle(x, y, 4);
+
+    this.tweens.add({
+      targets: this.clickMarker,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => {
+        this.clickMarker?.setAlpha(1);
+        this.clickMarker?.clear();
+      },
+    });
   }
 
   private addZoneLabels(objectLayer: Phaser.Tilemaps.ObjectLayer | null) {
@@ -98,30 +157,14 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.cursors || !this.player) return;
+    if (!this.player) return;
 
-    const body = this.player.body;
-    body.setVelocity(0);
+    const keyboardActive = this.player.handleKeyboardInput();
 
-    const left = this.cursors.left.isDown || this.wasd.A.isDown;
-    const right = this.cursors.right.isDown || this.wasd.D.isDown;
-    const up = this.cursors.up.isDown || this.wasd.W.isDown;
-    const down = this.cursors.down.isDown || this.wasd.S.isDown;
-
-    if (left) {
-      body.setVelocityX(-PLAYER_SPEED);
-    } else if (right) {
-      body.setVelocityX(PLAYER_SPEED);
+    if (!keyboardActive) {
+      this.player.updatePathMovement();
     }
 
-    if (up) {
-      body.setVelocityY(-PLAYER_SPEED);
-    } else if (down) {
-      body.setVelocityY(PLAYER_SPEED);
-    }
-
-    if (body.velocity.x !== 0 && body.velocity.y !== 0) {
-      body.velocity.normalize().scale(PLAYER_SPEED);
-    }
+    this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
   }
 }

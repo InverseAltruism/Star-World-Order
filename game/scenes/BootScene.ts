@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
+import { PlayerSprite } from '../sprites/PlayerSprite';
+import { CompanionSprite } from '../sprites/CompanionSprite';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -11,10 +13,12 @@ export class BootScene extends Phaser.Scene {
 
     this.load.tilemapTiledJSON('world-map', '/sanctuary/world-map.json');
     this.load.image('tileset', '/sanctuary/tileset.png');
-    this.load.image('player', '/sanctuary/player.png');
   }
 
   create() {
+    PlayerSprite.generatePlaceholderTextures(this);
+    CompanionSprite.generatePlaceholderTexture(this);
+
     EventBus.emit('boot-progress', { phase: 'ready' });
     this.scene.start('WorldScene');
   }
