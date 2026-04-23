@@ -4,6 +4,7 @@ import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
 import { OtherPlayersManager } from '../sprites/OtherPlayerSprite';
+import { NPCManager } from '../sprites/NPCSprite';
 import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
 import type { RemotePlayer } from '@/lib/colyseus/types';
 import {
@@ -16,6 +17,7 @@ import {
   type Door,
   type RoomKey,
 } from '../config/worldLayout';
+import { NPC_DEFINITIONS } from '../config/npcDefinitions';
 import { cameraState } from '../systems/CameraState';
 
 const CAMERA_ZOOM = 2;
@@ -36,6 +38,7 @@ export class WorldScene extends Phaser.Scene {
   private doorPrompt: Phaser.GameObjects.Text | null = null;
   private interactKey!: Phaser.Input.Keyboard.Key;
   private otherPlayers!: OtherPlayersManager;
+  private npcManager!: NPCManager;
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -70,6 +73,7 @@ export class WorldScene extends Phaser.Scene {
     this.setupEditor();
     this.setupDoorPrompt();
     this.setupOtherPlayers();
+    this.npcManager = new NPCManager(this, NPC_DEFINITIONS);
 
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
@@ -303,6 +307,7 @@ export class WorldScene extends Phaser.Scene {
     if (!keyboardActive) this.player.updatePathMovement();
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
     this.otherPlayers.update(this.cameras.main);
+    this.npcManager.update(this.time.now);
     this.updateDoorDetection();
 
     const cam = this.cameras.main;
@@ -328,6 +333,7 @@ export class WorldScene extends Phaser.Scene {
 
   shutdown() {
     this.otherPlayers?.destroy();
+    this.npcManager?.destroy();
     EventBus.off('companion-mood');
     EventBus.off('companion-constellation');
     EventBus.off('editor-mode');

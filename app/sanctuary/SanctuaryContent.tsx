@@ -63,19 +63,6 @@ interface CompanionTrait {
   unlocked_at: string | null;
 }
 
-interface Quest {
-  id: number;
-  season: string;
-  title: string;
-  description: string;
-  quest_type: string;
-  requirement_type: string;
-  requirement_count: number;
-  reward_xp: number;
-  reward_bond: number;
-  reward_trait: string | null;
-  progress: { current_count: number; completed: number; reward_claimed: number } | null;
-}
 
 interface LocationCompanions {
   location_name: string;
@@ -984,122 +971,6 @@ function TraitsPanel({ address, tokenId }: { address: string; tokenId: number })
   );
 }
 
-const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
-  daily: { label: 'DAILY', color: '#44ff88' },
-  weekly: { label: 'WEEKLY', color: '#66bbff' },
-  seasonal: { label: 'SEASONAL', color: '#ffd700' },
-};
-
-function QuestsPanel({ address, tokenId }: { address: string; tokenId: number }) {
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [questsLoaded, setQuestsLoaded] = useState(false);
-  const [claiming, setClaiming] = useState<number | null>(null);
-
-  const loadQuests = useCallback(() => {
-    fetch(`/api/sanctuary/quests?address=${address}&token_id=${tokenId}`)
-      .then((r) => r.json())
-      .then((data) => { if (data.success) setQuests(data.quests); })
-      .catch(() => {})
-      .finally(() => setQuestsLoaded(true));
-  }, [address, tokenId]);
-
-  useEffect(() => { loadQuests(); }, [loadQuests]);
-
-  const claimReward = async (questId: number) => {
-    setClaiming(questId);
-    try {
-      const res = await fetch('/api/sanctuary/quests/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, token_id: tokenId, quest_id: questId }),
-      });
-      const data = await res.json();
-      if (data.success) await loadQuests();
-    } catch { /* ignore */ }
-    setClaiming(null);
-  };
-
-  const completed = quests.filter((q) => q.progress?.completed);
-  const active = quests.filter((q) => !q.progress?.completed);
-
-  return (
-    <div className="pixel-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[#ffd700] text-[9px] tracking-wider">SEASONAL QUESTS</h3>
-        <span className="text-gray-500 text-[7px]">Spring 2026 · {completed.length}/{quests.length}</span>
-      </div>
-
-      {quests.length === 0 && (
-        questsLoaded ? (
-          <div className="text-center py-3 space-y-1">
-            <p className="text-[#ffd700]/40 text-[10px]">🗺️</p>
-            <p className="text-gray-500 text-[8px]">No quests available right now.</p>
-            <p className="text-gray-600 text-[7px]">Check back soon — new quests appear each season.</p>
-          </div>
-        ) : (
-          <p className="text-gray-600 text-[8px]">Loading quests...</p>
-        )
-      )}
-
-      <div className="space-y-2">
-        {active.map((quest) => {
-          const badge = QUEST_TYPE_BADGE[quest.quest_type] ?? QUEST_TYPE_BADGE.seasonal;
-          const current = quest.progress?.current_count ?? 0;
-          const pct = Math.min((current / quest.requirement_count) * 100, 100);
-
-          return (
-            <div key={quest.id} className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3">
-              <div className="flex items-start justify-between mb-1">
-                <div>
-                  <span className="text-[6px] px-1.5 py-0.5 rounded mr-1.5" style={{ color: badge.color, backgroundColor: badge.color + '20', border: `1px solid ${badge.color}40` }}>
-                    {badge.label}
-                  </span>
-                  <span className="text-white text-[9px]">{quest.title}</span>
-                </div>
-                <span className="text-gray-500 text-[7px]">{current}/{quest.requirement_count}</span>
-              </div>
-              <p className="text-gray-500 text-[7px] mb-1.5">{quest.description}</p>
-              <div className="h-1 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
-                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: badge.color }} />
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {quest.reward_xp > 0 && <span className="text-[6px] text-[#ffd700]">+{quest.reward_xp} XP</span>}
-                {quest.reward_bond > 0 && <span className="text-[6px] text-[#ff66aa]">+{quest.reward_bond} Bond</span>}
-                {quest.reward_trait && <span className="text-[6px] text-[#9966ff]">🏷️ {quest.reward_trait}</span>}
-              </div>
-            </div>
-          );
-        })}
-
-        {completed.map((quest) => {
-          const canClaim = quest.progress?.completed && !quest.progress?.reward_claimed;
-
-          return (
-            <div key={quest.id} className={`bg-[#0a0a15] rounded-lg border p-3 ${canClaim ? 'border-[#ffd700]/40' : 'border-[#2a2a4e] opacity-60'}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="sanctuary-completion-sparkle text-[8px] mr-1">✨</span>
-                  <span className="text-white text-[9px]">{quest.title}</span>
-                </div>
-                {canClaim ? (
-                  <button
-                    onClick={() => claimReward(quest.id)}
-                    disabled={claiming !== null}
-                    className="px-2 py-0.5 bg-[#ffd700]/20 border border-[#ffd700]/40 rounded text-[#ffd700] text-[7px] hover:bg-[#ffd700]/30 disabled:opacity-40 transition-colors"
-                  >
-                    {claiming === quest.id ? '...' : 'CLAIM'}
-                  </button>
-                ) : (
-                  <span className="text-gray-600 text-[7px]">CLAIMED</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function CompanionPicker({
   address,
@@ -1575,10 +1446,7 @@ function HolderSanctuary() {
       {companion && address && (
         <div className="space-y-6">
           <ChatPanel address={address} tokenId={companion.token_id} companion={companion} />
-          <div className="grid md:grid-cols-2 gap-6">
-            <TraitsPanel address={address} tokenId={companion.token_id} />
-            <QuestsPanel address={address} tokenId={companion.token_id} />
-          </div>
+          <TraitsPanel address={address} tokenId={companion.token_id} />
         </div>
       )}
     </div>
