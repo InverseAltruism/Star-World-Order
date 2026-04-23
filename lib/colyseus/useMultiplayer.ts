@@ -96,11 +96,13 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
         const $ = getStateCallbacks(room as any);
 
         const updatePlayer = (sessionId: string, playerState: Record<string, unknown>) => {
+          const player = parsePlayer(sessionId, playerState);
           setPlayers((prev) => {
             const next = new Map(prev);
-            next.set(sessionId, parsePlayer(sessionId, playerState));
+            next.set(sessionId, player);
             return next;
           });
+          EventBus.emit('remote-player-update', player);
         };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -108,6 +110,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
           (playerState: Record<string, unknown>, sessionId: string) => {
             if (sessionId === room.sessionId) return;
             updatePlayer(sessionId, playerState);
+            EventBus.emit('remote-player-add', parsePlayer(sessionId, playerState));
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const $player = $(playerState as any) as any;
@@ -128,6 +131,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
               next.delete(sessionId);
               return next;
             });
+            EventBus.emit('remote-player-remove', sessionId);
           },
         );
         detachersRef.current.push(detachRemove);
