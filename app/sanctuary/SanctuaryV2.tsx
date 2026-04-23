@@ -21,6 +21,21 @@ const CompanionMenu = dynamic(
   { ssr: false }
 );
 
+const MultiplayerBridge = dynamic(
+  () => import('@/components/sanctuary/overlays/MultiplayerBridge'),
+  { ssr: false }
+);
+
+const ChatInput = dynamic(
+  () => import('@/components/sanctuary/overlays/ChatInput'),
+  { ssr: false }
+);
+
+const ChatBubble = dynamic(
+  () => import('@/components/sanctuary/overlays/ChatBubble'),
+  { ssr: false }
+);
+
 const DevMapEditor = dynamic(
   () => import('@/components/sanctuary/DevMapEditor'),
   { ssr: false }
@@ -92,6 +107,15 @@ export default function SanctuaryV2() {
         <PhaserGame ref={gameRef} onSceneReady={handleSceneReady} />
         <CompanionHUD walletAddress={address} />
         <CompanionMenu walletAddress={address} tokenId={activeTokenId} onInteracted={handleInteracted} />
+        {address && (
+          <MultiplayerBridge
+            wallet={address}
+            displayName={address.slice(0, 6)}
+            companionTokenId={activeTokenId ?? -1}
+          />
+        )}
+        <ChatBubble />
+        <ChatInput />
         {editMode && <DevMapEditor />}
       </div>
     </div>

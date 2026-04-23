@@ -5,7 +5,7 @@ import type { Room } from 'colyseus.js';
 import { getStateCallbacks } from 'colyseus.js';
 import EventBus from '@/components/sanctuary/EventBus';
 import { joinLocationRoom, parsePlayer } from './client';
-import type { RemotePlayer, JoinRoomOptions } from './types';
+import type { RemotePlayer, JoinRoomOptions, ChatMessage } from './types';
 
 interface UseMultiplayerOptions {
   wallet: string;
@@ -22,6 +22,7 @@ interface MultiplayerState {
   currentLocation: string | null;
   sendPosition: (x: number, y: number, facing: string, isMoving: boolean) => void;
   sendMood: (mood: string) => void;
+  sendChat: (text: string) => void;
 }
 
 export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState {
@@ -45,6 +46,13 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
 
   const sendMood = useCallback((mood: string) => {
     roomRef.current?.send('updateMood', { mood });
+  }, []);
+
+  const sendChat = useCallback((text: string) => {
+    const trimmed = text.slice(0, 100).trim();
+    if (trimmed && roomRef.current) {
+      roomRef.current.send('chat', { text: trimmed });
+    }
   }, []);
 
   useEffect(() => {
@@ -136,6 +144,15 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
         );
         detachersRef.current.push(detachRemove);
 
+        room.onMessage('chat', (msg: ChatMessage) => {
+          EventBus.emit('chat-message', {
+            sessionId: msg.sessionId,
+            displayName: msg.displayName,
+            text: msg.text,
+            isLocal: msg.sessionId === room.sessionId,
+          });
+        });
+
         room.onLeave(() => {
           cleanupListeners();
           roomRef.current = null;
@@ -152,15 +169,24 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
       leaveRoom();
     };
 
+    const handleSendChat = (text: string) => {
+      const trimmed = String(text || '').slice(0, 100).trim();
+      if (trimmed && roomRef.current) {
+        roomRef.current.send('chat', { text: trimmed });
+      }
+    };
+
     EventBus.on('location-entered', handleLocationEntered);
     EventBus.on('location-exited', handleLocationExited);
+    EventBus.on('send-chat', handleSendChat);
 
     return () => {
       EventBus.off('location-entered', handleLocationEntered);
       EventBus.off('location-exited', handleLocationExited);
+      EventBus.off('send-chat', handleSendChat);
       leaveRoom();
     };
   }, []);
 
-  return { players, isConnected, currentLocation, sendPosition, sendMood };
+  return { players, isConnected, currentLocation, sendPosition, sendMood, sendChat };
 }

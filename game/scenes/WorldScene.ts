@@ -16,6 +16,7 @@ import {
   type Door,
   type RoomKey,
 } from '../config/worldLayout';
+import { cameraState } from '../systems/CameraState';
 
 const CAMERA_ZOOM = 2;
 
@@ -303,6 +304,13 @@ export class WorldScene extends Phaser.Scene {
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
     this.otherPlayers.update(this.cameras.main);
     this.updateDoorDetection();
+
+    const cam = this.cameras.main;
+    cameraState.viewX = cam.worldView.x;
+    cameraState.viewY = cam.worldView.y;
+    cameraState.zoom = cam.zoom;
+    cameraState.localPlayerX = this.player.x;
+    cameraState.localPlayerY = this.player.y;
     if (this.currentDoor && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
       this.enterDoor(this.currentDoor);
     }
@@ -312,6 +320,10 @@ export class WorldScene extends Phaser.Scene {
         y: Math.round(this.input.activePointer.worldY),
       });
     }
+  }
+
+  getLocalPlayerPosition(): { x: number; y: number } {
+    return { x: this.player.x, y: this.player.y };
   }
 
   shutdown() {
