@@ -32,6 +32,7 @@ export const DOORS: Door[] = [
   { room: 'Observatory', x: 699, y: 159, w: 60, h: 73 },
   { room: 'Training Grounds', x: 1006, y: 220, w: 57, h: 69 },
   { room: 'Hot Springs', x: 295, y: 317, w: 86, h: 60 },
+  { room: 'Star Garden', x: 694, y: 480, w: 56, h: 68 },
   { room: 'Nebula Kitchen', x: 206, y: 564, w: 47, h: 71 },
   { room: 'Cosmic Library', x: 1047, y: 617, w: 54, h: 71 },
   { room: 'Aura Forge', x: 1270, y: 638, w: 65, h: 81 },
