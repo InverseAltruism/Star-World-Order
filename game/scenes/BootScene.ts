@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
+import { AnimationSystem } from '../systems/AnimationSystem';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -13,7 +14,8 @@ export class BootScene extends Phaser.Scene {
 
     this.load.tilemapTiledJSON('world-map', '/sanctuary/world-map.json');
     this.load.image('tileset', '/sanctuary/tileset.png');
-    CompanionSprite.loadConstellationAssets(this);
+
+    AnimationSystem.preloadConstellations(this, ['aether', 'spectra']);
   }
 
   create() {
