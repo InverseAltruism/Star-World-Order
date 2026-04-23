@@ -13,6 +13,12 @@ export interface RemotePlayer {
   currentLocation: string;
 }
 
+export interface ChatMessage {
+  sessionId: string;
+  displayName: string;
+  text: string;
+}
+
 export interface JoinRoomOptions {
   locationName: string;
   wallet: string;

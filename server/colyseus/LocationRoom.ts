@@ -46,6 +46,18 @@ export class LocationRoom extends Room<{ state: LocationState }> {
       if (!player) return;
       player.equippedCosmetics = data.equippedCosmetics;
     });
+
+    this.onMessage('chat', (client: Client, data: { text: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const text = String(data.text || '').slice(0, 100).trim();
+      if (!text) return;
+      this.broadcast('chat', {
+        sessionId: client.sessionId,
+        displayName: player.displayName || player.wallet.slice(0, 6),
+        text,
+      });
+    });
   }
 
   onJoin(client: Client, options: JoinOptions) {
