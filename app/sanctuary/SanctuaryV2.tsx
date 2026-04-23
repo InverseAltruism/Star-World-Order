@@ -10,6 +10,11 @@ const PhaserGame = dynamic(
   { ssr: false }
 );
 
+const CompanionHUD = dynamic(
+  () => import('@/components/sanctuary/overlays/CompanionHUD'),
+  { ssr: false }
+);
+
 export default function SanctuaryV2() {
   const gameRef = useRef<PhaserGameRef | null>(null);
   const { address, isConnected } = useAccount();
@@ -42,9 +47,10 @@ export default function SanctuaryV2() {
         </div>
       </div>
 
-      {/* Phaser canvas */}
-      <div className="bg-black/80 border border-[#00f7ff]/30 rounded-lg overflow-hidden shadow-[0_0_15px_rgba(0,247,255,0.15)]">
+      {/* Phaser canvas with HUD overlay */}
+      <div className="relative bg-black/80 border border-[#00f7ff]/30 rounded-lg overflow-hidden shadow-[0_0_15px_rgba(0,247,255,0.15)]">
         <PhaserGame ref={gameRef} onSceneReady={handleSceneReady} />
+        <CompanionHUD walletAddress={address} />
       </div>
     </div>
   );
