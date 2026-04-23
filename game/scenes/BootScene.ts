@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
+import { NPCSprite } from '../sprites/NPCSprite';
 import { AnimationSystem } from '../systems/AnimationSystem';
+import { NPC_DEFINITIONS } from '../config/npcDefinitions';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -20,6 +22,10 @@ export class BootScene extends Phaser.Scene {
   create() {
     PlayerSprite.generatePlaceholderTextures(this);
     CompanionSprite.generatePlaceholderTexture(this);
+
+    for (const def of NPC_DEFINITIONS) {
+      NPCSprite.generatePlaceholderTexture(this, def.id, def.spriteColor);
+    }
 
     this.generateRoomPlaceholder();
 

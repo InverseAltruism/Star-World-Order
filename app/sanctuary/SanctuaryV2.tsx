@@ -36,6 +36,16 @@ const ChatBubble = dynamic(
   { ssr: false }
 );
 
+const QuestDialog = dynamic(
+  () => import('@/components/sanctuary/overlays/QuestDialog'),
+  { ssr: false }
+);
+
+const QuestBoard = dynamic(
+  () => import('@/components/sanctuary/overlays/QuestBoard'),
+  { ssr: false }
+);
+
 const DevMapEditor = dynamic(
   () => import('@/components/sanctuary/DevMapEditor'),
   { ssr: false }
@@ -114,6 +124,8 @@ export default function SanctuaryV2() {
             companionTokenId={activeTokenId ?? -1}
           />
         )}
+        <QuestDialog walletAddress={address} tokenId={activeTokenId} />
+        <QuestBoard walletAddress={address} tokenId={activeTokenId} />
         <ChatBubble />
         <ChatInput />
         {editMode && <DevMapEditor />}
