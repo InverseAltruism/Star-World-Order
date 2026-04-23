@@ -13,6 +13,7 @@ export class BootScene extends Phaser.Scene {
 
     this.load.tilemapTiledJSON('world-map', '/sanctuary/world-map.json');
     this.load.image('tileset', '/sanctuary/tileset.png');
+    CompanionSprite.loadConstellationAssets(this);
   }
 
   create() {

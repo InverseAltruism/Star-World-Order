@@ -3,6 +3,7 @@ import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
+import { ZoneSystem } from '../systems/ZoneSystem';
 
 const CAMERA_ZOOM = 2;
 const TILE_SIZE = 16;
@@ -14,6 +15,7 @@ export class WorldScene extends Phaser.Scene {
   private collisionLayer!: Phaser.Tilemaps.TilemapLayer;
   private zoneLabels: Phaser.GameObjects.Text[] = [];
   private clickMarker: Phaser.GameObjects.Graphics | null = null;
+  private zoneSystem!: ZoneSystem;
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -59,6 +61,9 @@ export class WorldScene extends Phaser.Scene {
     this.setupPathfinding(map);
     this.setupClickToMove();
     this.addZoneLabels(objectLayer);
+
+    this.zoneSystem = new ZoneSystem(map.widthInPixels, map.heightInPixels);
+    this.drawZoneOverlays();
 
     EventBus.emit('scene-ready', this);
   }
@@ -156,6 +161,15 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private drawZoneOverlays(): void {
+    const gfx = this.add.graphics();
+    gfx.lineStyle(1, 0x9966ff, 0.25);
+
+    for (const zone of this.zoneSystem.getZones()) {
+      gfx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+    }
+  }
+
   update() {
     if (!this.player) return;
 
@@ -166,5 +180,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
+    this.zoneSystem.update(this.player.x, this.player.y);
+  }
+
+  shutdown() {
+    this.zoneSystem.destroy();
   }
 }

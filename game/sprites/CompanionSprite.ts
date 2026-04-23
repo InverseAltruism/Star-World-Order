@@ -4,6 +4,15 @@ import type { Direction } from './PlayerSprite';
 const LERP_FACTOR = 0.15;
 const FOLLOW_DISTANCE = 20;
 
+const CONSTELLATIONS = [
+  'aether', 'spectra', 'solveil', 'nebulu', 'chroma',
+  'rose', 'monflare', 'auracore', 'parallel', 'prime',
+] as const;
+
+export type Constellation = (typeof CONSTELLATIONS)[number];
+
+export { CONSTELLATIONS };
+
 export class CompanionSprite extends Phaser.GameObjects.Sprite {
   private followOffsetX = FOLLOW_DISTANCE;
   private followOffsetY = FOLLOW_DISTANCE / 2;
@@ -13,6 +22,13 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     super(scene, x, y, textureKey || 'companion-placeholder');
     scene.add.existing(this);
     this.setDepth(9);
+    this.setScale(1.5);
+  }
+
+  static loadConstellationAssets(scene: Phaser.Scene): void {
+    for (const c of CONSTELLATIONS) {
+      scene.load.image(`companion-${c}`, `/sanctuary/companions/${c}/idle.png`);
+    }
   }
 
   static generatePlaceholderTexture(scene: Phaser.Scene) {
@@ -78,6 +94,13 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     // Gentle floating bob
     this.bobPhase += 0.05;
     this.y += Math.sin(this.bobPhase) * 0.3;
+  }
+
+  setConstellation(constellation: Constellation): void {
+    const key = `companion-${constellation}`;
+    if (this.scene.textures.exists(key)) {
+      this.setTexture(key);
+    }
   }
 
   setNFTTexture(url: string) {
