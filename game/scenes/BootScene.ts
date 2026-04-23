@@ -5,6 +5,7 @@ import { CompanionSprite } from '../sprites/CompanionSprite';
 import { NPCSprite } from '../sprites/NPCSprite';
 import { AnimationSystem } from '../systems/AnimationSystem';
 import { NPC_DEFINITIONS } from '../config/npcDefinitions';
+import { ROOMS } from '../config/worldLayout';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -14,12 +15,18 @@ export class BootScene extends Phaser.Scene {
   preload() {
     EventBus.emit('boot-progress', { phase: 'loading' });
 
-    this.load.image('world-bg', '/sanctuary/Sanctuary_mainv1.png');
+    this.load.image('world-bg', '/sanctuary/Sanctuary_map.png');
+    this.load.image('player-sheet', '/sanctuary/Male_Grey_Sprite_transparent.png');
+
+    for (const room of ROOMS) {
+      this.load.image(`room-bg-${room}`, `/sanctuary/${encodeURI(room)}.png`);
+    }
 
     AnimationSystem.preloadConstellations(this, ['aether', 'spectra']);
   }
 
   create() {
+    PlayerSprite.registerFrames(this);
     PlayerSprite.generatePlaceholderTextures(this);
     CompanionSprite.generatePlaceholderTexture(this);
 

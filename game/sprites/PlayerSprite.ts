@@ -4,6 +4,31 @@ export type Direction = 'down' | 'left' | 'right' | 'up';
 
 const TILE_SIZE = 16;
 const PLAYER_SPEED = 120;
+const SRC_KEY = 'player-sheet';
+const SPRITE_KEY = 'player-sheet-clean';
+const FRAME_W = 150;
+const FRAME_H = 240;
+const PLAYER_SCALE = 0.26;
+
+const DIRECTION_ROW: Record<Direction, number> = {
+  down: 0,
+  left: 1,
+  right: 2,
+  up: 3,
+};
+
+// Tight character bounding boxes within Male_Grey_Sprite_transparent.png
+// (from scripts/analyze_sprite.mjs). Layout is identical across all 4 sheets.
+const CHAR_BBOXES: ReadonlyArray<ReadonlyArray<{ x: number; y: number; w: number; h: number }>> = [
+  [{ x: 182, y:  51, w: 122, h: 236 }, { x: 441, y:  51, w: 119, h: 236 }, { x: 701, y:  51, w: 116, h: 236 }, { x: 961, y:  51, w: 115, h: 236 }],
+  [{ x: 179, y: 338, w: 135, h: 226 }, { x: 436, y: 341, w: 134, h: 222 }, { x: 693, y: 340, w: 128, h: 223 }, { x: 949, y: 342, w: 128, h: 222 }],
+  [{ x: 166, y: 630, w: 131, h: 224 }, { x: 424, y: 631, w: 129, h: 222 }, { x: 680, y: 630, w: 129, h: 224 }, { x: 940, y: 630, w: 127, h: 224 }],
+  [{ x: 185, y: 914, w: 117, h: 230 }, { x: 442, y: 914, w: 113, h: 230 }, { x: 699, y: 914, w: 112, h: 230 }, { x: 955, y: 914, w: 113, h: 230 }],
+];
+
+function idleFrame(dir: Direction): number {
+  return DIRECTION_ROW[dir] * 4;
+}
 
 export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
   private direction: Direction = 'down';
@@ -14,60 +39,82 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
   private wasd: Record<string, Phaser.Input.Keyboard.Key> | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'player-down-0');
+    super(scene, x, y, SPRITE_KEY, 0);
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setCollideWorldBounds(true);
     this.setDepth(10);
+    this.setScale(PLAYER_SCALE);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(10, 10);
-    body.setOffset(3, 4);
+    // Tight hitbox around the character's feet inside the 150×240 clean frame.
+    body.setSize(80, 50);
+    body.setOffset(35, 190);
 
     this.setupAnimations();
     this.setupInput();
   }
 
-  static generatePlaceholderTextures(scene: Phaser.Scene) {
-    const directions: Direction[] = ['down', 'left', 'right', 'up'];
+  static generatePlaceholderTextures(_scene: Phaser.Scene) {
+    // No-op: real sprites now come from the spritesheet loaded in BootScene.
+  }
 
-    for (const dir of directions) {
-      for (let frame = 0; frame < 3; frame++) {
-        const key = `player-${dir}-${frame}`;
-        if (scene.textures.exists(key)) continue;
+  static registerFrames(scene: Phaser.Scene) {
+    // The artist drew each of the 16 walk frames at a different horizontal
+    // offset inside its cell — up to ~170 px of drift across a row, which
+    // made the character visibly slide left/right each step.
+    // Fix: extract each character's tight bounding box from the source
+    // sheet and re-paste it centered inside a uniform FRAME_W × FRAME_H
+    // canvas cell. Then register those cells as numbered frames 0-15.
+    if (scene.textures.exists(SPRITE_KEY)) return;
+    const src = scene.textures.get(SRC_KEY);
+    if (!src || src.key === '__MISSING') return;
+    const srcImg = src.getSourceImage() as CanvasImageSource;
 
-        const g = scene.make.graphics();
-        drawPlayerFrame(g, dir, frame);
-        g.generateTexture(key, TILE_SIZE, TILE_SIZE);
-        g.destroy();
+    const canvas = scene.textures.createCanvas(SPRITE_KEY, FRAME_W * 4, FRAME_H * 4);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 4; col++) {
+        const b = CHAR_BBOXES[row][col];
+        // Horizontally center the character; bottom-align vertically so
+        // the feet are at a consistent y across every frame.
+        const dx = col * FRAME_W + Math.floor((FRAME_W - b.w) / 2);
+        const dy = row * FRAME_H + (FRAME_H - b.h);
+        ctx.drawImage(srcImg, b.x, b.y, b.w, b.h, dx, dy, b.w, b.h);
+      }
+    }
+    canvas.refresh();
+
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 4; col++) {
+        const name = String(row * 4 + col);
+        if (canvas.has(name)) continue;
+        canvas.add(name, 0, col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H);
       }
     }
   }
 
   private setupAnimations() {
-    const directions: Direction[] = ['down', 'left', 'right', 'up'];
-
-    for (const dir of directions) {
-      const walkKey = `player-walk-${dir}`;
-      if (!this.scene.anims.exists(walkKey)) {
-        this.scene.anims.create({
-          key: walkKey,
-          frames: [
-            { key: `player-${dir}-1` },
-            { key: `player-${dir}-0` },
-            { key: `player-${dir}-2` },
-            { key: `player-${dir}-0` },
-          ],
-          frameRate: 8,
-          repeat: -1,
-        });
-      }
+    const dirs: Direction[] = ['down', 'right', 'left', 'up'];
+    for (const dir of dirs) {
+      const key = `player-walk-${dir}`;
+      if (this.scene.anims.exists(key)) continue;
+      const base = DIRECTION_ROW[dir] * 4;
+      this.scene.anims.create({
+        key,
+        frames: [
+          { key: SPRITE_KEY, frame: base + 0 },
+          { key: SPRITE_KEY, frame: base + 1 },
+        ],
+        frameRate: 4,
+        repeat: -1,
+      });
     }
   }
 
   private setupInput() {
     if (!this.scene.input.keyboard) return;
-
     this.cursors = this.scene.input.keyboard.createCursorKeys();
     this.wasd = {
       W: this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -79,7 +126,6 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
 
   handleKeyboardInput(): boolean {
     if (!this.cursors || !this.wasd) return false;
-
     const body = this.body as Phaser.Physics.Arcade.Body;
 
     const left = this.cursors.left.isDown || this.wasd.A.isDown;
@@ -91,21 +137,11 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
       this.clearPath();
       body.setVelocity(0);
 
-      if (left) {
-        body.setVelocityX(-PLAYER_SPEED);
-        this.direction = 'left';
-      } else if (right) {
-        body.setVelocityX(PLAYER_SPEED);
-        this.direction = 'right';
-      }
+      if (left) { body.setVelocityX(-PLAYER_SPEED); this.direction = 'left'; }
+      else if (right) { body.setVelocityX(PLAYER_SPEED); this.direction = 'right'; }
 
-      if (up) {
-        body.setVelocityY(-PLAYER_SPEED);
-        this.direction = 'up';
-      } else if (down) {
-        body.setVelocityY(PLAYER_SPEED);
-        this.direction = 'down';
-      }
+      if (up) { body.setVelocityY(-PLAYER_SPEED); this.direction = 'up'; }
+      else if (down) { body.setVelocityY(PLAYER_SPEED); this.direction = 'down'; }
 
       if (body.velocity.x !== 0 && body.velocity.y !== 0) {
         body.velocity.normalize().scale(PLAYER_SPEED);
@@ -118,7 +154,7 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
     if (!this.isPathMoving) {
       body.setVelocity(0);
       this.stop();
-      this.setTexture(`player-${this.direction}-0`);
+      this.setFrame(idleFrame(this.direction));
     }
 
     return false;
@@ -138,7 +174,6 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
 
   updatePathMovement() {
     if (!this.isPathMoving || !this.pathTarget) return;
-
     const body = this.body as Phaser.Physics.Arcade.Body;
     const dx = this.pathTarget.x - this.x;
     const dy = this.pathTarget.y - this.y;
@@ -173,7 +208,7 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
       this.pathTarget = null;
       (this.body as Phaser.Physics.Arcade.Body).setVelocity(0);
       this.stop();
-      this.setTexture(`player-${this.direction}-0`);
+      this.setFrame(idleFrame(this.direction));
       return;
     }
 
@@ -192,53 +227,5 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.play(`player-walk-${this.direction}`, true);
-  }
-}
-
-function drawPlayerFrame(g: Phaser.GameObjects.Graphics, dir: Direction, frame: number) {
-  // Head (cyan)
-  g.fillStyle(0x00f7ff, 1);
-  g.fillRect(5, 1, 6, 5);
-
-  // Body (darker cyan)
-  g.fillStyle(0x00d4dd, 1);
-  g.fillRect(4, 6, 8, 5);
-
-  // Direction-specific eyes
-  g.fillStyle(0xffffff, 1);
-  switch (dir) {
-    case 'down':
-      g.fillRect(6, 3, 1, 1);
-      g.fillRect(9, 3, 1, 1);
-      break;
-    case 'up':
-      g.fillStyle(0x009999, 1);
-      g.fillRect(6, 2, 4, 2);
-      break;
-    case 'left':
-      g.fillRect(5, 3, 1, 1);
-      g.fillRect(8, 3, 1, 1);
-      break;
-    case 'right':
-      g.fillRect(7, 3, 1, 1);
-      g.fillRect(10, 3, 1, 1);
-      break;
-  }
-
-  // Legs (alternate per frame for walk cycle)
-  g.fillStyle(0x0088aa, 1);
-  switch (frame) {
-    case 0:
-      g.fillRect(5, 11, 2, 4);
-      g.fillRect(9, 11, 2, 4);
-      break;
-    case 1:
-      g.fillRect(4, 11, 2, 4);
-      g.fillRect(10, 11, 2, 3);
-      break;
-    case 2:
-      g.fillRect(4, 11, 2, 3);
-      g.fillRect(10, 11, 2, 4);
-      break;
   }
 }
