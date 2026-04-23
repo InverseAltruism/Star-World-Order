@@ -39,6 +39,7 @@ export class WorldScene extends Phaser.Scene {
   private interactKey!: Phaser.Input.Keyboard.Key;
   private otherPlayers!: OtherPlayersManager;
   private npcManager!: NPCManager;
+  private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
 
   constructor() {
     super({ key: 'WorldScene' });
@@ -63,6 +64,8 @@ export class WorldScene extends Phaser.Scene {
     this.player = new PlayerSprite(this, spawnX, spawnY);
     this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
     this.companion.setAnimationSystem(this.animSystem);
+
+    this.physics.add.collider(this.player, this.collisionGroup);
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
@@ -104,9 +107,10 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private createCollisionBodies() {
+    this.collisionGroup = this.physics.add.staticGroup();
     for (const rect of COLLISION) {
       const zone = this.add.zone(rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w, rect.h);
-      this.physics.add.existing(zone, true);
+      this.collisionGroup.add(zone);
     }
   }
 
