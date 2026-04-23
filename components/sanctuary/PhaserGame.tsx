@@ -52,7 +52,16 @@ const PhaserGame = forwardRef<PhaserGameRef, PhaserGameProps>(
       };
     }, [ref, onSceneReady]);
 
-    return <div id="phaser-sanctuary" />;
+    return (
+      <div
+        id="phaser-sanctuary"
+        style={{
+          imageRendering: 'pixelated',
+          aspectRatio: '4 / 3',
+          width: '100%',
+        }}
+      />
+    );
   }
 );
 

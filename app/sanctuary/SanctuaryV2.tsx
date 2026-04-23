@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import type { PhaserGameRef } from '@/components/sanctuary/PhaserGame';
 import { useAccount } from 'wagmi';
 
@@ -20,8 +21,15 @@ const CompanionMenu = dynamic(
   { ssr: false }
 );
 
+const DevMapEditor = dynamic(
+  () => import('@/components/sanctuary/DevMapEditor'),
+  { ssr: false }
+);
+
 export default function SanctuaryV2() {
   const gameRef = useRef<PhaserGameRef | null>(null);
+  const searchParams = useSearchParams();
+  const editMode = searchParams.get('edit') === '1';
   const { address, isConnected } = useAccount();
   const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -84,6 +92,7 @@ export default function SanctuaryV2() {
         <PhaserGame ref={gameRef} onSceneReady={handleSceneReady} />
         <CompanionHUD walletAddress={address} />
         <CompanionMenu walletAddress={address} tokenId={activeTokenId} onInteracted={handleInteracted} />
+        {editMode && <DevMapEditor />}
       </div>
     </div>
   );

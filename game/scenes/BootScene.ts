@@ -12,8 +12,7 @@ export class BootScene extends Phaser.Scene {
   preload() {
     EventBus.emit('boot-progress', { phase: 'loading' });
 
-    this.load.tilemapTiledJSON('world-map', '/sanctuary/world-map.json');
-    this.load.image('tileset', '/sanctuary/tileset.png');
+    this.load.image('world-bg', '/sanctuary/Sanctuary_mainv1.png');
 
     AnimationSystem.preloadConstellations(this, ['aether', 'spectra']);
   }
@@ -22,7 +21,24 @@ export class BootScene extends Phaser.Scene {
     PlayerSprite.generatePlaceholderTextures(this);
     CompanionSprite.generatePlaceholderTexture(this);
 
+    this.generateRoomPlaceholder();
+
     EventBus.emit('boot-progress', { phase: 'ready' });
     this.scene.start('WorldScene');
+  }
+
+  private generateRoomPlaceholder() {
+    const g = this.add.graphics();
+    const w = 480;
+    const h = 320;
+    g.fillStyle(0x1a0033, 1);
+    g.fillRect(0, 0, w, h);
+    g.lineStyle(2, 0x00f7ff, 1);
+    g.strokeRect(8, 8, w - 16, h - 16);
+    g.lineStyle(1, 0x9966ff, 0.4);
+    for (let x = 16; x < w - 16; x += 16) g.lineBetween(x, 8, x, h - 8);
+    for (let y = 16; y < h - 16; y += 16) g.lineBetween(8, y, w - 8, y);
+    g.generateTexture('room-placeholder', w, h);
+    g.destroy();
   }
 }

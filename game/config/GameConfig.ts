@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
 import { WorldScene } from '../scenes/WorldScene';
+import { RoomScene } from '../scenes/RoomScene';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 1024,
-  height: 576,
+  width: 1200,
+  height: 900,
   parent: 'phaser-sanctuary',
   backgroundColor: '#0a0015',
   scale: {
@@ -19,7 +20,8 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, WorldScene],
+  scene: [BootScene, WorldScene, RoomScene],
   pixelArt: true,
   antialias: false,
+  roundPixels: true,
 };
