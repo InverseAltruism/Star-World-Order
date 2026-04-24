@@ -41,6 +41,11 @@ function createTestDb(): Database.Database {
   );
   db.exec(sanctuarySql);
 
+  const v16Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.6.sql');
+  if (fs.existsSync(v16Path)) {
+    db.exec(fs.readFileSync(v16Path, 'utf-8'));
+  }
+
   db.prepare('INSERT INTO star_skrumpey_metadata (token_id, name, constellation, aura, form, mood) VALUES (?, ?, ?, ?, ?, ?)')
     .run(3, 'Star #3', 'aether', 'mystic', 'classic', 'happy');
   db.prepare('INSERT INTO star_skrumpey_metadata (token_id, name, constellation, aura, form, mood) VALUES (?, ?, ?, ?, ?, ?)')
@@ -434,5 +439,97 @@ describe('Send to Activity', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].current_activity).toBe('exploring:Training Grounds');
     expect(rows[0].token_id).toBe(3);
+  });
+});
+
+describe('Sanctuary Player State (v1.6)', () => {
+  let db: Database.Database;
+
+  beforeAll(() => {
+    db = createTestDb();
+  });
+
+  it('creates sanctuary_player_state table', () => {
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sanctuary_player_state'")
+      .all() as { name: string }[];
+    expect(tables.length).toBe(1);
+  });
+
+  it('upsert marks new visits with intro_completed=0 by default', () => {
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, total_visits)
+      VALUES (?, 0, 1)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        last_visit_at = CURRENT_TIMESTAMP,
+        total_visits = total_visits + 1,
+        updated_at = CURRENT_TIMESTAMP
+    `).run('0xfresh');
+
+    const row = db
+      .prepare('SELECT * FROM sanctuary_player_state WHERE wallet_address = ?')
+      .get('0xfresh') as any;
+    expect(row).toBeTruthy();
+    expect(row.intro_completed).toBe(0);
+    expect(row.total_visits).toBe(1);
+  });
+
+  it('subsequent visits increment total_visits without resetting intro', () => {
+    const upsert = db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, total_visits)
+      VALUES (?, 0, 1)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        last_visit_at = CURRENT_TIMESTAMP,
+        total_visits = total_visits + 1,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    upsert.run('0xvisitor');
+    db.prepare('UPDATE sanctuary_player_state SET intro_completed = 1 WHERE wallet_address = ?')
+      .run('0xvisitor');
+    upsert.run('0xvisitor');
+    upsert.run('0xvisitor');
+
+    const row = db
+      .prepare('SELECT * FROM sanctuary_player_state WHERE wallet_address = ?')
+      .get('0xvisitor') as any;
+    expect(row.intro_completed).toBe(1);
+    expect(row.total_visits).toBe(3);
+  });
+
+  it('mark-intro-completed upserts idempotently', () => {
+    const mark = db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed)
+      VALUES (?, 1)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        intro_completed = 1,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+    mark.run('0xnewcomer');
+    mark.run('0xnewcomer');
+
+    const rows = db
+      .prepare('SELECT * FROM sanctuary_player_state WHERE wallet_address = ?')
+      .all('0xnewcomer') as any[];
+    expect(rows.length).toBe(1);
+    expect(rows[0].intro_completed).toBe(1);
+  });
+
+  it('different wallets have independent intro state', () => {
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed)
+      VALUES (?, 1)
+      ON CONFLICT(wallet_address) DO UPDATE SET intro_completed = 1
+    `).run('0xdone');
+
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed)
+      VALUES (?, 0)
+      ON CONFLICT(wallet_address) DO NOTHING
+    `).run('0xnew');
+
+    const done = db.prepare('SELECT intro_completed FROM sanctuary_player_state WHERE wallet_address = ?').get('0xdone') as any;
+    const fresh = db.prepare('SELECT intro_completed FROM sanctuary_player_state WHERE wallet_address = ?').get('0xnew') as any;
+    expect(done.intro_completed).toBe(1);
+    expect(fresh.intro_completed).toBe(0);
   });
 });

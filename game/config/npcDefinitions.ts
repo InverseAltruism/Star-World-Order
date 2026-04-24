@@ -1,4 +1,4 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, type RoomKey } from './worldLayout';
+import { WORLD_WIDTH, WORLD_HEIGHT, SPAWN, type RoomKey } from './worldLayout';
 
 export interface RoomPlacement {
   room: RoomKey;
@@ -16,18 +16,20 @@ export interface NPCDefinition {
   spriteColor: number;
   spriteFile?: string;
   roomPlacement?: RoomPlacement;
+  kind?: 'quest' | 'intro';
 }
 
 export const NPC_DEFINITIONS: NPCDefinition[] = [
   {
-    id: 'quest-board',
+    id: 'spawn-fox',
     name: 'Spawn Fox',
-    x: Math.round(0.5 * WORLD_WIDTH),
-    y: Math.round(0.48 * WORLD_HEIGHT) + 80,
+    x: SPAWN.x + 32,
+    y: SPAWN.y,
     zone: 'Town Square',
-    dialogue: 'View all available quests.',
+    dialogue: 'Welcome to the Sanctuary, traveler.',
     spriteColor: 0xffd700,
     spriteFile: 'Spawn_Fox_Sprite.png',
+    kind: 'intro',
   },
   {
     id: 'npc-hot-springs',
