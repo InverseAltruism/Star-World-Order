@@ -8,17 +8,19 @@ export interface NPCDefinition {
   zone: string;
   dialogue: string;
   spriteColor: number;
+  spriteFile?: string;
 }
 
 export const NPC_DEFINITIONS: NPCDefinition[] = [
   {
     id: 'quest-board',
-    name: 'Quest Board',
+    name: 'Spawn Fox',
     x: Math.round(0.5 * WORLD_WIDTH),
     y: Math.round(0.48 * WORLD_HEIGHT) + 80,
     zone: 'Town Square',
     dialogue: 'View all available quests.',
     spriteColor: 0xffd700,
+    spriteFile: 'Spawn_Fox_Sprite.png',
   },
   {
     id: 'npc-hot-springs',
@@ -28,6 +30,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Hot Springs',
     dialogue: 'The warm waters reveal hidden truths...',
     spriteColor: 0xff6644,
+    spriteFile: 'Springs_Duck_Sprite.png',
   },
   {
     id: 'npc-training-grounds',
@@ -37,6 +40,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Training Grounds',
     dialogue: 'Strength is forged through perseverance.',
     spriteColor: 0x44aaff,
+    spriteFile: 'Training_Wolf_Sprite.png',
   },
   {
     id: 'npc-dream-hollow',
@@ -46,6 +50,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Dream Hollow',
     dialogue: 'Dreams shape reality, if you let them...',
     spriteColor: 0xcc66ff,
+    spriteFile: 'Dream_Sheep_Sprite.png',
   },
   {
     id: 'npc-star-garden',
@@ -55,6 +60,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Star Garden',
     dialogue: 'Every star seed needs patience to bloom.',
     spriteColor: 0x66ff88,
+    spriteFile: 'Garden_Ent_Sprite.png',
   },
   {
     id: 'npc-nebula-kitchen',
@@ -64,6 +70,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Nebula Kitchen',
     dialogue: 'Cosmic cuisine fuels the soul!',
     spriteColor: 0xffaa44,
+    spriteFile: 'Kitchen_Bunny_Sprite.png',
   },
   {
     id: 'npc-cosmic-library',
@@ -73,6 +80,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Cosmic Library',
     dialogue: 'Knowledge is the oldest form of power.',
     spriteColor: 0x8866ff,
+    spriteFile: 'Hollow_moth_Sprite.png',
   },
   {
     id: 'npc-observatory',
@@ -82,6 +90,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Observatory',
     dialogue: 'The stars whisper secrets to those who listen.',
     spriteColor: 0xffffaa,
+    spriteFile: 'Observatory_Owl_Sprite.png',
   },
   {
     id: 'npc-aura-forge',
@@ -91,5 +100,10 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     zone: 'Aura Forge',
     dialogue: 'Auras are shaped in fire and will.',
     spriteColor: 0xff4466,
+    spriteFile: 'Aura_Golem_Sprite.png',
   },
 ];
+
+export function npcSpriteTextureKey(id: string): string {
+  return `npc-sprite-${id}`;
+}

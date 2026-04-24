@@ -4,7 +4,7 @@ import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
 import { NPCSprite } from '../sprites/NPCSprite';
 import { AnimationSystem } from '../systems/AnimationSystem';
-import { NPC_DEFINITIONS } from '../config/npcDefinitions';
+import { NPC_DEFINITIONS, npcSpriteTextureKey } from '../config/npcDefinitions';
 import { ROOMS } from '../config/worldLayout';
 
 export class BootScene extends Phaser.Scene {
@@ -20,6 +20,12 @@ export class BootScene extends Phaser.Scene {
 
     for (const room of ROOMS) {
       this.load.image(`room-bg-${room}`, `/sanctuary/${encodeURI(room)}.png`);
+    }
+
+    for (const def of NPC_DEFINITIONS) {
+      if (def.spriteFile) {
+        this.load.image(npcSpriteTextureKey(def.id), `/sanctuary/${encodeURI(def.spriteFile)}`);
+      }
     }
 
     AnimationSystem.preloadConstellations(this, ['aether', 'spectra']);
