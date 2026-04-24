@@ -5766,6 +5766,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v15Path, 'utf-8');
     database.exec(sql);
   }
+  const v16Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.6.sql');
+  if (fs.existsSync(v16Path)) {
+    const sql = fs.readFileSync(v16Path, 'utf-8');
+    database.exec(sql);
+  }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
     const sql = fs.readFileSync(rateLimitPath, 'utf-8');
@@ -6304,6 +6309,52 @@ export function getSanctuaryState(walletAddress: string): {
     : [];
 
   return { activeCompanion, companions, recentJournal };
+}
+
+export interface SanctuaryPlayerState {
+  wallet_address: string;
+  intro_completed: number;
+  first_visit_at: string;
+  last_visit_at: string;
+  total_visits: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getPlayerState(walletAddress: string): SanctuaryPlayerState | null {
+  const addr = walletAddress.toLowerCase();
+  const db = getDatabase();
+  const row = db
+    .prepare('SELECT * FROM sanctuary_player_state WHERE wallet_address = ?')
+    .get(addr) as SanctuaryPlayerState | undefined;
+  return row ?? null;
+}
+
+export function upsertPlayerVisit(walletAddress: string): SanctuaryPlayerState {
+  const addr = walletAddress.toLowerCase();
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO sanctuary_player_state (wallet_address, intro_completed, total_visits)
+    VALUES (?, 0, 1)
+    ON CONFLICT(wallet_address) DO UPDATE SET
+      last_visit_at = CURRENT_TIMESTAMP,
+      total_visits = total_visits + 1,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(addr);
+  return getPlayerState(addr) as SanctuaryPlayerState;
+}
+
+export function markIntroCompleted(walletAddress: string): SanctuaryPlayerState {
+  const addr = walletAddress.toLowerCase();
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO sanctuary_player_state (wallet_address, intro_completed)
+    VALUES (?, 1)
+    ON CONFLICT(wallet_address) DO UPDATE SET
+      intro_completed = 1,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(addr);
+  return getPlayerState(addr) as SanctuaryPlayerState;
 }
 
 // Expedition stubs — tables exist but functions not yet implemented

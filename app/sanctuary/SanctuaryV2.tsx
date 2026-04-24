@@ -61,6 +61,11 @@ const TraitsOverlay = dynamic(
   { ssr: false }
 );
 
+const WelcomeDialog = dynamic(
+  () => import('@/components/sanctuary/overlays/WelcomeDialog'),
+  { ssr: false }
+);
+
 const DevMapEditor = dynamic(
   () => import('@/components/sanctuary/DevMapEditor'),
   { ssr: false }
@@ -144,6 +149,7 @@ export default function SanctuaryV2() {
         <QuestTracker walletAddress={address} tokenId={activeTokenId} />
         <JournalOverlay walletAddress={address} tokenId={activeTokenId} />
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
+        <WelcomeDialog walletAddress={address} />
         <ChatBubble />
         <ChatInput />
         {editMode && <DevMapEditor />}
