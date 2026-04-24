@@ -66,6 +66,11 @@ const WelcomeDialog = dynamic(
   { ssr: false }
 );
 
+const LevelUpCelebration = dynamic(
+  () => import('@/components/sanctuary/overlays/LevelUpCelebration'),
+  { ssr: false }
+);
+
 const DevMapEditor = dynamic(
   () => import('@/components/sanctuary/DevMapEditor'),
   { ssr: false }
@@ -150,6 +155,7 @@ export default function SanctuaryV2() {
         <JournalOverlay walletAddress={address} tokenId={activeTokenId} />
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
         <WelcomeDialog walletAddress={address} />
+        <LevelUpCelebration />
         <ChatBubble />
         <ChatInput />
         {editMode && <DevMapEditor />}

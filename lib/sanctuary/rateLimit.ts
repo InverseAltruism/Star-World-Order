@@ -13,6 +13,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   'companion/interact': { maxRequests: 20, windowSeconds: 60 },
   'companion/send-to-activity': { maxRequests: 10, windowSeconds: 60 },
   'companion/complete-activity': { maxRequests: 10, windowSeconds: 60 },
+  'companion/training': { maxRequests: 20, windowSeconds: 60 },
   'companion/chat': { maxRequests: 30, windowSeconds: 60 },
   'quests/claim': { maxRequests: 10, windowSeconds: 60 },
 };

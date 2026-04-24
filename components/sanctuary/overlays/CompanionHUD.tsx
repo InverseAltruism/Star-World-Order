@@ -11,6 +11,8 @@ interface CompanionData {
   bond_score: number;
   total_xp: number;
   level: number;
+  companion_xp: number;
+  companion_level: number;
   current_activity: string;
   activity_ends_at: string | null;
 }
@@ -37,6 +39,19 @@ function xpProgress(totalXp: number, level: number): { current: number; needed: 
   const thisLevel = xpForLevel(level);
   const nextLevel = xpForLevel(level + 1);
   return { current: totalXp - thisLevel, needed: nextLevel - thisLevel };
+}
+
+// Per-companion XP thresholds (must match COMPANION_LEVEL_THRESHOLDS in lib/db.ts)
+const COMPANION_LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500];
+
+function companionXpProgress(xp: number, level: number): { current: number; needed: number } {
+  const idx = Math.min(level - 1, COMPANION_LEVEL_THRESHOLDS.length - 1);
+  const thisLevel = COMPANION_LEVEL_THRESHOLDS[idx] ?? 0;
+  const nextLevel = COMPANION_LEVEL_THRESHOLDS[idx + 1];
+  if (nextLevel === undefined) {
+    return { current: 1, needed: 1 };
+  }
+  return { current: Math.max(0, xp - thisLevel), needed: nextLevel - thisLevel };
 }
 
 function formatCountdown(endsAtIso: string): { label: string; done: boolean } {
@@ -81,6 +96,8 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           bond_score: data.companion.bond_score,
           total_xp: data.companion.total_xp ?? 0,
           level: data.companion.level ?? 1,
+          companion_xp: data.companion.companion_xp ?? data.companion.xp ?? 0,
+          companion_level: data.companion.companion_level ?? data.companion.level ?? 1,
           current_activity: data.companion.current_activity ?? 'lounging',
           activity_ends_at: data.companion.activity_ends_at ?? null,
         });
@@ -170,6 +187,13 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
         const bonus = data.starBonus ? ' ✨STAR' : '';
         setClaimFeedback(`REWARDS CLAIMED${bonus}`);
         EventBus.emit('companion-quest-claimed', { tokenId: companion.token_id });
+        if (data.leveledUp && data.levelAfter) {
+          EventBus.emit('companion-level-up', {
+            tokenId: companion.token_id,
+            levelBefore: data.levelBefore,
+            levelAfter: data.levelAfter,
+          });
+        }
         await fetchCompanion();
         setTimeout(() => setClaimFeedback(null), 2500);
       } else {
@@ -192,6 +216,8 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const bondPct = Math.min((companion.bond_score / 100) * 100, 100);
   const xp = xpProgress(companion.total_xp, companion.level);
   const xpPct = xp.needed > 0 ? Math.min((xp.current / xp.needed) * 100, 100) : 100;
+  const compXp = companionXpProgress(companion.companion_xp, companion.companion_level);
+  const compXpPct = compXp.needed > 0 ? Math.min((compXp.current / compXp.needed) * 100, 100) : 100;
 
   const questName = onQuest
     ? companion.current_activity.slice('exploring:'.length)
@@ -228,6 +254,23 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
                 style={{ width: `${xpPct}%` }}
               />
             </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[6px] text-[#ffd700] w-6 text-right" title="Training level (per Skrumpey)">
+              T{companion.companion_level}
+            </span>
+            <div
+              className="w-28 h-1 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]"
+              title={`Training XP: ${companion.companion_xp}`}
+            >
+              <div
+                className="h-full rounded-full bg-[#ffd700] transition-all duration-500"
+                style={{ width: `${compXpPct}%` }}
+              />
+            </div>
+            <span className="text-[6px] text-gray-500 w-14 text-right tabular-nums">
+              {compXp.needed > 0 ? `${compXp.current}/${compXp.needed}` : 'MAX'}
+            </span>
           </div>
         </div>
       </div>

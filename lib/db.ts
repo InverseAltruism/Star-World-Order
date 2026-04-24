@@ -5716,11 +5716,13 @@ export interface SanctuaryCompanion {
   bond_score: number;
   total_interactions: number;
   equipped_cosmetics: string;
+  xp: number;
+  level: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface SanctuaryCompanionWithMeta extends SanctuaryCompanion {
+export interface SanctuaryCompanionWithMeta extends Omit<SanctuaryCompanion, 'level'> {
   constellation: string | null;
   aura: string | null;
   form: string | null;
@@ -5731,6 +5733,12 @@ export interface SanctuaryCompanionWithMeta extends SanctuaryCompanion {
   image_url: string | null;
   rarity_rank: number | null;
   attributes_json: string | null;
+  // Companion-level XP/level (per-token, set by Training Grounds)
+  companion_xp: number;
+  companion_level: number;
+  // Wallet-level XP/level (aggregate, set by user_xp table). The `level` field
+  // is the wallet-wide level for backward compatibility with existing UI that
+  // uses it for location unlock thresholds.
   total_xp: number;
   level: number;
 }
@@ -5771,6 +5779,17 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v16Path, 'utf-8');
     database.exec(sql);
   }
+  const v17Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.7.sql');
+  if (fs.existsSync(v17Path)) {
+    const sql = fs.readFileSync(v17Path, 'utf-8');
+    database.exec(sql);
+  }
+  // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
+  // EXISTS is not portable across SQLite versions, so wrap in try/catch.
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
+  catch { /* column already exists */ }
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN level INTEGER NOT NULL DEFAULT 1'); }
+  catch { /* column already exists */ }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
     const sql = fs.readFileSync(rateLimitPath, 'utf-8');
@@ -5872,32 +5891,49 @@ export function getSanctuaryCompanion(walletAddress: string, tokenId: number): S
 export function getActiveCompanion(walletAddress: string): SanctuaryCompanionWithMeta | null {
   const db = getDatabase();
   const stmt = db.prepare(`
-    SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+    SELECT sc.id, sc.wallet_address, sc.token_id, sc.is_active, sc.nickname,
+           sc.current_activity, sc.activity_started_at, sc.activity_ends_at,
+           sc.bond_score, sc.total_interactions, sc.equipped_cosmetics,
+           sc.xp, sc.level, sc.created_at, sc.updated_at,
+           sc.xp as companion_xp, sc.level as companion_level,
+           ssm.constellation, ssm.aura, ssm.form, ssm.mood,
            ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
            ssm.rarity_rank, ssm.attributes_json,
-           COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
+           COALESCE(ux.total_xp, 0) as total_xp,
+           COALESCE(ux.level, 1) as wallet_level
     FROM sanctuary_companions sc
     LEFT JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
     LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
     WHERE sc.wallet_address = ? AND sc.is_active = 1
   `);
-  return (stmt.get(walletAddress.toLowerCase()) as SanctuaryCompanionWithMeta) || null;
+  const row = stmt.get(walletAddress.toLowerCase()) as (SanctuaryCompanionWithMeta & { wallet_level: number }) | undefined;
+  if (!row) return null;
+  // Expose wallet-level level under `level` name for existing callers (SanctuaryContent
+  // uses companion.level for location unlocks, which is wallet-wide progression).
+  return { ...row, level: row.wallet_level } as SanctuaryCompanionWithMeta;
 }
 
 export function getAllCompanions(walletAddress: string): SanctuaryCompanionWithMeta[] {
   const db = getDatabase();
   const stmt = db.prepare(`
-    SELECT sc.*, ssm.constellation, ssm.aura, ssm.form, ssm.mood,
+    SELECT sc.id, sc.wallet_address, sc.token_id, sc.is_active, sc.nickname,
+           sc.current_activity, sc.activity_started_at, sc.activity_ends_at,
+           sc.bond_score, sc.total_interactions, sc.equipped_cosmetics,
+           sc.xp, sc.level, sc.created_at, sc.updated_at,
+           sc.xp as companion_xp, sc.level as companion_level,
+           ssm.constellation, ssm.aura, ssm.form, ssm.mood,
            ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
            ssm.rarity_rank, ssm.attributes_json,
-           COALESCE(ux.total_xp, 0) as total_xp, COALESCE(ux.level, 1) as level
+           COALESCE(ux.total_xp, 0) as total_xp,
+           COALESCE(ux.level, 1) as wallet_level
     FROM sanctuary_companions sc
     LEFT JOIN star_skrumpey_metadata ssm ON sc.token_id = ssm.token_id
     LEFT JOIN user_xp ux ON sc.wallet_address = ux.wallet_address
     WHERE sc.wallet_address = ?
     ORDER BY sc.is_active DESC, sc.updated_at DESC
   `);
-  return stmt.all(walletAddress.toLowerCase()) as SanctuaryCompanionWithMeta[];
+  const rows = stmt.all(walletAddress.toLowerCase()) as (SanctuaryCompanionWithMeta & { wallet_level: number })[];
+  return rows.map((r) => ({ ...r, level: r.wallet_level }) as SanctuaryCompanionWithMeta);
 }
 
 export function selectCompanion(walletAddress: string, tokenId: number): SanctuaryCompanion {
@@ -6166,6 +6202,144 @@ const ACTIVITY_XP_REWARDS: Record<string, number> = {
   'Aura Forge': 40,
 };
 
+// --- Training Grounds (V1.7) ---
+// Per-companion XP thresholds (cumulative). Level 1 = 0-99 XP, Level 2 = 100-299 XP, etc.
+export const COMPANION_LEVEL_THRESHOLDS = [0, 100, 300, 600, 1000, 1500] as const;
+
+export function calculateCompanionLevel(xp: number): number {
+  let level = 1;
+  for (let i = 1; i < COMPANION_LEVEL_THRESHOLDS.length; i++) {
+    if (xp >= COMPANION_LEVEL_THRESHOLDS[i]) level = i + 1;
+    else break;
+  }
+  return level;
+}
+
+export interface CompanionTrainingTypeDef {
+  type: string;
+  label: string;
+  durationMinutes: number;
+  xpReward: number;
+  bondReward: number;
+  minLevel: number;
+  description: string;
+}
+
+// Training types keyed by name. Higher-level variants unlock at higher companion levels
+// and grant more XP (and longer duration).
+export const COMPANION_TRAINING_TYPES: Record<string, CompanionTrainingTypeDef> = {
+  Endurance: {
+    type: 'Endurance',
+    label: 'Endurance',
+    durationMinutes: 1,
+    xpReward: 40,
+    bondReward: 0.5,
+    minLevel: 1,
+    description: 'Short stamina drill. Quick XP for new companions.',
+  },
+  Agility: {
+    type: 'Agility',
+    label: 'Agility',
+    durationMinutes: 2,
+    xpReward: 85,
+    bondReward: 0.8,
+    minLevel: 2,
+    description: 'Reflex and speed work. Unlocks at level 2.',
+  },
+  Wisdom: {
+    type: 'Wisdom',
+    label: 'Wisdom',
+    durationMinutes: 5,
+    xpReward: 180,
+    bondReward: 1.2,
+    minLevel: 3,
+    description: 'Focused meditation drills. Unlocks at level 3.',
+  },
+  'Intense Endurance': {
+    type: 'Intense Endurance',
+    label: 'Intense Endurance',
+    durationMinutes: 10,
+    xpReward: 360,
+    bondReward: 2.0,
+    minLevel: 4,
+    description: 'Grueling stamina circuit. Unlocks at level 4.',
+  },
+  'Master Training': {
+    type: 'Master Training',
+    label: 'Master Training',
+    durationMinutes: 20,
+    xpReward: 700,
+    bondReward: 3.0,
+    minLevel: 5,
+    description: 'Peak conditioning across all disciplines. Unlocks at level 5.',
+  },
+};
+
+export function listTrainingTypesForLevel(companionLevel: number): CompanionTrainingTypeDef[] {
+  return Object.values(COMPANION_TRAINING_TYPES)
+    .filter((t) => t.minLevel <= companionLevel)
+    .sort((a, b) => a.minLevel - b.minLevel || a.xpReward - b.xpReward);
+}
+
+export function startCompanionTraining(
+  walletAddress: string,
+  tokenId: number,
+  trainingType: string,
+): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; training: CompanionTrainingTypeDef } {
+  const def = COMPANION_TRAINING_TYPES[trainingType];
+  if (!def) throw new Error('Invalid training type');
+
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const comp = db.prepare(
+      'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+    ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+
+    if (!comp) throw new Error('No active companion found');
+
+    if (comp.activity_ends_at) {
+      const endsAt = new Date(comp.activity_ends_at + 'Z').getTime();
+      if (endsAt > Date.now()) throw new Error('Companion is already on an activity');
+    }
+
+    const companionLevel = calculateCompanionLevel(comp.xp ?? 0);
+    if (companionLevel < def.minLevel) {
+      throw new Error(`Training requires companion level ${def.minLevel}`);
+    }
+
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + def.durationMinutes * 60 * 1000);
+
+    db.prepare(`
+      UPDATE sanctuary_companions
+      SET current_activity = ?,
+          activity_started_at = ?,
+          activity_ends_at = ?,
+          total_interactions = total_interactions + 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      `training:${def.type}`,
+      now.toISOString().replace('T', ' ').slice(0, 19),
+      endsAt.toISOString().replace('T', ' ').slice(0, 19),
+      comp.id,
+    );
+
+    const journal = addJournalEntry(addr, tokenId, 'activity',
+      `Began ${def.label} training at the Training Grounds. (${def.durationMinutes}m)`,
+      JSON.stringify({ action: 'start_training', training_type: def.type, duration_minutes: def.durationMinutes }));
+
+    const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
+      .get(comp.id) as SanctuaryCompanion;
+
+    return { companion: updated, journal, training: def };
+  });
+
+  return txn();
+}
+
 export function sendToActivity(
   walletAddress: string, tokenId: number, locationId: number,
   options?: { durationMinutes?: number }
@@ -6229,10 +6403,22 @@ export function sendToActivity(
   return txn();
 }
 
+export interface CompleteActivityResult {
+  companion: SanctuaryCompanion;
+  journal: SanctuaryJournalEntry;
+  starBonus: boolean;
+  isTraining?: boolean;
+  trainingType?: string;
+  companionXpAwarded?: number;
+  levelBefore?: number;
+  levelAfter?: number;
+  leveledUp?: boolean;
+}
+
 export function completeActivity(
   walletAddress: string, tokenId: number,
   options?: { isStar?: boolean }
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; starBonus: boolean } | null {
+): CompleteActivityResult | null {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
@@ -6246,11 +6432,70 @@ export function completeActivity(
     const endsAt = new Date(comp.activity_ends_at + 'Z').getTime();
     if (endsAt > Date.now()) return null;
 
+    const starBonus = options?.isStar ?? false;
+    const isTraining = comp.current_activity.startsWith('training:');
+
+    if (isTraining) {
+      const trainingType = comp.current_activity.slice('training:'.length);
+      const def = COMPANION_TRAINING_TYPES[trainingType];
+      const xpBase = def?.xpReward ?? 20;
+      const bondBase = def?.bondReward ?? 0.5;
+      const bondReward = bondBase * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+      const companionXpAwarded = Math.round(xpBase * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
+
+      const xpBefore = comp.xp ?? 0;
+      const xpAfter = xpBefore + companionXpAwarded;
+      const levelBefore = calculateCompanionLevel(xpBefore);
+      const levelAfter = calculateCompanionLevel(xpAfter);
+
+      db.prepare(`
+        UPDATE sanctuary_companions
+        SET current_activity = 'lounging',
+            activity_started_at = NULL,
+            activity_ends_at = NULL,
+            bond_score = MIN(bond_score + ?, 100.0),
+            xp = ?,
+            level = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(bondReward, xpAfter, levelAfter, comp.id);
+
+      addUserXP(addr, companionXpAwarded);
+
+      const bonusTag = starBonus ? ' (Star Bonus!)' : '';
+      const levelUpTag = levelAfter > levelBefore ? ` — LEVEL UP! ${levelBefore} → ${levelAfter}` : '';
+      const journal = addJournalEntry(addr, tokenId, 'activity',
+        `Finished ${trainingType} training. Bond +${bondReward.toFixed(1)}, XP +${companionXpAwarded}${bonusTag}${levelUpTag}`,
+        JSON.stringify({
+          action: 'complete_training',
+          training_type: trainingType,
+          bond_reward: bondReward,
+          companion_xp_awarded: companionXpAwarded,
+          level_before: levelBefore,
+          level_after: levelAfter,
+          starBonus,
+        }));
+
+      const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
+        .get(comp.id) as SanctuaryCompanion;
+
+      return {
+        companion: updated,
+        journal,
+        starBonus,
+        isTraining: true,
+        trainingType,
+        companionXpAwarded,
+        levelBefore,
+        levelAfter,
+        leveledUp: levelAfter > levelBefore,
+      };
+    }
+
     const activityName = comp.current_activity.startsWith('exploring:')
       ? comp.current_activity.slice('exploring:'.length)
       : comp.current_activity;
 
-    const starBonus = options?.isStar ?? false;
     const bondReward = (ACTIVITY_BOND_REWARDS[activityName] ?? 1.0) * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
     const xpReward = Math.round((ACTIVITY_XP_REWARDS[activityName] ?? 5) * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
 
@@ -6863,7 +7108,7 @@ export function interactWithCompanionV15(
 export function completeActivityV15(
   walletAddress: string, tokenId: number,
   options?: { isStar?: boolean }
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; starBonus: boolean } | null {
+): CompleteActivityResult | null {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
   const comp = db.prepare(
@@ -6873,6 +7118,7 @@ export function completeActivityV15(
   const activityName = comp?.current_activity?.startsWith('exploring:')
     ? comp.current_activity.slice('exploring:'.length)
     : null;
+  const wasTraining = comp?.current_activity?.startsWith('training:') ?? false;
 
   const result = completeActivity(walletAddress, tokenId, options);
   if (!result) return null;
@@ -6884,6 +7130,14 @@ export function completeActivityV15(
       incrementQuestProgress(addr, tokenId, trigger);
     }
     incrementQuestProgress(addr, tokenId, 'explore');
+  } else if (wasTraining) {
+    // Training finishing still counts as a Training Grounds exploration quest trigger
+    const trigger = ACTIVITY_TO_TRIGGER['Training Grounds'];
+    if (trigger) {
+      updateTraitProgress(addr, tokenId, trigger);
+      incrementQuestProgress(addr, tokenId, trigger);
+    }
+    incrementQuestProgress(addr, tokenId, 'train');
   }
 
   return result;
