@@ -5,6 +5,12 @@ import type { Room } from 'colyseus.js';
 import { getStateCallbacks } from 'colyseus.js';
 import EventBus from '@/components/sanctuary/EventBus';
 import { joinLocationRoom, parsePlayer } from './client';
+import {
+  findEchoIndex,
+  LOCAL_ONLY_SESSION_ID,
+  pruneExpiredEchoes,
+  type PendingEcho,
+} from './chatDedup';
 import type { RemotePlayer, JoinRoomOptions, ChatMessage } from './types';
 
 interface UseMultiplayerOptions {
@@ -32,6 +38,7 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
   const roomRef = useRef<Room | null>(null);
   const detachersRef = useRef<Array<() => void>>([]);
   const optionsRef = useRef(options);
+  const pendingLocalEchoesRef = useRef<PendingEcho[]>([]);
 
   useEffect(() => {
     optionsRef.current = options;
@@ -50,8 +57,28 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
 
   const sendChat = useCallback((text: string) => {
     const trimmed = text.slice(0, 100).trim();
-    if (trimmed && roomRef.current) {
-      roomRef.current.send('chat', { text: trimmed });
+    if (!trimmed) return;
+
+    const opts = optionsRef.current;
+    const room = roomRef.current;
+    const sessionId = room?.sessionId ?? LOCAL_ONLY_SESSION_ID;
+    const now = Date.now();
+
+    pendingLocalEchoesRef.current = pruneExpiredEchoes(
+      pendingLocalEchoesRef.current,
+      now,
+    );
+    pendingLocalEchoesRef.current.push({ text: trimmed, sessionId, timestamp: now });
+
+    EventBus.emit('chat-message', {
+      sessionId,
+      displayName: opts.displayName,
+      text: trimmed,
+      isLocal: true,
+    });
+
+    if (room) {
+      room.send('chat', { text: trimmed });
     }
   }, []);
 
@@ -145,11 +172,28 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
         detachersRef.current.push(detachRemove);
 
         room.onMessage('chat', (msg: ChatMessage) => {
+          const isLocal = msg.sessionId === room.sessionId;
+          if (isLocal) {
+            const now = Date.now();
+            pendingLocalEchoesRef.current = pruneExpiredEchoes(
+              pendingLocalEchoesRef.current,
+              now,
+            );
+            const idx = findEchoIndex(
+              pendingLocalEchoesRef.current,
+              { text: msg.text, sessionId: msg.sessionId },
+              now,
+            );
+            if (idx !== -1) {
+              pendingLocalEchoesRef.current.splice(idx, 1);
+              return;
+            }
+          }
           EventBus.emit('chat-message', {
             sessionId: msg.sessionId,
             displayName: msg.displayName,
             text: msg.text,
-            isLocal: msg.sessionId === room.sessionId,
+            isLocal,
           });
         });
 
@@ -171,8 +215,28 @@ export function useMultiplayer(options: UseMultiplayerOptions): MultiplayerState
 
     const handleSendChat = (text: string) => {
       const trimmed = String(text || '').slice(0, 100).trim();
-      if (trimmed && roomRef.current) {
-        roomRef.current.send('chat', { text: trimmed });
+      if (!trimmed) return;
+
+      const opts = optionsRef.current;
+      const room = roomRef.current;
+      const sessionId = room?.sessionId ?? LOCAL_ONLY_SESSION_ID;
+      const now = Date.now();
+
+      pendingLocalEchoesRef.current = pruneExpiredEchoes(
+        pendingLocalEchoesRef.current,
+        now,
+      );
+      pendingLocalEchoesRef.current.push({ text: trimmed, sessionId, timestamp: now });
+
+      EventBus.emit('chat-message', {
+        sessionId,
+        displayName: opts.displayName,
+        text: trimmed,
+        isLocal: true,
+      });
+
+      if (room) {
+        room.send('chat', { text: trimmed });
       }
     };
 
