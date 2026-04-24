@@ -41,6 +41,22 @@ interface CompanionActivityState {
   activity_ends_at: string | null;
 }
 
+interface TrainingOption {
+  type: string;
+  label: string;
+  durationMinutes: number;
+  xpReward: number;
+  bondReward: number;
+  minLevel: number;
+  description: string;
+}
+
+interface TrainingOptionsState {
+  companionLevel: number;
+  companionXp: number;
+  all: TrainingOption[];
+}
+
 const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
   daily: { label: 'DAILY', color: '#44ff88' },
   weekly: { label: 'WEEKLY', color: '#66bbff' },
@@ -71,6 +87,9 @@ export default function QuestDialog({
   const [companionState, setCompanionState] = useState<CompanionActivityState | null>(null);
   const [startingDuration, setStartingDuration] = useState<number | null>(null);
   const [questFeedback, setQuestFeedback] = useState<string | null>(null);
+  const [trainingOptions, setTrainingOptions] = useState<TrainingOptionsState | null>(null);
+  const [startingTraining, setStartingTraining] = useState<string | null>(null);
+  const [trainingFeedback, setTrainingFeedback] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
@@ -126,6 +145,24 @@ export default function QuestDialog({
     }
   }, [walletAddress]);
 
+  const loadTrainingOptions = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const res = await fetch(`/api/sanctuary/companion/training?address=${walletAddress}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.all)) {
+        setTrainingOptions({
+          companionLevel: data.companion_level ?? 1,
+          companionXp: data.companion_xp ?? 0,
+          all: data.all,
+        });
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [walletAddress]);
+
   const handleNPCClick = useCallback(
     (payload: NPCClickPayload) => {
       if (payload.npcId === 'spawn-fox' || payload.npcId === 'quest-board') {
@@ -134,11 +171,15 @@ export default function QuestDialog({
       setNpc(payload);
       setVisible(true);
       setQuestFeedback(null);
+      setTrainingFeedback(null);
       loadQuests();
       loadMapLocations();
       loadCompanionState();
+      if (payload.npcId === 'npc-training-grounds') {
+        loadTrainingOptions();
+      }
     },
-    [loadQuests, loadMapLocations, loadCompanionState]
+    [loadQuests, loadMapLocations, loadCompanionState, loadTrainingOptions]
   );
 
   useEffect(() => {
@@ -212,6 +253,51 @@ export default function QuestDialog({
       }
     },
     [walletAddress, tokenId, npc, locations, startingDuration, loadCompanionState],
+  );
+
+  const startTraining = useCallback(
+    async (trainingType: string) => {
+      if (!walletAddress || tokenId === null || startingTraining !== null) return;
+      setStartingTraining(trainingType);
+      setTrainingFeedback(null);
+      try {
+        const walletAuthHeader = await getWalletAuthHeader(walletAddress);
+        if (!walletAuthHeader) {
+          setStartingTraining(null);
+          return;
+        }
+        const res = await fetch('/api/sanctuary/companion/training', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-wallet-auth': walletAuthHeader,
+          },
+          body: JSON.stringify({
+            address: walletAddress,
+            token_id: tokenId,
+            training_type: trainingType,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const mins = data.training?.durationMinutes ?? 0;
+          setTrainingFeedback(`Training started. Done in ${mins < 60 ? `${mins}m` : `${mins / 60}h`}.`);
+          EventBus.emit('companion-quest-started', {
+            tokenId,
+            locationName: 'Training Grounds',
+            durationMinutes: mins,
+          });
+          await loadCompanionState();
+        } else {
+          setTrainingFeedback(data.error ?? 'Failed to start training.');
+        }
+      } catch {
+        setTrainingFeedback('Failed to start training.');
+      } finally {
+        setStartingTraining(null);
+      }
+    },
+    [walletAddress, tokenId, startingTraining, loadCompanionState],
   );
 
   const claimReward = useCallback(
@@ -295,6 +381,76 @@ export default function QuestDialog({
           </div>
           <p className="text-gray-400 text-[7px] mt-2 italic">&ldquo;{npc.dialogue}&rdquo;</p>
         </div>
+
+        {/* Training Grounds — training menu */}
+        {npc.npcId === 'npc-training-grounds' && tokenId !== null && trainingOptions && (
+          <div className="p-3 border-b border-[#2a2a4e]">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px]">🏋️</span>
+                <span className="text-[#ffd700] font-['Press_Start_2P'] text-[7px] uppercase tracking-wider">
+                  Begin Training
+                </span>
+              </div>
+              <span className="text-[6px] text-[#ffd700]/80 font-['Press_Start_2P']">
+                T{trainingOptions.companionLevel} · {trainingOptions.companionXp} XP
+              </span>
+            </div>
+            {companionBusy ? (
+              <p className="text-gray-500 text-[7px] italic leading-tight">
+                Your Skrumpey is still mid-activity. Claim from the HUD first.
+              </p>
+            ) : (
+              <>
+                <p className="text-gray-400 text-[7px] mb-2 leading-tight">
+                  Training grants per-Skrumpey XP. Level up to unlock harder drills.
+                </p>
+                <div className="space-y-1.5">
+                  {trainingOptions.all.map((opt) => {
+                    const locked = opt.minLevel > trainingOptions.companionLevel;
+                    const isStarting = startingTraining === opt.type;
+                    return (
+                      <button
+                        key={opt.type}
+                        onClick={() => !locked && startTraining(opt.type)}
+                        disabled={locked || startingTraining !== null}
+                        className={`w-full text-left rounded border px-2 py-1.5 transition-colors ${
+                          locked
+                            ? 'bg-[#0a0a15] border-[#2a2a4e] opacity-40 cursor-not-allowed'
+                            : isStarting
+                              ? 'bg-[#ffd700]/20 border-[#ffd700] text-[#ffd700]'
+                              : 'bg-[#0a0a15] border-[#2a2a4e] hover:bg-[#ffd700]/10 hover:border-[#ffd700]/60'
+                        }`}
+                        aria-label={locked ? `${opt.label} (locked)` : `Start ${opt.label} training`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-white text-[8px] font-['Press_Start_2P']">
+                            {locked ? '🔒 ' : ''}{opt.label}
+                          </span>
+                          <span className="text-[#ffd700] text-[6px] font-['Press_Start_2P']">
+                            +{opt.xpReward} XP
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-gray-500 text-[6px]">
+                            {opt.durationMinutes < 60 ? `${opt.durationMinutes}m` : `${opt.durationMinutes / 60}h`}
+                            {locked ? ` · Req L${opt.minLevel}` : ''}
+                          </span>
+                          {isStarting && (
+                            <span className="text-[#ffd700] text-[6px]">...</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            {trainingFeedback && (
+              <p className="text-[#ffd700] text-[7px] mt-2">{trainingFeedback}</p>
+            )}
+          </div>
+        )}
 
         {/* Send on Timed Quest */}
         {zoneHasLocation && tokenId !== null && (
