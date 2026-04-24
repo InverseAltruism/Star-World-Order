@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
-import type { NPCDefinition } from '../config/npcDefinitions';
+import { npcSpriteTextureKey, type NPCDefinition } from '../config/npcDefinitions';
 
 const IDLE_BOB_SPEED = 0.002;
 const IDLE_BOB_AMPLITUDE = 1.5;
 const INDICATOR_BOB_SPEED = 0.004;
 const INDICATOR_BOB_AMPLITUDE = 3;
+
+const NPC_DISPLAY_HEIGHT = 32;
+const PLACEHOLDER_SCALE = 1.5;
 
 export class NPCSprite extends Phaser.GameObjects.Container {
   readonly npcId: string;
@@ -20,6 +23,7 @@ export class NPCSprite extends Phaser.GameObjects.Container {
   private hasQuest = false;
   private idleFrame = 0;
   private idleTimer = 0;
+  private indicatorBaseY: number;
 
   constructor(scene: Phaser.Scene, def: NPCDefinition) {
     super(scene, def.x, def.y);
@@ -30,12 +34,25 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.dialogue = def.dialogue;
     this.baseY = def.y;
 
-    const textureKey = `npc-${def.id}`;
+    const realKey = npcSpriteTextureKey(def.id);
+    const realTex = scene.textures.get(realKey);
+    const hasReal = realTex && realTex.key !== '__MISSING';
+    const textureKey = hasReal ? realKey : `npc-${def.id}`;
     this.sprite = scene.add.sprite(0, 0, textureKey);
-    this.sprite.setScale(1.5);
+    if (hasReal) {
+      const src = realTex.getSourceImage() as { height?: number };
+      const h = src && typeof src.height === 'number' && src.height > 0 ? src.height : NPC_DISPLAY_HEIGHT;
+      this.sprite.setScale(NPC_DISPLAY_HEIGHT / h);
+    } else {
+      this.sprite.setScale(PLACEHOLDER_SCALE);
+    }
     this.add(this.sprite);
 
-    this.nameTag = scene.add.text(0, -14, def.name, {
+    const halfH = this.sprite.displayHeight / 2;
+    const nameTagY = -halfH - 2;
+    this.indicatorBaseY = nameTagY - 10;
+
+    this.nameTag = scene.add.text(0, nameTagY, def.name, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '5px',
       color: '#ffffff',
@@ -46,7 +63,7 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.nameTag.setOrigin(0.5, 1);
     this.add(this.nameTag);
 
-    this.indicator = scene.add.text(0, -22, '!', {
+    this.indicator = scene.add.text(0, this.indicatorBaseY, '!', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: '#ffd700',
@@ -58,7 +75,9 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.indicator.setVisible(false);
     this.add(this.indicator);
 
-    this.setSize(24, 24);
+    const hitW = Math.max(24, this.sprite.displayWidth);
+    const hitH = Math.max(24, this.sprite.displayHeight);
+    this.setSize(hitW, hitH);
     this.setInteractive({ useHandCursor: true });
 
     this.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -101,7 +120,7 @@ export class NPCSprite extends Phaser.GameObjects.Container {
 
     if (this.hasQuest) {
       const indicatorBob = Math.sin(time * INDICATOR_BOB_SPEED) * INDICATOR_BOB_AMPLITUDE;
-      this.indicator.setY(-22 + indicatorBob);
+      this.indicator.setY(this.indicatorBaseY + indicatorBob);
 
       const glow = 0.7 + 0.3 * Math.sin(time * 0.005);
       this.indicator.setAlpha(glow);
