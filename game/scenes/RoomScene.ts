@@ -70,6 +70,9 @@ export class RoomScene extends Phaser.Scene {
 
     this.input.keyboard!.on('keydown-ESC', () => this.exit());
     this.input.keyboard!.on('keydown-E', () => this.exit());
+    this.input.keyboard!.on('keydown-J', () => {
+      EventBus.emit('journal-overlay-toggle');
+    });
   }
 
   private buildNavGrid() {
