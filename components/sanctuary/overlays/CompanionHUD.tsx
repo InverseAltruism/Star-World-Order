@@ -95,6 +95,10 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
     EventBus.emit('journal-overlay-toggle');
   }, []);
 
+  const openTraits = useCallback(() => {
+    EventBus.emit('traits-overlay-toggle');
+  }, []);
+
   if (!companion) return null;
 
   const displayName =
@@ -143,6 +147,17 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
       >
         <span className="text-[10px] leading-none">📖</span>
         <span className="text-[6px] text-[#ffd700]/80 font-['Press_Start_2P']">[J]</span>
+      </button>
+
+      {/* Traits icon */}
+      <button
+        onClick={openTraits}
+        className="absolute bottom-2 left-16 z-20 flex items-center gap-1 bg-black/80 border border-[#6644aa]/60 rounded px-2 py-1 hover:bg-[#1a0f3a]/80 hover:border-[#9966ff]/60 transition-colors pointer-events-auto select-none"
+        aria-label="Open traits (T)"
+        title="Traits (T)"
+      >
+        <span className="text-[10px] leading-none">🌌</span>
+        <span className="text-[6px] text-[#9966ff]/80 font-['Press_Start_2P']">[T]</span>
       </button>
 
       {/* Location indicator */}

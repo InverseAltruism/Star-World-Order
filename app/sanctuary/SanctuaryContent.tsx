@@ -53,17 +53,6 @@ interface ChatMessage {
   created_at: string;
 }
 
-interface CompanionTrait {
-  trait_name: string;
-  trait_category: string;
-  progress: number;
-  threshold: number;
-  description: string;
-  unlocked: number;
-  unlocked_at: string | null;
-}
-
-
 interface LocationCompanions {
   location_name: string;
   count: number;
@@ -711,91 +700,6 @@ function ChatPanel({ address, tokenId, companion }: { address: string; tokenId: 
   );
 }
 
-const TRAIT_CATEGORY_CONFIG: Record<string, { icon: string; color: string }> = {
-  social: { icon: '💜', color: '#ff66aa' },
-  explorer: { icon: '🗺️', color: '#44ff88' },
-  gourmet: { icon: '🍽️', color: '#ff9944' },
-  scholar: { icon: '📚', color: '#66bbff' },
-  dreamer: { icon: '💭', color: '#9966ff' },
-  special: { icon: '⭐', color: '#ffd700' },
-};
-
-function TraitsPanel({ address, tokenId }: { address: string; tokenId: number }) {
-  const [traits, setTraits] = useState<CompanionTrait[]>([]);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/sanctuary/traits?address=${address}&token_id=${tokenId}`)
-      .then((r) => r.json())
-      .then((data) => { if (data.success) setTraits(data.traits); })
-      .catch(() => {});
-  }, [address, tokenId]);
-
-  const unlocked = traits.filter((t) => t.unlocked);
-  const inProgress = traits.filter((t) => !t.unlocked);
-
-  return (
-    <div className="pixel-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[#ffd700] text-[9px] tracking-wider">EVOLVED TRAITS</h3>
-        <span className="text-gray-500 text-[7px]">{unlocked.length} unlocked</span>
-      </div>
-
-      {unlocked.length === 0 && inProgress.length === 0 && (
-        <div className="text-center py-4 space-y-2 bg-[#9966ff]/5 rounded-lg border border-[#9966ff]/15 px-3">
-          <p className="text-[#9966ff]/60 text-sm">✨</p>
-          <p className="text-[#9966ff]/80 text-[9px] font-bold tracking-wider">TRAITS AWAITING DISCOVERY</p>
-          <p className="text-gray-400 text-[8px]">
-            Feed, pet, and talk to your companion to unlock unique personality traits.
-          </p>
-          <p className="text-gray-600 text-[7px]">Each interaction brings you closer to revealing hidden abilities.</p>
-        </div>
-      )}
-
-      {unlocked.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {unlocked.map((t) => {
-            const cat = TRAIT_CATEGORY_CONFIG[t.trait_category] ?? { icon: '✨', color: '#888' };
-            return (
-              <span key={t.trait_name} className="text-[7px] px-2 py-1 rounded-full border" style={{ borderColor: cat.color + '60', color: cat.color, backgroundColor: cat.color + '15' }}>
-                {cat.icon} {t.trait_name}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {inProgress.length > 0 && (
-        <>
-          <button onClick={() => setExpanded(!expanded)} className="text-gray-500 text-[7px] hover:text-white">
-            {expanded ? 'HIDE' : 'SHOW'} PROGRESS ({inProgress.length})
-          </button>
-          {expanded && (
-            <div className="space-y-1.5">
-              {inProgress.map((t) => {
-                const cat = TRAIT_CATEGORY_CONFIG[t.trait_category] ?? { icon: '✨', color: '#888' };
-                const pct = Math.min((t.progress / t.threshold) * 100, 100);
-                return (
-                  <div key={t.trait_name}>
-                    <div className="flex justify-between text-[7px] mb-0.5">
-                      <span className="text-gray-400">{cat.icon} {t.trait_name}</span>
-                      <span style={{ color: cat.color }}>{Math.round(t.progress)}/{t.threshold}</span>
-                    </div>
-                    <div className="h-1 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: cat.color }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-
 function CompanionPicker({
   address,
   activeTokenId,
@@ -1267,7 +1171,6 @@ function HolderSanctuary() {
       {companion && address && (
         <div className="space-y-6">
           <ChatPanel address={address} tokenId={companion.token_id} companion={companion} />
-          <TraitsPanel address={address} tokenId={companion.token_id} />
         </div>
       )}
     </div>
