@@ -3,9 +3,11 @@ import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSprite } from '../sprites/PlayerSprite';
 import { CompanionSprite } from '../sprites/CompanionSprite';
+import { NPCManager } from '../sprites/NPCSprite';
 import { AnimationSystem } from '../systems/AnimationSystem';
 import { NAV_CELL, type RoomKey } from '../config/worldLayout';
 import { getRoomLayout } from '../config/roomLayouts';
+import { getRoomNPCDefinitions } from '../config/npcDefinitions';
 
 const ROOM_W = 1448;
 const ROOM_H = 1086;
@@ -26,6 +28,7 @@ export class RoomScene extends Phaser.Scene {
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
   private clickMarker: Phaser.GameObjects.Graphics | null = null;
   private exiting = false;
+  private npcManager: NPCManager | null = null;
 
   constructor() {
     super({ key: 'RoomScene' });
@@ -67,6 +70,7 @@ export class RoomScene extends Phaser.Scene {
     this.setupClickToMove();
     this.setupExitZone();
     this.setupHUD();
+    this.setupNPCs();
 
     this.input.keyboard!.on('keydown-ESC', () => this.exit());
     this.input.keyboard!.on('keydown-E', () => this.exit());
@@ -171,6 +175,12 @@ export class RoomScene extends Phaser.Scene {
     void hint;
   }
 
+  private setupNPCs() {
+    const defs = getRoomNPCDefinitions(this.room);
+    if (defs.length === 0) return;
+    this.npcManager = new NPCManager(this, defs);
+  }
+
   private setupHUD() {
     const screenW = this.scale.width;
     this.add
@@ -193,6 +203,7 @@ export class RoomScene extends Phaser.Scene {
     const keyboardActive = this.player.handleKeyboardInput();
     if (!keyboardActive) this.player.updatePathMovement();
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
+    this.npcManager?.update(this.time.now);
   }
 
   private exit() {
@@ -202,5 +213,10 @@ export class RoomScene extends Phaser.Scene {
     this.time.delayedCall(260, () => {
       EventBus.emit('room-exit', { returnTo: this.returnTo });
     });
+  }
+
+  shutdown() {
+    this.npcManager?.destroy();
+    this.npcManager = null;
   }
 }
