@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 interface CompanionData {
   nickname: string | null;
@@ -10,6 +11,8 @@ interface CompanionData {
   bond_score: number;
   total_xp: number;
   level: number;
+  current_activity: string;
+  activity_ends_at: string | null;
 }
 
 interface CompanionHUDProps {
@@ -36,42 +39,87 @@ function xpProgress(totalXp: number, level: number): { current: number; needed: 
   return { current: totalXp - thisLevel, needed: nextLevel - thisLevel };
 }
 
+function formatCountdown(endsAtIso: string): { label: string; done: boolean } {
+  const endsAt = new Date(endsAtIso + 'Z').getTime();
+  const remaining = Math.max(0, endsAt - Date.now());
+  if (remaining <= 0) return { label: 'READY', done: true };
+  const totalSeconds = Math.ceil(remaining / 1000);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return { label: `${h}h ${m.toString().padStart(2, '0')}m`, done: false };
+  if (m > 0) return { label: `${m}m ${s.toString().padStart(2, '0')}s`, done: false };
+  return { label: `${s}s`, done: false };
+}
+
+function isOnQuest(activity: string | null | undefined, endsAt: string | null | undefined): boolean {
+  if (!activity || !activity.startsWith('exploring:')) return false;
+  if (!endsAt) return false;
+  return true;
+}
+
 export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const [companion, setCompanion] = useState<CompanionData | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [locationVisible, setLocationVisible] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [claiming, setClaiming] = useState(false);
+  const [claimFeedback, setClaimFeedback] = useState<string | null>(null);
+  const prevAwayRef = useRef<boolean>(false);
+
+  const fetchCompanion = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const res = await fetch(`/api/sanctuary/companion?address=${walletAddress}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.companion) {
+        setCompanion({
+          nickname: data.companion.nickname,
+          token_id: data.companion.token_id,
+          mood: data.companion.mood,
+          bond_score: data.companion.bond_score,
+          total_xp: data.companion.total_xp ?? 0,
+          level: data.companion.level ?? 1,
+          current_activity: data.companion.current_activity ?? 'lounging',
+          activity_ends_at: data.companion.activity_ends_at ?? null,
+        });
+      }
+    } catch {
+      // HUD is non-critical
+    }
+  }, [walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) return;
-    let cancelled = false;
-
-    async function fetchCompanion() {
-      try {
-        const res = await fetch(
-          `/api/sanctuary/companion?address=${walletAddress}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data.companion) {
-          setCompanion({
-            nickname: data.companion.nickname,
-            token_id: data.companion.token_id,
-            mood: data.companion.mood,
-            bond_score: data.companion.bond_score,
-            total_xp: data.companion.total_xp ?? 0,
-            level: data.companion.level ?? 1,
-          });
-        }
-      } catch {
-        // HUD is non-critical
-      }
-    }
-
     fetchCompanion();
+  }, [walletAddress, fetchCompanion]);
+
+  useEffect(() => {
+    const onQuestStarted = () => fetchCompanion();
+    const onQuestClaimed = () => fetchCompanion();
+    EventBus.on('companion-quest-started', onQuestStarted);
+    EventBus.on('companion-quest-claimed', onQuestClaimed);
     return () => {
-      cancelled = true;
+      EventBus.off('companion-quest-started', onQuestStarted);
+      EventBus.off('companion-quest-claimed', onQuestClaimed);
     };
-  }, [walletAddress]);
+  }, [fetchCompanion]);
+
+  const onQuest = isOnQuest(companion?.current_activity, companion?.activity_ends_at);
+
+  useEffect(() => {
+    if (!onQuest) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [onQuest]);
+
+  useEffect(() => {
+    if (prevAwayRef.current !== onQuest) {
+      EventBus.emit('companion-away', { away: onQuest });
+      prevAwayRef.current = onQuest;
+    }
+  }, [onQuest]);
 
   const onEnter = useCallback((payload: { name: string }) => {
     setLocationName(payload.name);
@@ -99,6 +147,43 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
     EventBus.emit('traits-overlay-toggle');
   }, []);
 
+  const handleClaim = useCallback(async () => {
+    if (!walletAddress || !companion || claiming) return;
+    setClaiming(true);
+    setClaimFeedback(null);
+    try {
+      const walletAuthHeader = await getWalletAuthHeader(walletAddress);
+      if (!walletAuthHeader) {
+        setClaiming(false);
+        return;
+      }
+      const res = await fetch('/api/sanctuary/companion/complete-activity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
+        body: JSON.stringify({ address: walletAddress, token_id: companion.token_id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const bonus = data.starBonus ? ' ✨STAR' : '';
+        setClaimFeedback(`REWARDS CLAIMED${bonus}`);
+        EventBus.emit('companion-quest-claimed', { tokenId: companion.token_id });
+        await fetchCompanion();
+        setTimeout(() => setClaimFeedback(null), 2500);
+      } else {
+        setClaimFeedback(data.error ?? 'Claim failed');
+        setTimeout(() => setClaimFeedback(null), 2500);
+      }
+    } catch {
+      setClaimFeedback('Claim failed');
+      setTimeout(() => setClaimFeedback(null), 2500);
+    } finally {
+      setClaiming(false);
+    }
+  }, [walletAddress, companion, claiming, fetchCompanion]);
+
   if (!companion) return null;
 
   const displayName =
@@ -107,6 +192,15 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const bondPct = Math.min((companion.bond_score / 100) * 100, 100);
   const xp = xpProgress(companion.total_xp, companion.level);
   const xpPct = xp.needed > 0 ? Math.min((xp.current / xp.needed) * 100, 100) : 100;
+
+  const questName = onQuest
+    ? companion.current_activity.slice('exploring:'.length)
+    : null;
+  const countdown = onQuest && companion.activity_ends_at
+    ? formatCountdown(companion.activity_ends_at)
+    : null;
+  // touch tick so linter treats it as used for countdown re-render
+  void tick;
 
   return (
     <>
@@ -137,6 +231,41 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           </div>
         </div>
       </div>
+
+      {/* Quest away-state panel */}
+      {onQuest && questName && countdown && (
+        <div className="absolute top-14 left-2 z-20 bg-black/90 border border-[#9966ff]/50 rounded px-3 py-2 pointer-events-auto select-none max-w-[200px] shadow-[0_0_12px_rgba(153,102,255,0.25)]">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-xs">{countdown.done ? '✨' : '💤'}</span>
+            <span className="text-[7px] text-[#9966ff] font-['Press_Start_2P'] uppercase tracking-wider">
+              On Quest
+            </span>
+          </div>
+          <p className="text-[8px] text-white font-['Press_Start_2P'] leading-tight mb-1 truncate">
+            {questName}
+          </p>
+          <p className={`text-[10px] font-['Press_Start_2P'] mb-1.5 ${countdown.done ? 'text-[#44ff88]' : 'text-[#ffd700]'}`}>
+            {countdown.done ? '✨ READY' : `⏱ ${countdown.label}`}
+          </p>
+          {countdown.done ? (
+            <button
+              onClick={handleClaim}
+              disabled={claiming}
+              className="w-full py-1.5 bg-[#44ff88]/20 border border-[#44ff88]/60 rounded text-[#44ff88] text-[7px] font-['Press_Start_2P'] uppercase tracking-wider hover:bg-[#44ff88]/30 disabled:opacity-40 transition-colors"
+              aria-label="Claim quest rewards"
+            >
+              {claiming ? '...' : 'Claim'}
+            </button>
+          ) : (
+            <div className="text-[6px] text-gray-500 text-center leading-tight">
+              Skrumpey is busy
+            </div>
+          )}
+          {claimFeedback && (
+            <p className="text-[6px] text-[#ffd700] mt-1 text-center">{claimFeedback}</p>
+          )}
+        </div>
+      )}
 
       {/* Journal book icon */}
       <button

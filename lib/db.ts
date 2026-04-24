@@ -6137,6 +6137,13 @@ const ACTIVITY_DURATIONS: Record<string, number> = {
   'Observatory': 150,
 };
 
+export const TIMED_QUEST_DURATIONS_MINUTES = [5, 15, 60, 240, 480] as const;
+export type TimedQuestDurationMinutes = typeof TIMED_QUEST_DURATIONS_MINUTES[number];
+
+function isValidTimedDuration(minutes: number): minutes is TimedQuestDurationMinutes {
+  return (TIMED_QUEST_DURATIONS_MINUTES as readonly number[]).includes(minutes);
+}
+
 const ACTIVITY_BOND_REWARDS: Record<string, number> = {
   'Dream Hollow': 0.8,
   'Nebula Kitchen': 1.2,
@@ -6160,7 +6167,8 @@ const ACTIVITY_XP_REWARDS: Record<string, number> = {
 };
 
 export function sendToActivity(
-  walletAddress: string, tokenId: number, locationId: number
+  walletAddress: string, tokenId: number, locationId: number,
+  options?: { durationMinutes?: number }
 ): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry } {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
@@ -6185,7 +6193,11 @@ export function sendToActivity(
 
     if (!location) throw new Error('Location not found');
 
-    const durationMinutes = ACTIVITY_DURATIONS[location.name] ?? 60;
+    const requestedDuration = options?.durationMinutes;
+    if (requestedDuration !== undefined && !isValidTimedDuration(requestedDuration)) {
+      throw new Error('Invalid quest duration');
+    }
+    const durationMinutes = requestedDuration ?? ACTIVITY_DURATIONS[location.name] ?? 60;
     const now = new Date();
     const endsAt = new Date(now.getTime() + durationMinutes * 60 * 1000);
 
