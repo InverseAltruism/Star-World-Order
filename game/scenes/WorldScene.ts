@@ -200,6 +200,9 @@ export class WorldScene extends Phaser.Scene {
       const lower = constellation.toLowerCase() as Constellation;
       if ((CONSTELLATIONS as readonly string[]).includes(lower)) this.companion.setConstellation(lower);
     });
+    EventBus.on('companion-away', (data: { away: boolean }) => {
+      this.companion.setAway(!!data?.away);
+    });
     EventBus.on('editor-mode', (enabled: boolean) => this.setEditorMode(enabled));
     EventBus.on('highlight-door', (data: { room: string }) => {
       this.highlightDoor(data?.room);
@@ -414,6 +417,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcManager?.destroy();
     EventBus.off('companion-mood');
     EventBus.off('companion-constellation');
+    EventBus.off('companion-away');
     EventBus.off('editor-mode');
     EventBus.off('highlight-door');
     EventBus.off('room-exit');

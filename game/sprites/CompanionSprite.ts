@@ -16,6 +16,8 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
   private animSystem: AnimationSystem | null = null;
   private lastTime = 0;
   private prevTextureKey = '';
+  private away = false;
+  private zzzText: Phaser.GameObjects.Text | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, textureKey?: string) {
     super(scene, x, y, textureKey || 'companion-placeholder');
@@ -23,6 +25,43 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     this.setDepth(9);
     this.setScale(1.5);
     this.baseY = y;
+  }
+
+  isAway(): boolean {
+    return this.away;
+  }
+
+  setAway(away: boolean) {
+    if (this.away === away) return;
+    this.away = away;
+
+    if (away) {
+      this.setAlpha(0.45);
+      this.setTint(0x8899cc);
+      if (this.animSystem) {
+        this.animSystem.setMood('sleepy');
+        this.refreshTexture();
+      }
+      if (!this.zzzText && this.scene) {
+        this.zzzText = this.scene.add
+          .text(this.x, this.y - 12, 'Zzz', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '6px',
+            color: '#9966ff',
+            stroke: '#000000',
+            strokeThickness: 2,
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(10);
+      }
+    } else {
+      this.setAlpha(1);
+      this.clearTint();
+      if (this.zzzText) {
+        this.zzzText.destroy();
+        this.zzzText = null;
+      }
+    }
   }
 
   static loadConstellationAssets(scene: Phaser.Scene): void {
@@ -166,6 +205,19 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     } else if (playerDirection === 'right') {
       this.setFlipX(false);
     }
+
+    if (this.zzzText) {
+      const bob = Math.sin(now * 0.004) * 1.5;
+      this.zzzText.setPosition(this.x, this.y - 14 + bob);
+    }
+  }
+
+  destroy(fromScene?: boolean): void {
+    if (this.zzzText) {
+      this.zzzText.destroy();
+      this.zzzText = null;
+    }
+    super.destroy(fromScene);
   }
 
   setNFTTexture(url: string) {

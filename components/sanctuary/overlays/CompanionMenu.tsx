@@ -49,11 +49,28 @@ export default function CompanionMenu({
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const [reaction, setReaction] = useState<ReactionEffect | null>(null);
   const [visible, setVisible] = useState(false);
+  const [busyOnQuest, setBusyOnQuest] = useState(false);
+  const [busyNotice, setBusyNotice] = useState<MenuPosition | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const openMenu = useCallback((payload: { screenX: number; screenY: number }) => {
+    if (busyOnQuest) {
+      setBusyNotice({ x: payload.screenX, y: payload.screenY });
+      setTimeout(() => setBusyNotice(null), 1600);
+      return;
+    }
     setMenuPos({ x: payload.screenX, y: payload.screenY });
     setVisible(true);
+  }, [busyOnQuest]);
+
+  useEffect(() => {
+    const onAway = (data: { away: boolean }) => {
+      setBusyOnQuest(!!data?.away);
+    };
+    EventBus.on('companion-away', onAway);
+    return () => {
+      EventBus.off('companion-away', onAway);
+    };
   }, []);
 
   const closeMenu = useCallback(() => {
@@ -150,6 +167,21 @@ export default function CompanionMenu({
       closeMenu();
     }
   }, [walletAddress, tokenId, interacting, menuPos, triggerReaction, addFloatingText, closeMenu, onInteracted]);
+
+  if (busyNotice && !menuPos) {
+    return (
+      <div className="absolute inset-0 z-30 pointer-events-none">
+        <div
+          className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 bg-black/90 border border-[#9966ff]/60 rounded px-2 py-1 animate-pulse"
+          style={{ left: busyNotice.x, top: busyNotice.y - 36 }}
+        >
+          <span className="text-[7px] text-[#9966ff] font-['Press_Start_2P'] uppercase tracking-wider">
+            💤 On Quest
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (!menuPos) return null;
 

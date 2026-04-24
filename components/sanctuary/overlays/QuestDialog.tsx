@@ -31,11 +31,29 @@ interface NPCClickPayload {
   screenY: number;
 }
 
+interface MapLocation {
+  id: number;
+  name: string;
+}
+
+interface CompanionActivityState {
+  current_activity: string;
+  activity_ends_at: string | null;
+}
+
 const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
   daily: { label: 'DAILY', color: '#44ff88' },
   weekly: { label: 'WEEKLY', color: '#66bbff' },
   seasonal: { label: 'SEASONAL', color: '#ffd700' },
 };
+
+const TIMED_QUEST_OPTIONS: { minutes: 5 | 15 | 60 | 240 | 480; label: string }[] = [
+  { minutes: 5, label: '5m' },
+  { minutes: 15, label: '15m' },
+  { minutes: 60, label: '1h' },
+  { minutes: 240, label: '4h' },
+  { minutes: 480, label: '8h' },
+];
 
 export default function QuestDialog({
   walletAddress,
@@ -49,6 +67,10 @@ export default function QuestDialog({
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState<number | null>(null);
   const [visible, setVisible] = useState(false);
+  const [locations, setLocations] = useState<MapLocation[]>([]);
+  const [companionState, setCompanionState] = useState<CompanionActivityState | null>(null);
+  const [startingDuration, setStartingDuration] = useState<number | null>(null);
+  const [questFeedback, setQuestFeedback] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
@@ -72,6 +94,38 @@ export default function QuestDialog({
     }
   }, [walletAddress, tokenId]);
 
+  const loadMapLocations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sanctuary/map');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.locations)) {
+        setLocations(
+          data.locations.map((l: { id: number; name: string }) => ({ id: l.id, name: l.name })),
+        );
+      }
+    } catch {
+      // Non-critical
+    }
+  }, []);
+
+  const loadCompanionState = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const res = await fetch(`/api/sanctuary/companion?address=${walletAddress}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.companion) {
+        setCompanionState({
+          current_activity: data.companion.current_activity ?? 'lounging',
+          activity_ends_at: data.companion.activity_ends_at ?? null,
+        });
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [walletAddress]);
+
   const handleNPCClick = useCallback(
     (payload: NPCClickPayload) => {
       if (payload.npcId === 'spawn-fox' || payload.npcId === 'quest-board') {
@@ -79,9 +133,12 @@ export default function QuestDialog({
       }
       setNpc(payload);
       setVisible(true);
+      setQuestFeedback(null);
       loadQuests();
+      loadMapLocations();
+      loadCompanionState();
     },
-    [loadQuests]
+    [loadQuests, loadMapLocations, loadCompanionState]
   );
 
   useEffect(() => {
@@ -106,6 +163,56 @@ export default function QuestDialog({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [visible, close]);
+
+  const startTimedQuest = useCallback(
+    async (minutes: number) => {
+      if (!walletAddress || tokenId === null || !npc || startingDuration !== null) return;
+      const location = locations.find((l) => l.name === npc.zone);
+      if (!location) {
+        setQuestFeedback('Location unavailable.');
+        return;
+      }
+      setStartingDuration(minutes);
+      setQuestFeedback(null);
+      try {
+        const walletAuthHeader = await getWalletAuthHeader(walletAddress);
+        if (!walletAuthHeader) {
+          setStartingDuration(null);
+          return;
+        }
+        const res = await fetch('/api/sanctuary/companion/send-to-activity', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-wallet-auth': walletAuthHeader,
+          },
+          body: JSON.stringify({
+            address: walletAddress,
+            token_id: tokenId,
+            location_id: location.id,
+            duration_minutes: minutes,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setQuestFeedback(`Quest started! Returning in ${minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}.`);
+          EventBus.emit('companion-quest-started', {
+            tokenId,
+            locationName: location.name,
+            durationMinutes: minutes,
+          });
+          await loadCompanionState();
+        } else {
+          setQuestFeedback(data.error ?? 'Failed to start quest.');
+        }
+      } catch {
+        setQuestFeedback('Failed to start quest.');
+      } finally {
+        setStartingDuration(null);
+      }
+    },
+    [walletAddress, tokenId, npc, locations, startingDuration, loadCompanionState],
+  );
 
   const claimReward = useCallback(
     async (questId: number) => {
@@ -149,6 +256,14 @@ export default function QuestDialog({
   const activeQuests = zoneQuests.filter((q) => !q.progress?.completed);
   const completedQuests = zoneQuests.filter((q) => q.progress?.completed);
 
+  const companionBusy = !!(
+    companionState
+    && companionState.current_activity.startsWith('exploring:')
+    && companionState.activity_ends_at
+    && new Date(companionState.activity_ends_at + 'Z').getTime() > Date.now()
+  );
+  const zoneHasLocation = locations.some((l) => l.name === npc.zone);
+
   return (
     <div className="absolute inset-0 z-40 pointer-events-none">
       <div
@@ -180,6 +295,52 @@ export default function QuestDialog({
           </div>
           <p className="text-gray-400 text-[7px] mt-2 italic">&ldquo;{npc.dialogue}&rdquo;</p>
         </div>
+
+        {/* Send on Timed Quest */}
+        {zoneHasLocation && tokenId !== null && (
+          <div className="p-3 border-b border-[#2a2a4e]">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-[8px]">🗺️</span>
+              <span className="text-[#9966ff] font-['Press_Start_2P'] text-[7px] uppercase tracking-wider">
+                Send on Quest
+              </span>
+            </div>
+            {companionBusy ? (
+              <p className="text-gray-500 text-[7px] italic leading-tight">
+                Your Skrumpey is already on a quest. Check the HUD to claim when ready.
+              </p>
+            ) : (
+              <>
+                <p className="text-gray-400 text-[7px] mb-2 leading-tight">
+                  Pick a duration. Longer quests grant greater rewards.
+                </p>
+                <div className="grid grid-cols-5 gap-1">
+                  {TIMED_QUEST_OPTIONS.map((opt) => {
+                    const isStarting = startingDuration === opt.minutes;
+                    return (
+                      <button
+                        key={opt.minutes}
+                        onClick={() => startTimedQuest(opt.minutes)}
+                        disabled={startingDuration !== null}
+                        className={`py-1.5 rounded border text-[7px] font-['Press_Start_2P'] transition-colors ${
+                          isStarting
+                            ? 'bg-[#9966ff]/30 border-[#9966ff] text-[#9966ff]'
+                            : 'bg-[#0a0a15] border-[#2a2a4e] text-white hover:bg-[#9966ff]/20 hover:border-[#9966ff]/60 hover:text-[#9966ff]'
+                        } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        aria-label={`Start ${opt.label} quest`}
+                      >
+                        {isStarting ? '...' : opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            {questFeedback && (
+              <p className="text-[#ffd700] text-[7px] mt-2">{questFeedback}</p>
+            )}
+          </div>
+        )}
 
         {/* Quest List */}
         <div className="p-3 space-y-2">
