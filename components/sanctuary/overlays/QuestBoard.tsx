@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { getQuestSource, type QuestSource } from '@/game/config/questSourceMap';
 
 interface Quest {
   id: number;
@@ -22,20 +23,53 @@ interface Quest {
   } | null;
 }
 
-type TabFilter = 'all' | 'daily' | 'weekly' | 'seasonal';
+interface NPCClickPayload {
+  npcId: string;
+  npcName: string;
+  zone: string;
+  dialogue: string;
+  screenX: number;
+  screenY: number;
+}
+
+type TabFilter = 'all' | 'room' | 'daily' | 'weekly';
 
 const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
   daily: { label: 'DAILY', color: '#44ff88' },
   weekly: { label: 'WEEKLY', color: '#66bbff' },
-  seasonal: { label: 'SEASONAL', color: '#ffd700' },
+  seasonal: { label: 'SEASON', color: '#ffd700' },
 };
 
 const TABS: { key: TabFilter; label: string }[] = [
   { key: 'all', label: 'ALL' },
+  { key: 'room', label: 'ROOM' },
   { key: 'daily', label: 'DAILY' },
   { key: 'weekly', label: 'WEEKLY' },
-  { key: 'seasonal', label: 'SEASON' },
 ];
+
+interface QuestWithSource extends Quest {
+  source: QuestSource;
+}
+
+interface QuestGroup {
+  key: string;
+  source: QuestSource;
+  quests: QuestWithSource[];
+}
+
+function groupBySource(quests: QuestWithSource[]): QuestGroup[] {
+  const map = new Map<string, QuestGroup>();
+  for (const quest of quests) {
+    const key = quest.source.npcId;
+    const existing = map.get(key);
+    if (existing) {
+      existing.quests.push(quest);
+    } else {
+      map.set(key, { key, source: quest.source, quests: [quest] });
+    }
+  }
+  return Array.from(map.values());
+}
 
 export default function QuestBoard({
   walletAddress,
@@ -74,9 +108,16 @@ export default function QuestBoard({
       setOpen(true);
       loadQuests();
     };
+    const handleNPCClick = (payload: NPCClickPayload) => {
+      if (payload.npcId !== 'quest-board') return;
+      setOpen(true);
+      loadQuests();
+    };
     EventBus.on('quest-board-open', handleOpen);
+    EventBus.on('npc-clicked', handleNPCClick);
     return () => {
       EventBus.off('quest-board-open', handleOpen);
+      EventBus.off('npc-clicked', handleNPCClick);
     };
   }, [loadQuests]);
 
@@ -132,18 +173,51 @@ export default function QuestBoard({
     [walletAddress, tokenId, loadQuests]
   );
 
-  if (!open) return null;
+  const navigateToRoom = useCallback(
+    (room: string) => {
+      EventBus.emit('highlight-door', { room });
+      close();
+    },
+    [close]
+  );
 
-  const filtered = tab === 'all' ? quests : quests.filter((q) => q.quest_type === tab);
-  const active = filtered.filter((q) => !q.progress?.completed);
+  const questsWithSource = useMemo<QuestWithSource[]>(
+    () =>
+      quests.map((q) => ({
+        ...q,
+        source: getQuestSource(q.requirement_type),
+      })),
+    [quests]
+  );
+
+  const filtered = useMemo<QuestWithSource[]>(() => {
+    switch (tab) {
+      case 'room':
+        return questsWithSource.filter((q) => q.source.room !== null);
+      case 'daily':
+        return questsWithSource.filter((q) => q.quest_type === 'daily');
+      case 'weekly':
+        return questsWithSource.filter((q) => q.quest_type === 'weekly');
+      case 'all':
+      default:
+        return questsWithSource;
+    }
+  }, [questsWithSource, tab]);
+
+  const activeGroups = useMemo(
+    () => groupBySource(filtered.filter((q) => !q.progress?.completed)),
+    [filtered]
+  );
   const completed = filtered.filter((q) => q.progress?.completed);
   const totalCompleted = quests.filter((q) => q.progress?.completed).length;
+
+  if (!open) return null;
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
       <div
         ref={panelRef}
-        className={`w-80 max-h-[85%] overflow-hidden flex flex-col pointer-events-auto
+        className={`w-96 max-h-[85%] overflow-hidden flex flex-col pointer-events-auto
           bg-black/95 border border-[#ffd700]/40 rounded-lg shadow-[0_0_25px_rgba(255,215,0,0.15)]
           transition-all duration-200 ${
             open ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
@@ -165,6 +239,7 @@ export default function QuestBoard({
               <button
                 onClick={close}
                 className="text-gray-500 hover:text-white text-sm transition-colors"
+                aria-label="Close quest board"
               >
                 ✕
               </button>
@@ -190,25 +265,47 @@ export default function QuestBoard({
         </div>
 
         {/* Quest List */}
-        <div className="overflow-y-auto flex-1 p-3 space-y-2">
+        <div className="overflow-y-auto flex-1 p-3 space-y-3">
           {loading && (
             <p className="text-gray-500 text-[7px] text-center py-4">Loading quests...</p>
           )}
 
-          {!loading && active.length === 0 && completed.length === 0 && (
+          {!loading && activeGroups.length === 0 && completed.length === 0 && (
             <div className="text-center py-6 space-y-1">
               <p className="text-[#ffd700]/40 text-[12px]">🗺️</p>
-              <p className="text-gray-500 text-[8px]">No quests available.</p>
-              <p className="text-gray-600 text-[7px]">New quests appear each season!</p>
+              <p className="text-gray-500 text-[8px]">No quests in this category.</p>
+              <p className="text-gray-600 text-[7px]">Try a different tab!</p>
             </div>
           )}
 
-          {active.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-gray-500 text-[6px] font-['Press_Start_2P'] tracking-wider">
-                ACTIVE
-              </p>
-              {active.map((quest) => {
+          {activeGroups.map((group) => (
+            <div key={group.key} className="space-y-1.5">
+              {/* Group header: NPC name + zone + Go button */}
+              <div className="flex items-center justify-between bg-[#0a0a15]/80 rounded px-2 py-1.5 border border-[#00f7ff]/20">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[9px]">🧙</span>
+                  <div className="min-w-0">
+                    <p className="text-[#00f7ff] text-[8px] font-['Press_Start_2P'] truncate">
+                      {group.source.npcName}
+                    </p>
+                    <p className="text-gray-500 text-[6px] truncate">{group.source.zone}</p>
+                  </div>
+                </div>
+                {group.source.room && (
+                  <button
+                    onClick={() => navigateToRoom(group.source.room as string)}
+                    className="px-2 py-1 text-[6px] font-['Press_Start_2P'] text-[#00f7ff]
+                      bg-[#00f7ff]/10 border border-[#00f7ff]/40 rounded
+                      hover:bg-[#00f7ff]/20 hover:shadow-[0_0_8px_#00f7ff] transition-all shrink-0 ml-2"
+                    title={`Highlight the door to ${group.source.room}`}
+                  >
+                    GO ▸
+                  </button>
+                )}
+              </div>
+
+              {/* Quests under this source */}
+              {group.quests.map((quest) => {
                 const badge =
                   QUEST_TYPE_BADGE[quest.quest_type] ?? QUEST_TYPE_BADGE.seasonal;
                 const current = quest.progress?.current_count ?? 0;
@@ -217,7 +314,7 @@ export default function QuestBoard({
                 return (
                   <div
                     key={quest.id}
-                    className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3"
+                    className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3 ml-3"
                   >
                     <div className="flex items-start justify-between mb-1">
                       <div>
@@ -265,7 +362,7 @@ export default function QuestBoard({
                 );
               })}
             </div>
-          )}
+          ))}
 
           {completed.length > 0 && (
             <div className="space-y-2">
@@ -287,6 +384,9 @@ export default function QuestBoard({
                       <div>
                         <span className="text-[8px] mr-1">✨</span>
                         <span className="text-white text-[8px]">{quest.title}</span>
+                        <span className="text-gray-600 text-[6px] ml-1.5">
+                          · {quest.source.npcName}
+                        </span>
                       </div>
                       {canClaim ? (
                         <button

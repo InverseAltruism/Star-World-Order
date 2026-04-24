@@ -36,6 +36,10 @@ export class WorldScene extends Phaser.Scene {
   private editorCornerA: { x: number; y: number } | null = null;
   private currentDoor: Door | null = null;
   private doorPrompt: Phaser.GameObjects.Text | null = null;
+  private doorHighlightGfx: Phaser.GameObjects.Graphics | null = null;
+  private doorHighlightTarget: Door | null = null;
+  private doorHighlightUntil = 0;
+  private doorHighlightArrow: Phaser.GameObjects.Text | null = null;
   private interactKey!: Phaser.Input.Keyboard.Key;
   private otherPlayers!: OtherPlayersManager;
   private npcManager!: NPCManager;
@@ -197,6 +201,9 @@ export class WorldScene extends Phaser.Scene {
       if ((CONSTELLATIONS as readonly string[]).includes(lower)) this.companion.setConstellation(lower);
     });
     EventBus.on('editor-mode', (enabled: boolean) => this.setEditorMode(enabled));
+    EventBus.on('highlight-door', (data: { room: string }) => {
+      this.highlightDoor(data?.room);
+    });
     EventBus.on('room-exit', (data: { returnTo?: { x: number; y: number } }) => {
       if (this.scene.isSleeping()) {
         this.scene.stop('RoomScene');
@@ -229,6 +236,64 @@ export class WorldScene extends Phaser.Scene {
       .setOrigin(0.5, 1)
       .setDepth(30)
       .setVisible(false);
+    this.doorHighlightGfx = this.add.graphics().setDepth(29);
+    this.doorHighlightArrow = this.add
+      .text(0, 0, '▼', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '10px',
+        color: '#00f7ff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(31)
+      .setVisible(false);
+  }
+
+  private highlightDoor(roomName: string | undefined) {
+    if (!roomName) return;
+    const door = DOORS.find((d) => d.room === roomName);
+    if (!door) return;
+    this.doorHighlightTarget = door;
+    this.doorHighlightUntil = this.time.now + 5000;
+    if (this.doorHighlightArrow) {
+      this.doorHighlightArrow.setVisible(true);
+    }
+  }
+
+  private updateDoorHighlight(time: number) {
+    if (!this.doorHighlightGfx) return;
+    if (!this.doorHighlightTarget || time > this.doorHighlightUntil) {
+      this.doorHighlightGfx.clear();
+      this.doorHighlightArrow?.setVisible(false);
+      this.doorHighlightTarget = null;
+      return;
+    }
+    const door = this.doorHighlightTarget;
+    const pulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(time * 0.006));
+    this.doorHighlightGfx.clear();
+    this.doorHighlightGfx.lineStyle(2, 0x00f7ff, pulse);
+    const pad = 4;
+    this.doorHighlightGfx.strokeRoundedRect(
+      door.x - pad,
+      door.y - pad,
+      door.w + pad * 2,
+      door.h + pad * 2,
+      4,
+    );
+    this.doorHighlightGfx.lineStyle(1, 0xffd700, pulse * 0.8);
+    this.doorHighlightGfx.strokeRoundedRect(
+      door.x - pad - 3,
+      door.y - pad - 3,
+      door.w + pad * 2 + 6,
+      door.h + pad * 2 + 6,
+      6,
+    );
+    if (this.doorHighlightArrow) {
+      const bob = Math.sin(time * 0.008) * 2;
+      this.doorHighlightArrow.setPosition(door.x + door.w / 2, door.y - 6 + bob);
+      this.doorHighlightArrow.setAlpha(pulse);
+    }
   }
 
   private updateDoorDetection() {
@@ -321,6 +386,7 @@ export class WorldScene extends Phaser.Scene {
     this.otherPlayers.update(this.cameras.main);
     this.npcManager.update(this.time.now);
     this.updateDoorDetection();
+    this.updateDoorHighlight(this.time.now);
 
     const cam = this.cameras.main;
     cameraState.viewX = cam.worldView.x;
@@ -349,6 +415,7 @@ export class WorldScene extends Phaser.Scene {
     EventBus.off('companion-mood');
     EventBus.off('companion-constellation');
     EventBus.off('editor-mode');
+    EventBus.off('highlight-door');
     EventBus.off('room-exit');
     EventBus.off('remote-player-add');
     EventBus.off('remote-player-remove');

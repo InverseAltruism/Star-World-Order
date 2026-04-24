@@ -16,7 +16,7 @@ export interface NPCDefinition {
   spriteColor: number;
   spriteFile?: string;
   roomPlacement?: RoomPlacement;
-  kind?: 'quest' | 'intro';
+  kind?: 'quest' | 'intro' | 'board';
 }
 
 export const NPC_DEFINITIONS: NPCDefinition[] = [
@@ -30,6 +30,16 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     spriteColor: 0xffd700,
     spriteFile: 'Spawn_Fox_Sprite.png',
     kind: 'intro',
+  },
+  {
+    id: 'quest-board',
+    name: 'Quest Board',
+    x: SPAWN.x - 48,
+    y: SPAWN.y - 8,
+    zone: 'Town Square',
+    dialogue: 'Browse quests from every corner of the Sanctuary.',
+    spriteColor: 0x00f7ff,
+    kind: 'board',
   },
   {
     id: 'npc-hot-springs',
