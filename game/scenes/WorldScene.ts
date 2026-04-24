@@ -84,6 +84,10 @@ export class WorldScene extends Phaser.Scene {
       EventBus.emit('journal-overlay-toggle');
     });
 
+    this.input.keyboard!.on('keydown-T', () => {
+      EventBus.emit('traits-overlay-toggle');
+    });
+
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('edit') === '1') this.setEditorMode(true);
