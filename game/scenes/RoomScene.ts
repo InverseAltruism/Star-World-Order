@@ -1,13 +1,31 @@
 import Phaser from 'phaser';
+import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
-import type { RoomKey } from '../config/worldLayout';
+import { PlayerSprite } from '../sprites/PlayerSprite';
+import { CompanionSprite } from '../sprites/CompanionSprite';
+import { AnimationSystem } from '../systems/AnimationSystem';
+import { NAV_CELL, type RoomKey } from '../config/worldLayout';
+import { getRoomLayout } from '../config/roomLayouts';
 
 const ROOM_W = 1448;
 const ROOM_H = 1086;
+const SOUTHERN_SPAWN_Y = ROOM_H - 60;
+const EXIT_ZONE_W = 120;
+const EXIT_ZONE_H = 30;
 
 export class RoomScene extends Phaser.Scene {
   private room!: RoomKey;
   private returnTo!: { x: number; y: number };
+  private player!: PlayerSprite;
+  private companion!: CompanionSprite;
+  private animSystem!: AnimationSystem;
+  private finder!: EasyStar.js;
+  private navGrid: number[][] = [];
+  private gridW = 0;
+  private gridH = 0;
+  private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
+  private clickMarker: Phaser.GameObjects.Graphics | null = null;
+  private exiting = false;
 
   constructor() {
     super({ key: 'RoomScene' });
@@ -16,61 +34,164 @@ export class RoomScene extends Phaser.Scene {
   create(data: { room: RoomKey; returnTo: { x: number; y: number } }) {
     this.room = data.room;
     this.returnTo = data.returnTo;
+    this.exiting = false;
 
+    const bgKey = `room-bg-${this.room}`;
+    const bg = this.textures.exists(bgKey)
+      ? this.add.image(0, 0, bgKey)
+      : this.add.image(0, 0, 'room-placeholder');
+    bg.setOrigin(0, 0).setDisplaySize(ROOM_W, ROOM_H).setDepth(-10);
+
+    this.physics.world.setBounds(0, 0, ROOM_W, ROOM_H);
     const cam = this.cameras.main;
     cam.setBounds(0, 0, ROOM_W, ROOM_H);
     cam.setZoom(1);
-    cam.centerOn(ROOM_W / 2, ROOM_H / 2);
     cam.setBackgroundColor('#0a0015');
     cam.fadeIn(250, 0, 0, 0);
 
-    const bgKey = `room-bg-${this.room}`;
-    if (this.textures.exists(bgKey)) {
-      this.add.image(0, 0, bgKey).setOrigin(0, 0).setDisplaySize(ROOM_W, ROOM_H);
-    } else {
-      this.add.image(0, 0, 'room-placeholder').setOrigin(0, 0).setDisplaySize(ROOM_W, ROOM_H);
+    this.buildNavGrid();
+    this.createCollisionBodies();
+
+    const spawnX = ROOM_W / 2;
+    const spawnY = SOUTHERN_SPAWN_Y;
+
+    this.animSystem = new AnimationSystem(this);
+    this.player = new PlayerSprite(this, spawnX, spawnY);
+    this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
+    this.companion.setAnimationSystem(this.animSystem);
+
+    this.physics.add.collider(this.player, this.collisionGroup);
+    cam.startFollow(this.player, true, 0.1, 0.1);
+
+    this.setupPathfinder();
+    this.setupClickToMove();
+    this.setupExitZone();
+    this.setupHUD();
+
+    this.input.keyboard!.on('keydown-ESC', () => this.exit());
+    this.input.keyboard!.on('keydown-E', () => this.exit());
+  }
+
+  private buildNavGrid() {
+    this.gridW = Math.ceil(ROOM_W / NAV_CELL);
+    this.gridH = Math.ceil(ROOM_H / NAV_CELL);
+    this.navGrid = Array.from({ length: this.gridH }, () =>
+      Array.from({ length: this.gridW }, () => 0),
+    );
+    for (const rect of getRoomLayout(this.room).collision) {
+      const x0 = Math.max(0, Math.floor(rect.x / NAV_CELL));
+      const y0 = Math.max(0, Math.floor(rect.y / NAV_CELL));
+      const x1 = Math.min(this.gridW - 1, Math.floor((rect.x + rect.w - 1) / NAV_CELL));
+      const y1 = Math.min(this.gridH - 1, Math.floor((rect.y + rect.h - 1) / NAV_CELL));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) this.navGrid[y][x] = 1;
+      }
     }
+  }
 
-    const screenW = this.scale.width;
-    const screenH = this.scale.height;
+  private createCollisionBodies() {
+    this.collisionGroup = this.physics.add.staticGroup();
+    for (const rect of getRoomLayout(this.room).collision) {
+      const zone = this.add.zone(rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w, rect.h);
+      this.collisionGroup.add(zone);
+    }
+  }
 
-    const nameplate = this.add
-      .text(screenW / 2, 32, this.room.toUpperCase(), {
+  private setupPathfinder() {
+    this.finder = new EasyStar.js();
+    this.finder.setGrid(this.navGrid);
+    this.finder.setAcceptableTiles([0]);
+    this.finder.enableDiagonals();
+    this.finder.setIterationsPerCalculation(200);
+  }
+
+  private setupClickToMove() {
+    this.clickMarker = this.add.graphics().setDepth(5);
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) return;
+      const worldX = pointer.worldX;
+      const worldY = pointer.worldY;
+      const gx = Math.floor(worldX / NAV_CELL);
+      const gy = Math.floor(worldY / NAV_CELL);
+      if (gx < 0 || gy < 0 || gx >= this.gridW || gy >= this.gridH) return;
+      if (this.navGrid[gy][gx] === 1) return;
+
+      this.showClickMarker(worldX, worldY);
+
+      const pgx = Math.floor(this.player.x / NAV_CELL);
+      const pgy = Math.floor(this.player.y / NAV_CELL);
+      this.finder.findPath(pgx, pgy, gx, gy, (path) => {
+        if (path && path.length > 1) this.player.setPath(path);
+      });
+      this.finder.calculate();
+    });
+  }
+
+  private showClickMarker(x: number, y: number) {
+    if (!this.clickMarker) return;
+    this.clickMarker.clear();
+    this.clickMarker.lineStyle(1, 0xffd700, 0.9);
+    this.clickMarker.strokeCircle(x, y, 5);
+    this.tweens.add({
+      targets: this.clickMarker,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => {
+        this.clickMarker?.setAlpha(1);
+        this.clickMarker?.clear();
+      },
+    });
+  }
+
+  private setupExitZone() {
+    const zoneCenterX = ROOM_W / 2;
+    const zoneCenterY = ROOM_H - EXIT_ZONE_H / 2;
+    const zone = this.add.zone(zoneCenterX, zoneCenterY, EXIT_ZONE_W, EXIT_ZONE_H);
+    this.physics.add.existing(zone, true);
+    this.physics.add.overlap(this.player, zone, () => this.exit());
+
+    const hint = this.add
+      .text(zoneCenterX, zoneCenterY - 28, '[E] EXIT', {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '16px',
+        fontSize: '10px',
+        color: '#ff00ff',
+        stroke: '#000000',
+        strokeThickness: 3,
+        backgroundColor: 'rgba(26,0,51,0.75)',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(20);
+    void hint;
+  }
+
+  private setupHUD() {
+    const screenW = this.scale.width;
+    this.add
+      .text(screenW / 2, 16, this.room.toUpperCase(), {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '14px',
         color: '#ffd700',
         stroke: '#000000',
         strokeThickness: 4,
         backgroundColor: 'rgba(10,0,21,0.75)',
-        padding: { x: 14, y: 8 },
+        padding: { x: 12, y: 6 },
       })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(100);
+  }
 
-    const exitBtn = this.add
-      .text(screenW / 2, screenH - 36, '< EXIT  [E]', {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '12px',
-        color: '#ff00ff',
-        stroke: '#000000',
-        strokeThickness: 3,
-        backgroundColor: 'rgba(26,0,51,0.85)',
-        padding: { x: 14, y: 8 },
-      })
-      .setOrigin(0.5, 1)
-      .setScrollFactor(0)
-      .setDepth(100)
-      .setInteractive({ useHandCursor: true });
-
-    exitBtn.on('pointerdown', () => this.exit());
-    this.input.keyboard!.on('keydown-ESC', () => this.exit());
-    this.input.keyboard!.on('keydown-E', () => this.exit());
-
-    void nameplate;
+  update() {
+    if (!this.player || this.exiting) return;
+    const keyboardActive = this.player.handleKeyboardInput();
+    if (!keyboardActive) this.player.updatePathMovement();
+    this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
   }
 
   private exit() {
+    if (this.exiting) return;
+    this.exiting = true;
     this.cameras.main.fadeOut(250, 0, 0, 0);
     this.time.delayedCall(260, () => {
       EventBus.emit('room-exit', { returnTo: this.returnTo });
