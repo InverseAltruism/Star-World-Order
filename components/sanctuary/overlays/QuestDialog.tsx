@@ -74,8 +74,7 @@ export default function QuestDialog({
 
   const handleNPCClick = useCallback(
     (payload: NPCClickPayload) => {
-      if (payload.npcId === 'quest-board') {
-        EventBus.emit('quest-board-open');
+      if (payload.npcId === 'spawn-fox') {
         return;
       }
       setNpc(payload);
