@@ -80,6 +80,10 @@ export class WorldScene extends Phaser.Scene {
 
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
+    this.input.keyboard!.on('keydown-J', () => {
+      EventBus.emit('journal-overlay-toggle');
+    });
+
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('edit') === '1') this.setEditorMode(true);

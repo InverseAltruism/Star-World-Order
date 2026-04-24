@@ -91,6 +91,10 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
     };
   }, [onEnter, onExit]);
 
+  const openJournal = useCallback(() => {
+    EventBus.emit('journal-overlay-toggle');
+  }, []);
+
   if (!companion) return null;
 
   const displayName =
@@ -129,6 +133,17 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           </div>
         </div>
       </div>
+
+      {/* Journal book icon */}
+      <button
+        onClick={openJournal}
+        className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/80 border border-[#8b5a2b]/60 rounded px-2 py-1 hover:bg-[#3a2410]/80 hover:border-[#ffd700]/60 transition-colors pointer-events-auto select-none"
+        aria-label="Open journal (J)"
+        title="Journal (J)"
+      >
+        <span className="text-[10px] leading-none">📖</span>
+        <span className="text-[6px] text-[#ffd700]/80 font-['Press_Start_2P']">[J]</span>
+      </button>
 
       {/* Location indicator */}
       {locationName && (
