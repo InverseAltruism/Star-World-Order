@@ -1,4 +1,10 @@
-import { WORLD_WIDTH, WORLD_HEIGHT, SPAWN } from './worldLayout';
+import { WORLD_WIDTH, WORLD_HEIGHT, SPAWN, type RoomKey } from './worldLayout';
+
+export interface RoomPlacement {
+  room: RoomKey;
+  x: number;
+  y: number;
+}
 
 export interface NPCDefinition {
   id: string;
@@ -9,6 +15,7 @@ export interface NPCDefinition {
   dialogue: string;
   spriteColor: number;
   spriteFile?: string;
+  roomPlacement?: RoomPlacement;
   kind?: 'quest' | 'intro';
 }
 
@@ -33,6 +40,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'The warm waters reveal hidden truths...',
     spriteColor: 0xff6644,
     spriteFile: 'Springs_Duck_Sprite.png',
+    roomPlacement: { room: 'Hot Springs', x: 640, y: 480 },
   },
   {
     id: 'npc-training-grounds',
@@ -43,6 +51,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Strength is forged through perseverance.',
     spriteColor: 0x44aaff,
     spriteFile: 'Training_Wolf_Sprite.png',
+    roomPlacement: { room: 'Training Grounds', x: 800, y: 500 },
   },
   {
     id: 'npc-dream-hollow',
@@ -53,6 +62,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Dreams shape reality, if you let them...',
     spriteColor: 0xcc66ff,
     spriteFile: 'Dream_Sheep_Sprite.png',
+    roomPlacement: { room: 'Dream Hollow', x: 620, y: 520 },
   },
   {
     id: 'npc-star-garden',
@@ -63,6 +73,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Every star seed needs patience to bloom.',
     spriteColor: 0x66ff88,
     spriteFile: 'Garden_Ent_Sprite.png',
+    roomPlacement: { room: 'Star Garden', x: 724, y: 460 },
   },
   {
     id: 'npc-nebula-kitchen',
@@ -73,6 +84,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Cosmic cuisine fuels the soul!',
     spriteColor: 0xffaa44,
     spriteFile: 'Kitchen_Bunny_Sprite.png',
+    roomPlacement: { room: 'Nebula Kitchen', x: 680, y: 500 },
   },
   {
     id: 'npc-cosmic-library',
@@ -83,6 +95,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Knowledge is the oldest form of power.',
     spriteColor: 0x8866ff,
     spriteFile: 'Hollow_moth_Sprite.png',
+    roomPlacement: { room: 'Cosmic Library', x: 760, y: 480 },
   },
   {
     id: 'npc-observatory',
@@ -93,6 +106,7 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'The stars whisper secrets to those who listen.',
     spriteColor: 0xffffaa,
     spriteFile: 'Observatory_Owl_Sprite.png',
+    roomPlacement: { room: 'Observatory', x: 720, y: 440 },
   },
   {
     id: 'npc-aura-forge',
@@ -103,8 +117,17 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     dialogue: 'Auras are shaped in fire and will.',
     spriteColor: 0xff4466,
     spriteFile: 'Aura_Golem_Sprite.png',
+    roomPlacement: { room: 'Aura Forge', x: 780, y: 500 },
   },
 ];
+
+export function getRoomNPCDefinitions(room: RoomKey): NPCDefinition[] {
+  return NPC_DEFINITIONS.filter((n) => n.roomPlacement?.room === room).map((n) => ({
+    ...n,
+    x: n.roomPlacement!.x,
+    y: n.roomPlacement!.y,
+  }));
+}
 
 export function npcSpriteTextureKey(id: string): string {
   return `npc-sprite-${id}`;
