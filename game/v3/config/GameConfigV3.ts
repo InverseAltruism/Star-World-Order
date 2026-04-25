@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BootSceneV3 } from '../scenes/BootSceneV3';
 import { WorldSceneV3 } from '../scenes/WorldSceneV3';
+import { RoomSceneV3 } from '../scenes/RoomSceneV3';
 
 export const GAME_CONFIG_V3: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -16,7 +17,7 @@ export const GAME_CONFIG_V3: Phaser.Types.Core.GameConfig = {
     default: 'arcade',
     arcade: { gravity: { x: 0, y: 0 }, debug: false },
   },
-  scene: [BootSceneV3, WorldSceneV3],
+  scene: [BootSceneV3, WorldSceneV3, RoomSceneV3],
   pixelArt: true,
   antialias: false,
   roundPixels: true,

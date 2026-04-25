@@ -2,16 +2,35 @@ import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';
-import { NPCS_V3, type NPCDefV3, type NPCSheet } from '../config/npcDefinitionsV3';
+import {
+  NPCS_V3,
+  type BuildingId,
+  type NPCDefV3,
+  type NPCSheet,
+} from '../config/npcDefinitionsV3';
 
 const CAMERA_ZOOM = 1.5;
 const WATER_FPS = 6;
+const TILE = 32;
+
+interface DoorMarker {
+  roomId: BuildingId;
+  /** centre */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export class WorldSceneV3 extends Phaser.Scene {
   private player!: PlayerSpriteV3;
   private npcs: NPCSpriteV3[] = [];
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
   private waterSprites: Phaser.GameObjects.Sprite[] = [];
+  private doors: DoorMarker[] = [];
+  private currentDoor: DoorMarker | null = null;
+  private doorPrompt: Phaser.GameObjects.Text | null = null;
+  private interactKey!: Phaser.Input.Keyboard.Key;
 
   constructor() { super({ key: 'WorldSceneV3' }); }
 
@@ -122,12 +141,98 @@ export class WorldSceneV3 extends Phaser.Scene {
       this.npcs.push(new NPCSpriteV3(this, def));
     }
 
+    // -------- Doors --------
+    const doorObjs = map.getObjectLayer('doors')?.objects ?? [];
+    for (const o of doorObjs) {
+      this.doors.push({
+        roomId: o.name as BuildingId,
+        x: (o.x ?? 0) + (o.width ?? 0) / 2,
+        y: (o.y ?? 0) + (o.height ?? 0) / 2,
+        w: o.width ?? TILE,
+        h: o.height ?? TILE,
+      });
+    }
+    this.doorPrompt = this.add
+      .text(0, 0, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '8px',
+        color: '#ffd700',
+        stroke: '#000000',
+        strokeThickness: 3,
+        backgroundColor: 'rgba(10,0,21,0.85)',
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(30)
+      .setVisible(false);
+    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+    // -------- Room-exit handler --------
+    EventBus.on('roomv3-exit', this.handleRoomExit, this);
+
     EventBus.emit('scene-ready', this);
+  }
+
+  private handleRoomExit(payload: { returnTo?: { x: number; y: number } } = {}) {
+    if (!this.scene.isSleeping()) return;
+    const known = ['RoomSceneV3'];
+    for (const k of known) {
+      if (this.scene.manager.getScene(k)?.scene.isActive()) this.scene.stop(k);
+    }
+    this.scene.wake();
+    this.cameras.main.fadeIn(250, 0, 0, 0);
+    if (payload.returnTo && this.player) {
+      // Place the player just south of the door so they don't immediately
+      // re-trigger entry.
+      this.player.setPosition(payload.returnTo.x, payload.returnTo.y + TILE);
+    }
+    this.currentDoor = null;
+    if (this.doorPrompt) this.doorPrompt.setVisible(false);
+  }
+
+  private updateDoorDetection() {
+    const px = this.player.x, py = this.player.y;
+    let inside: DoorMarker | null = null;
+    for (const d of this.doors) {
+      // Treat the door as a slightly-inflated rect so the player can stand
+      // beside it instead of needing pixel-precise alignment.
+      const half = TILE;
+      if (px > d.x - d.w / 2 - half && px < d.x + d.w / 2 + half &&
+          py > d.y - d.h / 2 - half && py < d.y + d.h / 2 + half) {
+        inside = d;
+        break;
+      }
+    }
+    this.currentDoor = inside;
+    if (inside && this.doorPrompt) {
+      this.doorPrompt.setText(`[E] ENTER ${inside.roomId.toUpperCase().replace(/-/g, ' ')}`);
+      this.doorPrompt.setPosition(inside.x, inside.y - 6);
+      this.doorPrompt.setVisible(true);
+    } else if (this.doorPrompt) {
+      this.doorPrompt.setVisible(false);
+    }
+  }
+
+  private enterDoor(door: DoorMarker) {
+    const returnTo = { x: door.x, y: door.y };
+    this.cameras.main.fadeOut(250, 0, 0, 0);
+    this.time.delayedCall(260, () => {
+      this.scene.sleep();
+      this.scene.launch('RoomSceneV3', { roomId: door.roomId, returnTo });
+    });
+  }
+
+  shutdown() {
+    EventBus.off('roomv3-exit', this.handleRoomExit, this);
   }
 
   update(time: number) {
     if (!this.player) return;
     this.player.handleInput();
     for (const npc of this.npcs) npc.update(time);
+    this.updateDoorDetection();
+    if (this.currentDoor && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      this.enterDoor(this.currentDoor);
+    }
   }
 }
