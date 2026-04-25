@@ -1,0 +1,134 @@
+{
+  "$schema": "manifest schema:",
+  "$notes": [
+    "Each entry declares ONE asset to generate via Retro Diffusion.",
+    "fields: id, kind (npc|prop|tile|building), prompt_style, width, height, prompt, seed, output_path, asset_class (for normalize thresholds), enabled.",
+    "When enabled=false, generate.mjs skips the entry. Toggle to true when ready.",
+    "Spawn Fox is enabled first to validate the pipeline; the rest stay disabled until user signs off on the test result.",
+    "All entries share a common style template — see scripts/v3/lib/prompt-template.mjs (TODO) — and a common negative prompt."
+  ],
+  "version": 1,
+  "common": {
+    "input_palette_path": "public/sanctuary-v3/palettes/forgotten-memories.png",
+    "use_input_palette": true,
+    "user_style_id_file": "scripts/v3/style-id.txt",
+    "negative_prompt": "Do not use isometric perspective. Do not use side-scroller perspective. No 3D render. No smooth gradients. No anti-aliasing. No blurry pixels. No painterly brush strokes. No soft airbrush lighting. No realistic textures. No high-resolution digital painting. No vector art. No anime background painting. No inconsistent tile scale. No oversized props. No random noisy detail. No perspective distortion. No diagonal camera tilt. No glossy lighting. No generated text or UI frame.",
+    "style_prefix": "Top-down 2D pixel-art RPG asset in a modern 16-bit / Game Boy Advance JRPG tileset style. Orthographic top-down camera with slight SNES-style object depth, not isometric and not side-view. 32x32 modular tile logic. Muted earthy fantasy palette: olive green grass, dusty brown dirt, beige broken stone paths, ochre and burnt-orange autumn foliage, teal-blue fantasy trees, soft muted blue water, gray-purple old fences. Handcrafted pixel-art look with crisp hard pixel edges, no anti-aliasing, no blur, no painterly gradients. Limited-palette shading, hand-placed pixel clusters, subtle dithering, chunky shadows, readable silhouettes. Forgotten magical forest sanctuary atmosphere. Subtle cosmic star accents only as small pixel clusters of antique gold or soft lavender, never neon. "
+  },
+  "entries": [
+    {
+      "id": "spawn-fox",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": true,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48,
+      "height": 48,
+      "seed": 4711,
+      "prompt": "small orange fox character with friendly cute face, wearing a tiny indigo and white wizard cloak with star pattern, holding a small wooden staff, RPG NPC, walking and idle in 4 directions, transparent background, palette matches the forgotten forest sanctuary tileset",
+      "output_path": "public/sanctuary-v3/npcs/spawn-fox.png",
+      "remove_bg": true,
+      "return_spritesheet": true
+    },
+
+    {
+      "id": "springs-duck",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4712,
+      "prompt": "white duck character wearing a small pink towel turban, holding a wooden bucket of steaming water, friendly RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/springs-duck.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "observatory-owl",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4713,
+      "prompt": "wise grey owl character wearing tiny round spectacles, holding a small brass telescope, friendly RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/observatory-owl.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "training-wolf",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4714,
+      "prompt": "grey wolf character in a brown leather training vest, holding a wooden practice sword, sturdy RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/training-wolf.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "kitchen-bunny",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4715,
+      "prompt": "white rabbit chef character with a tall white chef hat and apron, holding a wooden spoon, cute RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/kitchen-bunny.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "garden-ent",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4716,
+      "prompt": "small green tree-creature character with leafy hair and bark skin, holding a wooden watering can, gentle RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/garden-ent.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "dream-sheep",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4717,
+      "prompt": "fluffy lavender sheep character wearing a small star-pattern nightcap, eyes half-closed and sleepy, mystical RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/dream-sheep.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "library-moth",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4718,
+      "prompt": "scholarly cloaked moth character with small glowing wing patterns, carrying a thick leather spellbook, mystical RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/library-moth.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "forge-golem",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4719,
+      "prompt": "small stone golem character with subtle crystal accents, wearing a leather smith apron, holding a small hammer, sturdy RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/forge-golem.png",
+      "remove_bg": true, "return_spritesheet": true
+    },
+    {
+      "id": "quest-board-spirit",
+      "kind": "npc",
+      "asset_class": "npc",
+      "enabled": false,
+      "prompt_style": "rd_animation__four_angle_walking",
+      "width": 48, "height": 48, "seed": 4720,
+      "prompt": "small floating ghost-light wisp character with a parchment scroll body, gentle glow, mystical RPG NPC, walking and idle in 4 directions, transparent background",
+      "output_path": "public/sanctuary-v3/npcs/quest-board-spirit.png",
+      "remove_bg": true, "return_spritesheet": true
+    }
+  ]
+}
