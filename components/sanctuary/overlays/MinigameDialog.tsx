@@ -64,6 +64,21 @@ const MINIGAME_NPCS: Record<string, { gameId: string; sceneKey: string; defaultR
     sceneKey: 'ForgeHammerScene',
     defaultRoom: 'Aura Forge',
   },
+  'npc-nebula-kitchen-pan': {
+    gameId: 'cooking-rhythm',
+    sceneKey: 'CookingRhythmScene',
+    defaultRoom: 'Nebula Kitchen',
+  },
+  'npc-dream-hollow-catcher': {
+    gameId: 'dream-catcher',
+    sceneKey: 'DreamCatcherScene',
+    defaultRoom: 'Dream Hollow',
+  },
+  'npc-cosmic-library-tome': {
+    gameId: 'lore-trivia',
+    sceneKey: 'LoreTriviaScene',
+    defaultRoom: 'Cosmic Library',
+  },
 };
 
 export default function MinigameDialog({
