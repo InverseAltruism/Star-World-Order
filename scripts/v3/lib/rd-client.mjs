@@ -5,7 +5,8 @@
 import fs from 'node:fs/promises';
 
 const BASE = 'https://api.retrodiffusion.ai/v1';
-const TIMEOUT_MS = 60_000;
+// Animation endpoints can take 30-90s under load. Be generous.
+const TIMEOUT_MS = 180_000;
 
 function getApiKey() {
   const k = process.env.RD_API_KEY;

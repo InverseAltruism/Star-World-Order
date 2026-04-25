@@ -5,7 +5,7 @@
     "fields: id, kind (npc|prop|tile|building), prompt_style, width, height, prompt, seed, output_path, asset_class (for normalize thresholds), enabled.",
     "When enabled=false, generate.mjs skips the entry. Toggle to true when ready.",
     "Spawn Fox is enabled first to validate the pipeline; the rest stay disabled until user signs off on the test result.",
-    "All entries share a common style template — see scripts/v3/lib/prompt-template.mjs (TODO) — and a common negative prompt."
+    "All entries share a common style template \u2014 see scripts/v3/lib/prompt-template.mjs (TODO) \u2014 and a common negative prompt."
   ],
   "version": 1,
   "common": {
@@ -20,7 +20,8 @@
       "id": "spawn-fox",
       "kind": "npc",
       "asset_class": "npc",
-      "enabled": true,
+      "_note": "already generated and approved; set enabled=true to regenerate",
+      "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
       "width": 48,
       "height": 48,
@@ -30,17 +31,19 @@
       "remove_bg": true,
       "return_spritesheet": true
     },
-
     {
       "id": "springs-duck",
       "kind": "npc",
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4712,
+      "width": 48,
+      "height": 48,
+      "seed": 4712,
       "prompt": "white duck character wearing a small pink towel turban, holding a wooden bucket of steaming water, friendly RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/springs-duck.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "observatory-owl",
@@ -48,10 +51,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4713,
+      "width": 48,
+      "height": 48,
+      "seed": 4713,
       "prompt": "wise grey owl character wearing tiny round spectacles, holding a small brass telescope, friendly RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/observatory-owl.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "training-wolf",
@@ -59,10 +65,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4714,
+      "width": 48,
+      "height": 48,
+      "seed": 4714,
       "prompt": "grey wolf character in a brown leather training vest, holding a wooden practice sword, sturdy RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/training-wolf.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "kitchen-bunny",
@@ -70,10 +79,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4715,
+      "width": 48,
+      "height": 48,
+      "seed": 4715,
       "prompt": "white rabbit chef character with a tall white chef hat and apron, holding a wooden spoon, cute RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/kitchen-bunny.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "garden-ent",
@@ -81,10 +93,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4716,
+      "width": 48,
+      "height": 48,
+      "seed": 4716,
       "prompt": "small green tree-creature character with leafy hair and bark skin, holding a wooden watering can, gentle RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/garden-ent.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "dream-sheep",
@@ -92,10 +107,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4717,
+      "width": 48,
+      "height": 48,
+      "seed": 4717,
       "prompt": "fluffy lavender sheep character wearing a small star-pattern nightcap, eyes half-closed and sleepy, mystical RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/dream-sheep.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "library-moth",
@@ -103,10 +121,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4718,
+      "width": 48,
+      "height": 48,
+      "seed": 4718,
       "prompt": "scholarly cloaked moth character with small glowing wing patterns, carrying a thick leather spellbook, mystical RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/library-moth.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "forge-golem",
@@ -114,10 +135,13 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4719,
+      "width": 48,
+      "height": 48,
+      "seed": 4719,
       "prompt": "small stone golem character with subtle crystal accents, wearing a leather smith apron, holding a small hammer, sturdy RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/forge-golem.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
     },
     {
       "id": "quest-board-spirit",
@@ -125,10 +149,208 @@
       "asset_class": "npc",
       "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
-      "width": 48, "height": 48, "seed": 4720,
+      "width": 48,
+      "height": 48,
+      "seed": 4720,
       "prompt": "small floating ghost-light wisp character with a parchment scroll body, gentle glow, mystical RPG NPC, walking and idle in 4 directions, transparent background",
       "output_path": "public/sanctuary-v3/npcs/quest-board-spirit.png",
-      "remove_bg": true, "return_spritesheet": true
+      "remove_bg": true,
+      "return_spritesheet": true
+    },
+    {
+      "id": "signpost",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 64,
+      "seed": 5101,
+      "prompt": "weathered wooden RPG signpost with a small antique gold star symbol carved into the wooden plank, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/signpost.png",
+      "remove_bg": true
+    },
+    {
+      "id": "cosmic-well",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 64,
+      "height": 64,
+      "seed": 5102,
+      "prompt": "round mossy stone well with a wooden bucket, antique gold rune symbols carved around the rim, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/cosmic-well.png",
+      "remove_bg": true
+    },
+    {
+      "id": "star-banner",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 64,
+      "seed": 5103,
+      "prompt": "vertical hanging cloth banner in faded indigo with a small antique gold five-pointed star, hung from a wooden pole, top-down 3/4 view, transparent background",
+      "output_path": "public/sanctuary-v3/props/star-banner.png",
+      "remove_bg": true
+    },
+    {
+      "id": "moon-lantern",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5104,
+      "prompt": "small hanging lantern with warm soft gold glow inside, dark wooden frame, hot springs decoration, top-down 3/4 view, transparent background",
+      "output_path": "public/sanctuary-v3/props/moon-lantern.png",
+      "remove_bg": true
+    },
+    {
+      "id": "telescope",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 64,
+      "height": 64,
+      "seed": 5105,
+      "prompt": "ornate brass telescope on a small wooden tripod pointing upward at the sky, observatory prop, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/telescope.png",
+      "remove_bg": true
+    },
+    {
+      "id": "floating-stone",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5106,
+      "prompt": "small magical floating rock fragment with mossy patches, very subtle soft lavender shadow underneath, top-down 3/4 view, transparent background",
+      "output_path": "public/sanctuary-v3/props/floating-stone.png",
+      "remove_bg": true
+    },
+    {
+      "id": "rune-stone",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5107,
+      "prompt": "weathered grey stone slab partially in the ground with antique gold star runes carved into the visible face, top-down 3/4 view, transparent background",
+      "output_path": "public/sanctuary-v3/props/rune-stone.png",
+      "remove_bg": true
+    },
+    {
+      "id": "training-dummy",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 64,
+      "seed": 5108,
+      "prompt": "wooden RPG training dummy with leather strap padding wrapped around the post, slightly battered, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/training-dummy.png",
+      "remove_bg": true
+    },
+    {
+      "id": "star-flower",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5109,
+      "prompt": "small five-pointed star-shaped flower in muted lavender with antique gold center, growing from grass tile, top-down view, transparent background",
+      "output_path": "public/sanctuary-v3/props/star-flower.png",
+      "remove_bg": true
+    },
+    {
+      "id": "seed-sprout",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5110,
+      "prompt": "small magical sapling with two pale-yellow leaves on an olive-green stem, growing in dirt tile, top-down view, transparent background",
+      "output_path": "public/sanctuary-v3/props/seed-sprout.png",
+      "remove_bg": true
+    },
+    {
+      "id": "crystal-stove",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 64,
+      "height": 64,
+      "seed": 5111,
+      "prompt": "rustic stone cooking stove with a small black iron pot on top, a tiny crystal on the side giving off subtle lavender light, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/crystal-stove.png",
+      "remove_bg": true
+    },
+    {
+      "id": "dream-mushroom",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5112,
+      "prompt": "small lavender-purple mushroom with a soft star-pattern cap and short pale stem, growing in grass tile, dream hollow decoration, top-down view, transparent background",
+      "output_path": "public/sanctuary-v3/props/dream-mushroom.png",
+      "remove_bg": true
+    },
+    {
+      "id": "star-chart",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5113,
+      "prompt": "rolled parchment scroll partially unfurled showing constellation drawings in faded antique gold ink, lying on a tile, top-down view, transparent background",
+      "output_path": "public/sanctuary-v3/props/star-chart.png",
+      "remove_bg": true
+    },
+    {
+      "id": "crystal-anvil",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 64,
+      "height": 64,
+      "seed": 5114,
+      "prompt": "blacksmith anvil made of dark grey stone, a small lavender crystal embedded in the side giving off subtle magical light, hammer leaning beside it, top-down 3/4 view, slight SNES-style depth, transparent background",
+      "output_path": "public/sanctuary-v3/props/crystal-anvil.png",
+      "remove_bg": true
+    },
+    {
+      "id": "forge-stone",
+      "kind": "prop",
+      "asset_class": "prop",
+      "enabled": true,
+      "prompt_style": "rd_tile__tile_object",
+      "width": 32,
+      "height": 32,
+      "seed": 5115,
+      "prompt": "small smooth grey stone embedded in the ground with antique gold rune symbols carved on top, glowing softly, top-down view, transparent background",
+      "output_path": "public/sanctuary-v3/props/forge-stone.png",
+      "remove_bg": true
     }
   ]
 }

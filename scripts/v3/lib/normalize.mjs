@@ -84,7 +84,11 @@ function isCosmicAccent(r, g, b, tolerance = 32) {
 export const ASSET_CLASS_THRESHOLDS = {
   // Strict: terrain tiles and props must be earthy with tiny accents.
   tile:     { snap: true,  paletteSnapMaxFrac: 0.05, snapMaxDist: 24, aaMaxFrac: 0.40, accentMaxFrac: 0.02, blackMaxFrac: 0.005, bboxMinFrac: 0.10 },
-  prop:     { snap: true,  paletteSnapMaxFrac: 0.05, snapMaxDist: 24, aaMaxFrac: 0.40, accentMaxFrac: 0.02, blackMaxFrac: 0.005, bboxMinFrac: 0.20 },
+  // Props: include explicitly themed SWO items (moon lantern, crystal anvil,
+  // floating stone) where antique-gold/lavender accent pixels are *intentional*.
+  // Cap at 12% — that's enough headroom for a small magical glow cluster
+  // without permitting "the whole prop is one neon color".
+  prop:     { snap: true,  paletteSnapMaxFrac: 0.05, snapMaxDist: 24, aaMaxFrac: 0.40, accentMaxFrac: 0.12, blackMaxFrac: 0.005, bboxMinFrac: 0.20 },
   // NPCs: animation endpoints can't accept input_palette and the model produces
   // its own consistent pixel-art palette. Forcing FM-snap darkens characters
   // unnecessarily, so we DO NOT palette-snap NPCs by default — only run alpha,

@@ -62,12 +62,18 @@ function buildPayload(entry, common, styleId) {
   if (entry.return_spritesheet) payload.return_spritesheet = true;
 
   const isAnimation = entry.prompt_style?.startsWith('rd_animation__');
+  const isTile = entry.prompt_style?.startsWith('rd_tile__');
   if (isAnimation) {
     // Animation endpoints: don't support input_palette or custom user styles,
     // and don't support check_cost. Cost is documented fixed ($0.07).
     payload._wantReferenceImage = true;
+  } else if (isTile) {
+    // Tile endpoints (rd_tile__*): purpose-built for tilesheet pricing
+    // (~$0.025 at 32×32). They accept input_palette directly. Do NOT swap to
+    // the custom user style — that would re-route to RD Pro and 7× the price.
+    if (common.use_input_palette) payload._wantPalette = true;
   } else {
-    // Non-animation: use our locked custom user style + palette.
+    // RD Pro / Plus inferences: use our locked custom user style + palette.
     if (common.use_input_palette) payload._wantPalette = true;
     if (styleId) payload.prompt_style = styleId;
   }
