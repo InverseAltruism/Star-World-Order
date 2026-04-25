@@ -165,7 +165,11 @@ export default function QuestDialog({
 
   const handleNPCClick = useCallback(
     (payload: NPCClickPayload) => {
-      if (payload.npcId === 'spawn-fox' || payload.npcId === 'quest-board') {
+      if (
+        payload.npcId === 'spawn-fox'
+        || payload.npcId === 'quest-board'
+        || payload.npcId.startsWith('npc-observatory-arcade')
+      ) {
         return;
       }
       setNpc(payload);

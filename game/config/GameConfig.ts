@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from '../scenes/BootScene';
 import { WorldScene } from '../scenes/WorldScene';
 import { RoomScene } from '../scenes/RoomScene';
+import { StarCatchScene } from '../scenes/StarCatchScene';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -20,7 +21,7 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, WorldScene, RoomScene],
+  scene: [BootScene, WorldScene, RoomScene, StarCatchScene],
   pixelArt: true,
   antialias: false,
   roundPixels: true,
