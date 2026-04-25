@@ -4,7 +4,7 @@
 **Date:** 2026-04-15  
 **Deciders:** Operator (InverseAltruism), Clarvis (executive function)  
 **Supersedes:** None  
-**Informs:** [SANCTUARY_DB_NORMALIZATION.md](./SANCTUARY_DB_NORMALIZATION.md), [SANCTUARY_MILESTONES.md](./SANCTUARY_MILESTONES.md)
+**Informs:** [SANCTUARY_DB_NORMALIZATION.md](./SANCTUARY_DB_NORMALIZATION.md)
 
 ---
 
