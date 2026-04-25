@@ -38,6 +38,7 @@ export class BootScene extends Phaser.Scene {
 
     for (const def of NPC_DEFINITIONS) {
       NPCSprite.generatePlaceholderTexture(this, def.id, def.spriteColor);
+      if (def.spriteFile) NPCSprite.registerFrames(this, def.id);
     }
 
     this.generateRoomPlaceholder();

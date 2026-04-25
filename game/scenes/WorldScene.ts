@@ -21,7 +21,7 @@ import {
 import { NPC_DEFINITIONS } from '../config/npcDefinitions';
 import { cameraState } from '../systems/CameraState';
 
-const CAMERA_ZOOM = 2;
+const CAMERA_ZOOM = 1.5;
 
 export class WorldScene extends Phaser.Scene {
   private player!: PlayerSprite;

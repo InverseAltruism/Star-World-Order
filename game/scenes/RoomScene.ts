@@ -11,9 +11,12 @@ import { getRoomNPCDefinitions } from '../config/npcDefinitions';
 
 const ROOM_W = 1448;
 const ROOM_H = 1086;
-const SOUTHERN_SPAWN_Y = ROOM_H - 60;
+const SOUTHERN_SPAWN_Y = ROOM_H - 110;
 const EXIT_ZONE_W = 120;
 const EXIT_ZONE_H = 30;
+// Ignore exit triggers (E, ESC, exit-zone overlap) for this many ms after entry,
+// so the same E press that opened the room can't immediately close it.
+const EXIT_GRACE_MS = 700;
 
 export class RoomScene extends Phaser.Scene {
   private room!: RoomKey;
@@ -28,6 +31,7 @@ export class RoomScene extends Phaser.Scene {
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
   private clickMarker: Phaser.GameObjects.Graphics | null = null;
   private exiting = false;
+  private exitArmedAt = 0;
   private npcManager: NPCManager | null = null;
 
   constructor() {
@@ -38,6 +42,7 @@ export class RoomScene extends Phaser.Scene {
     this.room = data.room;
     this.returnTo = data.returnTo;
     this.exiting = false;
+    this.exitArmedAt = this.time.now + EXIT_GRACE_MS;
 
     const bgKey = `room-bg-${this.room}`;
     const bg = this.textures.exists(bgKey)
@@ -109,14 +114,31 @@ export class RoomScene extends Phaser.Scene {
     });
   }
 
-  private handleMinigameExit(payload: { returnRoom?: string; returnTo?: { x: number; y: number } }) {
+  private handleMinigameExit(payload: {
+    sceneKey?: string;
+    returnRoom?: string;
+    returnTo?: { x: number; y: number };
+  }) {
     if (!payload?.returnRoom || payload.returnRoom !== this.room) return;
     if (!this.scene.isSleeping()) return;
-    // Stop any minigame scene that's still active.
-    const keys = ['StarCatchScene', 'MemoryMatchScene', 'StarConnectScene', 'ForgeHammerScene'];
-    for (const k of keys) {
-      if (this.scene.manager.getScene(k)?.scene.isActive()) {
-        this.scene.stop(k);
+    // Stop the specific minigame scene the user just exited. Falling back to
+    // a sweep keeps us safe if a future scene forgets to send sceneKey.
+    if (payload.sceneKey && this.scene.manager.getScene(payload.sceneKey)) {
+      this.scene.stop(payload.sceneKey);
+    } else {
+      const keys = [
+        'StarCatchScene',
+        'MemoryMatchScene',
+        'StarConnectScene',
+        'ForgeHammerScene',
+        'LoreTriviaScene',
+        'CookingRhythmScene',
+        'DreamCatcherScene',
+      ];
+      for (const k of keys) {
+        if (this.scene.manager.getScene(k)?.scene.isActive()) {
+          this.scene.stop(k);
+        }
       }
     }
     this.scene.wake();
@@ -253,6 +275,7 @@ export class RoomScene extends Phaser.Scene {
 
   private exit() {
     if (this.exiting) return;
+    if (this.time.now < this.exitArmedAt) return;
     this.exiting = true;
     this.cameras.main.fadeOut(250, 0, 0, 0);
     this.time.delayedCall(260, () => {

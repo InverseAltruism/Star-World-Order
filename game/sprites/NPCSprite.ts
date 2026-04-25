@@ -7,8 +7,13 @@ const IDLE_BOB_AMPLITUDE = 1.5;
 const INDICATOR_BOB_SPEED = 0.004;
 const INDICATOR_BOB_AMPLITUDE = 3;
 
-const NPC_DISPLAY_HEIGHT = 32;
+const NPC_DISPLAY_HEIGHT = 60;
 const PLACEHOLDER_SCALE = 1.5;
+const ALPHA_THRESHOLD = 16;
+
+function npcFrame0TextureKey(id: string): string {
+  return `npc-frame0-${id}`;
+}
 
 export class NPCSprite extends Phaser.GameObjects.Container {
   readonly npcId: string;
@@ -21,8 +26,6 @@ export class NPCSprite extends Phaser.GameObjects.Container {
   private indicator: Phaser.GameObjects.Text;
   private baseY: number;
   private hasQuest = false;
-  private idleFrame = 0;
-  private idleTimer = 0;
   private indicatorBaseY: number;
 
   constructor(scene: Phaser.Scene, def: NPCDefinition) {
@@ -34,13 +37,13 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.dialogue = def.dialogue;
     this.baseY = def.y;
 
-    const realKey = npcSpriteTextureKey(def.id);
-    const realTex = scene.textures.get(realKey);
-    const hasReal = realTex && realTex.key !== '__MISSING';
-    const textureKey = hasReal ? realKey : `npc-${def.id}`;
+    const cropKey = npcFrame0TextureKey(def.id);
+    const cropTex = scene.textures.get(cropKey);
+    const hasCrop = cropTex && cropTex.key !== '__MISSING';
+    const textureKey = hasCrop ? cropKey : `npc-${def.id}`;
     this.sprite = scene.add.sprite(0, 0, textureKey);
-    if (hasReal) {
-      const src = realTex.getSourceImage() as { height?: number };
+    if (hasCrop) {
+      const src = cropTex.getSourceImage() as { height?: number };
       const h = src && typeof src.height === 'number' && src.height > 0 ? src.height : NPC_DISPLAY_HEIGHT;
       this.sprite.setScale(NPC_DISPLAY_HEIGHT / h);
     } else {
@@ -111,13 +114,6 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     const bobOffset = Math.sin(time * IDLE_BOB_SPEED) * IDLE_BOB_AMPLITUDE;
     this.y = this.baseY + bobOffset;
 
-    this.idleTimer += 16;
-    if (this.idleTimer > 800) {
-      this.idleTimer = 0;
-      this.idleFrame = this.idleFrame === 0 ? 1 : 0;
-      this.sprite.setFlipX(this.idleFrame === 1);
-    }
-
     if (this.hasQuest) {
       const indicatorBob = Math.sin(time * INDICATOR_BOB_SPEED) * INDICATOR_BOB_AMPLITUDE;
       this.indicator.setY(this.indicatorBaseY + indicatorBob);
@@ -125,6 +121,66 @@ export class NPCSprite extends Phaser.GameObjects.Container {
       const glow = 0.7 + 0.3 * Math.sin(time * 0.005);
       this.indicator.setAlpha(glow);
     }
+  }
+
+  /**
+   * Register a tightly-cropped "frame 0" texture for one NPC's spritesheet.
+   * The source sheets are 1254×1254 with a 4×4 grid (so cells are ~313.5 px,
+   * non-integer pitch). We only ever show the down-idle pose, so this scans
+   * the top-left cell's alpha channel, finds the character bbox, and creates
+   * a small canvas texture cropped to it. Result: a clean per-NPC sprite at
+   * its natural pixel size, no neighbor-cell bleed and no whole-sheet blob.
+   */
+  static registerFrames(scene: Phaser.Scene, npcId: string) {
+    const destKey = npcFrame0TextureKey(npcId);
+    if (scene.textures.exists(destKey)) return;
+    const srcKey = npcSpriteTextureKey(npcId);
+    const srcTex = scene.textures.get(srcKey);
+    if (!srcTex || srcTex.key === '__MISSING') return;
+    const srcImg = srcTex.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+    const srcW = (srcImg as { width?: number }).width;
+    const srcH = (srcImg as { height?: number }).height;
+    if (!srcW || !srcH) return;
+
+    // Top-left cell. We use ~30% of the sheet to give the character a margin
+    // even if the artist drew slightly outside the nominal cell boundary.
+    const cellW = Math.floor(srcW * 0.3);
+    const cellH = Math.floor(srcH * 0.3);
+
+    // Read the cell's pixels via a scratch canvas.
+    const scratch = document.createElement('canvas');
+    scratch.width = cellW;
+    scratch.height = cellH;
+    const sctx = scratch.getContext('2d');
+    if (!sctx) return;
+    sctx.drawImage(
+      srcImg as CanvasImageSource,
+      0, 0, cellW, cellH,
+      0, 0, cellW, cellH,
+    );
+    const data = sctx.getImageData(0, 0, cellW, cellH).data;
+
+    let minX = cellW, maxX = -1, minY = cellH, maxY = -1;
+    for (let y = 0; y < cellH; y++) {
+      for (let x = 0; x < cellW; x++) {
+        if (data[(y * cellW + x) * 4 + 3] > ALPHA_THRESHOLD) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) return; // Empty cell.
+
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+
+    const canvas = scene.textures.createCanvas(destKey, w, h);
+    if (!canvas) return;
+    const ctx = canvas.getContext();
+    ctx.drawImage(srcImg as CanvasImageSource, minX, minY, w, h, 0, 0, w, h);
+    canvas.refresh();
   }
 
   static generatePlaceholderTexture(scene: Phaser.Scene, npcId: string, color: number) {

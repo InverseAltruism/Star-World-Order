@@ -21,11 +21,30 @@ export default function ChatInput() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [focused]);
 
+  // Blur the input when the user clicks anywhere outside it (e.g. on the
+  // game canvas) so WASD goes back to the player instead of typing here.
+  useEffect(() => {
+    if (!focused) return;
+    const handleDown = (e: MouseEvent | TouchEvent) => {
+      const el = inputRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && el.contains(e.target)) return;
+      el.blur();
+    };
+    document.addEventListener('mousedown', handleDown);
+    document.addEventListener('touchstart', handleDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDown);
+      document.removeEventListener('touchstart', handleDown);
+    };
+  }, [focused]);
+
   const send = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed) return;
     EventBus.emit('send-chat', trimmed);
     setText('');
+    inputRef.current?.blur();
   }, [text]);
 
   const handleKeyDown = useCallback(

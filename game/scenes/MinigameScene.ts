@@ -213,6 +213,7 @@ export abstract class MinigameScene extends Phaser.Scene {
     this.time.delayedCall(260, () => {
       EventBus.emit('minigame-exit', {
         gameId: this.gameId,
+        sceneKey: this.scene.key,
         returnRoom: this.returnRoom,
         returnTo: this.returnTo,
       });
@@ -267,23 +268,27 @@ export abstract class MinigameScene extends Phaser.Scene {
       .setDepth(100);
 
     this.scoreText = this.add
-      .text(20, 60, '', {
+      .text(20, 56, '', {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '12px',
+        fontSize: '18px',
         color: '#00f7ff',
         stroke: '#000000',
-        strokeThickness: 3,
+        strokeThickness: 4,
+        backgroundColor: 'rgba(10,0,21,0.75)',
+        padding: { x: 10, y: 6 },
       })
       .setScrollFactor(0)
       .setDepth(100);
 
     this.timerText = this.add
-      .text(SCREEN_W - 20, 60, '', {
+      .text(SCREEN_W - 20, 56, '', {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '12px',
+        fontSize: '20px',
         color: '#ff66aa',
         stroke: '#000000',
-        strokeThickness: 3,
+        strokeThickness: 4,
+        backgroundColor: 'rgba(10,0,21,0.75)',
+        padding: { x: 10, y: 6 },
       })
       .setOrigin(1, 0)
       .setScrollFactor(0)
@@ -294,7 +299,11 @@ export abstract class MinigameScene extends Phaser.Scene {
 
   private refreshHUD() {
     if (this.scoreText) this.scoreText.setText(`SCORE  ${this.score}`);
-    if (this.timerText) this.timerText.setText(`TIME  ${Math.ceil(this.timeRemaining)}s`);
+    if (this.timerText) {
+      const sec = Math.ceil(this.timeRemaining);
+      this.timerText.setText(`TIME  ${sec}s`);
+      this.timerText.setColor(sec <= 10 ? '#ff3344' : '#ff66aa');
+    }
   }
 
   private clearOverlay() {

@@ -94,10 +94,10 @@ const QUESTIONS: TriviaQuestion[] = [
 
 const PROMPT_X = 600;
 const PROMPT_Y = 240;
-const OPTIONS_START_Y = 400;
-const OPTIONS_GAP = 80;
-const OPTION_WIDTH = 720;
-const OPTION_HEIGHT = 60;
+const OPTIONS_START_Y = 410;
+const OPTIONS_GAP = 90;
+const OPTION_WIDTH = 820;
+const OPTION_HEIGHT = 70;
 
 const CORRECT_POINTS = 14;
 const WRONG_PENALTY = 4;
@@ -105,6 +105,7 @@ const SPEED_BONUS_THRESHOLD_MS = 4000;
 const SPEED_BONUS_POINTS = 4;
 const STREAK_BONUS_CAP = 5;
 const FEEDBACK_LOCK_MS = 850;
+const QUESTION_TIME_MS = 10_000;
 
 export class LoreTriviaScene extends MinigameScene {
   private order: number[] = [];
@@ -113,10 +114,13 @@ export class LoreTriviaScene extends MinigameScene {
   private promptText: Phaser.GameObjects.Text | null = null;
   private optionButtons: OptionButton[] = [];
   private feedbackText: Phaser.GameObjects.Text | null = null;
+  private questionTimerText: Phaser.GameObjects.Text | null = null;
+  private questionTimerBar: Phaser.GameObjects.Graphics | null = null;
   private streak = 0;
   private isPaused = false;
   private answerLockedUntil = 0;
   private questionShownAt = 0;
+  private questionDeadline = 0;
   private numberKeys: Phaser.Input.Keyboard.Key[] = [];
 
   constructor() {
@@ -149,20 +153,33 @@ export class LoreTriviaScene extends MinigameScene {
     this.promptText = this.add
       .text(PROMPT_X, PROMPT_Y, '', {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '12px',
+        fontSize: '18px',
         color: '#ffd700',
         stroke: '#000000',
-        strokeThickness: 4,
+        strokeThickness: 5,
         align: 'center',
-        wordWrap: { width: 900 },
+        wordWrap: { width: 980 },
       })
       .setOrigin(0.5)
       .setDepth(10);
 
-    this.feedbackText = this.add
-      .text(PROMPT_X, 760, '', {
+    // Per-question timer: text + a thin progress bar under the prompt.
+    this.questionTimerText = this.add
+      .text(PROMPT_X, PROMPT_Y + 50, '', {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '12px',
+        color: '#00f7ff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(15);
+    this.questionTimerBar = this.add.graphics().setDepth(14);
+
+    this.feedbackText = this.add
+      .text(PROMPT_X, 800, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '14px',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 4,
@@ -204,6 +221,8 @@ export class LoreTriviaScene extends MinigameScene {
     this.currentQuestion = null;
     if (this.promptText) this.promptText.setText('');
     if (this.feedbackText) this.feedbackText.setText('');
+    if (this.questionTimerText) this.questionTimerText.setText('');
+    if (this.questionTimerBar) this.questionTimerBar.clear();
     for (const b of this.optionButtons) {
       b.label.setText('');
       this.styleOption(b, 'idle');
@@ -213,6 +232,11 @@ export class LoreTriviaScene extends MinigameScene {
   protected updatePlaying(time: number, _delta: number): void {
     if (this.isPaused) return;
     if (time >= this.answerLockedUntil) {
+      // Question timeout → mark wrong, move on.
+      if (this.currentQuestion && time >= this.questionDeadline) {
+        this.timeout();
+        return;
+      }
       for (let i = 0; i < this.numberKeys.length; i++) {
         if (Phaser.Input.Keyboard.JustDown(this.numberKeys[i])) {
           this.answer(i);
@@ -220,6 +244,50 @@ export class LoreTriviaScene extends MinigameScene {
         }
       }
     }
+    this.refreshQuestionTimer(time);
+  }
+
+  private refreshQuestionTimer(time: number) {
+    if (!this.questionTimerText || !this.questionTimerBar) return;
+    if (!this.currentQuestion) {
+      this.questionTimerText.setText('');
+      this.questionTimerBar.clear();
+      return;
+    }
+    const remaining = Math.max(0, this.questionDeadline - time);
+    const seconds = Math.ceil(remaining / 1000);
+    this.questionTimerText.setText(`${seconds}s`);
+    this.questionTimerText.setColor(seconds <= 3 ? '#ff3344' : '#00f7ff');
+
+    const pct = Math.max(0, Math.min(1, remaining / QUESTION_TIME_MS));
+    const barW = 480;
+    const barH = 8;
+    const barX = PROMPT_X - barW / 2;
+    const barY = PROMPT_Y + 70;
+    this.questionTimerBar.clear();
+    this.questionTimerBar.fillStyle(0x110022, 0.85);
+    this.questionTimerBar.fillRect(barX, barY, barW, barH);
+    this.questionTimerBar.fillStyle(seconds <= 3 ? 0xff3344 : 0x00f7ff, 0.9);
+    this.questionTimerBar.fillRect(barX, barY, Math.floor(barW * pct), barH);
+    this.questionTimerBar.lineStyle(1, 0x9966ff, 1);
+    this.questionTimerBar.strokeRect(barX, barY, barW, barH);
+  }
+
+  private timeout() {
+    const q = this.currentQuestion;
+    if (!q) return;
+    this.streak = 0;
+    this.answerLockedUntil = this.time.now + FEEDBACK_LOCK_MS;
+    const correctBtn = this.optionButtons[q.answerIndex];
+    this.styleOption(correctBtn, 'correct');
+    for (const btn of this.optionButtons) {
+      if (btn.index !== q.answerIndex) btn.container.setAlpha(0.4);
+    }
+    this.showFeedback("TIME'S UP", '#ff3344');
+    this.time.delayedCall(FEEDBACK_LOCK_MS, () => {
+      if (this.phase !== 'playing') return;
+      this.showNextQuestion();
+    });
   }
 
   private showNextQuestion() {
@@ -241,7 +309,9 @@ export class LoreTriviaScene extends MinigameScene {
       btn.container.setAlpha(1);
     }
     this.questionShownAt = this.time.now;
+    this.questionDeadline = this.time.now + QUESTION_TIME_MS;
     this.answerLockedUntil = 0;
+    this.refreshQuestionTimer(this.time.now);
   }
 
   private buildOptionButton(index: number): OptionButton {
@@ -252,7 +322,7 @@ export class LoreTriviaScene extends MinigameScene {
     const label = this.add
       .text(0, 0, '', {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '11px',
+        fontSize: '14px',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 3,
