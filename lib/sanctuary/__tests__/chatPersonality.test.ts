@@ -1,18 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildChatPrompt,
+  buildMemoryContextBlock,
   bondLabel,
   moodLabel,
   estimateTokens,
   estimatePromptTokens,
   CONSTELLATION_PERSONAS,
   DEFAULT_PERSONA,
+  MEMORY_INJECT_TOKEN_BUDGET,
+  MAX_INJECTED_MEMORIES,
 } from '../chatPersonality';
 import type {
   SanctuaryCompanionWithMeta,
   SanctuaryChatMessage,
   SanctuaryJournalEntry,
   SanctuaryTrait,
+  SanctuaryChatMemory,
+  SanctuaryChatMemoryCategory,
 } from '@/lib/db';
 
 const mockCompanion = (overrides: Partial<SanctuaryCompanionWithMeta> = {}): SanctuaryCompanionWithMeta => ({
@@ -253,6 +258,96 @@ describe('buildChatPrompt', () => {
     });
     expect(out.system).toContain('Never reveal you are an AI');
     expect(out.system).toContain('financial advice');
+  });
+});
+
+const memory = (
+  id: number,
+  category: SanctuaryChatMemoryCategory,
+  fact: string,
+  importance = 1,
+): SanctuaryChatMemory => ({
+  id,
+  wallet_address: '0xabc',
+  token_id: 42,
+  category,
+  fact,
+  importance,
+  mention_count: 1,
+  last_mentioned_at: '2026-01-01 00:00:00',
+  source_message_id: null,
+  created_at: '2026-01-01 00:00:00',
+  updated_at: '2026-01-01 00:00:00',
+});
+
+describe('buildMemoryContextBlock', () => {
+  it('returns null when no memories provided', () => {
+    expect(buildMemoryContextBlock([])).toBeNull();
+  });
+
+  it('formats memory lines with friendly labels', () => {
+    const block = buildMemoryContextBlock([
+      memory(1, 'owner_identity', "Holder's name is Alex"),
+      memory(2, 'preferences', 'Loves cosmic berries'),
+    ]);
+    expect(block).toContain('Long-term memories');
+    expect(block).toContain('About my holder');
+    expect(block).toContain("Holder's name is Alex");
+    expect(block).toContain('They like / dislike');
+  });
+
+  it('caps at MAX_INJECTED_MEMORIES entries', () => {
+    const memories: SanctuaryChatMemory[] = [];
+    for (let i = 1; i <= 10; i++) {
+      memories.push(memory(i, 'preferences', `fact ${i}`));
+    }
+    const block = buildMemoryContextBlock(memories);
+    expect(block).toBeTruthy();
+    const lineCount = (block!.match(/^- /gm) || []).length;
+    expect(lineCount).toBeLessThanOrEqual(MAX_INJECTED_MEMORIES);
+  });
+
+  it('respects the 150 token budget', () => {
+    const longFact = 'a'.repeat(200); // ~50 tokens each
+    const memories: SanctuaryChatMemory[] = [];
+    for (let i = 1; i <= 5; i++) {
+      memories.push(memory(i, 'preferences', longFact));
+    }
+    const block = buildMemoryContextBlock(memories);
+    expect(block).toBeTruthy();
+    expect(estimateTokens(block!)).toBeLessThanOrEqual(MEMORY_INJECT_TOKEN_BUDGET + 5);
+  });
+});
+
+describe('buildChatPrompt with memories', () => {
+  it('injects the memory block into the system prompt when memories present', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      memories: [memory(1, 'owner_identity', 'Holder is Sam')],
+      userMessage: 'Hi',
+    });
+    expect(out.system).toContain('Long-term memories');
+    expect(out.system).toContain('Holder is Sam');
+  });
+
+  it('does not inject memory block when no memories provided', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      userMessage: 'Hi',
+    });
+    expect(out.system).not.toContain('Long-term memories');
+  });
+
+  it('appends the memory extraction instruction when provided', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      memoryExtractionInstruction: 'EXTRACT_INSTRUCTION_MARKER',
+      userMessage: 'Hi',
+    });
+    expect(out.system).toContain('EXTRACT_INSTRUCTION_MARKER');
   });
 });
 

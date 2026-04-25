@@ -3,11 +3,14 @@ import { z } from 'zod';
 import {
   chatWithCompanion,
   getCompanionChatHistory,
+  getCompanionChatHistoryCount,
   getActiveCompanion,
   getJournalEntries,
   getUnlockedTraits,
   generateTemplateCompanionReply,
   persistCompanionChatExchange,
+  getTopChatMemories,
+  upsertChatMemory,
 } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
@@ -29,11 +32,16 @@ import {
   checkDailyChatLimit,
   recordChatUsage,
 } from '@/lib/sanctuary/chatUsage';
+import {
+  buildMemoryExtractionInstruction,
+  parseMemoryExtraction,
+} from '@/lib/sanctuary/chatMemories';
 
 const getSchema = z.object({
   address: ethAddress,
   token_id: tokenId,
-  limit: paginationLimit(100, 50),
+  limit: paginationLimit(100, 20),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 const postSchema = z.object({
@@ -56,9 +64,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: formatZodError(parsed.error) }, { status: 400 });
     }
 
-    const { address, token_id: tid, limit } = parsed.data;
-    const messages = getCompanionChatHistory(address, tid, limit);
-    return NextResponse.json({ success: true, messages: messages.reverse() });
+    const { address, token_id: tid, limit, offset } = parsed.data;
+    const messages = getCompanionChatHistory(address, tid, limit, offset);
+    const total = getCompanionChatHistoryCount(address, tid);
+    return NextResponse.json({
+      success: true,
+      messages: messages.reverse(),
+      pagination: {
+        limit,
+        offset,
+        total,
+        hasMore: offset + messages.length < total,
+      },
+    });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Failed to get chat' }, { status: 500 });
   }
@@ -120,12 +138,15 @@ export async function POST(request: NextRequest) {
     const history = getCompanionChatHistory(address, tid, 10);
     const journal = getJournalEntries(address, tid, 8);
     const unlockedTraits = getUnlockedTraits(address, tid);
+    const memories = getTopChatMemories(address, tid, 5);
 
     const prompt = buildChatPrompt({
       companion,
       history,
       journal,
       unlockedTraits,
+      memories,
+      memoryExtractionInstruction: buildMemoryExtractionInstruction(),
       userMessage: message,
     });
 
@@ -180,7 +201,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const persisted = persistCompanionChatExchange(address, tid, message, llmResult.content);
+    const { cleanReply, memories: extractedMemories } = parseMemoryExtraction(llmResult.content);
+    const replyText = cleanReply || llmResult.content.trim();
+    const persisted = persistCompanionChatExchange(address, tid, message, replyText);
+
+    let memoriesPersisted = 0;
+    if (extractedMemories.length) {
+      const sourceId = persisted.companionReply.id;
+      for (const mem of extractedMemories) {
+        try {
+          upsertChatMemory(address, tid, mem.category, mem.fact, {
+            importance: mem.importance,
+            sourceMessageId: sourceId,
+          });
+          memoriesPersisted++;
+        } catch {
+          // Skip individual bad rows; never fail the chat reply on memory errors.
+        }
+      }
+    }
+
     recordChatUsage({
       walletAddress: address,
       tokenId: tid,
@@ -201,6 +241,8 @@ export async function POST(request: NextRequest) {
         usage: llmResult.usage,
         estimatedCostUsd: llmResult.estimatedCostUsd,
         dailyLimit: checkDailyChatLimit(address),
+        memoriesUsed: memories.length,
+        memoriesPersisted,
       },
     });
   } catch (error) {
