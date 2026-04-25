@@ -2,139 +2,127 @@ import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';
-import { NPCS_V3 } from '../config/npcDefinitionsV3';
-import {
-  TILE, WORLD_W, WORLD_H, WORLD_TILES_W, WORLD_TILES_H,
-  SPAWN, BUILDINGS, buildingCollisions,
-} from '../config/worldLayoutV3';
+import { NPCS_V3, type NPCDefV3, type NPCSheet } from '../config/npcDefinitionsV3';
 
 const CAMERA_ZOOM = 1.5;
-
-// Tile crops inside fm-tileset.png we found visually. Coordinates are in
-// the source tileset (2048×2048, 32px grid = 64 tiles wide). These are
-// best-guess crops chosen from the FM atlas; refinable later when we author
-// proper tilemap data.
-const TILE_CROPS = {
-  grass:        { x: 32,  y: 0   },
-  grassDark:    { x: 64,  y: 0   },
-  dirt:         { x: 32,  y: 64  },
-  stonePath:    { x: 32,  y: 32  },
-  stonePathLt:  { x: 64,  y: 32  },
-};
+const WATER_FPS = 6;
 
 export class WorldSceneV3 extends Phaser.Scene {
   private player!: PlayerSpriteV3;
   private npcs: NPCSpriteV3[] = [];
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
+  private waterSprites: Phaser.GameObjects.Sprite[] = [];
 
   constructor() { super({ key: 'WorldSceneV3' }); }
 
   create() {
-    this.cameras.main.setBackgroundColor('#0a0015');
-    this.physics.world.setBounds(0, 0, WORLD_W, WORLD_H);
-    this.cameras.main.setBounds(0, 0, WORLD_W, WORLD_H);
+    // -------- Tilemap --------
+    const map = this.make.tilemap({ key: 'overworld' });
+    const fmTileset = map.addTilesetImage('forgotten-memories', 'fm-tileset');
+    if (!fmTileset) throw new Error('forgotten-memories tileset failed to attach');
+
+    const groundLayer = map.createLayer('ground', fmTileset, 0, 0);
+    if (!groundLayer) throw new Error('ground layer missing from overworld.json');
+    groundLayer.setDepth(-10);
+
+    const worldW = map.widthInPixels;
+    const worldH = map.heightInPixels;
+    this.physics.world.setBounds(0, 0, worldW, worldH);
+    this.cameras.main.setBounds(0, 0, worldW, worldH);
     this.cameras.main.setZoom(CAMERA_ZOOM);
+    this.cameras.main.setBackgroundColor('#0a0015');
 
-    this.renderGround();
-    this.renderBuildings();
-    this.renderProps();
-    this.createCollision();
+    // -------- Buildings (object layer) --------
+    const buildings = map.getObjectLayer('buildings')?.objects ?? [];
+    for (const o of buildings) {
+      // Tiled object x/y is top-left for image objects when no gid; for our
+      // un-gid'd objects we used (col*TILE, row*TILE) as the centre, with
+      // width/height = 128. Re-compute the centre:
+      const cx = (o.x ?? 0) + (o.width ?? 0) / 2;
+      const cy = (o.y ?? 0) + (o.height ?? 0) / 2;
+      const key = `building-v3-${o.name}`;
+      if (!this.textures.exists(key)) continue;
+      this.add.image(cx, cy, key).setOrigin(0.5).setDepth(5);
+    }
 
-    // Player.
-    this.player = new PlayerSpriteV3(this, SPAWN.x, SPAWN.y);
+    // -------- Props --------
+    const props = map.getObjectLayer('props')?.objects ?? [];
+    for (const o of props) {
+      const key = `prop-v3-${o.name}`;
+      if (!this.textures.exists(key)) continue;
+      const px = (o.x ?? 0) + (o.width ?? 0) / 2;
+      // Props use bottom-anchor convention: y is the BOTTOM of the prop sprite.
+      const py = (o.y ?? 0) + (o.height ?? 0);
+      this.add.image(px, py, key).setOrigin(0.5, 1).setDepth(6);
+    }
+
+    // -------- Animated water --------
+    if (!this.anims.exists('water-flow')) {
+      this.anims.create({
+        key: 'water-flow',
+        frames: this.anims.generateFrameNumbers('fm-water', { start: 0, end: 5 }),
+        frameRate: WATER_FPS,
+        repeat: -1,
+      });
+    }
+    const water = map.getObjectLayer('water')?.objects ?? [];
+    for (const o of water) {
+      // Tile the 128×128 water sprite across the region defined by the object.
+      const w = o.width ?? 128;
+      const h = o.height ?? 128;
+      const tilesX = Math.ceil(w / 128);
+      const tilesY = Math.ceil(h / 128);
+      for (let ty = 0; ty < tilesY; ty++) {
+        for (let tx = 0; tx < tilesX; tx++) {
+          const wx = (o.x ?? 0) + tx * 128;
+          const wy = (o.y ?? 0) + ty * 128;
+          const s = this.add.sprite(wx, wy, 'fm-water', 0).setOrigin(0, 0).setDepth(-5);
+          s.play('water-flow');
+          this.waterSprites.push(s);
+        }
+      }
+    }
+
+    // -------- Collision --------
+    this.collisionGroup = this.physics.add.staticGroup();
+    const collide = map.getObjectLayer('collision')?.objects ?? [];
+    for (const o of collide) {
+      const cx = (o.x ?? 0) + (o.width ?? 0) / 2;
+      const cy = (o.y ?? 0) + (o.height ?? 0) / 2;
+      const zone = this.add.zone(cx, cy, o.width ?? 32, o.height ?? 32);
+      this.physics.add.existing(zone, true);
+      this.collisionGroup.add(zone);
+    }
+
+    // -------- Spawn the player --------
+    // Pick spawn from the NPCs object layer's 'spawn-fox' position; if missing
+    // fall back to map centre. Player is offset 2 tiles south of spawn fox.
+    const npcObjs = map.getObjectLayer('npcs')?.objects ?? [];
+    const fox = npcObjs.find(o => o.name === 'spawn-fox');
+    const spawnX = fox ? (fox.x ?? 0) - 64 : worldW / 2;
+    const spawnY = fox ? (fox.y ?? 0) + 32 : worldH / 2;
+    this.player = new PlayerSpriteV3(this, spawnX, spawnY);
     this.physics.add.collider(this.player, this.collisionGroup);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
-    // NPCs.
-    for (const def of NPCS_V3) {
+    // -------- NPCs --------
+    // The map declares which NPC sheet to render at each spot; we look up the
+    // matching definition (for name + dialogue). Unknown names get a fallback.
+    const npcByKey: Partial<Record<NPCSheet, NPCDefV3>> = {};
+    for (const def of NPCS_V3) npcByKey[def.id] = def;
+    for (const o of npcObjs) {
+      const sheet = o.name as NPCSheet;
+      const baseDef = npcByKey[sheet];
+      if (!baseDef) continue;
+      const def: NPCDefV3 = {
+        ...baseDef,
+        x: (o.x ?? 0) + (o.width ?? 0) / 2,
+        y: (o.y ?? 0) + (o.height ?? 0) / 2,
+      };
       this.npcs.push(new NPCSpriteV3(this, def));
     }
 
     EventBus.emit('scene-ready', this);
-  }
-
-  /** Render the 40×28 ground layer using FM tile crops. */
-  private renderGround() {
-    // We render each tile by extracting a 32×32 crop from the master tileset
-    // texture and placing it. To keep this fast, we use a single composite
-    // RenderTexture rather than 1120 individual sprites.
-    const rt = this.add.renderTexture(0, 0, WORLD_W, WORLD_H).setOrigin(0, 0).setDepth(-10);
-
-    const tileTex = this.textures.get('fm-tileset');
-    const placeTile = (cropX: number, cropY: number, dstX: number, dstY: number) => {
-      // Use Phaser's Frame mechanism: a temporary frame name pointing at the crop.
-      const frameName = `tile-${cropX}-${cropY}`;
-      if (!tileTex.has(frameName)) tileTex.add(frameName, 0, cropX, cropY, TILE, TILE);
-      rt.drawFrame('fm-tileset', frameName, dstX, dstY);
-    };
-
-    // Base layer: grass everywhere with subtle variation.
-    for (let ty = 0; ty < WORLD_TILES_H; ty++) {
-      for (let tx = 0; tx < WORLD_TILES_W; tx++) {
-        const x = tx * TILE, y = ty * TILE;
-        const crop = ((tx + ty) & 7) === 0 ? TILE_CROPS.grassDark : TILE_CROPS.grass;
-        placeTile(crop.x, crop.y, x, y);
-      }
-    }
-
-    // A simple cross of stone path: horizontal across centre + vertical down centre.
-    const cy = Math.floor(WORLD_TILES_H / 2);
-    const cx = Math.floor(WORLD_TILES_W / 2);
-    for (let tx = 0; tx < WORLD_TILES_W; tx++) {
-      placeTile(TILE_CROPS.stonePath.x, TILE_CROPS.stonePath.y, tx * TILE, cy * TILE);
-    }
-    for (let ty = 0; ty < WORLD_TILES_H; ty++) {
-      placeTile(TILE_CROPS.stonePath.x, TILE_CROPS.stonePath.y, cx * TILE, ty * TILE);
-    }
-  }
-
-  private renderBuildings() {
-    for (const b of BUILDINGS) {
-      const img = this.add.image(b.x, b.y, `building-v3-${b.id}`).setOrigin(0.5, 0.5);
-      img.setDepth(5);
-    }
-  }
-
-  /** A few SWO themed prop placements scattered around for atmosphere. */
-  private renderProps() {
-    const place = (key: string, x: number, y: number, depth = 6) =>
-      this.add.image(x, y, `prop-v3-${key}`).setOrigin(0.5, 1).setDepth(depth);
-
-    // Spawn-area: a signpost + a cosmic well so it's recognizable as the hub.
-    place('signpost',     SPAWN.x - 80,  SPAWN.y + 16);
-    place('cosmic-well',  SPAWN.x + 96,  SPAWN.y + 8);
-
-    // Some star flowers and dream mushrooms scattered through the grass.
-    const scatters: Array<[string, number, number]> = [
-      ['star-flower',     5 * TILE,  10 * TILE],
-      ['star-flower',     12 * TILE, 11 * TILE],
-      ['star-flower',     33 * TILE, 9 * TILE],
-      ['dream-mushroom',  17 * TILE, 10 * TILE],
-      ['dream-mushroom',  9 * TILE,  17 * TILE],
-      ['rune-stone',      20 * TILE, 6 * TILE],
-      ['rune-stone',      26 * TILE, 22 * TILE],
-      ['seed-sprout',     21 * TILE, 18 * TILE],
-      ['floating-stone',  15 * TILE, 6 * TILE],
-    ];
-    for (const [k, x, y] of scatters) place(k, x, y);
-
-    // Per-zone signature props next to each building.
-    place('telescope',      BUILDINGS[0].x + 80,  BUILDINGS[0].y + 32); // observatory
-    place('star-chart',     BUILDINGS[1].x + 80,  BUILDINGS[1].y + 32); // library
-    place('star-banner',    BUILDINGS[2].x - 80,  BUILDINGS[2].y + 32); // garden
-    place('moon-lantern',   BUILDINGS[3].x + 80,  BUILDINGS[3].y + 32); // hot springs
-    place('training-dummy', BUILDINGS[4].x + 80,  BUILDINGS[4].y + 32); // training
-    place('crystal-stove',  BUILDINGS[6].x + 80,  BUILDINGS[6].y + 32); // kitchen
-    place('crystal-anvil',  BUILDINGS[7].x + 80,  BUILDINGS[7].y + 32); // forge
-  }
-
-  private createCollision() {
-    this.collisionGroup = this.physics.add.staticGroup();
-    for (const r of buildingCollisions()) {
-      const zone = this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h);
-      this.physics.add.existing(zone, true);
-      this.collisionGroup.add(zone);
-    }
   }
 
   update(time: number) {
