@@ -56,6 +56,13 @@ const db = vi.hoisted(() => ({
       starCapPerPlay: 10,
     },
   },
+  // Shop / Inventory (V2.2)
+  listShopItems: vi.fn(),
+  getShopItem: vi.fn(),
+  getCompanionInventory: vi.fn(),
+  buyShopItem: vi.fn(),
+  equipCosmetic: vi.fn(),
+  COSMETIC_CATEGORIES: ['hat', 'accessory', 'background', 'animation'],
 }));
 
 const walletAuth = vi.hoisted(() => ({
@@ -105,6 +112,10 @@ import { POST as completeActivityPOST } from '@/app/api/sanctuary/companion/comp
 import { GET as journalGET } from '@/app/api/sanctuary/companion/journal/route';
 import { POST as minigameScorePOST } from '@/app/api/sanctuary/minigame/score/route';
 import { GET as minigameLeaderboardGET } from '@/app/api/sanctuary/minigame/leaderboard/route';
+import { GET as shopItemsGET } from '@/app/api/sanctuary/shop/items/route';
+import { POST as shopBuyPOST } from '@/app/api/sanctuary/shop/buy/route';
+import { POST as inventoryEquipPOST } from '@/app/api/sanctuary/inventory/equip/route';
+import { GET as inventoryGET } from '@/app/api/sanctuary/inventory/route';
 
 // ─── Constants & helpers ────────────────────────────────────────────
 
@@ -1133,5 +1144,224 @@ describe('Flow: chat conversation', () => {
     expect(histRes.status).toBe(200);
     const hist = await histRes.json();
     expect(hist.messages).toHaveLength(2);
+  });
+});
+
+// =====================================================================
+// GET /api/sanctuary/shop/items
+// =====================================================================
+
+describe('GET /api/sanctuary/shop/items', () => {
+  it('returns full catalog when no filters', async () => {
+    db.listShopItems.mockReturnValue([
+      { item_key: 'hat_acorn_cap', category: 'hat', star_cost: 10, owned: false },
+      { item_key: 'acc_star_pendant', category: 'accessory', star_cost: 10, owned: false },
+    ]);
+    const res = await shopItemsGET(get('/api/sanctuary/shop/items'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.items).toHaveLength(2);
+    expect(db.listShopItems).toHaveBeenCalledWith({ category: undefined, walletAddress: undefined });
+  });
+
+  it('filters by category and includes ownership when address present', async () => {
+    db.listShopItems.mockReturnValue([
+      { item_key: 'hat_acorn_cap', category: 'hat', star_cost: 10, owned: true },
+    ]);
+    const res = await shopItemsGET(
+      get('/api/sanctuary/shop/items', { category: 'hat', address: ALICE }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items[0].owned).toBe(true);
+    expect(db.listShopItems).toHaveBeenCalledWith({ category: 'hat', walletAddress: ALICE });
+  });
+
+  it('returns 400 for invalid category', async () => {
+    const res = await shopItemsGET(
+      get('/api/sanctuary/shop/items', { category: 'invalid' }),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+// =====================================================================
+// POST /api/sanctuary/shop/buy
+// =====================================================================
+
+describe('POST /api/sanctuary/shop/buy', () => {
+  const ITEM = {
+    id: 1, item_key: 'hat_acorn_cap', name: 'Acorn Cap', category: 'hat', rarity: 'common',
+    star_cost: 10, level_required: 1, description: null, asset_key: 'hat_acorn_cap',
+    created_at: '2026-04-25',
+  };
+
+  it('successfully buys an item', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.buyShopItem.mockReturnValue({ item: ITEM, balance: 90, lifetime_earned: 100, spent: 10 });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.balance).toBe(90);
+    expect(body.spent).toBe(10);
+    expect(body.item.item_key).toBe('hat_acorn_cap');
+  });
+
+  it('returns 400 for invalid body', async () => {
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'bad sig' });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 402 on insufficient balance', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.buyShopItem.mockImplementation(() => { throw new Error('Insufficient STAR balance'); });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(402);
+  });
+
+  it('returns 404 when item not found', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.buyShopItem.mockImplementation(() => { throw new Error('ITEM_NOT_FOUND'); });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'no_such_item' }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 when item already owned', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.buyShopItem.mockImplementation(() => { throw new Error('ALREADY_OWNED'); });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 422 when wallet level is too low', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.buyShopItem.mockImplementation(() => { throw new Error('LEVEL_TOO_LOW:required=5:have=1'); });
+    const res = await shopBuyPOST(
+      post('/api/sanctuary/shop/buy', { address: ALICE, item_key: 'hat_witch_hat' }),
+    );
+    expect(res.status).toBe(422);
+  });
+});
+
+// =====================================================================
+// POST /api/sanctuary/inventory/equip
+// =====================================================================
+
+describe('POST /api/sanctuary/inventory/equip', () => {
+  it('equips an item successfully', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockReturnValue({
+      token_id: TOKEN,
+      equipped_cosmetics: { hat: 'hat_acorn_cap' },
+    });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.equipped_cosmetics.hat).toBe('hat_acorn_cap');
+  });
+
+  it('unequips when item_key=null and slot provided', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockReturnValue({ token_id: TOKEN, equipped_cosmetics: { hat: null } });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: null, slot: 'hat' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.equipped_cosmetics.hat).toBeNull();
+  });
+
+  it('returns 400 when unequipping without slot', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: null }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 409 when already equipped', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockImplementation(() => { throw new Error('ALREADY_EQUIPPED'); });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 422 when item not owned', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockImplementation(() => { throw new Error('NOT_OWNED'); });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: 'hat_witch_hat' }),
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 422 when level too low', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockImplementation(() => { throw new Error('LEVEL_TOO_LOW:required=10:have=1'); });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: TOKEN, item_key: 'hat_nebula_crown' }),
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 404 when companion not found', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    db.equipCosmetic.mockImplementation(() => { throw new Error('COMPANION_NOT_FOUND'); });
+    const res = await inventoryEquipPOST(
+      post('/api/sanctuary/inventory/equip', { address: ALICE, token_id: 999, item_key: 'hat_acorn_cap' }),
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
+// =====================================================================
+// GET /api/sanctuary/inventory
+// =====================================================================
+
+describe('GET /api/sanctuary/inventory', () => {
+  it('returns owned items joined with catalog metadata', async () => {
+    db.getCompanionInventory.mockReturnValue([
+      { id: 1, wallet_address: ALICE, item_key: 'hat_acorn_cap', source: 'shop', acquired_at: '2026-04-25' },
+    ]);
+    db.getShopItem.mockReturnValue({
+      id: 1, item_key: 'hat_acorn_cap', name: 'Acorn Cap', category: 'hat', rarity: 'common',
+      star_cost: 10, level_required: 1, description: null, asset_key: 'hat_acorn_cap',
+      created_at: '2026-04-25',
+    });
+    const res = await inventoryGET(get('/api/sanctuary/inventory', { address: ALICE }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].item_key).toBe('hat_acorn_cap');
+    expect(body.items[0].source).toBe('shop');
+  });
+
+  it('returns 400 when address missing', async () => {
+    const res = await inventoryGET(get('/api/sanctuary/inventory'));
+    expect(res.status).toBe(400);
   });
 });

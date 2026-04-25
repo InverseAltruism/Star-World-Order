@@ -5804,6 +5804,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v21Path, 'utf-8');
     database.exec(sql);
   }
+  const v22Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.2.sql');
+  if (fs.existsSync(v22Path)) {
+    const sql = fs.readFileSync(v22Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -5818,6 +5823,7 @@ function initializeSanctuary(database: Database.Database): void {
   seedSanctuaryMapLocations(database);
   seedSanctuaryQuests(database);
   seedSkrumpeyMetadataFromCorpus(database);
+  seedSanctuaryCosmeticItems(database);
 }
 
 function seedSkrumpeyMetadataFromCorpus(database: Database.Database): void {
@@ -7672,4 +7678,305 @@ export function getStarLedger(
   return db.prepare(
     'SELECT * FROM sanctuary_star_ledger WHERE wallet_address = ? ORDER BY created_at DESC, id DESC LIMIT ?'
   ).all(addr, Math.max(1, Math.min(500, Math.floor(limit)))) as SanctuaryStarLedgerEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Cosmetic Shop + Inventory (V2.2) — see [SWO_V2_SHOP_BACKEND]
+// ---------------------------------------------------------------------------
+
+export type CosmeticCategory = 'hat' | 'accessory' | 'background' | 'animation';
+export type CosmeticRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+
+export const COSMETIC_CATEGORIES: readonly CosmeticCategory[] = [
+  'hat',
+  'accessory',
+  'background',
+  'animation',
+] as const;
+
+export interface SanctuaryCosmeticItem {
+  id: number;
+  item_key: string;
+  name: string;
+  category: CosmeticCategory;
+  rarity: CosmeticRarity;
+  star_cost: number;
+  level_required: number;
+  description: string | null;
+  asset_key: string;
+  created_at: string;
+}
+
+export interface SanctuaryInventoryEntry {
+  id: number;
+  wallet_address: string;
+  item_key: string;
+  source: 'shop' | 'quest' | 'event' | 'achievement' | 'gift';
+  acquired_at: string;
+}
+
+// 24 items spanning 4 categories (hat, accessory, background, animation) at
+// price points 10–50 STAR. Idempotent: only inserts on a fresh DB or rows
+// missing by item_key.
+const SANCTUARY_COSMETIC_SEED: ReadonlyArray<Omit<SanctuaryCosmeticItem, 'id' | 'created_at'>> = [
+  // Hats — 10–50 STAR
+  { item_key: 'hat_acorn_cap', name: 'Acorn Cap', category: 'hat', rarity: 'common', star_cost: 10, level_required: 1, description: 'A tiny acorn cap, perfect for forest strolls.', asset_key: 'hat_acorn_cap' },
+  { item_key: 'hat_star_beanie', name: 'Star Beanie', category: 'hat', rarity: 'common', star_cost: 15, level_required: 1, description: 'A cozy beanie embroidered with a single bright star.', asset_key: 'hat_star_beanie' },
+  { item_key: 'hat_witch_hat', name: 'Witch Hat', category: 'hat', rarity: 'uncommon', star_cost: 20, level_required: 3, description: 'A pointed hat that hums faintly with arcane energy.', asset_key: 'hat_witch_hat' },
+  { item_key: 'hat_gold_crown', name: 'Gold Crown', category: 'hat', rarity: 'rare', star_cost: 35, level_required: 5, description: 'Worn by the rulers of forgotten constellations.', asset_key: 'hat_gold_crown' },
+  { item_key: 'hat_cosmic_halo', name: 'Cosmic Halo', category: 'hat', rarity: 'rare', star_cost: 40, level_required: 7, description: 'A floating ring of starlight that orbits the wearer.', asset_key: 'hat_cosmic_halo' },
+  { item_key: 'hat_nebula_crown', name: 'Nebula Crown', category: 'hat', rarity: 'legendary', star_cost: 50, level_required: 10, description: 'A crown spun from raw nebula dust. Only the boldest dare wear it.', asset_key: 'hat_nebula_crown' },
+
+  // Accessories — 10–45 STAR
+  { item_key: 'acc_star_pendant', name: 'Star Pendant', category: 'accessory', rarity: 'common', star_cost: 10, level_required: 1, description: 'A simple pendant carved from meteorite glass.', asset_key: 'acc_star_pendant' },
+  { item_key: 'acc_comet_scarf', name: 'Comet Scarf', category: 'accessory', rarity: 'common', star_cost: 15, level_required: 1, description: 'A long scarf with a flowing comet-tail pattern.', asset_key: 'acc_comet_scarf' },
+  { item_key: 'acc_moon_glasses', name: 'Moon Glasses', category: 'accessory', rarity: 'uncommon', star_cost: 20, level_required: 2, description: 'Tinted spectacles that filter even the brightest sun.', asset_key: 'acc_moon_glasses' },
+  { item_key: 'acc_aura_ribbon', name: 'Aura Ribbon', category: 'accessory', rarity: 'uncommon', star_cost: 25, level_required: 3, description: 'A ribbon woven from threads of pure aura.', asset_key: 'acc_aura_ribbon' },
+  { item_key: 'acc_nebula_collar', name: 'Nebula Collar', category: 'accessory', rarity: 'rare', star_cost: 35, level_required: 5, description: 'A collar that shimmers with swirling cosmic gases.', asset_key: 'acc_nebula_collar' },
+  { item_key: 'acc_eclipse_pendant', name: 'Eclipse Pendant', category: 'accessory', rarity: 'legendary', star_cost: 45, level_required: 8, description: 'Forged during a total eclipse. Pulses with shadow-light.', asset_key: 'acc_eclipse_pendant' },
+
+  // Backgrounds — 10–50 STAR
+  { item_key: 'bg_starfield', name: 'Starfield', category: 'background', rarity: 'common', star_cost: 10, level_required: 1, description: 'A peaceful field of distant pinprick stars.', asset_key: 'bg_starfield' },
+  { item_key: 'bg_soft_aurora', name: 'Soft Aurora', category: 'background', rarity: 'common', star_cost: 20, level_required: 2, description: 'Pale curtains of green and pink light drifting overhead.', asset_key: 'bg_soft_aurora' },
+  { item_key: 'bg_cosmic_dawn', name: 'Cosmic Dawn', category: 'background', rarity: 'uncommon', star_cost: 25, level_required: 3, description: 'The first warm light of a galactic morning.', asset_key: 'bg_cosmic_dawn' },
+  { item_key: 'bg_stellar_meadow', name: 'Stellar Meadow', category: 'background', rarity: 'uncommon', star_cost: 30, level_required: 4, description: 'A field of glowing flowers under a dark crystal sky.', asset_key: 'bg_stellar_meadow' },
+  { item_key: 'bg_nebula_drift', name: 'Nebula Drift', category: 'background', rarity: 'rare', star_cost: 40, level_required: 6, description: 'Slow-rolling clouds of cyan and violet stardust.', asset_key: 'bg_nebula_drift' },
+  { item_key: 'bg_galaxy_swirl', name: 'Galaxy Swirl', category: 'background', rarity: 'legendary', star_cost: 50, level_required: 9, description: 'A full spiral galaxy spinning lazily behind your companion.', asset_key: 'bg_galaxy_swirl' },
+
+  // Animations — 10–50 STAR
+  { item_key: 'anim_gentle_bob', name: 'Gentle Bob', category: 'animation', rarity: 'common', star_cost: 10, level_required: 1, description: 'A soft up-and-down bob, like floating on calm water.', asset_key: 'anim_gentle_bob' },
+  { item_key: 'anim_star_sparkle', name: 'Star Sparkle', category: 'animation', rarity: 'common', star_cost: 15, level_required: 2, description: 'Tiny sparkles burst around the companion at random.', asset_key: 'anim_star_sparkle' },
+  { item_key: 'anim_moon_glow', name: 'Moon Glow', category: 'animation', rarity: 'uncommon', star_cost: 25, level_required: 3, description: 'A pulsing silver halo of moonlight.', asset_key: 'anim_moon_glow' },
+  { item_key: 'anim_comet_trail', name: 'Comet Trail', category: 'animation', rarity: 'uncommon', star_cost: 30, level_required: 4, description: 'A bright trail follows every step.', asset_key: 'anim_comet_trail' },
+  { item_key: 'anim_aurora_dance', name: 'Aurora Dance', category: 'animation', rarity: 'rare', star_cost: 40, level_required: 6, description: 'Aurora ribbons twirl rhythmically around the companion.', asset_key: 'anim_aurora_dance' },
+  { item_key: 'anim_constellation_burst', name: 'Constellation Burst', category: 'animation', rarity: 'legendary', star_cost: 50, level_required: 8, description: 'Periodic bursts of constellation glyphs orbit the companion.', asset_key: 'anim_constellation_burst' },
+];
+
+function seedSanctuaryCosmeticItems(database: Database.Database): void {
+  const insert = database.prepare(`
+    INSERT OR IGNORE INTO sanctuary_cosmetic_items
+      (item_key, name, category, rarity, star_cost, level_required, description, asset_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const item of SANCTUARY_COSMETIC_SEED) {
+    insert.run(
+      item.item_key,
+      item.name,
+      item.category,
+      item.rarity,
+      item.star_cost,
+      item.level_required,
+      item.description ?? null,
+      item.asset_key,
+    );
+  }
+}
+
+export interface ListShopItemsOptions {
+  category?: CosmeticCategory;
+  walletAddress?: string;
+}
+
+export interface ShopItemView extends SanctuaryCosmeticItem {
+  owned: boolean;
+}
+
+export function listShopItems(options: ListShopItemsOptions = {}): ShopItemView[] {
+  const db = getDatabase();
+  const { category, walletAddress } = options;
+
+  const ownedKeys = new Set<string>();
+  if (walletAddress) {
+    const rows = db.prepare(
+      'SELECT item_key FROM sanctuary_companion_inventory WHERE wallet_address = ?'
+    ).all(walletAddress.toLowerCase()) as Array<{ item_key: string }>;
+    for (const r of rows) ownedKeys.add(r.item_key);
+  }
+
+  const sql = category
+    ? 'SELECT * FROM sanctuary_cosmetic_items WHERE category = ? ORDER BY star_cost ASC, id ASC'
+    : 'SELECT * FROM sanctuary_cosmetic_items ORDER BY category ASC, star_cost ASC, id ASC';
+  const rows = (
+    category
+      ? db.prepare(sql).all(category)
+      : db.prepare(sql).all()
+  ) as SanctuaryCosmeticItem[];
+
+  return rows.map((r) => ({ ...r, owned: ownedKeys.has(r.item_key) }));
+}
+
+export function getShopItem(itemKey: string): SanctuaryCosmeticItem | null {
+  const db = getDatabase();
+  const row = db.prepare(
+    'SELECT * FROM sanctuary_cosmetic_items WHERE item_key = ?'
+  ).get(itemKey) as SanctuaryCosmeticItem | undefined;
+  return row ?? null;
+}
+
+export function getCompanionInventory(walletAddress: string): SanctuaryInventoryEntry[] {
+  const db = getDatabase();
+  return db.prepare(
+    'SELECT * FROM sanctuary_companion_inventory WHERE wallet_address = ? ORDER BY acquired_at DESC, id DESC'
+  ).all(walletAddress.toLowerCase()) as SanctuaryInventoryEntry[];
+}
+
+export function ownsCosmetic(walletAddress: string, itemKey: string): boolean {
+  const db = getDatabase();
+  const row = db.prepare(
+    'SELECT 1 as found FROM sanctuary_companion_inventory WHERE wallet_address = ? AND item_key = ? LIMIT 1'
+  ).get(walletAddress.toLowerCase(), itemKey) as { found: number } | undefined;
+  return !!row;
+}
+
+function getWalletLevel(database: Database.Database, walletAddress: string): number {
+  const row = database.prepare(
+    'SELECT COALESCE(level, 1) AS level FROM user_xp WHERE wallet_address = ?'
+  ).get(walletAddress.toLowerCase()) as { level: number } | undefined;
+  return row?.level ?? 1;
+}
+
+export interface BuyShopItemResult {
+  item: SanctuaryCosmeticItem;
+  balance: number;
+  lifetime_earned: number;
+  spent: number;
+}
+
+/**
+ * Buy a cosmetic item. Validates: item exists, level gate, not already owned,
+ * sufficient STAR balance. On success: deducts STAR via spendStar (which writes
+ * the ledger) and inserts an inventory row.
+ *
+ * Throws Error with codes: ITEM_NOT_FOUND, LEVEL_TOO_LOW, ALREADY_OWNED,
+ * "Insufficient STAR balance" (re-thrown from spendStar).
+ */
+export function buyShopItem(
+  walletAddress: string,
+  itemKey: string,
+): BuyShopItemResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const item = db.prepare(
+    'SELECT * FROM sanctuary_cosmetic_items WHERE item_key = ?'
+  ).get(itemKey) as SanctuaryCosmeticItem | undefined;
+  if (!item) throw new Error('ITEM_NOT_FOUND');
+
+  const level = getWalletLevel(db, addr);
+  if (level < item.level_required) {
+    throw new Error(`LEVEL_TOO_LOW:required=${item.level_required}:have=${level}`);
+  }
+
+  const already = db.prepare(
+    'SELECT 1 as found FROM sanctuary_companion_inventory WHERE wallet_address = ? AND item_key = ? LIMIT 1'
+  ).get(addr, itemKey) as { found: number } | undefined;
+  if (already) throw new Error('ALREADY_OWNED');
+
+  // spendStar runs its own transaction (deducts balance + writes ledger). The
+  // inventory insert runs after it succeeds; if the insert fails we re-credit.
+  const spendResult = spendStar(addr, item.star_cost, `shop:${itemKey}`);
+  try {
+    db.prepare(
+      'INSERT INTO sanctuary_companion_inventory (wallet_address, item_key, source) VALUES (?, ?, ?)'
+    ).run(addr, itemKey, 'shop');
+  } catch (e) {
+    // Roll back the STAR deduction by re-crediting the same amount via a raw
+    // ledger compensation. We don't use earnStar() because that clamps to the
+    // earn-rate band and the source isn't an earn source.
+    const txn = db.transaction(() => {
+      const cur = db.prepare(
+        'SELECT balance FROM sanctuary_star_balance WHERE wallet_address = ?'
+      ).get(addr) as { balance: number } | undefined;
+      const restored = (cur?.balance ?? 0) + item.star_cost;
+      db.prepare(
+        'UPDATE sanctuary_star_balance SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?'
+      ).run(restored, addr);
+      db.prepare(
+        'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
+      ).run(addr, item.star_cost, 'earn', `refund:${itemKey}`, restored);
+    });
+    txn();
+    throw e;
+  }
+
+  return {
+    item,
+    balance: spendResult.balance,
+    lifetime_earned: spendResult.lifetime_earned,
+    spent: spendResult.spent,
+  };
+}
+
+export interface EquipCosmeticResult {
+  token_id: number;
+  equipped_cosmetics: Record<string, string | null>;
+}
+
+/**
+ * Equip (or unequip with itemKey === null) a cosmetic item on a companion.
+ * Validates: companion belongs to wallet, item is owned, item category matches
+ * a slot, and level gate. Only one item may be equipped per slot — equipping
+ * a new one swaps the old one out (no double-equip).
+ *
+ * Throws Error with codes: COMPANION_NOT_FOUND, ITEM_NOT_FOUND, NOT_OWNED,
+ * LEVEL_TOO_LOW, ALREADY_EQUIPPED.
+ */
+export function equipCosmetic(
+  walletAddress: string,
+  tokenId: number,
+  itemKey: string | null,
+  slot?: CosmeticCategory,
+): EquipCosmeticResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const companion = db.prepare(
+    'SELECT id, equipped_cosmetics FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ?'
+  ).get(addr, tokenId) as { id: number; equipped_cosmetics: string | null } | undefined;
+  if (!companion) throw new Error('COMPANION_NOT_FOUND');
+
+  let equipped: Record<string, string | null> = {};
+  if (companion.equipped_cosmetics) {
+    try {
+      const parsed = JSON.parse(companion.equipped_cosmetics);
+      if (parsed && typeof parsed === 'object') equipped = parsed;
+    } catch { /* malformed — treat as empty */ }
+  }
+
+  if (itemKey === null) {
+    // Unequip: requires explicit slot.
+    if (!slot) throw new Error('SLOT_REQUIRED');
+    if (equipped[slot] === undefined || equipped[slot] === null) {
+      // No-op if nothing was equipped.
+      return { token_id: tokenId, equipped_cosmetics: equipped };
+    }
+    equipped[slot] = null;
+  } else {
+    const item = db.prepare(
+      'SELECT * FROM sanctuary_cosmetic_items WHERE item_key = ?'
+    ).get(itemKey) as SanctuaryCosmeticItem | undefined;
+    if (!item) throw new Error('ITEM_NOT_FOUND');
+
+    const owned = db.prepare(
+      'SELECT 1 as found FROM sanctuary_companion_inventory WHERE wallet_address = ? AND item_key = ? LIMIT 1'
+    ).get(addr, itemKey) as { found: number } | undefined;
+    if (!owned) throw new Error('NOT_OWNED');
+
+    const level = getWalletLevel(db, addr);
+    if (level < item.level_required) {
+      throw new Error(`LEVEL_TOO_LOW:required=${item.level_required}:have=${level}`);
+    }
+
+    const targetSlot = (slot ?? item.category) as CosmeticCategory;
+    if (equipped[targetSlot] === itemKey) {
+      throw new Error('ALREADY_EQUIPPED');
+    }
+    equipped[targetSlot] = itemKey;
+  }
+
+  db.prepare(
+    'UPDATE sanctuary_companions SET equipped_cosmetics = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+  ).run(JSON.stringify(equipped), companion.id);
+
+  return { token_id: tokenId, equipped_cosmetics: equipped };
 }
