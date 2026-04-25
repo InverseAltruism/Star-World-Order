@@ -37,6 +37,7 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
   private pathTarget: { x: number; y: number } | null = null;
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   private wasd: Record<string, Phaser.Input.Keyboard.Key> | null = null;
+  private shadow: Phaser.GameObjects.Ellipse | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, SPRITE_KEY, 0);
@@ -51,8 +52,33 @@ export class PlayerSprite extends Phaser.Physics.Arcade.Sprite {
     body.setSize(80, 50);
     body.setOffset(35, 190);
 
+    // Ground shadow under the feet, kept in sync via preUpdate. Helps the
+    // character sit on the painted overworld instead of floating in front.
+    this.shadow = scene.add.ellipse(
+      x,
+      y + this.displayHeight * 0.46,
+      this.displayWidth * 0.55,
+      Math.max(4, this.displayHeight * 0.13),
+      0x000000,
+      0.35,
+    );
+    this.shadow.setDepth(this.depth - 1);
+
     this.setupAnimations();
     this.setupInput();
+  }
+
+  preUpdate(time: number, delta: number) {
+    super.preUpdate(time, delta);
+    if (this.shadow) {
+      this.shadow.setPosition(this.x, this.y + this.displayHeight * 0.46);
+    }
+  }
+
+  destroy(fromScene?: boolean) {
+    this.shadow?.destroy();
+    this.shadow = null;
+    super.destroy(fromScene);
   }
 
   static generatePlaceholderTextures(_scene: Phaser.Scene) {

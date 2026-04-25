@@ -18,7 +18,7 @@ import {
   type Door,
   type RoomKey,
 } from '../config/worldLayout';
-import { NPC_DEFINITIONS } from '../config/npcDefinitions';
+import { getOverworldNPCDefinitions } from '../config/npcDefinitions';
 import { cameraState } from '../systems/CameraState';
 
 const CAMERA_ZOOM = 1.5;
@@ -81,7 +81,7 @@ export class WorldScene extends Phaser.Scene {
     this.setupEditor();
     this.setupDoorPrompt();
     this.setupOtherPlayers();
-    this.npcManager = new NPCManager(this, NPC_DEFINITIONS);
+    this.npcManager = new NPCManager(this, getOverworldNPCDefinitions());
 
     this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 

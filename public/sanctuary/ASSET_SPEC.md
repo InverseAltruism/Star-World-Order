@@ -1,6 +1,8 @@
-# Sanctuary Asset Specifications
+# Sanctuary Asset Specifications (V1 / V2 only)
 
-See `docs/SANCTUARY_STYLE_DOCTRINE.md` for the full visual bible.
+> ⚠️ **V2 testbed only.** This spec applies to the V1/V2 art at `public/sanctuary/`. V3 assets live at `public/sanctuary-v3/` and follow `docs/SANCTUARY_V3.md` (different style, different palette, different sizing).
+
+See `docs/SANCTUARY_STYLE_DOCTRINE.md` for the V1/V2 visual reference.
 
 ## Directory Structure
 

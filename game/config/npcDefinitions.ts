@@ -224,6 +224,13 @@ export function getRoomNPCDefinitions(room: RoomKey): NPCDefinition[] {
   }));
 }
 
+// On the overworld map we only want the Spawn Fox visible — everyone else
+// lives in their respective room. The quest board still opens via the
+// 'quest-board-open' event (e.g. from the QuestTracker HUD).
+export function getOverworldNPCDefinitions(): NPCDefinition[] {
+  return NPC_DEFINITIONS.filter((n) => n.kind === 'intro');
+}
+
 export function npcSpriteTextureKey(id: string): string {
   return `npc-sprite-${id}`;
 }

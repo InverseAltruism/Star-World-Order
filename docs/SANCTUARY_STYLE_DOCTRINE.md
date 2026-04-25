@@ -1,10 +1,10 @@
-# Sanctuary Style Doctrine
+# Sanctuary Style Doctrine (V1 / V2 only)
 
-> The visual bible for Star Sanctuary. Every asset, animation, and UI element must pass through these filters before shipping.
+> ⚠️ **Superseded for V3 by `SANCTUARY_V3.md`.** This document remains the visual reference for the V2 testbed at `?v=2` (luminous cosmic playground tone). V3 follows a different aesthetic — muted SNES/GBA forest-route tileset based on Forgotten Memories — see `SANCTUARY_V3.md`.
 
-**Status:** Active — binding on all Sanctuary visual work  
+**Status:** Reference for V1/V2 only — not binding on V3.  
 **Created:** 2026-04-20  
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-20 (banner added 2026-04-25)
 
 ---
 

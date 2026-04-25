@@ -24,6 +24,7 @@ export class NPCSprite extends Phaser.GameObjects.Container {
   private sprite: Phaser.GameObjects.Sprite;
   private nameTag: Phaser.GameObjects.Text;
   private indicator: Phaser.GameObjects.Text;
+  private shadow: Phaser.GameObjects.Ellipse;
   private baseY: number;
   private hasQuest = false;
   private indicatorBaseY: number;
@@ -54,6 +55,14 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     const halfH = this.sprite.displayHeight / 2;
     const nameTagY = -halfH - 2;
     this.indicatorBaseY = nameTagY - 10;
+
+    // Ground shadow under the feet, anchored in world space (does not bob with
+    // the sprite). Helps the NPCs sit on the painted overworld instead of
+    // floating in front of it.
+    const shadowW = Math.max(12, this.sprite.displayWidth * 0.7);
+    const shadowH = Math.max(4, this.sprite.displayHeight * 0.18);
+    this.shadow = scene.add.ellipse(def.x, def.y + halfH - 2, shadowW, shadowH, 0x000000, 0.35);
+    this.shadow.setDepth(7);
 
     this.nameTag = scene.add.text(0, nameTagY, def.name, {
       fontFamily: '"Press Start 2P", monospace',
@@ -110,6 +119,11 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.indicator.setVisible(available);
   }
 
+  destroy(fromScene?: boolean) {
+    this.shadow?.destroy();
+    super.destroy(fromScene);
+  }
+
   update(time: number) {
     const bobOffset = Math.sin(time * IDLE_BOB_SPEED) * IDLE_BOB_AMPLITUDE;
     this.y = this.baseY + bobOffset;
@@ -142,10 +156,12 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     const srcH = (srcImg as { height?: number }).height;
     if (!srcW || !srcH) return;
 
-    // Top-left cell. We use ~30% of the sheet to give the character a margin
-    // even if the artist drew slightly outside the nominal cell boundary.
-    const cellW = Math.floor(srcW * 0.3);
-    const cellH = Math.floor(srcH * 0.3);
+    // Read exactly the top-left cell of the 4×4 grid. The sheets are 1254×1254
+    // so each cell is 313.5px — Math.floor(srcW/4)=313 keeps us strictly inside
+    // the cell and away from the next row/column's character (the artist
+    // leaves a transparent gutter around y≈300 between rows).
+    const cellW = Math.floor(srcW / 4);
+    const cellH = Math.floor(srcH / 4);
 
     // Read the cell's pixels via a scratch canvas.
     const scratch = document.createElement('canvas');
