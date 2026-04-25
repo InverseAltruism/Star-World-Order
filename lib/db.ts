@@ -6554,6 +6554,33 @@ export const SANCTUARY_MINIGAMES: Record<string, MinigameDef> = {
     starPerScore: 0.05,
     starCapPerPlay: 10,
   },
+  'memory-match': {
+    game_id: 'memory-match',
+    label: 'Mood Match',
+    description: 'Flip tiles in the Hot Springs to match Skrumpey moods. Streaks earn bonus points; clearing the board re-deals.',
+    durationSeconds: 75,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.04,
+    starCapPerPlay: 10,
+  },
+  'star-connect': {
+    game_id: 'star-connect',
+    label: 'Star Connect',
+    description: 'Trace constellations from the Observatory tablet — click each star in the highlighted order. Perfect rounds earn a bonus.',
+    durationSeconds: 70,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.05,
+    starCapPerPlay: 10,
+  },
+  'forge-hammer': {
+    game_id: 'forge-hammer',
+    label: 'Forge Hammer',
+    description: 'Time SPACE strikes against the Aura Forge anvil. Hit the gold center for PERFECT — chain hits to ramp the meter.',
+    durationSeconds: 60,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.05,
+    starCapPerPlay: 10,
+  },
 };
 
 export function getMinigameDef(gameId: string): MinigameDef | null {

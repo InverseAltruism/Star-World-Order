@@ -113,7 +113,7 @@ export class RoomScene extends Phaser.Scene {
     if (!payload?.returnRoom || payload.returnRoom !== this.room) return;
     if (!this.scene.isSleeping()) return;
     // Stop any minigame scene that's still active.
-    const keys = ['StarCatchScene'];
+    const keys = ['StarCatchScene', 'MemoryMatchScene', 'StarConnectScene', 'ForgeHammerScene'];
     for (const k of keys) {
       if (this.scene.manager.getScene(k)?.scene.isActive()) {
         this.scene.stop(k);

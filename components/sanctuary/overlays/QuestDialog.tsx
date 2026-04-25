@@ -169,6 +169,9 @@ export default function QuestDialog({
         payload.npcId === 'spawn-fox'
         || payload.npcId === 'quest-board'
         || payload.npcId.startsWith('npc-observatory-arcade')
+        || payload.npcId === 'npc-hot-springs-arcade'
+        || payload.npcId === 'npc-observatory-stars'
+        || payload.npcId === 'npc-aura-forge-anvil'
       ) {
         return;
       }

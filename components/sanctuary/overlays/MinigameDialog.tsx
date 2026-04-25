@@ -49,6 +49,21 @@ const MINIGAME_NPCS: Record<string, { gameId: string; sceneKey: string; defaultR
     sceneKey: 'StarCatchScene',
     defaultRoom: 'Observatory',
   },
+  'npc-hot-springs-arcade': {
+    gameId: 'memory-match',
+    sceneKey: 'MemoryMatchScene',
+    defaultRoom: 'Hot Springs',
+  },
+  'npc-observatory-stars': {
+    gameId: 'star-connect',
+    sceneKey: 'StarConnectScene',
+    defaultRoom: 'Observatory',
+  },
+  'npc-aura-forge-anvil': {
+    gameId: 'forge-hammer',
+    sceneKey: 'ForgeHammerScene',
+    defaultRoom: 'Aura Forge',
+  },
 };
 
 export default function MinigameDialog({
