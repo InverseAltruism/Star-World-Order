@@ -3,6 +3,9 @@ import { BootScene } from '../scenes/BootScene';
 import { WorldScene } from '../scenes/WorldScene';
 import { RoomScene } from '../scenes/RoomScene';
 import { StarCatchScene } from '../scenes/StarCatchScene';
+import { MemoryMatchScene } from '../scenes/MemoryMatchScene';
+import { StarConnectScene } from '../scenes/StarConnectScene';
+import { ForgeHammerScene } from '../scenes/ForgeHammerScene';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -21,7 +24,15 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, WorldScene, RoomScene, StarCatchScene],
+  scene: [
+    BootScene,
+    WorldScene,
+    RoomScene,
+    StarCatchScene,
+    MemoryMatchScene,
+    StarConnectScene,
+    ForgeHammerScene,
+  ],
   pixelArt: true,
   antialias: false,
   roundPixels: true,
