@@ -36,6 +36,11 @@ const ChatBubble = dynamic(
   { ssr: false }
 );
 
+const CompanionChatOverlay = dynamic(
+  () => import('@/components/sanctuary/overlays/CompanionChatOverlay'),
+  { ssr: false }
+);
+
 const QuestDialog = dynamic(
   () => import('@/components/sanctuary/overlays/QuestDialog'),
   { ssr: false }
@@ -163,6 +168,7 @@ export default function SanctuaryV2() {
         <WelcomeDialog walletAddress={address} />
         <LevelUpCelebration />
         <ChatBubble />
+        <CompanionChatOverlay walletAddress={address} tokenId={activeTokenId} />
         <ChatInput />
         {editMode && <DevMapEditor />}
       </div>

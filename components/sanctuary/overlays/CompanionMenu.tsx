@@ -120,6 +120,12 @@ export default function CompanionMenu({
   const handleAction = useCallback(async (action: InteractAction) => {
     if (!walletAddress || tokenId === null || interacting) return;
 
+    if (action === 'talk') {
+      EventBus.emit('companion-chat-open');
+      closeMenu();
+      return;
+    }
+
     setInteracting(action);
     const pos = menuPos!;
 
