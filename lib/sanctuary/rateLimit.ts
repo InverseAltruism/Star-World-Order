@@ -16,6 +16,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   'companion/training': { maxRequests: 20, windowSeconds: 60 },
   'companion/chat': { maxRequests: 30, windowSeconds: 60 },
   'quests/claim': { maxRequests: 10, windowSeconds: 60 },
+  'minigame/score': { maxRequests: 30, windowSeconds: 60 },
 };
 
 let cleanupCounter = 0;

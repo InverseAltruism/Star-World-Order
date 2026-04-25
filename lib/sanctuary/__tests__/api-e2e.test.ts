@@ -27,6 +27,21 @@ const db = vi.hoisted(() => ({
   completeActivityV15: vi.fn(),
   getJournalEntriesPaginated: vi.fn(),
   getJournalStats: vi.fn(),
+  submitMinigameScore: vi.fn(),
+  getMinigameLeaderboard: vi.fn(),
+  getMinigamePersonalBest: vi.fn(),
+  getMinigameDef: vi.fn(),
+  SANCTUARY_MINIGAMES: {
+    'star-catch': {
+      game_id: 'star-catch',
+      label: 'Star Catch',
+      description: 'Catch falling stars before they hit the ground.',
+      durationSeconds: 60,
+      firstPlayBonusStar: 25,
+      starPerScore: 0.05,
+      starCapPerPlay: 10,
+    },
+  },
 }));
 
 const walletAuth = vi.hoisted(() => ({
@@ -74,6 +89,8 @@ import { POST as interactPOST } from '@/app/api/sanctuary/companion/interact/rou
 import { POST as sendActivityPOST } from '@/app/api/sanctuary/companion/send-to-activity/route';
 import { POST as completeActivityPOST } from '@/app/api/sanctuary/companion/complete-activity/route';
 import { GET as journalGET } from '@/app/api/sanctuary/companion/journal/route';
+import { POST as minigameScorePOST } from '@/app/api/sanctuary/minigame/score/route';
+import { GET as minigameLeaderboardGET } from '@/app/api/sanctuary/minigame/leaderboard/route';
 
 // ─── Constants & helpers ────────────────────────────────────────────
 
@@ -930,6 +947,140 @@ describe('Flow: send to activity → complete activity', () => {
     expect(completeRes.status).toBe(200);
     const result = await completeRes.json();
     expect(result.xp_gained).toBe(75);
+  });
+});
+
+// =====================================================================
+// POST /api/sanctuary/minigame/score
+// =====================================================================
+
+describe('POST /api/sanctuary/minigame/score', () => {
+  it('records score and returns reward when wallet owns token', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    ownership.verifyTokenOwnership.mockResolvedValue(true);
+    db.submitMinigameScore.mockReturnValue({
+      score: 50,
+      star_awarded: 27,
+      is_first_play: true,
+      personal_best: 50,
+      is_new_personal_best: true,
+      total_plays: 1,
+      game_id: 'star-catch',
+      token_id: TOKEN,
+    });
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', {
+        address: ALICE, token_id: TOKEN, game_id: 'star-catch', score: 50,
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.star_awarded).toBe(27);
+    expect(body.is_first_play).toBe(true);
+  });
+
+  it('returns 400 when params missing', async () => {
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', { address: ALICE, score: 5 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when game_id is unknown', async () => {
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', {
+        address: ALICE, token_id: TOKEN, game_id: 'bogus', score: 10,
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 401 when wallet auth fails', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: false, error: 'Bad signature' });
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', {
+        address: ALICE, token_id: TOKEN, game_id: 'star-catch', score: 50,
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when token not owned', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    ownership.verifyTokenOwnership.mockResolvedValue(false);
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', {
+        address: ALICE, token_id: TOKEN, game_id: 'star-catch', score: 50,
+      }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects negative scores', async () => {
+    const res = await minigameScorePOST(
+      post('/api/sanctuary/minigame/score', {
+        address: ALICE, token_id: TOKEN, game_id: 'star-catch', score: -5,
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+// =====================================================================
+// GET /api/sanctuary/minigame/leaderboard
+// =====================================================================
+
+describe('GET /api/sanctuary/minigame/leaderboard', () => {
+  it('returns top scores for a game', async () => {
+    db.getMinigameDef.mockReturnValue({
+      game_id: 'star-catch', label: 'Star Catch', description: 'x',
+      durationSeconds: 60, firstPlayBonusStar: 25, starPerScore: 0.05, starCapPerPlay: 10,
+    });
+    db.getMinigameLeaderboard.mockReturnValue([
+      { rank: 1, wallet_address: ALICE, token_id: TOKEN, score: 100, played_at: '2026-01-01' },
+    ]);
+    const res = await minigameLeaderboardGET(
+      get('/api/sanctuary/minigame/leaderboard', { game_id: 'star-catch' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.leaderboard).toHaveLength(1);
+    expect(body.leaderboard[0].score).toBe(100);
+    expect(body.personal_best).toBeNull();
+  });
+
+  it('includes personal best when address+token provided', async () => {
+    db.getMinigameDef.mockReturnValue({
+      game_id: 'star-catch', label: 'Star Catch', description: 'x',
+      durationSeconds: 60, firstPlayBonusStar: 25, starPerScore: 0.05, starCapPerPlay: 10,
+    });
+    db.getMinigameLeaderboard.mockReturnValue([]);
+    db.getMinigamePersonalBest.mockReturnValue({
+      personal_best: 75, total_plays: 4, total_star_earned: 33,
+    });
+    const res = await minigameLeaderboardGET(
+      get('/api/sanctuary/minigame/leaderboard', {
+        game_id: 'star-catch', address: ALICE, token_id: String(TOKEN),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.personal_best.personal_best).toBe(75);
+    expect(body.personal_best.total_plays).toBe(4);
+  });
+
+  it('returns 400 when game_id missing', async () => {
+    const res = await minigameLeaderboardGET(get('/api/sanctuary/minigame/leaderboard'));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when game_id is unknown', async () => {
+    const res = await minigameLeaderboardGET(
+      get('/api/sanctuary/minigame/leaderboard', { game_id: 'bogus' }),
+    );
+    expect(res.status).toBe(400);
   });
 });
 

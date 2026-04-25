@@ -5784,6 +5784,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v17Path, 'utf-8');
     database.exec(sql);
   }
+  const v18Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.8.sql');
+  if (fs.existsSync(v18Path)) {
+    const sql = fs.readFileSync(v18Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -6523,6 +6528,174 @@ export function completeActivity(
   });
 
   return txn();
+}
+
+// ============================================================================
+// Minigame system (V1.8) — shared scoring + STAR rewards across mini-games
+// ============================================================================
+
+export interface MinigameDef {
+  game_id: string;
+  label: string;
+  description: string;
+  durationSeconds: number;
+  firstPlayBonusStar: number;
+  starPerScore: number; // STAR awarded = floor(score * starPerScore), capped
+  starCapPerPlay: number;
+}
+
+export const SANCTUARY_MINIGAMES: Record<string, MinigameDef> = {
+  'star-catch': {
+    game_id: 'star-catch',
+    label: 'Star Catch',
+    description: 'Catch falling stars before they hit the ground.',
+    durationSeconds: 60,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.05,
+    starCapPerPlay: 10,
+  },
+};
+
+export function getMinigameDef(gameId: string): MinigameDef | null {
+  return SANCTUARY_MINIGAMES[gameId] ?? null;
+}
+
+export interface SanctuaryMinigameScore {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  game_id: string;
+  score: number;
+  star_awarded: number;
+  played_at: string;
+}
+
+export interface MinigameSubmissionResult {
+  score: number;
+  star_awarded: number;
+  is_first_play: boolean;
+  personal_best: number;
+  is_new_personal_best: boolean;
+  total_plays: number;
+  game_id: string;
+  token_id: number;
+}
+
+export function submitMinigameScore(
+  walletAddress: string,
+  tokenId: number,
+  gameId: string,
+  score: number,
+): MinigameSubmissionResult {
+  const def = getMinigameDef(gameId);
+  if (!def) throw new Error('Invalid minigame');
+  if (!Number.isFinite(score) || score < 0) throw new Error('Invalid score');
+
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const cappedScore = Math.min(Math.floor(score), 9999);
+
+  const txn = db.transaction(() => {
+    const prior = db.prepare(
+      'SELECT COUNT(*) as count, COALESCE(MAX(score), 0) as best FROM sanctuary_minigame_scores WHERE wallet_address = ? AND token_id = ? AND game_id = ?',
+    ).get(addr, tokenId, gameId) as { count: number; best: number };
+
+    const isFirstPlay = prior.count === 0;
+    const scoreReward = Math.min(
+      Math.floor(cappedScore * def.starPerScore),
+      def.starCapPerPlay,
+    );
+    const firstPlayBonus = isFirstPlay ? def.firstPlayBonusStar : 0;
+    const starAwarded = scoreReward + firstPlayBonus;
+
+    db.prepare(
+      'INSERT INTO sanctuary_minigame_scores (wallet_address, token_id, game_id, score, star_awarded) VALUES (?, ?, ?, ?, ?)',
+    ).run(addr, tokenId, gameId, cappedScore, starAwarded);
+
+    if (starAwarded > 0) {
+      addUserXP(addr, starAwarded);
+    }
+
+    addJournalEntry(addr, tokenId, 'achievement',
+      `Played ${def.label} — Score ${cappedScore}, STAR +${starAwarded}${isFirstPlay ? ' (first play bonus!)' : ''}`,
+      JSON.stringify({
+        action: 'minigame_score',
+        game_id: gameId,
+        score: cappedScore,
+        star_awarded: starAwarded,
+        first_play: isFirstPlay,
+      }),
+    );
+
+    return {
+      score: cappedScore,
+      star_awarded: starAwarded,
+      is_first_play: isFirstPlay,
+      personal_best: Math.max(prior.best, cappedScore),
+      is_new_personal_best: cappedScore > prior.best,
+      total_plays: prior.count + 1,
+      game_id: gameId,
+      token_id: tokenId,
+    };
+  });
+
+  return txn();
+}
+
+export interface MinigameLeaderboardRow {
+  rank: number;
+  wallet_address: string;
+  token_id: number;
+  score: number;
+  played_at: string;
+}
+
+export function getMinigameLeaderboard(
+  gameId: string,
+  limit: number = 20,
+): MinigameLeaderboardRow[] {
+  const db = getDatabase();
+  const cap = Math.max(1, Math.min(Math.floor(limit), 100));
+  // Best score per (wallet, token) pair, ranked descending.
+  const rows = db.prepare(`
+    SELECT wallet_address, token_id, score, played_at
+    FROM (
+      SELECT wallet_address, token_id, score, played_at,
+             ROW_NUMBER() OVER (PARTITION BY wallet_address, token_id ORDER BY score DESC, played_at ASC) as rn
+      FROM sanctuary_minigame_scores
+      WHERE game_id = ?
+    )
+    WHERE rn = 1
+    ORDER BY score DESC, played_at ASC
+    LIMIT ?
+  `).all(gameId, cap) as Array<{
+    wallet_address: string;
+    token_id: number;
+    score: number;
+    played_at: string;
+  }>;
+
+  return rows.map((r, i) => ({ rank: i + 1, ...r }));
+}
+
+export function getMinigamePersonalBest(
+  walletAddress: string,
+  tokenId: number,
+  gameId: string,
+): { personal_best: number; total_plays: number; total_star_earned: number } {
+  const db = getDatabase();
+  const row = db.prepare(
+    'SELECT COUNT(*) as count, COALESCE(MAX(score), 0) as best, COALESCE(SUM(star_awarded), 0) as star FROM sanctuary_minigame_scores WHERE wallet_address = ? AND token_id = ? AND game_id = ?',
+  ).get(walletAddress.toLowerCase(), tokenId, gameId) as {
+    count: number;
+    best: number;
+    star: number;
+  };
+  return {
+    personal_best: row.best,
+    total_plays: row.count,
+    total_star_earned: row.star,
+  };
 }
 
 export function getCompanionsAtLocations(): { location_name: string; count: number; companions: { token_id: number; nickname: string | null }[] }[] {

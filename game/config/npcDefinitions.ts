@@ -16,7 +16,8 @@ export interface NPCDefinition {
   spriteColor: number;
   spriteFile?: string;
   roomPlacement?: RoomPlacement;
-  kind?: 'quest' | 'intro' | 'board';
+  kind?: 'quest' | 'intro' | 'board' | 'minigame';
+  minigameId?: string;
 }
 
 export const NPC_DEFINITIONS: NPCDefinition[] = [
@@ -117,6 +118,18 @@ export const NPC_DEFINITIONS: NPCDefinition[] = [
     spriteColor: 0xffffaa,
     spriteFile: 'Observatory_Owl_Sprite.png',
     roomPlacement: { room: 'Observatory', x: 720, y: 440 },
+  },
+  {
+    id: 'npc-observatory-arcade',
+    name: 'Star Catch Arcade',
+    x: Math.round(0.5 * WORLD_WIDTH) + 30,
+    y: Math.round(0.1 * WORLD_HEIGHT) + 50,
+    zone: 'Observatory',
+    dialogue: 'A retro cabinet flickers. Ready to chase falling stars?',
+    spriteColor: 0x00f7ff,
+    roomPlacement: { room: 'Observatory', x: 480, y: 480 },
+    kind: 'minigame',
+    minigameId: 'star-catch',
   },
   {
     id: 'npc-aura-forge',

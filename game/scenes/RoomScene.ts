@@ -80,6 +80,51 @@ export class RoomScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-T', () => {
       EventBus.emit('traits-overlay-toggle');
     });
+
+    EventBus.on('minigame-launch', this.handleMinigameLaunch, this);
+    EventBus.on('minigame-exit', this.handleMinigameExit, this);
+  }
+
+  private handleMinigameLaunch(payload: {
+    gameId: string;
+    sceneKey: string;
+    tokenId: number | null;
+    durationSeconds?: number;
+    title?: string;
+  }) {
+    if (this.exiting) return;
+    if (!this.scene.manager.keys[payload.sceneKey]) return;
+    this.cameras.main.fadeOut(250, 0, 0, 0);
+    this.time.delayedCall(260, () => {
+      const returnTo = { x: this.player.x, y: this.player.y };
+      this.scene.sleep();
+      this.scene.launch(payload.sceneKey, {
+        gameId: payload.gameId,
+        tokenId: payload.tokenId,
+        returnRoom: this.room,
+        returnTo,
+        durationSeconds: payload.durationSeconds,
+        title: payload.title,
+      });
+    });
+  }
+
+  private handleMinigameExit(payload: { returnRoom?: string; returnTo?: { x: number; y: number } }) {
+    if (!payload?.returnRoom || payload.returnRoom !== this.room) return;
+    if (!this.scene.isSleeping()) return;
+    // Stop any minigame scene that's still active.
+    const keys = ['StarCatchScene'];
+    for (const k of keys) {
+      if (this.scene.manager.getScene(k)?.scene.isActive()) {
+        this.scene.stop(k);
+      }
+    }
+    this.scene.wake();
+    this.cameras.main.fadeIn(250, 0, 0, 0);
+    if (payload.returnTo && this.player) {
+      this.player.setPosition(payload.returnTo.x, payload.returnTo.y);
+      this.companion.setPosition(payload.returnTo.x + 20, payload.returnTo.y + 10);
+    }
   }
 
   private buildNavGrid() {
@@ -218,5 +263,7 @@ export class RoomScene extends Phaser.Scene {
   shutdown() {
     this.npcManager?.destroy();
     this.npcManager = null;
+    EventBus.off('minigame-launch', this.handleMinigameLaunch, this);
+    EventBus.off('minigame-exit', this.handleMinigameExit, this);
   }
 }
