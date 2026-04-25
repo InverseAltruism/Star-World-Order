@@ -259,6 +259,24 @@ describe('buildChatPrompt', () => {
     expect(out.system).toContain('Never reveal you are an AI');
     expect(out.system).toContain('financial advice');
   });
+
+  it('injects the bond stage tone guidance into the system prompt', () => {
+    const shy = buildChatPrompt({
+      companion: mockCompanion({ bond_score: 5 }),
+      history: [],
+      userMessage: 'Hi',
+    });
+    expect(shy.system).toContain('Behavioral stage: Shy');
+    expect(shy.system).toContain('Behave shyly');
+
+    const devoted = buildChatPrompt({
+      companion: mockCompanion({ bond_score: 95 }),
+      history: [],
+      userMessage: 'Hi',
+    });
+    expect(devoted.system).toContain('Behavioral stage: Devoted');
+    expect(devoted.system).toContain('devoted companion');
+  });
 });
 
 const memory = (

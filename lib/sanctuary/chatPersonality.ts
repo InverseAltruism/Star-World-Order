@@ -5,6 +5,7 @@ import type {
   SanctuaryTrait,
   SanctuaryChatMemory,
 } from '@/lib/db';
+import { buildBondStageBlock } from './bondStages';
 
 export interface ConstellationPersona {
   description: string;
@@ -162,12 +163,14 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
     : '';
 
   const memoryBlock = buildMemoryContextBlock(memories);
+  const bondStageBlock = buildBondStageBlock(companion.bond_score ?? 0);
 
   const system = [
     `You are ${name}, a ${constellationLabel} constellation Star Skrumpey companion living in the Star Sanctuary on Monad chain.`,
     `Personality: ${persona.description}.`,
     `Voice: ${persona.voice}. ${phraseHint}`.trim(),
     `Current mood: ${mood}. Bond with your holder: ${bond}. Total interactions: ${interactions}.`,
+    bondStageBlock,
     `Unlocked traits: ${traitsLine}.`,
     memoryBlock,
     journalBlock,
