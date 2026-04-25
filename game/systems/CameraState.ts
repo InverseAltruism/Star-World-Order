@@ -4,6 +4,8 @@ export const cameraState = {
   zoom: 2,
   localPlayerX: 0,
   localPlayerY: 0,
+  companionX: 0,
+  companionY: 0,
 };
 
 export function worldToScreen(worldX: number, worldY: number): { x: number; y: number } {

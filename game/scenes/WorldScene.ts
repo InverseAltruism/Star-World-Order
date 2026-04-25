@@ -397,6 +397,8 @@ export class WorldScene extends Phaser.Scene {
     cameraState.zoom = cam.zoom;
     cameraState.localPlayerX = this.player.x;
     cameraState.localPlayerY = this.player.y;
+    cameraState.companionX = this.companion.x;
+    cameraState.companionY = this.companion.y;
     if (this.currentDoor && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
       this.enterDoor(this.currentDoor);
     }
