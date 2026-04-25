@@ -5799,6 +5799,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v20Path, 'utf-8');
     database.exec(sql);
   }
+  const v21Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.1.sql');
+  if (fs.existsSync(v21Path)) {
+    const sql = fs.readFileSync(v21Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -7518,4 +7523,153 @@ export function completeActivityV15(
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// STAR currency (V2.1) — see docs/STAR_SANCTUARY_PLAN.md
+// ---------------------------------------------------------------------------
+
+export interface SanctuaryStarBalance {
+  wallet_address: string;
+  balance: number;
+  lifetime_earned: number;
+  updated_at: string;
+}
+
+export interface SanctuaryStarLedgerEntry {
+  id: number;
+  wallet_address: string;
+  delta: number;
+  kind: 'earn' | 'spend';
+  source: string;
+  balance_after: number;
+  created_at: string;
+}
+
+export type StarEarnSource =
+  | 'quest'
+  | 'minigame_first'
+  | 'daily_login'
+  | 'activity'
+  | 'levelup';
+
+// Earn-rate guardrails. Earn endpoint clamps the requested amount into the
+// `[min, max]` band for its source so a single misbehaving caller cannot
+// accidentally mint a million STAR. See task spec [SWO_V2_STAR_CURRENCY].
+export const STAR_EARN_RATES: Record<StarEarnSource, { min: number; max: number }> = {
+  quest: { min: 10, max: 50 },
+  minigame_first: { min: 25, max: 25 },
+  daily_login: { min: 5, max: 5 },
+  activity: { min: 5, max: 20 },
+  levelup: { min: 50, max: 50 },
+};
+
+export function getStarBalance(walletAddress: string): SanctuaryStarBalance {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const row = db.prepare(
+    'SELECT * FROM sanctuary_star_balance WHERE wallet_address = ?'
+  ).get(addr) as SanctuaryStarBalance | undefined;
+  if (row) return row;
+  return {
+    wallet_address: addr,
+    balance: 0,
+    lifetime_earned: 0,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+export function earnStar(
+  walletAddress: string,
+  source: StarEarnSource,
+  amount: number,
+  detail?: string,
+): { balance: number; lifetime_earned: number; gained: number } {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('STAR earn amount must be positive');
+  }
+  const rates = STAR_EARN_RATES[source];
+  if (!rates) throw new Error(`Unknown STAR earn source: ${source}`);
+  const clamped = Math.max(rates.min, Math.min(rates.max, Math.floor(amount)));
+
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const sourceTag = detail ? `${source}:${detail}` : source;
+
+  const txn = db.transaction(() => {
+    const existing = db.prepare(
+      'SELECT balance, lifetime_earned FROM sanctuary_star_balance WHERE wallet_address = ?'
+    ).get(addr) as { balance: number; lifetime_earned: number } | undefined;
+
+    const newBalance = (existing?.balance ?? 0) + clamped;
+    const newLifetime = (existing?.lifetime_earned ?? 0) + clamped;
+
+    if (existing) {
+      db.prepare(
+        'UPDATE sanctuary_star_balance SET balance = ?, lifetime_earned = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?'
+      ).run(newBalance, newLifetime, addr);
+    } else {
+      db.prepare(
+        'INSERT INTO sanctuary_star_balance (wallet_address, balance, lifetime_earned) VALUES (?, ?, ?)'
+      ).run(addr, newBalance, newLifetime);
+    }
+
+    db.prepare(
+      'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
+    ).run(addr, clamped, 'earn', sourceTag, newBalance);
+
+    return { balance: newBalance, lifetime_earned: newLifetime, gained: clamped };
+  });
+
+  return txn();
+}
+
+export function spendStar(
+  walletAddress: string,
+  amount: number,
+  source: string,
+): { balance: number; lifetime_earned: number; spent: number } {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('STAR spend amount must be positive');
+  }
+  const cost = Math.floor(amount);
+
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const existing = db.prepare(
+      'SELECT balance, lifetime_earned FROM sanctuary_star_balance WHERE wallet_address = ?'
+    ).get(addr) as { balance: number; lifetime_earned: number } | undefined;
+
+    const currentBalance = existing?.balance ?? 0;
+    if (currentBalance < cost) {
+      throw new Error('Insufficient STAR balance');
+    }
+    const newBalance = currentBalance - cost;
+    const lifetime = existing?.lifetime_earned ?? 0;
+
+    db.prepare(
+      'UPDATE sanctuary_star_balance SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?'
+    ).run(newBalance, addr);
+
+    db.prepare(
+      'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
+    ).run(addr, -cost, 'spend', source, newBalance);
+
+    return { balance: newBalance, lifetime_earned: lifetime, spent: cost };
+  });
+
+  return txn();
+}
+
+export function getStarLedger(
+  walletAddress: string,
+  limit: number = 50,
+): SanctuaryStarLedgerEntry[] {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  return db.prepare(
+    'SELECT * FROM sanctuary_star_ledger WHERE wallet_address = ? ORDER BY created_at DESC, id DESC LIMIT ?'
+  ).all(addr, Math.max(1, Math.min(500, Math.floor(limit)))) as SanctuaryStarLedgerEntry[];
 }

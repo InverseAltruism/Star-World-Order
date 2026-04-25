@@ -75,12 +75,27 @@ function isOnQuest(activity: string | null | undefined, endsAt: string | null | 
 
 export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const [companion, setCompanion] = useState<CompanionData | null>(null);
+  const [starBalance, setStarBalance] = useState<number | null>(null);
   const [locationName, setLocationName] = useState<string | null>(null);
   const [locationVisible, setLocationVisible] = useState(false);
   const [tick, setTick] = useState(0);
   const [claiming, setClaiming] = useState(false);
   const [claimFeedback, setClaimFeedback] = useState<string | null>(null);
   const prevAwayRef = useRef<boolean>(false);
+
+  const fetchStarBalance = useCallback(async () => {
+    if (!walletAddress) return;
+    try {
+      const res = await fetch(`/api/sanctuary/star/balance?wallet=${walletAddress}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) {
+        setStarBalance(data.balance ?? 0);
+      }
+    } catch {
+      // HUD is non-critical
+    }
+  }, [walletAddress]);
 
   const fetchCompanion = useCallback(async () => {
     if (!walletAddress) return;
@@ -110,18 +125,25 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   useEffect(() => {
     if (!walletAddress) return;
     fetchCompanion();
-  }, [walletAddress, fetchCompanion]);
+    fetchStarBalance();
+  }, [walletAddress, fetchCompanion, fetchStarBalance]);
 
   useEffect(() => {
     const onQuestStarted = () => fetchCompanion();
-    const onQuestClaimed = () => fetchCompanion();
+    const onQuestClaimed = () => {
+      fetchCompanion();
+      fetchStarBalance();
+    };
+    const onStarChanged = () => fetchStarBalance();
     EventBus.on('companion-quest-started', onQuestStarted);
     EventBus.on('companion-quest-claimed', onQuestClaimed);
+    EventBus.on('star-balance-changed', onStarChanged);
     return () => {
       EventBus.off('companion-quest-started', onQuestStarted);
       EventBus.off('companion-quest-claimed', onQuestClaimed);
+      EventBus.off('star-balance-changed', onStarChanged);
     };
-  }, [fetchCompanion]);
+  }, [fetchCompanion, fetchStarBalance]);
 
   const onQuest = isOnQuest(companion?.current_activity, companion?.activity_ends_at);
 
@@ -230,6 +252,20 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
 
   return (
     <>
+      {/* STAR currency badge */}
+      {starBalance !== null && (
+        <div
+          className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-black/80 border border-[#ffd700]/50 rounded px-2.5 py-1 pointer-events-none select-none shadow-[0_0_8px_rgba(255,215,0,0.2)]"
+          aria-label={`STAR balance: ${starBalance}`}
+          title={`STAR balance: ${starBalance.toLocaleString()}`}
+        >
+          <span className="text-[10px] leading-none">⭐</span>
+          <span className="text-[8px] text-[#ffd700] font-['Press_Start_2P'] tabular-nums">
+            {starBalance.toLocaleString()}
+          </span>
+        </div>
+      )}
+
       {/* Companion status bar */}
       <div className="absolute top-2 left-2 z-20 flex items-center gap-2 bg-black/80 border border-[#2a2a4e] rounded px-3 py-1.5 pointer-events-none select-none">
         <span className="text-base leading-none">{moodEmoji}</span>
