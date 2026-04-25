@@ -88,6 +88,9 @@ async function main() {
   const refB64 = await fileToBase64(REFERENCE_PNG_OUT);
 
   console.log('POST /v1/styles ...');
+  // Note: min_width/min_height are FORCED dimensions per RD docs — setting them
+  // locks the style to that exact size (e.g. 96 → only accepts 96×96). Omit
+  // them so the style accepts any size in the RD Pro range (64–256).
   const res = await createStyle({
     name: NAME,
     style_icon: ICON,
@@ -98,8 +101,6 @@ async function main() {
     llm_instructions: LLM_INSTRUCTIONS,
     force_palette: false,
     force_bg_removal: false,
-    min_width: 96,
-    min_height: 96,
   });
 
   const promptStyle = res?.prompt_style;

@@ -5,15 +5,15 @@ import { Suspense, lazy } from 'react';
 
 const SanctuaryContent = lazy(() => import('./SanctuaryContent'));
 const SanctuaryV2 = lazy(() => import('./SanctuaryV2'));
+const SanctuaryV3 = lazy(() => import('./SanctuaryV3'));
 
 function SanctuarySwitch() {
   const searchParams = useSearchParams();
+  const v = searchParams.get('v');
   const v2Flag = process.env.NEXT_PUBLIC_SANCTUARY_V2 === 'true';
-  const v2Query = searchParams.get('v') === '2';
 
-  if (v2Flag || v2Query) {
-    return <SanctuaryV2 />;
-  }
+  if (v === '3') return <SanctuaryV3 />;
+  if (v === '2' || v2Flag) return <SanctuaryV2 />;
 
   return <SanctuaryContent />;
 }
