@@ -6581,6 +6581,33 @@ export const SANCTUARY_MINIGAMES: Record<string, MinigameDef> = {
     starPerScore: 0.05,
     starCapPerPlay: 10,
   },
+  'cooking-rhythm': {
+    game_id: 'cooking-rhythm',
+    label: 'Cosmic Skillet',
+    description: 'Press arrow keys to match recipe notes as they reach the pan. Streaks ramp the speed and bonus.',
+    durationSeconds: 70,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.04,
+    starCapPerPlay: 10,
+  },
+  'dream-catcher': {
+    game_id: 'dream-catcher',
+    label: 'Dream Catcher',
+    description: 'Move the dreamcatcher to scoop dream and lucid orbs while letting nightmares slip past.',
+    durationSeconds: 75,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.04,
+    starCapPerPlay: 10,
+  },
+  'lore-trivia': {
+    game_id: 'lore-trivia',
+    label: 'Lore Tome',
+    description: 'Answer Sanctuary trivia. Quick, correct answers build streak and speed bonuses; wrong answers cost points.',
+    durationSeconds: 75,
+    firstPlayBonusStar: 25,
+    starPerScore: 0.05,
+    starCapPerPlay: 10,
+  },
 };
 
 export function getMinigameDef(gameId: string): MinigameDef | null {

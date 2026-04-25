@@ -6,6 +6,9 @@ import { StarCatchScene } from '../scenes/StarCatchScene';
 import { MemoryMatchScene } from '../scenes/MemoryMatchScene';
 import { StarConnectScene } from '../scenes/StarConnectScene';
 import { ForgeHammerScene } from '../scenes/ForgeHammerScene';
+import { CookingRhythmScene } from '../scenes/CookingRhythmScene';
+import { DreamCatcherScene } from '../scenes/DreamCatcherScene';
+import { LoreTriviaScene } from '../scenes/LoreTriviaScene';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -32,6 +35,9 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
     MemoryMatchScene,
     StarConnectScene,
     ForgeHammerScene,
+    CookingRhythmScene,
+    DreamCatcherScene,
+    LoreTriviaScene,
   ],
   pixelArt: true,
   antialias: false,
