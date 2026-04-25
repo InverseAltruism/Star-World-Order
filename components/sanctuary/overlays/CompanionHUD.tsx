@@ -15,6 +15,7 @@ interface CompanionData {
   companion_level: number;
   current_activity: string;
   activity_ends_at: string | null;
+  equipped_cosmetics: string | null;
 }
 
 interface CompanionHUDProps {
@@ -89,6 +90,7 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
       if (!res.ok) return;
       const data = await res.json();
       if (data.companion) {
+        const equipped = data.companion.equipped_cosmetics ?? null;
         setCompanion({
           nickname: data.companion.nickname,
           token_id: data.companion.token_id,
@@ -100,7 +102,10 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           companion_level: data.companion.companion_level ?? data.companion.level ?? 1,
           current_activity: data.companion.current_activity ?? 'lounging',
           activity_ends_at: data.companion.activity_ends_at ?? null,
+          equipped_cosmetics: equipped,
         });
+        // Push the loadout into the Phaser scene so cosmetic layers render.
+        EventBus.emit('companion-cosmetics', equipped);
       }
     } catch {
       // HUD is non-critical

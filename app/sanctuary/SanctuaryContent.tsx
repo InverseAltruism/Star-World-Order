@@ -26,6 +26,7 @@ interface Companion {
   image_url: string | null;
   rarity_rank: number | null;
   attributes_json: string | null;
+  equipped_cosmetics: string | null;
   total_xp: number;
   level: number;
 }

@@ -6,6 +6,7 @@ import { CompanionSprite } from '../sprites/CompanionSprite';
 import { OtherPlayersManager } from '../sprites/OtherPlayerSprite';
 import { NPCManager } from '../sprites/NPCSprite';
 import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
+import { COSMETIC_SLOTS, type CosmeticSlot, type EquippedCosmetics } from '../systems/CosmeticSystem';
 import type { RemotePlayer } from '@/lib/colyseus/types';
 import {
   WORLD_WIDTH,
@@ -202,6 +203,23 @@ export class WorldScene extends Phaser.Scene {
     });
     EventBus.on('companion-away', (data: { away: boolean }) => {
       this.companion.setAway(!!data?.away);
+    });
+    EventBus.on('companion-equip-cosmetic', (data: { slot: string; cosmeticId: string }) => {
+      if (!data) return;
+      if (!(COSMETIC_SLOTS as readonly string[]).includes(data.slot)) return;
+      this.companion.equipCosmetic(data.slot as CosmeticSlot, data.cosmeticId);
+    });
+    EventBus.on('companion-unequip-cosmetic', (data: { slot: string }) => {
+      if (!data) return;
+      if (!(COSMETIC_SLOTS as readonly string[]).includes(data.slot)) return;
+      this.companion.unequipCosmetic(data.slot as CosmeticSlot);
+    });
+    EventBus.on('companion-cosmetics', (data: EquippedCosmetics | string) => {
+      if (typeof data === 'string') {
+        this.companion.applyEquippedCosmeticsJson(data);
+      } else if (data && typeof data === 'object') {
+        this.companion.applyEquippedCosmetics(data);
+      }
     });
     EventBus.on('editor-mode', (enabled: boolean) => this.setEditorMode(enabled));
     EventBus.on('highlight-door', (data: { room: string }) => {
@@ -420,6 +438,9 @@ export class WorldScene extends Phaser.Scene {
     EventBus.off('companion-mood');
     EventBus.off('companion-constellation');
     EventBus.off('companion-away');
+    EventBus.off('companion-equip-cosmetic');
+    EventBus.off('companion-unequip-cosmetic');
+    EventBus.off('companion-cosmetics');
     EventBus.off('editor-mode');
     EventBus.off('highlight-door');
     EventBus.off('room-exit');
