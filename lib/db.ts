@@ -5789,6 +5789,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v18Path, 'utf-8');
     database.exec(sql);
   }
+  const v19Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v1.9.sql');
+  if (fs.existsSync(v19Path)) {
+    const sql = fs.readFileSync(v19Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -7051,6 +7056,43 @@ export function getCompanionChatHistory(walletAddress: string, tokenId: number, 
     WHERE wallet_address = ? AND token_id = ?
     ORDER BY created_at DESC LIMIT ?
   `).all(walletAddress.toLowerCase(), tokenId, limit) as SanctuaryChatMessage[];
+}
+
+export function generateTemplateCompanionReply(
+  companion: SanctuaryCompanionWithMeta,
+  userMessage: string,
+  history: SanctuaryChatMessage[],
+): string {
+  return generateCompanionResponse(companion, userMessage, history);
+}
+
+export function persistCompanionChatExchange(
+  walletAddress: string,
+  tokenId: number,
+  userMessage: string,
+  companionReplyText: string,
+): { userMessage: SanctuaryChatMessage; companionReply: SanctuaryChatMessage; companion: SanctuaryCompanionWithMeta } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const comp = getActiveCompanion(addr);
+    if (!comp || comp.token_id !== tokenId) throw new Error('No active companion found');
+
+    const userMsg = addCompanionChatMessage(addr, tokenId, 'user', userMessage);
+    const companionMsg = addCompanionChatMessage(addr, tokenId, 'companion', companionReplyText);
+
+    db.prepare(`
+      UPDATE sanctuary_companions SET total_interactions = total_interactions + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE wallet_address = ? AND token_id = ? AND is_active = 1
+    `).run(addr, tokenId);
+
+    updateTraitProgress(addr, tokenId, 'chat');
+
+    return { userMessage: userMsg, companionReply: companionMsg, companion: comp };
+  });
+
+  return txn();
 }
 
 export function chatWithCompanion(
