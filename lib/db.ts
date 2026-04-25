@@ -5794,6 +5794,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v19Path, 'utf-8');
     database.exec(sql);
   }
+  const v20Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.0.sql');
+  if (fs.existsSync(v20Path)) {
+    const sql = fs.readFileSync(v20Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -7049,13 +7054,116 @@ export function addCompanionChatMessage(
   return db.prepare('SELECT * FROM sanctuary_chat_messages WHERE id = ?').get(result.lastInsertRowid) as SanctuaryChatMessage;
 }
 
-export function getCompanionChatHistory(walletAddress: string, tokenId: number, limit: number = 50): SanctuaryChatMessage[] {
+export function getCompanionChatHistory(walletAddress: string, tokenId: number, limit: number = 50, offset: number = 0): SanctuaryChatMessage[] {
   const db = getDatabase();
   return db.prepare(`
     SELECT * FROM sanctuary_chat_messages
     WHERE wallet_address = ? AND token_id = ?
-    ORDER BY created_at DESC LIMIT ?
-  `).all(walletAddress.toLowerCase(), tokenId, limit) as SanctuaryChatMessage[];
+    ORDER BY created_at DESC LIMIT ? OFFSET ?
+  `).all(walletAddress.toLowerCase(), tokenId, limit, offset) as SanctuaryChatMessage[];
+}
+
+export function getCompanionChatHistoryCount(walletAddress: string, tokenId: number): number {
+  const db = getDatabase();
+  const row = db.prepare(`
+    SELECT COUNT(*) AS count FROM sanctuary_chat_messages
+    WHERE wallet_address = ? AND token_id = ?
+  `).get(walletAddress.toLowerCase(), tokenId) as { count: number } | undefined;
+  return row?.count ?? 0;
+}
+
+// ─── V2.0: Companion Chat Memories ──────────────────────────────────
+
+export type SanctuaryChatMemoryCategory =
+  | 'owner_identity'
+  | 'preferences'
+  | 'shared_experiences'
+  | 'companion_feelings'
+  | 'recurring_topics';
+
+export const SANCTUARY_MEMORY_CATEGORIES: SanctuaryChatMemoryCategory[] = [
+  'owner_identity',
+  'preferences',
+  'shared_experiences',
+  'companion_feelings',
+  'recurring_topics',
+];
+
+export interface SanctuaryChatMemory {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  category: SanctuaryChatMemoryCategory;
+  fact: string;
+  importance: number;
+  mention_count: number;
+  last_mentioned_at: string;
+  source_message_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function upsertChatMemory(
+  walletAddress: string,
+  tokenId: number,
+  category: SanctuaryChatMemoryCategory,
+  fact: string,
+  options: { importance?: number; sourceMessageId?: number | null } = {},
+): SanctuaryChatMemory {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const trimmedFact = fact.trim().slice(0, 280);
+  if (!trimmedFact) throw new Error('Memory fact cannot be empty');
+  const importance = Math.max(1, Math.min(5, options.importance ?? 1));
+  const sourceMessageId = options.sourceMessageId ?? null;
+
+  db.prepare(`
+    INSERT INTO sanctuary_chat_memories
+      (wallet_address, token_id, category, fact, importance, mention_count, source_message_id)
+    VALUES (?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(wallet_address, token_id, category, fact) DO UPDATE SET
+      importance = MAX(importance, excluded.importance),
+      mention_count = mention_count + 1,
+      last_mentioned_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(addr, tokenId, category, trimmedFact, importance, sourceMessageId);
+
+  return db.prepare(`
+    SELECT * FROM sanctuary_chat_memories
+    WHERE wallet_address = ? AND token_id = ? AND category = ? AND fact = ?
+  `).get(addr, tokenId, category, trimmedFact) as SanctuaryChatMemory;
+}
+
+export function getChatMemories(
+  walletAddress: string,
+  tokenId: number,
+  options: { limit?: number; category?: SanctuaryChatMemoryCategory } = {},
+): SanctuaryChatMemory[] {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const limit = Math.max(1, Math.min(100, options.limit ?? 50));
+  if (options.category) {
+    return db.prepare(`
+      SELECT * FROM sanctuary_chat_memories
+      WHERE wallet_address = ? AND token_id = ? AND category = ?
+      ORDER BY importance DESC, mention_count DESC, last_mentioned_at DESC
+      LIMIT ?
+    `).all(addr, tokenId, options.category, limit) as SanctuaryChatMemory[];
+  }
+  return db.prepare(`
+    SELECT * FROM sanctuary_chat_memories
+    WHERE wallet_address = ? AND token_id = ?
+    ORDER BY importance DESC, mention_count DESC, last_mentioned_at DESC
+    LIMIT ?
+  `).all(addr, tokenId, limit) as SanctuaryChatMemory[];
+}
+
+export function getTopChatMemories(
+  walletAddress: string,
+  tokenId: number,
+  limit: number = 5,
+): SanctuaryChatMemory[] {
+  return getChatMemories(walletAddress, tokenId, { limit });
 }
 
 export function generateTemplateCompanionReply(

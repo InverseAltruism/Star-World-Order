@@ -22,6 +22,20 @@ const db = vi.hoisted(() => ({
   getMetadataForTokenIds: vi.fn(),
   chatWithCompanion: vi.fn(),
   getCompanionChatHistory: vi.fn(),
+  getCompanionChatHistoryCount: vi.fn().mockReturnValue(0),
+  persistCompanionChatExchange: vi.fn(),
+  generateTemplateCompanionReply: vi.fn().mockReturnValue('template reply'),
+  getJournalEntries: vi.fn().mockReturnValue([]),
+  getUnlockedTraits: vi.fn().mockReturnValue([]),
+  getTopChatMemories: vi.fn().mockReturnValue([]),
+  upsertChatMemory: vi.fn(),
+  SANCTUARY_MEMORY_CATEGORIES: [
+    'owner_identity',
+    'preferences',
+    'shared_experiences',
+    'companion_feelings',
+    'recurring_topics',
+  ],
   interactWithCompanionV15: vi.fn(),
   sendToActivity: vi.fn(),
   completeActivityV15: vi.fn(),
@@ -597,7 +611,19 @@ describe('GET /api/sanctuary/companion/chat', () => {
   it('caps limit at 100', async () => {
     db.getCompanionChatHistory.mockReturnValue([]);
     await chatGET(get('/api/sanctuary/companion/chat', { address: ALICE, token_id: String(TOKEN), limit: '999' }));
-    expect(db.getCompanionChatHistory).toHaveBeenCalledWith(ALICE, TOKEN, 100);
+    expect(db.getCompanionChatHistory).toHaveBeenCalledWith(ALICE, TOKEN, 100, 0);
+  });
+
+  it('passes offset for pagination and returns pagination metadata', async () => {
+    db.getCompanionChatHistory.mockReturnValue([]);
+    db.getCompanionChatHistoryCount.mockReturnValue(42);
+    const res = await chatGET(get('/api/sanctuary/companion/chat', {
+      address: ALICE, token_id: String(TOKEN), limit: '10', offset: '20',
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(db.getCompanionChatHistory).toHaveBeenCalledWith(ALICE, TOKEN, 10, 20);
+    expect(body.pagination).toEqual({ limit: 10, offset: 20, total: 42, hasMore: true });
   });
 });
 

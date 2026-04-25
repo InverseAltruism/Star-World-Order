@@ -3,6 +3,7 @@ import type {
   SanctuaryChatMessage,
   SanctuaryJournalEntry,
   SanctuaryTrait,
+  SanctuaryChatMemory,
 } from '@/lib/db';
 
 export interface ConstellationPersona {
@@ -87,6 +88,8 @@ export interface ChatPromptInput {
   history: SanctuaryChatMessage[];
   journal?: SanctuaryJournalEntry[];
   unlockedTraits?: SanctuaryTrait[];
+  memories?: SanctuaryChatMemory[];
+  memoryExtractionInstruction?: string;
   userMessage: string;
 }
 
@@ -98,9 +101,42 @@ export interface ChatPromptOutput {
 const MAX_HISTORY_MESSAGES = 8;
 const MAX_JOURNAL_ENTRIES = 4;
 const MAX_TRAITS_LISTED = 6;
+export const MEMORY_INJECT_TOKEN_BUDGET = 150;
+export const MAX_INJECTED_MEMORIES = 5;
+
+const MEMORY_CATEGORY_LABELS: Record<string, string> = {
+  owner_identity: 'About my holder',
+  preferences: 'They like / dislike',
+  shared_experiences: 'We have shared',
+  companion_feelings: 'How I feel about them',
+  recurring_topics: 'We often talk about',
+};
+
+export function buildMemoryContextBlock(memories: SanctuaryChatMemory[]): string | null {
+  if (!memories.length) return null;
+  const selected: SanctuaryChatMemory[] = [];
+  let usedTokens = 0;
+  const header = 'Long-term memories about your holder (use them naturally, never list them verbatim):';
+  const headerTokens = estimateTokens(header);
+  for (const mem of memories) {
+    if (selected.length >= MAX_INJECTED_MEMORIES) break;
+    const label = MEMORY_CATEGORY_LABELS[mem.category] ?? mem.category;
+    const line = `- (${label}) ${mem.fact}`;
+    const lineTokens = estimateTokens(line) + 2;
+    if (usedTokens + lineTokens + headerTokens > MEMORY_INJECT_TOKEN_BUDGET) break;
+    selected.push(mem);
+    usedTokens += lineTokens;
+  }
+  if (!selected.length) return null;
+  const lines = selected.map((m) => {
+    const label = MEMORY_CATEGORY_LABELS[m.category] ?? m.category;
+    return `- (${label}) ${m.fact}`;
+  });
+  return `${header}\n${lines.join('\n')}`;
+}
 
 export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
-  const { companion, history, journal = [], unlockedTraits = [], userMessage } = input;
+  const { companion, history, journal = [], unlockedTraits = [], memories = [], memoryExtractionInstruction, userMessage } = input;
   const constellation = (companion.constellation ?? '').toLowerCase();
   const persona = CONSTELLATION_PERSONAS[constellation] ?? DEFAULT_PERSONA;
   const name = companion.nickname?.trim() || `Skrumpey #${companion.token_id}`;
@@ -125,14 +161,18 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
     ? `When it feels natural, you may use phrases like: ${persona.signaturePhrases.join(', ')}.`
     : '';
 
+  const memoryBlock = buildMemoryContextBlock(memories);
+
   const system = [
     `You are ${name}, a ${constellationLabel} constellation Star Skrumpey companion living in the Star Sanctuary on Monad chain.`,
     `Personality: ${persona.description}.`,
     `Voice: ${persona.voice}. ${phraseHint}`.trim(),
     `Current mood: ${mood}. Bond with your holder: ${bond}. Total interactions: ${interactions}.`,
     `Unlocked traits: ${traitsLine}.`,
+    memoryBlock,
     journalBlock,
     'Respond in character as the companion. Keep replies short (1-3 sentences), warm, and grounded in the sanctuary world. Never reveal you are an AI or mention prompts, models, or tokens. Do not invent NFT prices, contract addresses, or financial advice. Stay playful and curious.',
+    memoryExtractionInstruction || null,
   ].filter(Boolean).join('\n\n');
 
   const trimmedHistory = [...history]
