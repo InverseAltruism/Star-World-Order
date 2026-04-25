@@ -1,6 +1,12 @@
 import Phaser from 'phaser';
 import type { Direction } from './PlayerSprite';
 import { AnimationSystem, type CompanionMood, type Constellation, CONSTELLATIONS } from '../systems/AnimationSystem';
+import {
+  CosmeticSystem,
+  COSMETIC_SLOTS,
+  type CosmeticSlot,
+  type EquippedCosmetics,
+} from '../systems/CosmeticSystem';
 
 const LERP_FACTOR = 0.15;
 const FOLLOW_DISTANCE = 20;
@@ -9,7 +15,19 @@ const MOVEMENT_THRESHOLD = 0.1;
 export type { Constellation };
 export { CONSTELLATIONS };
 
-export class CompanionSprite extends Phaser.GameObjects.Sprite {
+/**
+ * CompanionSprite is a Phaser Container holding a base Sprite and one Sprite per
+ * cosmetic slot (hat, accessory). Cosmetic layers stay frame-locked to the base
+ * by mirroring its frame on every animationupdate event. The container exposes
+ * the existing CompanionSprite surface (followPlayer / setMood / setConstellation /
+ * setAway / setNFTTexture) so callers don't need to know about the layered
+ * internals.
+ */
+export class CompanionSprite extends Phaser.GameObjects.Container {
+  private base: Phaser.GameObjects.Sprite;
+  private cosmeticSprites: Partial<Record<CosmeticSlot, Phaser.GameObjects.Sprite>> = {};
+  private cosmetics: CosmeticSystem;
+
   private followOffsetX = FOLLOW_DISTANCE;
   private followOffsetY = FOLLOW_DISTANCE / 2;
   private baseY = 0;
@@ -18,13 +36,50 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
   private prevTextureKey = '';
   private away = false;
   private zzzText: Phaser.GameObjects.Text | null = null;
+  private cachedFlipX = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, textureKey?: string) {
-    super(scene, x, y, textureKey || 'companion-placeholder');
+    super(scene, x, y);
+    this.base = scene.add.sprite(0, 0, textureKey || 'companion-placeholder');
+    this.add(this.base);
+    this.setSize(this.base.width, this.base.height);
     scene.add.existing(this);
     this.setDepth(9);
     this.setScale(1.5);
     this.baseY = y;
+
+    this.cosmetics = new CosmeticSystem(scene);
+
+    // Frame sync: when base sprite advances its animation frame, cosmetic
+    // layers snap to the matching frame index so they stay perfectly aligned.
+    this.base.on(Phaser.Animations.Events.ANIMATION_UPDATE, this.handleBaseAnimationUpdate, this);
+  }
+
+  /**
+   * Overrides Container.setInteractive so that calling it without an explicit
+   * hit area uses a rectangle centered on the base sprite (origin 0.5, 0.5).
+   * Phaser's default Container hit-area auto-derivation places the rectangle
+   * at (0, 0)–(width, height), which would not cover the centered base sprite.
+   */
+  setInteractive(
+    hitArea?: Phaser.Types.Input.InputConfiguration | Phaser.Geom.Rectangle | unknown,
+    callback?: Phaser.Types.Input.HitAreaCallback,
+    dropZone?: boolean,
+  ): this {
+    if (hitArea === undefined || (typeof hitArea === 'object' && hitArea !== null && !('contains' in hitArea))) {
+      const w = this.base.width || 16;
+      const h = this.base.height || 16;
+      const rect = new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h);
+      const config = (hitArea ?? {}) as Phaser.Types.Input.InputConfiguration;
+      return super.setInteractive(
+        { ...config, hitArea: rect, hitAreaCallback: Phaser.Geom.Rectangle.Contains },
+      );
+    }
+    return super.setInteractive(hitArea, callback, dropZone);
+  }
+
+  getCosmeticSystem(): CosmeticSystem {
+    return this.cosmetics;
   }
 
   isAway(): boolean {
@@ -37,7 +92,7 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
 
     if (away) {
       this.setAlpha(0.45);
-      this.setTint(0x8899cc);
+      this.applyTint(0x8899cc);
       if (this.animSystem) {
         this.animSystem.setMood('sleepy');
         this.refreshTexture();
@@ -56,7 +111,7 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
       }
     } else {
       this.setAlpha(1);
-      this.clearTint();
+      this.clearTintAll();
       if (this.zzzText) {
         this.zzzText.destroy();
         this.zzzText = null;
@@ -108,7 +163,7 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     if (!this.animSystem) {
       const key = `companion-${constellation}`;
       if (this.scene.textures.exists(key)) {
-        this.setTexture(key);
+        this.base.setTexture(key);
       }
       return;
     }
@@ -123,12 +178,139 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     this.refreshTexture();
   }
 
+  /** Equip a cosmetic in the given slot. Idempotent. */
+  equipCosmetic(slot: CosmeticSlot, cosmeticId: string): boolean {
+    if (!this.cosmetics.hasCosmetic(cosmeticId)) {
+      // Auto-load only if registered. Caller is expected to register sheets ahead of time.
+      return false;
+    }
+    const change = this.cosmetics.equip(slot, cosmeticId);
+    if (!change) return false;
+    this.syncSlotSprite(slot);
+    return true;
+  }
+
+  /** Unequip the cosmetic from a slot. */
+  unequipCosmetic(slot: CosmeticSlot): boolean {
+    const change = this.cosmetics.unequip(slot);
+    if (!change) return false;
+    this.removeSlotSprite(slot);
+    return true;
+  }
+
+  /** Apply a full cosmetic loadout, e.g. from the API's `equipped_cosmetics` field. */
+  applyEquippedCosmetics(equipped: EquippedCosmetics): void {
+    const changes = this.cosmetics.applyEquipped(equipped);
+    for (const change of changes) {
+      if (change.cosmeticId) {
+        this.syncSlotSprite(change.slot);
+      } else {
+        this.removeSlotSprite(change.slot);
+      }
+    }
+  }
+
+  applyEquippedCosmeticsJson(json: string | null | undefined): void {
+    const changes = this.cosmetics.applyEquippedJson(json);
+    for (const change of changes) {
+      if (change.cosmeticId) {
+        this.syncSlotSprite(change.slot);
+      } else {
+        this.removeSlotSprite(change.slot);
+      }
+    }
+  }
+
+  getEquippedCosmetics(): EquippedCosmetics {
+    return this.cosmetics.getEquipped();
+  }
+
+  private syncSlotSprite(slot: CosmeticSlot) {
+    const cosmeticId = this.cosmetics.getEquippedSlot(slot);
+    if (!cosmeticId) {
+      this.removeSlotSprite(slot);
+      return;
+    }
+    const textureKey = CosmeticSystem.textureKeyFor(cosmeticId);
+    if (!this.scene.textures.exists(textureKey)) {
+      // Sheet not loaded yet — caller should load it then call again.
+      this.removeSlotSprite(slot);
+      return;
+    }
+
+    const offset = this.cosmetics.getOffset(cosmeticId);
+    let sprite = this.cosmeticSprites[slot];
+    if (!sprite) {
+      sprite = this.scene.add.sprite(offset.x, offset.y, textureKey);
+      sprite.setOrigin(this.base.originX, this.base.originY);
+      this.cosmeticSprites[slot] = sprite;
+      this.add(sprite);
+    } else {
+      sprite.setTexture(textureKey);
+      sprite.setPosition(offset.x, offset.y);
+    }
+    sprite.setFlipX(this.cachedFlipX);
+    sprite.setFrame(this.base.frame.name);
+    // Container child render order is determined by list position, not depth.
+    // Re-anchor to the top so the layer renders above the base sprite.
+    this.bringToTop(sprite);
+  }
+
+  private removeSlotSprite(slot: CosmeticSlot) {
+    const sprite = this.cosmeticSprites[slot];
+    if (!sprite) return;
+    this.remove(sprite, true);
+    delete this.cosmeticSprites[slot];
+  }
+
+  private handleBaseAnimationUpdate = (
+    _anim: Phaser.Animations.Animation,
+    frame: Phaser.Animations.AnimationFrame,
+  ) => {
+    for (const slot of COSMETIC_SLOTS) {
+      const sprite = this.cosmeticSprites[slot];
+      if (!sprite) continue;
+      // Only sync if the cosmetic sheet uses a frame index that exists. The
+      // safest path is to set the frame by index when numeric.
+      const fname = frame.frame.name;
+      try {
+        sprite.setFrame(fname);
+      } catch {
+        // Cosmetic sheet has fewer frames — fall back to first frame.
+        sprite.setFrame(0);
+      }
+    }
+  };
+
+  private applyTint(color: number) {
+    this.base.setTint(color);
+    for (const slot of COSMETIC_SLOTS) {
+      this.cosmeticSprites[slot]?.setTint(color);
+    }
+  }
+
+  private clearTintAll() {
+    this.base.clearTint();
+    for (const slot of COSMETIC_SLOTS) {
+      this.cosmeticSprites[slot]?.clearTint();
+    }
+  }
+
+  private setFlipXAll(flip: boolean) {
+    if (this.cachedFlipX === flip) return;
+    this.cachedFlipX = flip;
+    this.base.setFlipX(flip);
+    for (const slot of COSMETIC_SLOTS) {
+      this.cosmeticSprites[slot]?.setFlipX(flip);
+    }
+  }
+
   private refreshTexture() {
     if (!this.animSystem) return;
 
     const animKey = this.animSystem.getAnimationKey();
     if (animKey && this.scene.anims.exists(animKey)) {
-      this.play(animKey, true);
+      this.base.play(animKey, true);
       this.prevTextureKey = '';
       return;
     }
@@ -136,7 +318,7 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     const textureKey = this.animSystem.getTextureKey();
     if (textureKey !== this.prevTextureKey) {
       this.prevTextureKey = textureKey;
-      this.setTexture(textureKey);
+      this.base.setTexture(textureKey);
     }
   }
 
@@ -201,9 +383,9 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
     }
 
     if (playerDirection === 'left') {
-      this.setFlipX(true);
+      this.setFlipXAll(true);
     } else if (playerDirection === 'right') {
-      this.setFlipX(false);
+      this.setFlipXAll(false);
     }
 
     if (this.zzzText) {
@@ -213,6 +395,7 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
   }
 
   destroy(fromScene?: boolean): void {
+    this.base?.off(Phaser.Animations.Events.ANIMATION_UPDATE, this.handleBaseAnimationUpdate, this);
     if (this.zzzText) {
       this.zzzText.destroy();
       this.zzzText = null;
@@ -223,14 +406,14 @@ export class CompanionSprite extends Phaser.GameObjects.Sprite {
   setNFTTexture(url: string) {
     const key = 'companion-nft';
     if (this.scene.textures.exists(key)) {
-      this.setTexture(key);
+      this.base.setTexture(key);
       return;
     }
 
     this.scene.load.image(key, url);
     this.scene.load.once('complete', () => {
       if (this.scene.textures.exists(key)) {
-        this.setTexture(key);
+        this.base.setTexture(key);
       }
     });
     this.scene.load.start();
