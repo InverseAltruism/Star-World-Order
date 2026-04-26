@@ -18,7 +18,10 @@
     "db:init": "mkdir -p data && sqlite3 data/swo.db < scripts/init-db.sql",
     "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts",
     "colyseus:start": "npx tsx server/colyseus/index.ts",
-    "colyseus:dev": "npx tsx --watch server/colyseus/index.ts"
+    "colyseus:dev": "npx tsx --watch server/colyseus/index.ts",
+    "v3:generate": "node scripts/v3/generate.mjs",
+    "v3:check-cost": "node scripts/v3/generate.mjs --check-cost",
+    "v3:reconcile": "node scripts/v3/rd-reconcile.mjs"
   },
   "keywords": [],
   "author": "",
