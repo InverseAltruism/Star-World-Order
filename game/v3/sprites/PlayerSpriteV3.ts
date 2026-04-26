@@ -79,6 +79,10 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
     if (this.shadow) this.shadow.setPosition(this.x, this.y + 22);
   }
 
+  getDirection(): Direction {
+    return this.direction;
+  }
+
   handleInput() {
     if (!this.cursors || !this.wasd) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
