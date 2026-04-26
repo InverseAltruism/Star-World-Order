@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getPlayerState, upsertPlayerVisit, markIntroCompleted } from '@/lib/db';
+import {
+  getPlayerState,
+  upsertPlayerVisit,
+  markIntroCompleted,
+  setOnboardingStep,
+  skipOnboarding,
+  ONBOARDING_STEPS,
+  type OnboardingStep,
+} from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 import { ethAddress, parseSearchParams, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 
@@ -8,10 +16,25 @@ const querySchema = z.object({
   address: ethAddress,
 });
 
-const bodySchema = z.object({
-  address: ethAddress,
-  action: z.enum(['visit', 'complete-intro']),
-});
+const bodySchema = z.discriminatedUnion('action', [
+  z.object({
+    address: ethAddress,
+    action: z.literal('visit'),
+  }),
+  z.object({
+    address: ethAddress,
+    action: z.literal('complete-intro'),
+  }),
+  z.object({
+    address: ethAddress,
+    action: z.literal('set-onboarding-step'),
+    step: z.enum(ONBOARDING_STEPS as readonly [OnboardingStep, ...OnboardingStep[]]),
+  }),
+  z.object({
+    address: ethAddress,
+    action: z.literal('skip-onboarding'),
+  }),
+]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,16 +69,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { address, action } = parsed.data;
+    const data = parsed.data;
+    const { address, action } = data;
 
     const auth = await verifyWalletAccess(request, address);
     if (!auth.valid) {
       return NextResponse.json({ success: false, error: auth.error }, { status: 401 });
     }
 
-    const state = action === 'complete-intro'
-      ? markIntroCompleted(address)
-      : upsertPlayerVisit(address);
+    let state;
+    switch (action) {
+      case 'complete-intro':
+        state = markIntroCompleted(address);
+        break;
+      case 'set-onboarding-step':
+        state = setOnboardingStep(address, data.step);
+        break;
+      case 'skip-onboarding':
+        state = skipOnboarding(address);
+        break;
+      case 'visit':
+      default:
+        state = upsertPlayerVisit(address);
+        break;
+    }
 
     return NextResponse.json({ success: true, state });
   } catch (error) {
