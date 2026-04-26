@@ -7,24 +7,21 @@ import {
   type BuildingId, type NPCDefV3, type NPCSheet,
 } from '../config/npcDefinitionsV3';
 
-const TILE = 32;
-// Each interior backdrop is 256×192 and rendered at 2× → 512×384 room.
+// Each interior backdrop is 256×192 and rendered at ROOM_SCALE → world room.
+// Bumped to 3× so the room fully fills the camera view at zoom 2 (smaller
+// backdrops were showing too much dark border around the art).
 const BACKDROP_W = 256;
 const BACKDROP_H = 192;
-const ROOM_SCALE = 2;
-const ROOM_W = BACKDROP_W * ROOM_SCALE;     // 512
-const ROOM_H = BACKDROP_H * ROOM_SCALE;     // 384
+const ROOM_SCALE = 3;
+const ROOM_W = BACKDROP_W * ROOM_SCALE;     // 768
+const ROOM_H = BACKDROP_H * ROOM_SCALE;     // 576
 const ROOM_ZOOM = 2;
 const EXIT_GRACE_MS = 700;
 
-// Per-room collision tuning. The RD-generated backdrops have walls and
-// doorway openings drawn at specific pixel positions in the source 256×192
-// image; we mirror them here at room (2×) scale so the player can walk
-// where the floor visibly is and bumps where walls visibly are.
-//
-// All values are in **room-space pixels** (already multiplied by ROOM_SCALE).
-// `wallTop` = top wall thickness, `wallBottom` = bottom wall thickness with
-// `doorX/doorW` carving an opening in it, `wallSide` = left/right thickness.
+// Per-room collision tuning. Values are in **backdrop-space pixels**
+// (256×192) — the scene multiplies by ROOM_SCALE when building colliders.
+// Defining them at backdrop scale means changing ROOM_SCALE doesn't break
+// tuning. Each shape carves a south-wall doorway via doorX/doorW.
 interface RoomShape {
   wallTop: number;
   wallSide: number;
@@ -34,18 +31,19 @@ interface RoomShape {
 }
 
 const ROOM_SHAPES: Record<BuildingId, RoomShape> = {
-  // Backdrops generated at 256×192. Door is centred at the south wall in
-  // each one. We use a uniform shape and override only where the art needs
-  // it (e.g. the dream-hollow grotto has thick organic borders).
-  observatory:        { wallTop: 56, wallSide: 28, wallBottom: 32, doorX: 232, doorW: 60 },
-  'cosmic-library':   { wallTop: 56, wallSide: 36, wallBottom: 36, doorX: 232, doorW: 60 },
-  'star-garden':      { wallTop: 56, wallSide: 32, wallBottom: 36, doorX: 232, doorW: 60 },
-  'hot-springs':      { wallTop: 56, wallSide: 32, wallBottom: 36, doorX: 232, doorW: 60 },
-  'training-grounds': { wallTop: 64, wallSide: 36, wallBottom: 40, doorX: 232, doorW: 60 },
-  'dream-hollow':     { wallTop: 60, wallSide: 56, wallBottom: 40, doorX: 232, doorW: 60 },
-  'nebula-kitchen':   { wallTop: 56, wallSide: 32, wallBottom: 36, doorX: 232, doorW: 60 },
-  'aura-forge':       { wallTop: 56, wallSide: 36, wallBottom: 36, doorX: 232, doorW: 60 },
+  observatory:        { wallTop: 28, wallSide: 14, wallBottom: 16, doorX: 116, doorW: 30 },
+  'cosmic-library':   { wallTop: 28, wallSide: 18, wallBottom: 18, doorX: 116, doorW: 30 },
+  'star-garden':      { wallTop: 28, wallSide: 16, wallBottom: 18, doorX: 116, doorW: 30 },
+  'hot-springs':      { wallTop: 28, wallSide: 16, wallBottom: 18, doorX: 116, doorW: 30 },
+  'training-grounds': { wallTop: 32, wallSide: 18, wallBottom: 20, doorX: 116, doorW: 30 },
+  'dream-hollow':     { wallTop: 30, wallSide: 28, wallBottom: 20, doorX: 116, doorW: 30 },
+  'nebula-kitchen':   { wallTop: 28, wallSide: 16, wallBottom: 18, doorX: 116, doorW: 30 },
+  'aura-forge':       { wallTop: 28, wallSide: 18, wallBottom: 18, doorX: 116, doorW: 30 },
 };
+
+// Helper — multiply a backdrop-space length by ROOM_SCALE to get room
+// coords. Named bx() so it doesn't shadow the conventional rect-loop var.
+const bx = (n: number) => n * ROOM_SCALE;
 
 interface RoomLaunchData {
   roomId: BuildingId;
@@ -105,18 +103,12 @@ export class RoomSceneV3 extends Phaser.Scene {
   private createCollision() {
     this.collisionGroup = this.physics.add.staticGroup();
     const s = ROOM_SHAPES[this.roomId];
-    // Bottom wall split around the south door opening.
     const wallRects = [
-      // top wall
-      { x: 0, y: 0, w: ROOM_W, h: s.wallTop },
-      // left wall
-      { x: 0, y: 0, w: s.wallSide, h: ROOM_H },
-      // right wall
-      { x: ROOM_W - s.wallSide, y: 0, w: s.wallSide, h: ROOM_H },
-      // bottom-left of south wall (up to door opening)
-      { x: 0, y: ROOM_H - s.wallBottom, w: s.doorX, h: s.wallBottom },
-      // bottom-right of south wall (after door opening)
-      { x: s.doorX + s.doorW, y: ROOM_H - s.wallBottom, w: ROOM_W - (s.doorX + s.doorW), h: s.wallBottom },
+      { x: 0,                    y: 0,                       w: ROOM_W,                                h: bx(s.wallTop) },
+      { x: 0,                    y: 0,                       w: bx(s.wallSide),                        h: ROOM_H },
+      { x: ROOM_W - bx(s.wallSide), y: 0,                    w: bx(s.wallSide),                        h: ROOM_H },
+      { x: 0,                    y: ROOM_H - bx(s.wallBottom), w: bx(s.doorX),                         h: bx(s.wallBottom) },
+      { x: bx(s.doorX + s.doorW), y: ROOM_H - bx(s.wallBottom), w: ROOM_W - bx(s.doorX + s.doorW),    h: bx(s.wallBottom) },
     ];
     for (const r of wallRects) {
       if (r.w <= 0 || r.h <= 0) continue;
@@ -129,8 +121,8 @@ export class RoomSceneV3 extends Phaser.Scene {
   private spawnPlayer() {
     // Spawn the player one tile inside the south doorway, facing into the room.
     const s = ROOM_SHAPES[this.roomId];
-    const sx = s.doorX + s.doorW / 2;
-    const sy = ROOM_H - s.wallBottom - 24;
+    const sx = bx(s.doorX + s.doorW / 2);
+    const sy = ROOM_H - bx(s.wallBottom) - 32;
     this.player = new PlayerSpriteV3(this, sx, sy);
     this.physics.add.collider(this.player, this.collisionGroup);
     this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
@@ -154,16 +146,16 @@ export class RoomSceneV3 extends Phaser.Scene {
     // Trigger zone in the floor of the doorway gap. Slightly inset from the
     // outer wall so we don't fight the wall colliders.
     const zone = this.add.zone(
-      s.doorX + s.doorW / 2,
-      ROOM_H - s.wallBottom + 8,
-      s.doorW - 8,
-      16,
+      bx(s.doorX + s.doorW / 2),
+      ROOM_H - bx(s.wallBottom) + 12,
+      bx(s.doorW) - 12,
+      18,
     );
     this.physics.add.existing(zone, true);
     this.physics.add.overlap(this.player, zone, () => this.exit());
 
     this.add
-      .text(s.doorX + s.doorW / 2, ROOM_H - s.wallBottom - 8, '[E] EXIT', {
+      .text(bx(s.doorX + s.doorW / 2), ROOM_H - bx(s.wallBottom) - 12, '[E] EXIT', {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '8px',
         color: '#ff66aa',

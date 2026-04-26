@@ -9,11 +9,12 @@ const PLAYER_SPEED = 110;
 const SHEET_KEY = 'player-v3-sheet';
 
 // rd_animation__four_angle_walking outputs a 4×4 grid (rows = directions,
-// cols = walk-cycle frames). Verified by inspecting the rendered sheets:
-// row 0 shows the back of the head (away from camera), row 3 shows the
-// face. So the row order is up=0, left=1, right=2, down=3.
+// cols = walk-cycle frames). Verified empirically in-game: pressing up/
+// right plays the expected animations on rows 0/2; pressing down/left
+// played the wrong rows under the original mapping. The actual order is
+// up=0, down=1, right=2, left=3 — a vertical pair then horizontal pair.
 const DIRECTION_ROW: Record<Direction, number> = {
-  up: 0, left: 1, right: 2, down: 3,
+  up: 0, down: 1, right: 2, left: 3,
 };
 
 interface PathPoint { x: number; y: number }
@@ -27,6 +28,7 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
   private pathTarget: PathPoint | null = null;
   private isPathMoving = false;
   private navCell = 16;
+  private bobOffset = 0;
 
   static preload(scene: Phaser.Scene, sheetUrl: string) {
     if (scene.textures.exists(SHEET_KEY)) return;
@@ -82,7 +84,19 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
 
   preUpdate(time: number, delta: number) {
     super.preUpdate(time, delta);
-    if (this.shadow) this.shadow.setPosition(this.x, this.y + 22);
+    // Subtle 1.5px sin bob when idle; matches NPCSpriteV3 so the player and
+    // surrounding NPCs share the same "breathing" cadence. Remove last frame's
+    // bob first so we don't accumulate drift on the physics body.
+    this.y -= this.bobOffset;
+    this.bobOffset = 0;
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const isMoving = body.velocity.x !== 0 || body.velocity.y !== 0;
+    if (!isMoving && !this.isPathMoving) {
+      this.bobOffset = Math.sin(time * 0.003) * 1.5;
+      this.y += this.bobOffset;
+    }
+    // Shadow always sits at the body's true ground position (not the bobbed one).
+    if (this.shadow) this.shadow.setPosition(this.x, this.y - this.bobOffset + 22);
   }
 
   getDirection(): Direction {
