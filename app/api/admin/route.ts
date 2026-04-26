@@ -33,6 +33,7 @@ import {
   getRaffleWinnerDetails,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { consolidateAllCompanionMemories } from '@/lib/sanctuary/memoryConsolidation';
 
 /**
  * GET /api/admin
@@ -391,6 +392,29 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `Deleted ${deleted} direct messages older than ${olderThanDays} days`,
         deleted,
+      });
+    }
+
+    // Consolidate companion chat memories (weekly batch job)
+    if (action === 'consolidateChatMemories') {
+      const {
+        duplicateSimilarityThreshold,
+        topicClusterThreshold,
+        feelingDecayAfterDays,
+      } = body;
+      const stats = consolidateAllCompanionMemories({
+        duplicateSimilarityThreshold:
+          typeof duplicateSimilarityThreshold === 'number' ? duplicateSimilarityThreshold : undefined,
+        topicClusterThreshold:
+          typeof topicClusterThreshold === 'number' ? topicClusterThreshold : undefined,
+        feelingDecayAfterDays:
+          typeof feelingDecayAfterDays === 'number' ? feelingDecayAfterDays : undefined,
+      });
+      logger.info('Admin: Consolidated companion chat memories', { ...stats });
+      return NextResponse.json({
+        success: true,
+        message: `Scanned ${stats.companionsScanned} companions / ${stats.memoriesScanned} memories — merged ${stats.merged}, decayed ${stats.decayed}`,
+        stats,
       });
     }
 
