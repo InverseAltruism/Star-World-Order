@@ -28,9 +28,10 @@ export class NPCSpriteV3 extends Phaser.GameObjects.Container {
 
     const key = npcSpriteKey(def.id);
     const hasSheet = scene.textures.exists(key);
-    // 4×4 sheet rows: 0=up, 1=down, 2=right, 3=left. Default to row 1 col 0
-    // (frame 4) so NPCs face the camera instead of turning their backs.
-    this.sprite = scene.add.sprite(0, 0, hasSheet ? key : '__MISSING', 4);
+    // 4×4 sheet rows are counter-clockwise: 0=up, 1=left, 2=down, 3=right.
+    // Frame 8 = row 2 col 0 = down-facing (verified by extracting each row
+    // of multiple sheets). NPCs greet the camera by default.
+    this.sprite = scene.add.sprite(0, 0, hasSheet ? key : '__MISSING', 8);
     this.sprite.setScale(SCALE);
     this.add(this.sprite);
 

@@ -8,14 +8,14 @@ import {
 } from '../config/npcDefinitionsV3';
 
 // Each interior backdrop is 256×192 and rendered at ROOM_SCALE → world room.
-// Bumped to 3× so the room fully fills the camera view at zoom 2 (smaller
-// backdrops were showing too much dark border around the art).
+// At ROOM_SCALE=3 + ROOM_ZOOM=1.5 the room is 768×576 in world coords and
+// the camera shows 800×600 — leaving a thin black letterbox around the art.
 const BACKDROP_W = 256;
 const BACKDROP_H = 192;
 const ROOM_SCALE = 3;
 const ROOM_W = BACKDROP_W * ROOM_SCALE;     // 768
 const ROOM_H = BACKDROP_H * ROOM_SCALE;     // 576
-const ROOM_ZOOM = 2;
+const ROOM_ZOOM = 1.5;
 const EXIT_GRACE_MS = 700;
 
 // Per-room collision tuning. Values are in **backdrop-space pixels**
@@ -70,7 +70,7 @@ export class RoomSceneV3 extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setBounds(0, 0, ROOM_W, ROOM_H);
     cam.setZoom(ROOM_ZOOM);
-    cam.setBackgroundColor(0x0a0015);
+    cam.setBackgroundColor(0x000000);
     cam.fadeIn(250, 0, 0, 0);
     this.physics.world.setBounds(0, 0, ROOM_W, ROOM_H);
 

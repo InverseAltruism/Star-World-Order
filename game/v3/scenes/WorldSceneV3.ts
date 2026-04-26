@@ -26,6 +26,10 @@ import {
 const CAMERA_ZOOM = 1.5;
 const TILE = 32;
 const NAV_CELL = 16; // half-tile pathfinding grid, matches V2's WorldScene
+// Buildings render larger than their 128×128 source sprites so they read
+// as proper RPG-scale structures next to a 48×48 player. Collision rects
+// in the map JSON are scaled by the same factor.
+const BUILDING_SCALE = 1.5;
 
 interface DoorMarker {
   roomId: BuildingId;
@@ -81,7 +85,7 @@ export class WorldSceneV3 extends Phaser.Scene {
       const cy = (o.y ?? 0) + (o.height ?? 0) / 2;
       const key = `building-v3-${o.name}`;
       if (!this.textures.exists(key)) continue;
-      this.add.image(cx, cy, key).setOrigin(0.5).setDepth(5);
+      this.add.image(cx, cy, key).setOrigin(0.5).setScale(BUILDING_SCALE).setDepth(5);
     }
 
     // -------- Props --------
@@ -96,14 +100,36 @@ export class WorldSceneV3 extends Phaser.Scene {
     }
 
     // -------- Collision --------
+    // Building collision rects in the map JSON are authored at the source
+    // (unscaled) building size. We scale them around each building's tile
+    // centre to match the BUILDING_SCALE-applied art. Map borders come
+    // through with `name` starting "border-" and stay unscaled.
     this.collisionGroup = this.physics.add.staticGroup();
     const collide = map.getObjectLayer('collision')?.objects ?? [];
     const collisionRects: { x: number; y: number; w: number; h: number }[] = [];
+    const buildingByName = new Map<string, { col: number; row: number }>();
+    const buildingObjs = map.getObjectLayer('buildings')?.objects ?? [];
+    for (const b of buildingObjs) {
+      const cx = (b.x ?? 0) + (b.width ?? 0) / 2;
+      const cy = (b.y ?? 0) + (b.height ?? 0) / 2;
+      buildingByName.set(`collide-${b.name}`, { col: cx, row: cy });
+    }
     for (const o of collide) {
-      const w = o.width ?? 32;
-      const h = o.height ?? 32;
-      const ox = o.x ?? 0;
-      const oy = o.y ?? 0;
+      let w = o.width ?? 32;
+      let h = o.height ?? 32;
+      let ox = o.x ?? 0;
+      let oy = o.y ?? 0;
+      const buildingCentre = buildingByName.get(o.name as string);
+      if (buildingCentre) {
+        // Scale this rect around the building's centre so it stays aligned
+        // with the visually-scaled building art.
+        const dx = ox - buildingCentre.col;
+        const dy = oy - buildingCentre.row;
+        ox = buildingCentre.col + dx * BUILDING_SCALE;
+        oy = buildingCentre.row + dy * BUILDING_SCALE;
+        w *= BUILDING_SCALE;
+        h *= BUILDING_SCALE;
+      }
       const cx = ox + w / 2;
       const cy = oy + h / 2;
       const zone = this.add.zone(cx, cy, w, h);

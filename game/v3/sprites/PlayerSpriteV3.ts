@@ -9,12 +9,12 @@ const PLAYER_SPEED = 110;
 const SHEET_KEY = 'player-v3-sheet';
 
 // rd_animation__four_angle_walking outputs a 4×4 grid (rows = directions,
-// cols = walk-cycle frames). Verified empirically in-game: pressing up/
-// right plays the expected animations on rows 0/2; pressing down/left
-// played the wrong rows under the original mapping. The actual order is
-// up=0, down=1, right=2, left=3 — a vertical pair then horizontal pair.
+// cols = walk-cycle frames). Verified by extracting each row of multiple
+// generated sheets: row 0 shows the back of the head (up), row 2 shows
+// the face (down), rows 1 and 3 show the two side profiles. The exact
+// order is COUNTER-CLOCKWISE from north — up=0, left=1, down=2, right=3.
 const DIRECTION_ROW: Record<Direction, number> = {
-  up: 0, down: 1, right: 2, left: 3,
+  up: 0, left: 1, down: 2, right: 3,
 };
 
 interface PathPoint { x: number; y: number }
