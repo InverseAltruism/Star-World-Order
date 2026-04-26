@@ -2,10 +2,13 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import {
+  COMPANION_INTERACT_VFX,
   COMPANION_VFX_EVENT,
   COMPANION_VFX_KINDS,
   emitCompanionVfx,
   onCompanionVfx,
+  vfxKindForInteractAction,
+  type CompanionInteractAction,
   type CompanionVfxPayload,
   type VfxEventBus,
 } from '../vfxEvents';
@@ -124,5 +127,49 @@ describe('companion VFX event contract', () => {
     }
 
     expect(seen).toEqual([...COMPANION_VFX_KINDS]);
+  });
+});
+
+describe('companion interact-action → VFX-kind mapping', () => {
+  it('maps pet → sparkle and feed → food', () => {
+    expect(vfxKindForInteractAction('pet')).toBe('sparkle');
+    expect(vfxKindForInteractAction('feed')).toBe('food');
+  });
+
+  it('returns undefined for talk (no VFX — opens chat overlay)', () => {
+    expect(vfxKindForInteractAction('talk')).toBeUndefined();
+  });
+
+  it('exposes a frozen mapping with the same kinds the helper resolves', () => {
+    expect(Object.isFrozen(COMPANION_INTERACT_VFX)).toBe(true);
+    expect(COMPANION_INTERACT_VFX.pet).toBe('sparkle');
+    expect(COMPANION_INTERACT_VFX.feed).toBe('food');
+    expect(COMPANION_INTERACT_VFX.talk).toBeUndefined();
+  });
+
+  it('every mapped kind is a recognised CompanionVfxKind', () => {
+    for (const kind of Object.values(COMPANION_INTERACT_VFX)) {
+      if (kind === undefined) continue;
+      expect(COMPANION_VFX_KINDS).toContain(kind);
+    }
+  });
+
+  it('round-trips through emitCompanionVfx for every action that has a VFX', () => {
+    const bus = makeBus();
+    const seen: CompanionVfxPayload[] = [];
+    onCompanionVfx(bus, (p) => seen.push(p));
+
+    const actions: CompanionInteractAction[] = ['pet', 'feed', 'talk'];
+    for (const action of actions) {
+      const kind = vfxKindForInteractAction(action);
+      if (kind) {
+        emitCompanionVfx(bus, { kind, x: 1, y: 2, source: action });
+      }
+    }
+
+    expect(seen).toEqual([
+      { kind: 'sparkle', x: 1, y: 2, source: 'pet' },
+      { kind: 'food', x: 1, y: 2, source: 'feed' },
+    ]);
   });
 });

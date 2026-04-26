@@ -111,3 +111,37 @@ export function onCompanionVfx(
     bus.off(COMPANION_VFX_EVENT, listener, ctx);
   };
 }
+
+/**
+ * Companion radial-menu actions. Source of truth lives in
+ * `lib/sanctuary/validation.ts` (the API contract); this is the matching
+ * client-facing literal type so V2 + V3 radial menus share one mapping.
+ */
+export type CompanionInteractAction = 'pet' | 'feed' | 'talk';
+
+/**
+ * Canonical mapping: which VFX kind a given radial-menu action should
+ * trigger. `talk` opens the chat overlay through a separate event and has
+ * no VFX, so it is intentionally absent from the map.
+ *
+ * Both V2 (`CompanionMenu.tsx`) and the future V3 RadialMenu must consume
+ * this mapping rather than redeclaring it locally — keeps `pet → sparkle`
+ * and `feed → food` consistent across visual tracks.
+ */
+export const COMPANION_INTERACT_VFX: Readonly<
+  Partial<Record<CompanionInteractAction, CompanionVfxKind>>
+> = Object.freeze({
+  pet: 'sparkle',
+  feed: 'food',
+});
+
+/**
+ * Lookup helper: returns the VFX kind for an action, or `undefined` if the
+ * action has no associated VFX (e.g. `talk`). Use this in radial-menu code
+ * to decide whether to call {@link emitCompanionVfx}.
+ */
+export function vfxKindForInteractAction(
+  action: CompanionInteractAction,
+): CompanionVfxKind | undefined {
+  return COMPANION_INTERACT_VFX[action];
+}
