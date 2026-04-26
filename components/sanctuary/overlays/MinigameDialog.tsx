@@ -42,8 +42,12 @@ interface PersonalBest {
   total_star_earned: number;
 }
 
-// NPC IDs that launch minigames + their game_id mapping
+// NPC IDs that launch minigames + their game_id mapping. The owning
+// RoomScene overrides `defaultRoom` with its own room identifier on
+// launch — V2 uses Title-Case `RoomKey`, V3 uses kebab-case `BuildingId`
+// — so the value here only matters when launched from outside a room.
 const MINIGAME_NPCS: Record<string, { gameId: string; sceneKey: string; defaultRoom: string }> = {
+  // V2 (Title-Case rooms, dedicated minigame NPCs).
   'npc-observatory-arcade': {
     gameId: 'star-catch',
     sceneKey: 'StarCatchScene',
@@ -78,6 +82,40 @@ const MINIGAME_NPCS: Record<string, { gameId: string; sceneKey: string; defaultR
     gameId: 'lore-trivia',
     sceneKey: 'LoreTriviaScene',
     defaultRoom: 'Cosmic Library',
+  },
+
+  // V3 (kebab-case BuildingIds, one zone-keeper per zone). Each V3 NPC
+  // offers their zone's signature minigame. Zones with no minigame in
+  // V2 (training-grounds, star-garden) intentionally have no entry.
+  'observatory-owl': {
+    gameId: 'star-catch',
+    sceneKey: 'StarCatchScene',
+    defaultRoom: 'observatory',
+  },
+  'springs-duck': {
+    gameId: 'memory-match',
+    sceneKey: 'MemoryMatchScene',
+    defaultRoom: 'hot-springs',
+  },
+  'forge-golem': {
+    gameId: 'forge-hammer',
+    sceneKey: 'ForgeHammerScene',
+    defaultRoom: 'aura-forge',
+  },
+  'kitchen-bunny': {
+    gameId: 'cooking-rhythm',
+    sceneKey: 'CookingRhythmScene',
+    defaultRoom: 'nebula-kitchen',
+  },
+  'dream-sheep': {
+    gameId: 'dream-catcher',
+    sceneKey: 'DreamCatcherScene',
+    defaultRoom: 'dream-hollow',
+  },
+  'library-moth': {
+    gameId: 'lore-trivia',
+    sceneKey: 'LoreTriviaScene',
+    defaultRoom: 'cosmic-library',
   },
 };
 

@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
-import type { RoomKey } from '../config/worldLayout';
 
+// returnRoom is opaque to the minigame scene — it just echoes it back on
+// exit. V2 passes a Title-Case `RoomKey`; V3 passes a kebab-case
+// `BuildingId`. The owning room scene matches on whichever format it uses.
 export interface MinigameLaunchData {
   gameId: string;
   tokenId: number | null;
-  returnRoom: RoomKey;
+  returnRoom: string;
   returnTo: { x: number; y: number };
   durationSeconds?: number;
   title?: string;
@@ -36,7 +38,7 @@ export abstract class MinigameScene extends Phaser.Scene {
   protected gameId: string = '';
   protected gameTitle: string = 'MINIGAME';
   protected tokenId: number | null = null;
-  protected returnRoom: RoomKey | null = null;
+  protected returnRoom: string | null = null;
   protected returnTo: { x: number; y: number } = { x: 600, y: 800 };
   protected durationSeconds: number = 60;
   protected score: number = 0;
