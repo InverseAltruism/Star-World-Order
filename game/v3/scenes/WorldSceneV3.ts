@@ -4,6 +4,7 @@ import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';
 import {
   NPCS_V3,
+  BUILDING_DISPLAY_NAMES,
   type BuildingId,
   type NPCDefV3,
   type NPCSheet,
@@ -290,7 +291,15 @@ export class WorldSceneV3 extends Phaser.Scene {
         break;
       }
     }
-    this.currentDoor = inside;
+    if (inside !== this.currentDoor) {
+      if (this.currentDoor) {
+        EventBus.emit('location-exited', { name: BUILDING_DISPLAY_NAMES[this.currentDoor.roomId] });
+      }
+      if (inside) {
+        EventBus.emit('location-entered', { name: BUILDING_DISPLAY_NAMES[inside.roomId] });
+      }
+      this.currentDoor = inside;
+    }
     if (inside && this.doorPrompt) {
       this.doorPrompt.setText(`[E] ENTER ${inside.roomId.toUpperCase().replace(/-/g, ' ')}`);
       this.doorPrompt.setPosition(inside.x, inside.y - 6);
