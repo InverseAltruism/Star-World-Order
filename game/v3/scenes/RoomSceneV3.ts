@@ -79,7 +79,69 @@ export class RoomSceneV3 extends Phaser.Scene {
     this.setupExit();
     this.setupHUD();
 
+    EventBus.on('minigame-launch', this.handleMinigameLaunch, this);
+    EventBus.on('minigame-exit', this.handleMinigameExit, this);
+
     EventBus.emit('scene-ready', this);
+  }
+
+  private handleMinigameLaunch(payload: {
+    gameId: string;
+    sceneKey: string;
+    tokenId: number | null;
+    durationSeconds?: number;
+    title?: string;
+  }) {
+    if (this.exiting) return;
+    if (!this.scene.manager.keys[payload.sceneKey]) return;
+    this.cameras.main.fadeOut(250, 0, 0, 0);
+    this.time.delayedCall(260, () => {
+      const returnTo = { x: this.player.x, y: this.player.y };
+      this.scene.sleep();
+      // Override returnRoom to this scene's kebab-case BuildingId so the
+      // minigame echoes a value the V3 exit listener will recognise. V2's
+      // RoomScene does the same with its Title-Case RoomKey.
+      this.scene.launch(payload.sceneKey, {
+        gameId: payload.gameId,
+        tokenId: payload.tokenId,
+        returnRoom: this.roomId,
+        returnTo,
+        durationSeconds: payload.durationSeconds,
+        title: payload.title,
+      });
+    });
+  }
+
+  private handleMinigameExit(payload: {
+    sceneKey?: string;
+    returnRoom?: string;
+    returnTo?: { x: number; y: number };
+  }) {
+    if (!payload?.returnRoom || payload.returnRoom !== this.roomId) return;
+    if (!this.scene.isSleeping()) return;
+    if (payload.sceneKey && this.scene.manager.getScene(payload.sceneKey)) {
+      this.scene.stop(payload.sceneKey);
+    } else {
+      const keys = [
+        'StarCatchScene',
+        'MemoryMatchScene',
+        'StarConnectScene',
+        'ForgeHammerScene',
+        'LoreTriviaScene',
+        'CookingRhythmScene',
+        'DreamCatcherScene',
+      ];
+      for (const k of keys) {
+        if (this.scene.manager.getScene(k)?.scene.isActive()) {
+          this.scene.stop(k);
+        }
+      }
+    }
+    this.scene.wake();
+    this.cameras.main.fadeIn(250, 0, 0, 0);
+    if (payload.returnTo && this.player) {
+      this.player.setPosition(payload.returnTo.x, payload.returnTo.y);
+    }
   }
 
   private renderInterior() {
@@ -216,5 +278,10 @@ export class RoomSceneV3 extends Phaser.Scene {
     if (!this.player || this.exiting) return;
     this.player.handleInput();
     this.npc?.update(time);
+  }
+
+  shutdown() {
+    EventBus.off('minigame-launch', this.handleMinigameLaunch, this);
+    EventBus.off('minigame-exit', this.handleMinigameExit, this);
   }
 }
