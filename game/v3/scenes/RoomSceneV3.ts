@@ -8,13 +8,14 @@ import {
 } from '../config/npcDefinitionsV3';
 
 // Each interior backdrop is 256×192 and rendered at ROOM_SCALE → world room.
-// At ROOM_SCALE=3 + ROOM_ZOOM=1.5 the room is 768×576 in world coords and
-// the camera shows 800×600 — leaving a thin black letterbox around the art.
+// ROOM_SCALE=2.5 + ROOM_ZOOM=1.5 makes the world 640×480 inside an 800×600
+// camera view, so there's a clear ~80px black letterbox on each side. The
+// black comes from the camera bg (set to 0x000000 in create()).
 const BACKDROP_W = 256;
 const BACKDROP_H = 192;
-const ROOM_SCALE = 3;
-const ROOM_W = BACKDROP_W * ROOM_SCALE;     // 768
-const ROOM_H = BACKDROP_H * ROOM_SCALE;     // 576
+const ROOM_SCALE = 2.5;
+const ROOM_W = BACKDROP_W * ROOM_SCALE;     // 640
+const ROOM_H = BACKDROP_H * ROOM_SCALE;     // 480
 const ROOM_ZOOM = 1.5;
 const EXIT_GRACE_MS = 700;
 

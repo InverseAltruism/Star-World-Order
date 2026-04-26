@@ -9,12 +9,13 @@ const PLAYER_SPEED = 110;
 const SHEET_KEY = 'player-v3-sheet';
 
 // rd_animation__four_angle_walking outputs a 4×4 grid (rows = directions,
-// cols = walk-cycle frames). Verified by extracting each row of multiple
-// generated sheets: row 0 shows the back of the head (up), row 2 shows
-// the face (down), rows 1 and 3 show the two side profiles. The exact
-// order is COUNTER-CLOCKWISE from north — up=0, left=1, down=2, right=3.
+// cols = walk-cycle frames). Row 0 = back (up), row 2 = front (down) —
+// confirmed by pixel inspection. Rows 1 and 3 are the two side profiles;
+// in-game testing confirms the order is CLOCKWISE: up=0, right=1, down=2,
+// left=3. (Pixel art profiles are mirror-symmetric and visually ambiguous,
+// so the user's keyboard test is the authority.)
 const DIRECTION_ROW: Record<Direction, number> = {
-  up: 0, left: 1, down: 2, right: 3,
+  up: 0, right: 1, down: 2, left: 3,
 };
 
 interface PathPoint { x: number; y: number }
