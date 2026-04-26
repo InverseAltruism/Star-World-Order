@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import * as EasyStar from 'easystarjs';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';
@@ -25,6 +26,7 @@ import {
 const CAMERA_ZOOM = 1.5;
 const WATER_FPS = 6;
 const TILE = 32;
+const NAV_CELL = 16; // half-tile pathfinding grid, matches V2's WorldScene
 
 interface DoorMarker {
   roomId: BuildingId;
@@ -46,6 +48,11 @@ export class WorldSceneV3 extends Phaser.Scene {
   private currentDoor: DoorMarker | null = null;
   private doorPrompt: Phaser.GameObjects.Text | null = null;
   private interactKey!: Phaser.Input.Keyboard.Key;
+  private finder!: EasyStar.js;
+  private navGrid: number[][] = [];
+  private gridW = 0;
+  private gridH = 0;
+  private clickMarker: Phaser.GameObjects.Graphics | null = null;
 
   constructor() { super({ key: 'WorldSceneV3' }); }
 
@@ -126,13 +133,42 @@ export class WorldSceneV3 extends Phaser.Scene {
     // -------- Collision --------
     this.collisionGroup = this.physics.add.staticGroup();
     const collide = map.getObjectLayer('collision')?.objects ?? [];
+    const collisionRects: { x: number; y: number; w: number; h: number }[] = [];
     for (const o of collide) {
-      const cx = (o.x ?? 0) + (o.width ?? 0) / 2;
-      const cy = (o.y ?? 0) + (o.height ?? 0) / 2;
-      const zone = this.add.zone(cx, cy, o.width ?? 32, o.height ?? 32);
+      const w = o.width ?? 32;
+      const h = o.height ?? 32;
+      const ox = o.x ?? 0;
+      const oy = o.y ?? 0;
+      const cx = ox + w / 2;
+      const cy = oy + h / 2;
+      const zone = this.add.zone(cx, cy, w, h);
       this.physics.add.existing(zone, true);
       this.collisionGroup.add(zone);
+      collisionRects.push({ x: ox, y: oy, w, h });
     }
+
+    // -------- Pathfinding nav grid + finder --------
+    // Mirrors V2 WorldScene's setup so click-to-move feels the same. The
+    // grid blocks every cell touched by a collision rect.
+    this.gridW = Math.ceil(worldW / NAV_CELL);
+    this.gridH = Math.ceil(worldH / NAV_CELL);
+    this.navGrid = Array.from({ length: this.gridH }, () =>
+      Array.from({ length: this.gridW }, () => 0),
+    );
+    for (const rect of collisionRects) {
+      const x0 = Math.max(0, Math.floor(rect.x / NAV_CELL));
+      const y0 = Math.max(0, Math.floor(rect.y / NAV_CELL));
+      const x1 = Math.min(this.gridW - 1, Math.floor((rect.x + rect.w - 1) / NAV_CELL));
+      const y1 = Math.min(this.gridH - 1, Math.floor((rect.y + rect.h - 1) / NAV_CELL));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) this.navGrid[y][x] = 1;
+      }
+    }
+    this.finder = new EasyStar.js();
+    this.finder.setGrid(this.navGrid);
+    this.finder.setAcceptableTiles([0]);
+    this.finder.enableDiagonals();
+    this.finder.setIterationsPerCalculation(200);
 
     // -------- Spawn the player --------
     // Pick spawn from the NPCs object layer's 'spawn-fox' position; if missing
@@ -142,8 +178,10 @@ export class WorldSceneV3 extends Phaser.Scene {
     const spawnX = fox ? (fox.x ?? 0) - 64 : worldW / 2;
     const spawnY = fox ? (fox.y ?? 0) + 32 : worldH / 2;
     this.player = new PlayerSpriteV3(this, spawnX, spawnY);
+    this.player.setNavCell(NAV_CELL);
     this.physics.add.collider(this.player, this.collisionGroup);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.setupClickToMove();
 
     // -------- Companion --------
     // Reuses V2's CompanionSprite + AnimationSystem (cosmic-palette assets).
@@ -202,6 +240,44 @@ export class WorldSceneV3 extends Phaser.Scene {
     EventBus.on('roomv3-exit', this.handleRoomExit, this);
 
     EventBus.emit('scene-ready', this);
+  }
+
+  private setupClickToMove() {
+    this.clickMarker = this.add.graphics().setDepth(5);
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.rightButtonDown()) return;
+      const worldX = pointer.worldX;
+      const worldY = pointer.worldY;
+      const gx = Math.floor(worldX / NAV_CELL);
+      const gy = Math.floor(worldY / NAV_CELL);
+      if (gx < 0 || gy < 0 || gx >= this.gridW || gy >= this.gridH) return;
+      if (this.navGrid[gy][gx] === 1) return;
+
+      this.showClickMarker(worldX, worldY);
+
+      const playerGx = Math.floor(this.player.x / NAV_CELL);
+      const playerGy = Math.floor(this.player.y / NAV_CELL);
+      this.finder.findPath(playerGx, playerGy, gx, gy, (path) => {
+        if (path && path.length > 1) this.player.setPath(path);
+      });
+      this.finder.calculate();
+    });
+  }
+
+  private showClickMarker(x: number, y: number) {
+    if (!this.clickMarker) return;
+    this.clickMarker.clear();
+    this.clickMarker.lineStyle(1, 0xffd700, 0.9);
+    this.clickMarker.strokeCircle(x, y, 5);
+    this.clickMarker.setAlpha(1);
+    this.tweens.add({
+      targets: this.clickMarker,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => {
+        this.clickMarker?.clear();
+      },
+    });
   }
 
   private setupCompanionInteraction() {
@@ -331,7 +407,8 @@ export class WorldSceneV3 extends Phaser.Scene {
 
   update(time: number) {
     if (!this.player) return;
-    this.player.handleInput();
+    const keyboardActive = this.player.handleInput();
+    if (!keyboardActive) this.player.updatePathMovement();
     if (this.companion) {
       this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
     }

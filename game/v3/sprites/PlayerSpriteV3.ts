@@ -16,11 +16,17 @@ const DIRECTION_ROW: Record<Direction, number> = {
   down: 0, left: 1, right: 2, up: 3,
 };
 
+interface PathPoint { x: number; y: number }
+
 export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
   private direction: Direction = 'down';
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys | null = null;
   private wasd: Record<string, Phaser.Input.Keyboard.Key> | null = null;
   private shadow: Phaser.GameObjects.Ellipse | null = null;
+  private pathQueue: PathPoint[] = [];
+  private pathTarget: PathPoint | null = null;
+  private isPathMoving = false;
+  private navCell = 16;
 
   static preload(scene: Phaser.Scene, sheetUrl: string) {
     if (scene.textures.exists(SHEET_KEY)) return;
@@ -83,8 +89,82 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
     return this.direction;
   }
 
-  handleInput() {
-    if (!this.cursors || !this.wasd) return;
+  setNavCell(cell: number) {
+    this.navCell = Math.max(1, Math.floor(cell));
+  }
+
+  isPathActive(): boolean {
+    return this.isPathMoving;
+  }
+
+  setPath(path: PathPoint[]) {
+    // EasyStar emits the start tile as path[0]; skip it so we don't re-walk
+    // a fractional cell and stutter at the first step.
+    this.pathQueue = path.slice(1);
+    this.isPathMoving = true;
+    this.moveToNextPoint();
+  }
+
+  clearPath() {
+    this.pathQueue = [];
+    this.pathTarget = null;
+    this.isPathMoving = false;
+  }
+
+  updatePathMovement() {
+    if (!this.isPathMoving || !this.pathTarget) return;
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const dx = this.pathTarget.x - this.x;
+    const dy = this.pathTarget.y - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < 2) {
+      this.setPosition(this.pathTarget.x, this.pathTarget.y);
+      body.setVelocity(0);
+      this.moveToNextPoint();
+      return;
+    }
+
+    const vx = (dx / dist) * PLAYER_SPEED;
+    const vy = (dy / dist) * PLAYER_SPEED;
+    body.setVelocity(vx, vy);
+  }
+
+  private moveToNextPoint() {
+    if (this.pathQueue.length === 0) {
+      this.isPathMoving = false;
+      this.pathTarget = null;
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0);
+      this.stop();
+      this.setFrame(DIRECTION_ROW[this.direction] * 4);
+      return;
+    }
+
+    const next = this.pathQueue.shift()!;
+    this.pathTarget = {
+      x: next.x * this.navCell + this.navCell / 2,
+      y: next.y * this.navCell + this.navCell / 2,
+    };
+
+    const dx = this.pathTarget.x - this.x;
+    const dy = this.pathTarget.y - this.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.direction = dx > 0 ? 'right' : 'left';
+    } else if (dy !== 0) {
+      this.direction = dy > 0 ? 'down' : 'up';
+    }
+
+    this.play(`player-v3-walk-${this.direction}`, true);
+  }
+
+  /**
+   * @returns true if the keyboard produced movement this frame. Caller
+   * should skip `updatePathMovement()` in that case so click-to-move
+   * yields cleanly to keyboard control.
+   */
+  handleInput(): boolean {
+    if (!this.cursors || !this.wasd) return false;
     const body = this.body as Phaser.Physics.Arcade.Body;
 
     const left  = this.cursors.left.isDown  || this.wasd.A.isDown;
@@ -92,9 +172,10 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
     const up    = this.cursors.up.isDown    || this.wasd.W.isDown;
     const down  = this.cursors.down.isDown  || this.wasd.S.isDown;
 
-    body.setVelocity(0);
-
     if (left || right || up || down) {
+      this.clearPath();
+      body.setVelocity(0);
+
       if (left)  { body.setVelocityX(-PLAYER_SPEED); this.direction = 'left'; }
       else if (right) { body.setVelocityX(PLAYER_SPEED); this.direction = 'right'; }
       if (up)    { body.setVelocityY(-PLAYER_SPEED); this.direction = 'up'; }
@@ -105,10 +186,15 @@ export class PlayerSpriteV3 extends Phaser.Physics.Arcade.Sprite {
       }
 
       this.play(`player-v3-walk-${this.direction}`, true);
-    } else {
+      return true;
+    }
+
+    if (!this.isPathMoving) {
+      body.setVelocity(0);
       this.stop();
       this.setFrame(DIRECTION_ROW[this.direction] * 4);
     }
+    return false;
   }
 
   destroy(fromScene?: boolean) {
