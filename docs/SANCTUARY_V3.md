@@ -1,13 +1,16 @@
 # Sanctuary V3 — Canonical Plan & Style Guide
 
-> **Single source of truth** for Sanctuary V3 — supersedes:
+> **Status: DEFERRED as of 2026-04-26.** Primary work returned to V2 — see
+> `docs/SANCTUARY_V3_DEFERRED.md` for what V3 contains and why it's on hold.
+> This doc remains as the original V3 doctrine for if/when V3 is revived.
+>
+> Single source of truth for Sanctuary V3 — supersedes:
 > - `SANCTUARY_V3_PLAN.md` (deleted)
 > - `SANCTUARY_V3_STYLE_GUIDE.md` (deleted)
 > - `SANCTUARY_STYLE_DOCTRINE.md` (V1/V2 only — see banner there)
 > - `public/sanctuary/ASSET_SPEC.md` (V2 only)
 >
-> **Status:** Active. Anything that contradicts this doc loses.
-> **Last updated:** 2026-04-25
+> **Last updated:** 2026-04-26 (status flipped to deferred)
 > **Mounts under:** `?v=3` (V2 stays alive at `?v=2` as gameplay testbed)
 > **Baseline pack:** Forgotten Memories 32×32 by Immunity (free/open license per author, confirmed by user 2026-04-25). Source files: `public/sanctuary-v3/tilesets/forgotten-memories/`.
 
