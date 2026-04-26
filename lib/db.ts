@@ -7370,26 +7370,69 @@ export interface SanctuaryQuestProgress {
 
 export type QuestWithProgress = SanctuaryQuest & { progress: SanctuaryQuestProgress | null };
 
+interface QuestSeed {
+  season: string;
+  title: string;
+  description: string;
+  quest_type: string;
+  requirement_type: string;
+  requirement_count: number;
+  reward_xp: number;
+  reward_bond: number;
+  reward_trait: string | null;
+}
+
+const SEASONAL_QUEST_SEEDS: QuestSeed[] = [
+  { season: 'spring-2026', title: 'First Steps', description: 'Interact with your companion 5 times.', quest_type: 'seasonal', requirement_type: 'interact', requirement_count: 5, reward_xp: 25, reward_bond: 2.0, reward_trait: null },
+  { season: 'spring-2026', title: 'Cosmic Cuisine', description: 'Feed your Skrumpey 10 times.', quest_type: 'seasonal', requirement_type: 'feed', requirement_count: 10, reward_xp: 50, reward_bond: 5.0, reward_trait: null },
+  { season: 'spring-2026', title: 'Explorer\'s Spirit', description: 'Send your companion on 5 activities.', quest_type: 'seasonal', requirement_type: 'explore', requirement_count: 5, reward_xp: 40, reward_bond: 3.0, reward_trait: null },
+  { season: 'spring-2026', title: 'Heart to Heart', description: 'Chat with your Skrumpey 15 times.', quest_type: 'seasonal', requirement_type: 'chat', requirement_count: 15, reward_xp: 60, reward_bond: 4.0, reward_trait: 'Chatterbox' },
+  { season: 'spring-2026', title: 'Stargazer\'s Vigil', description: 'Visit the Observatory 3 times.', quest_type: 'seasonal', requirement_type: 'observatory', requirement_count: 3, reward_xp: 35, reward_bond: 3.5, reward_trait: null },
+  { season: 'spring-2026', title: 'Warm Welcome', description: 'Relax in the Hot Springs 5 times.', quest_type: 'seasonal', requirement_type: 'springs', requirement_count: 5, reward_xp: 30, reward_bond: 2.5, reward_trait: null },
+  { season: 'spring-2026', title: 'Bonded', description: 'Reach 50 bond score with your companion.', quest_type: 'seasonal', requirement_type: 'bond_threshold', requirement_count: 50, reward_xp: 100, reward_bond: 0, reward_trait: 'Loyal Companion' },
+  { season: 'spring-2026', title: 'Daily Devotion', description: 'Interact with your companion 3 days in a row.', quest_type: 'weekly', requirement_type: 'daily_streak', requirement_count: 3, reward_xp: 30, reward_bond: 2.0, reward_trait: null },
+];
+
+function loadQuestSeedsFromJson(): QuestSeed[] {
+  try {
+    const seedPath = path.join(process.cwd(), 'data', 'sanctuary', 'quests.json');
+    if (!fs.existsSync(seedPath)) return [];
+    const raw = JSON.parse(fs.readFileSync(seedPath, 'utf8')) as {
+      season?: string;
+      daily_quests?: Partial<QuestSeed>[];
+      weekly_quests?: Partial<QuestSeed>[];
+    };
+    const defaultSeason = raw.season ?? 'spring-2026';
+    const fromGroup = (group: Partial<QuestSeed>[] | undefined): QuestSeed[] =>
+      (group ?? []).map((q) => ({
+        season: q.season ?? defaultSeason,
+        title: String(q.title ?? ''),
+        description: String(q.description ?? ''),
+        quest_type: String(q.quest_type ?? 'daily'),
+        requirement_type: String(q.requirement_type ?? 'interact'),
+        requirement_count: Number(q.requirement_count ?? 1),
+        reward_xp: Number(q.reward_xp ?? 0),
+        reward_bond: Number(q.reward_bond ?? 0),
+        reward_trait: q.reward_trait ?? null,
+      }));
+    return [...fromGroup(raw.daily_quests), ...fromGroup(raw.weekly_quests)];
+  } catch {
+    return [];
+  }
+}
+
 function seedSanctuaryQuests(database: Database.Database): void {
-  const count = (database.prepare('SELECT COUNT(*) as count FROM sanctuary_quests').get() as { count: number }).count;
-  if (count > 0) return;
+  const allSeeds: QuestSeed[] = [...SEASONAL_QUEST_SEEDS, ...loadQuestSeedsFromJson()];
 
-  const quests = [
-    { season: 'spring-2026', title: 'First Steps', description: 'Interact with your companion 5 times.', quest_type: 'seasonal', requirement_type: 'interact', requirement_count: 5, reward_xp: 25, reward_bond: 2.0, reward_trait: null },
-    { season: 'spring-2026', title: 'Cosmic Cuisine', description: 'Feed your Skrumpey 10 times.', quest_type: 'seasonal', requirement_type: 'feed', requirement_count: 10, reward_xp: 50, reward_bond: 5.0, reward_trait: null },
-    { season: 'spring-2026', title: 'Explorer\'s Spirit', description: 'Send your companion on 5 activities.', quest_type: 'seasonal', requirement_type: 'explore', requirement_count: 5, reward_xp: 40, reward_bond: 3.0, reward_trait: null },
-    { season: 'spring-2026', title: 'Heart to Heart', description: 'Chat with your Skrumpey 15 times.', quest_type: 'seasonal', requirement_type: 'chat', requirement_count: 15, reward_xp: 60, reward_bond: 4.0, reward_trait: 'Chatterbox' },
-    { season: 'spring-2026', title: 'Stargazer\'s Vigil', description: 'Visit the Observatory 3 times.', quest_type: 'seasonal', requirement_type: 'observatory', requirement_count: 3, reward_xp: 35, reward_bond: 3.5, reward_trait: null },
-    { season: 'spring-2026', title: 'Warm Welcome', description: 'Relax in the Hot Springs 5 times.', quest_type: 'seasonal', requirement_type: 'springs', requirement_count: 5, reward_xp: 30, reward_bond: 2.5, reward_trait: null },
-    { season: 'spring-2026', title: 'Bonded', description: 'Reach 50 bond score with your companion.', quest_type: 'seasonal', requirement_type: 'bond_threshold', requirement_count: 50, reward_xp: 100, reward_bond: 0, reward_trait: 'Loyal Companion' },
-    { season: 'spring-2026', title: 'Daily Devotion', description: 'Interact with your companion 3 days in a row.', quest_type: 'weekly', requirement_type: 'daily_streak', requirement_count: 3, reward_xp: 30, reward_bond: 2.0, reward_trait: null },
-  ];
-
+  const exists = database.prepare(
+    'SELECT id FROM sanctuary_quests WHERE season = ? AND title = ?'
+  );
   const insert = database.prepare(`
     INSERT INTO sanctuary_quests (season, title, description, quest_type, requirement_type, requirement_count, reward_xp, reward_bond, reward_trait)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  for (const q of quests) {
+  for (const q of allSeeds) {
+    if (exists.get(q.season, q.title)) continue;
     insert.run(q.season, q.title, q.description, q.quest_type, q.requirement_type, q.requirement_count, q.reward_xp, q.reward_bond, q.reward_trait);
   }
 }
