@@ -15,6 +15,10 @@ const CompanionHUD = dynamic(
   () => import('@/components/sanctuary/overlays/CompanionHUD'),
   { ssr: false },
 );
+const CompanionMenu = dynamic(
+  () => import('@/components/sanctuary/overlays/CompanionMenu'),
+  { ssr: false },
+);
 const QuestDialog = dynamic(
   () => import('@/components/sanctuary/overlays/QuestDialog'),
   { ssr: false },
@@ -68,7 +72,9 @@ export default function SanctuaryV3() {
   const gameRef = useRef<PhaserGameV3Ref | null>(null);
   const { address, isConnected } = useAccount();
   const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const handleSceneReady = useCallback(() => {}, []);
+  const handleInteracted = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
     if (!address) return;
@@ -86,7 +92,7 @@ export default function SanctuaryV3() {
       }
     })();
     return () => { cancelled = true; };
-  }, [address]);
+  }, [address, refreshKey]);
 
   return (
     <div className="space-y-4">
@@ -116,6 +122,7 @@ export default function SanctuaryV3() {
       <div className="relative bg-black/80 border border-[#9966ff]/30 rounded-lg overflow-hidden shadow-[0_0_15px_rgba(153,102,255,0.15)]">
         <PhaserGameV3 ref={gameRef} onSceneReady={handleSceneReady} />
         <CompanionHUD walletAddress={address} />
+        <CompanionMenu walletAddress={address} tokenId={activeTokenId} onInteracted={handleInteracted} />
         <QuestDialog walletAddress={address} tokenId={activeTokenId} />
         <MinigameDialog walletAddress={address} tokenId={activeTokenId} />
         <QuestBoard walletAddress={address} tokenId={activeTokenId} />
@@ -131,7 +138,7 @@ export default function SanctuaryV3() {
       </div>
 
       <div className="text-xs text-gray-500 px-2">
-        Move with WASD or arrow keys. Click an NPC to interact. Press <kbd>C</kbd> to chat with your companion, <kbd>J</kbd> for journal, <kbd>T</kbd> for traits. V3 is in active development.
+        Move with WASD or arrow keys. Click your companion to pet, feed, or talk. Click an NPC to interact. Press <kbd>C</kbd> to chat with your companion, <kbd>J</kbd> for journal, <kbd>T</kbd> for traits. V3 is in active development.
       </div>
     </div>
   );
