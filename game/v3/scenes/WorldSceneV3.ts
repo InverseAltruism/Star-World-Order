@@ -99,6 +99,29 @@ export class WorldSceneV3 extends Phaser.Scene {
       this.add.image(px, py, key).setOrigin(0.5, 1).setDepth(6);
     }
 
+    // -------- Decor (rocks, stumps) — render before trees so trees overlap --
+    const decor = map.getObjectLayer('decor')?.objects ?? [];
+    for (const o of decor) {
+      const key = `decor-v3-${o.name}`;
+      if (!this.textures.exists(key)) continue;
+      const px = (o.x ?? 0) + (o.width ?? 0) / 2;
+      const py = (o.y ?? 0) + (o.height ?? 0);
+      this.add.image(px, py, key).setOrigin(0.5, 1).setDepth(4);
+    }
+
+    // -------- Trees — bottom-anchored so the trunk sits on its tile and
+    //          the canopy reaches up over anything north of it. Depth 7
+    //          beats buildings (5) so a player walking under a tree's
+    //          canopy is occluded by the leaves.
+    const trees = map.getObjectLayer('trees')?.objects ?? [];
+    for (const o of trees) {
+      const key = `decor-v3-${o.name}`;
+      if (!this.textures.exists(key)) continue;
+      const px = (o.x ?? 0) + (o.width ?? 0) / 2;
+      const py = (o.y ?? 0) + (o.height ?? 0);
+      this.add.image(px, py, key).setOrigin(0.5, 1).setDepth(7);
+    }
+
     // -------- Collision --------
     // Building collision rects in the map JSON are authored at the source
     // (unscaled) building size. We scale them around each building's tile

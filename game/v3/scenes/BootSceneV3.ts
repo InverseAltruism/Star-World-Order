@@ -37,6 +37,18 @@ export class BootSceneV3 extends Phaser.Scene {
       this.load.image(`prop-v3-${p}`, `/sanctuary-v3/props/${p}.png`);
     }
 
+    // Decor extracted from props.png — trees, stumps, rock clusters.
+    // Used for the world-perimeter forest + scattered ground decoration.
+    const DECOR = [
+      'tree-red', 'tree-blue', 'tree-yellow', 'tree-pine', 'tree-willow',
+      'tree-orange-sm', 'tree-teal-sm',
+      'stump-1', 'stump-2', 'stump-3',
+      'rocks-1', 'rocks-2',
+    ];
+    for (const d of DECOR) {
+      this.load.image(`decor-v3-${d}`, `/sanctuary-v3/decor/${d}.png`);
+    }
+
     // Player sprite (48×48 4×4 sheet).
     PlayerSpriteV3.preload(this, '/sanctuary-v3/npcs/player-wanderer.png');
 

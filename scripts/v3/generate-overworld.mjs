@@ -2,20 +2,24 @@
 // V3 overworld generator — Tiled-format JSON.
 // Output: public/sanctuary-v3/maps/overworld.json
 //
-// Hub-world layout — denser than the prior version. World is 32×22 tiles
-// (1024×704 px), with a central plaza and eight buildings arranged in a
-// ring around it. Every tile choice is deliberate; no random scatter.
+// Layout: 40×24 tile village — Tuxemon-Town pattern.
+// - Tree perimeter (decor objects, not tile gids) wraps the world edge
+// - North row of 4 buildings on grass meadows (row 5)
+// - Wide central plaza meadow at the world centre with spawn fox + props
+// - South row of 4 buildings on grass meadows (row 18)
+// - Dirt fills everything else; dirt IS the walkway
 //
-// Aesthetic: the FM tileset is grass-on-dirt patches, not stone-paths.
-// Dirt is the world background; grass meadows are islands that mark the
-// plaza and each building. There's no separate path tile to draw — the
-// dirt between meadows IS the walkway.
+// Buildings render at 1.5× in WorldSceneV3, so the visible footprint is
+// 192×192 (6×6 tiles). 7×7 meadows around each building leave one tile of
+// grass margin on every side.
 //
-// Tile gids (verified by atlas inspection):
-//   cols 0-4 × rows 0-4   → primary grass-on-dirt 5×5 patch (opaque)
-//                           corners (0,0)/(4,0)/(0,4)/(4,4); inner = grass body
-//   cols 5-9 × rows 0-4   → alt-color grass patch, same shape
-//   cols 10-15 × rows 0-3 → solid dirt body (~24 variants)
+// Tile gids (verified by atlas inspection — see internal-docs/v3 atlas dumps):
+//   cols 0-4 × rows 0-4   primary 5×5 grass-on-dirt patch (opaque)
+//   cols 5-9 × rows 0-4   alt-color grass patch
+//   cols 10-15 × rows 0-3 dirt body (~24 variants)
+// All other tiles in the FM tileset (concave grass corners, large oval
+// meadows, cliff/elevation pieces, dense-grass overlay) are reserved for
+// follow-up improvements; this generator stays small and readable.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -23,7 +27,7 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const OUT = path.join(ROOT, 'public/sanctuary-v3/maps/overworld.json');
 
-const W = 32, H = 22;
+const W = 40, H = 24;
 const TILE = 32;
 
 const FM = { cols: 64, firstgid: 1 };
@@ -31,7 +35,6 @@ const gid = (c, r) => FM.firstgid + r * FM.cols + c;
 
 // ---- Tile gid sets ----------------------------------------------------
 
-// Inner grass body (3×3 inner of primary patch). 9 tile choices.
 const GRASS_INNER = [
   gid(1, 1), gid(2, 1), gid(3, 1),
   gid(1, 2), gid(2, 2), gid(3, 2),
@@ -44,7 +47,6 @@ const GRASS_INNER_ALT = [
 ];
 const GRASS_INNER_MIX = [...GRASS_INNER, ...GRASS_INNER_ALT];
 
-// Meadow edges + corners — used when meadow meets dirt.
 const GRASS_NW = gid(0, 0);
 const GRASS_NE = gid(4, 0);
 const GRASS_SW = gid(0, 4);
@@ -54,7 +56,6 @@ const GRASS_S  = [gid(1, 4), gid(2, 4), gid(3, 4)];
 const GRASS_W  = [gid(0, 1), gid(0, 2), gid(0, 3)];
 const GRASS_E  = [gid(4, 1), gid(4, 2), gid(4, 3)];
 
-// Dirt body — solid brown.
 const DIRT = [
   gid(11, 0), gid(12, 0), gid(13, 0), gid(14, 0), gid(15, 0),
   gid(11, 1), gid(12, 1), gid(13, 1), gid(14, 1), gid(15, 1),
@@ -83,7 +84,7 @@ for (let y = 0; y < H; y++) {
   }
 }
 
-// ---- Step 2: paint a grass meadow at (x0,y0) sized w×h ---------------
+// ---- Step 2: paint grass meadow at (x0,y0) sized w×h ------------------
 
 function paintMeadow(x0, y0, w, h) {
   for (let dy = 0; dy < h; dy++) {
@@ -108,40 +109,33 @@ function paintMeadow(x0, y0, w, h) {
 }
 
 // ---- Step 3: world layout --------------------------------------------
-// Plaza at the world's centre. Buildings arranged in a ring around it:
-// 4 cardinal positions + 4 diagonal corners. Each building sits on its
-// own 5×5 grass meadow; the plaza is a 9×7 grass meadow. The dirt between
-// meadows is the walkway — no separate path tiles needed.
 
-const PCX = 16, PCY = 11;                  // plaza centre tile
-const PLAZA = { x: PCX - 4, y: PCY - 3, w: 9, h: 7 };
+const PLAZA = { col: 20, row: 12, w: 9, h: 7 };
 
-// Building positions form a ring at radius ~9-11 tiles from the plaza.
-// `meadow` is the 5×5 grass island under the building, centred on (col,row).
 const BUILDINGS = [
-  { id: 'observatory',       col: PCX,      row: 4 },         // N
-  { id: 'star-garden',       col: PCX - 9,  row: 5 },         // NW
-  { id: 'hot-springs',       col: PCX + 9,  row: 5 },         // NE
-  { id: 'cosmic-library',    col: PCX - 11, row: PCY },       // W
-  { id: 'training-grounds',  col: PCX + 11, row: PCY },       // E
-  { id: 'nebula-kitchen',    col: PCX - 9,  row: PCY + 6 },   // SW
-  { id: 'dream-hollow',      col: PCX + 9,  row: PCY + 6 },   // SE
-  { id: 'aura-forge',        col: PCX,      row: PCY + 7 },   // S
+  { id: 'observatory',       row: 5,  col: 5  },
+  { id: 'star-garden',       row: 5,  col: 14 },
+  { id: 'cosmic-library',    row: 5,  col: 25 },
+  { id: 'hot-springs',       row: 5,  col: 34 },
+  { id: 'training-grounds',  row: 18, col: 5  },
+  { id: 'dream-hollow',      row: 18, col: 14 },
+  { id: 'nebula-kitchen',    row: 18, col: 25 },
+  { id: 'aura-forge',        row: 18, col: 34 },
 ];
 
-// Paint plaza meadow first, then per-building meadows on top. Each meadow
-// is 5×5 centred on the building's (col,row).
-paintMeadow(PLAZA.x, PLAZA.y, PLAZA.w, PLAZA.h);
+// Plaza meadow first, then building meadows on top — meadows are allowed
+// to overlap the plaza on the cardinal sides for a continuous green hub.
+paintMeadow(PLAZA.col - Math.floor(PLAZA.w / 2), PLAZA.row - Math.floor(PLAZA.h / 2),
+            PLAZA.w, PLAZA.h);
 for (const b of BUILDINGS) {
-  paintMeadow(b.col - 2, b.row - 2, 5, 5);
+  paintMeadow(b.col - 3, b.row - 3, 7, 7);
 }
 
-// ---- Object layers ---------------------------------------------------
+// ---- Object layers ----------------------------------------------------
 
 let nextObjId = 1;
 const obj = (props) => ({ id: nextObjId++, rotation: 0, visible: true, ...props });
 
-// Buildings — image objects centred on (col*TILE, row*TILE), 128×128.
 const buildingsLayer = BUILDINGS.map(b => obj({
   name: b.id, type: 'building',
   x: b.col * TILE - 64,
@@ -149,16 +143,16 @@ const buildingsLayer = BUILDINGS.map(b => obj({
   width: 128, height: 128,
 }));
 
-// Doors — at the south edge of each building's visible structure.
+// Doors at the south face of each building (the structure scales 1.5× at
+// render time so the visible bottom is at b.row*TILE + 96; door anchored
+// just outside that).
 const doorsLayer = BUILDINGS.map(b => obj({
   name: b.id, type: 'door',
-  x: b.col * TILE - 16,
-  y: b.row * TILE + 32,
-  width: 32, height: 24,
+  x: b.col * TILE - 24,
+  y: b.row * TILE + 56,
+  width: 48, height: 28,
 }));
 
-// NPCs — themed NPC stands one tile south-east of each building's centre.
-// Spawn fox stands at the centre of the plaza meadow.
 const NPC_BY_ZONE = {
   observatory: 'observatory-owl',
   'cosmic-library': 'library-moth',
@@ -172,28 +166,30 @@ const NPC_BY_ZONE = {
 const npcsLayer = [
   obj({
     name: 'spawn-fox', type: 'npc',
-    x: PCX * TILE - 24,
-    y: PCY * TILE - 24,
+    x: PLAZA.col * TILE - 24,
+    y: PLAZA.row * TILE - 24,
     width: 48, height: 48,
   }),
 ];
 for (const b of BUILDINGS) {
   const sheet = NPC_BY_ZONE[b.id];
   if (!sheet) continue;
+  // NPC stands on the SE corner of the building's meadow (one tile inside
+  // the corner) so they're easy to walk up to from the south.
+  const dxSign = b.col < PLAZA.col ? 1 : -1;  // toward plaza
+  const dySign = b.row < PLAZA.row ? 1 : -1;
   npcsLayer.push(obj({
     name: sheet, type: 'npc',
-    x: b.col * TILE + 24,
-    y: b.row * TILE + 16,
+    x: b.col * TILE + dxSign * 64 - 24,
+    y: b.row * TILE + dySign * 32 - 24,
     width: 48, height: 48,
   }));
 }
 
-// Signature props — placed deliberately. Plaza gets signpost + cosmic-well
-// as social anchors; each building's meadow gets a small thematic prop just
-// to its west so it doesn't block the door.
+// Plaza signature props: signpost (W) + cosmic-well (E) framing the spawn fox.
 const propsLayer = [
-  obj({ name: 'signpost',    type: 'prop', x: (PCX - 3) * TILE,     y: (PCY + 1) * TILE,     width: 32, height: 64 }),
-  obj({ name: 'cosmic-well', type: 'prop', x: (PCX + 2) * TILE,     y: (PCY + 1) * TILE,     width: 64, height: 64 }),
+  obj({ name: 'signpost',    type: 'prop', x: (PLAZA.col - 3) * TILE,     y: (PLAZA.row + 1) * TILE,     width: 32, height: 64 }),
+  obj({ name: 'cosmic-well', type: 'prop', x: (PLAZA.col + 2) * TILE,     y: (PLAZA.row + 1) * TILE,     width: 64, height: 64 }),
 ];
 const ZONE_PROP = {
   observatory:       'telescope',
@@ -208,16 +204,86 @@ const ZONE_PROP = {
 for (const b of BUILDINGS) {
   const propName = ZONE_PROP[b.id];
   if (!propName) continue;
+  // Signature prop placed two tiles west of the building (on grass meadow).
   propsLayer.push(obj({
     name: propName, type: 'prop',
-    x: (b.col - 2) * TILE, y: (b.row + 1) * TILE,
+    x: (b.col - 3) * TILE,
+    y: (b.row + 2) * TILE,
     width: 32, height: 32,
   }));
 }
 
-// Building collision — hand-tuned to hug each visible structure. Values
-// are offsets from the building's tile-centre (b.col*TILE, b.row*TILE) and
-// width/height of the collider rect.
+// Trees — placed deliberately along the world perimeter to create a
+// "forest border" feel. Trees use bottom-anchor (origin 0.5, 1) so the
+// world position == the trunk base. Multi-tile-tall canopies extend up.
+//
+// Each entry: [name, world-x in tiles, world-y in tiles, w_tiles, h_tiles].
+// Where (x, y) is the BOTTOM-CENTRE of the tree in tile coords.
+const TREES = [
+  // Top edge — varied row: pines, willows, autumn maples
+  ['tree-pine',    1, 2, 1, 4],
+  ['tree-red',     4, 2, 3, 6],
+  ['tree-yellow',  8, 2, 3, 4],
+  ['tree-pine',   11, 2, 1, 4],
+  ['tree-willow', 14, 2, 5, 6],
+  ['tree-orange-sm', 19, 1, 2, 3],
+  ['tree-blue',   22, 2, 4, 6],
+  ['tree-pine',   28, 1, 1, 4],
+  ['tree-red',    31, 2, 3, 6],
+  ['tree-teal-sm', 35, 1, 2, 3],
+  ['tree-pine',   38, 2, 1, 4],
+
+  // Bottom edge — mirrored with different mix
+  ['tree-yellow',  2, 23, 3, 4],
+  ['tree-pine',    6, 22, 1, 4],
+  ['tree-blue',    9, 23, 4, 6],
+  ['tree-orange-sm', 14, 23, 2, 3],
+  ['tree-pine',   17, 22, 1, 4],
+  ['tree-red',    20, 23, 3, 6],
+  ['tree-pine',   25, 22, 1, 4],
+  ['tree-willow', 28, 23, 5, 6],
+  ['tree-teal-sm', 34, 23, 2, 3],
+  ['tree-pine',   37, 22, 1, 4],
+
+  // Left edge
+  ['tree-pine',    1, 7, 1, 4],
+  ['tree-orange-sm', 1, 11, 2, 3],
+  ['tree-pine',    1, 15, 1, 4],
+  ['tree-teal-sm', 1, 19, 2, 3],
+  // Right edge
+  ['tree-pine',   38, 7, 1, 4],
+  ['tree-orange-sm', 37, 11, 2, 3],
+  ['tree-pine',   38, 15, 1, 4],
+  ['tree-teal-sm', 37, 19, 2, 3],
+];
+
+// Decorative ground objects (rocks, stumps) — sprinkled near tree clusters
+// for organic forest-floor feel.
+const DECOR = [
+  ['rocks-1',  2, 4],
+  ['rocks-2', 36, 4],
+  ['stump-2', 17, 22],
+  ['stump-3',  6, 22],
+];
+
+const treesLayer = TREES.map(([name, cx, by, wT, hT]) => obj({
+  name, type: 'tree',
+  // Tiled object x/y is top-left. We want the BOTTOM-CENTRE of the tree
+  // at the world position (cx*TILE, by*TILE). Convert:
+  x: cx * TILE - (wT * TILE) / 2 + TILE / 2,
+  y: by * TILE - hT * TILE + TILE,
+  width: wT * TILE, height: hT * TILE,
+}));
+
+const decorLayer = DECOR.map(([name, cx, cy]) => obj({
+  name, type: 'decor',
+  x: cx * TILE, y: cy * TILE,
+  width: 96, height: 32,
+}));
+
+// ---- Collision -------------------------------------------------------
+// Building rects authored at unscaled (128×128) size; WorldSceneV3 scales
+// them by BUILDING_SCALE around the building's tile-centre at load time.
 const BUILDING_COLLISION = {
   observatory:       { dx: -32, dy: -40, w: 64, h: 72 },
   'cosmic-library':  { dx: -40, dy: -36, w: 80, h: 64 },
@@ -239,10 +305,20 @@ for (const b of BUILDINGS) {
     width: c.w, height: c.h,
   }));
 }
-collisionLayer.push(obj({ name: 'border-top',    type: 'collide', x: 0, y: 0,                width: W * TILE, height: 2 * TILE }));
-collisionLayer.push(obj({ name: 'border-bottom', type: 'collide', x: 0, y: (H - 2) * TILE,   width: W * TILE, height: 2 * TILE }));
-collisionLayer.push(obj({ name: 'border-left',   type: 'collide', x: 0, y: 0,                width: 2 * TILE, height: H * TILE }));
-collisionLayer.push(obj({ name: 'border-right',  type: 'collide', x: (W - 2) * TILE, y: 0,   width: 2 * TILE, height: H * TILE }));
+// Tree trunks block walking — small narrow rect at the base of each tree.
+for (const [name, cx, by, wT] of TREES) {
+  // Trunk is roughly the bottom 32px of the bounding box, half-tile wide.
+  collisionLayer.push(obj({
+    name: `collide-tree-${name}-${cx}-${by}`, type: 'collide',
+    x: cx * TILE - 8 + (wT * TILE) / 2 - 8,
+    y: by * TILE - 16,
+    width: 16, height: 16,
+  }));
+}
+collisionLayer.push(obj({ name: 'border-top',    type: 'collide', x: 0, y: 0,                width: W * TILE, height: TILE }));
+collisionLayer.push(obj({ name: 'border-bottom', type: 'collide', x: 0, y: (H - 1) * TILE,   width: W * TILE, height: TILE }));
+collisionLayer.push(obj({ name: 'border-left',   type: 'collide', x: 0, y: 0,                width: TILE, height: H * TILE }));
+collisionLayer.push(obj({ name: 'border-right',  type: 'collide', x: (W - 1) * TILE, y: 0,   width: TILE, height: H * TILE }));
 
 // ---- Compose Tiled JSON ----------------------------------------------
 
@@ -271,8 +347,10 @@ const map = {
   }],
   layers: [
     newLayer({ name: 'ground',    type: 'tilelayer',  x: 0, y: 0, width: W, height: H, data: ground }),
+    newLayer({ name: 'decor',     type: 'objectgroup', objects: decorLayer }),
     newLayer({ name: 'buildings', type: 'objectgroup', objects: buildingsLayer }),
     newLayer({ name: 'props',     type: 'objectgroup', objects: propsLayer }),
+    newLayer({ name: 'trees',     type: 'objectgroup', objects: treesLayer }),
     newLayer({ name: 'npcs',      type: 'objectgroup', objects: npcsLayer }),
     newLayer({ name: 'doors',     type: 'objectgroup', objects: doorsLayer }),
     newLayer({ name: 'collision', type: 'objectgroup', objects: collisionLayer }),
@@ -287,6 +365,7 @@ const uniqGround = new Set(ground);
 console.log(
   `world ${W}×${H} (${W * TILE}×${H * TILE}px) · ${uniqGround.size} unique ground gids · ` +
   `${buildingsLayer.length} buildings · ${propsLayer.length} props · ${npcsLayer.length} NPCs · ` +
-  `${doorsLayer.length} doors · ${collisionLayer.length} collision rects`,
+  `${treesLayer.length} trees · ${decorLayer.length} decor · ${doorsLayer.length} doors · ` +
+  `${collisionLayer.length} collision rects`,
 );
 console.log(`→ ${OUT}`);
