@@ -3,6 +3,8 @@ import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';
 import { NPCS_V3, BUILDING_IDS } from '../config/npcDefinitionsV3';
+import { CompanionSprite } from '../../sprites/CompanionSprite';
+import { AnimationSystem } from '../../systems/AnimationSystem';
 
 export class BootSceneV3 extends Phaser.Scene {
   constructor() { super({ key: 'BootSceneV3' }); }
@@ -44,10 +46,17 @@ export class BootSceneV3 extends Phaser.Scene {
 
     // NPC sprites.
     for (const def of NPCS_V3) NPCSpriteV3.preload(this, def);
+
+    // Companion constellation textures (cosmic-palette assets reused at V3
+    // until FM-palette companion sheets are generated). Loading aether +
+    // spectra matches V2 BootScene; other constellations lazy-load via
+    // AnimationSystem.loadConstellationTextures on demand.
+    AnimationSystem.preloadConstellations(this, ['aether', 'spectra']);
   }
 
   create() {
     PlayerSpriteV3.registerAnims(this);
+    CompanionSprite.generatePlaceholderTexture(this);
     EventBus.emit('boot-progress', { phase: 'ready' });
     this.scene.start('WorldSceneV3');
   }

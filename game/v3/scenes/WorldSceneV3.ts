@@ -8,6 +8,18 @@ import {
   type NPCDefV3,
   type NPCSheet,
 } from '../config/npcDefinitionsV3';
+import { CompanionSprite } from '../../sprites/CompanionSprite';
+import {
+  AnimationSystem,
+  CONSTELLATIONS,
+  type CompanionMood,
+  type Constellation,
+} from '../../systems/AnimationSystem';
+import {
+  COSMETIC_SLOTS,
+  type CosmeticSlot,
+  type EquippedCosmetics,
+} from '../../systems/CosmeticSystem';
 
 const CAMERA_ZOOM = 1.5;
 const WATER_FPS = 6;
@@ -24,6 +36,8 @@ interface DoorMarker {
 
 export class WorldSceneV3 extends Phaser.Scene {
   private player!: PlayerSpriteV3;
+  private companion!: CompanionSprite;
+  private animSystem!: AnimationSystem;
   private npcs: NPCSpriteV3[] = [];
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
   private waterSprites: Phaser.GameObjects.Sprite[] = [];
@@ -130,6 +144,16 @@ export class WorldSceneV3 extends Phaser.Scene {
     this.physics.add.collider(this.player, this.collisionGroup);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
+    // -------- Companion --------
+    // Reuses V2's CompanionSprite + AnimationSystem (cosmic-palette assets).
+    // FM-palette companion sheets are tracked under [SWO_V3_COMPANION_FM_PALETTE]
+    // and will swap textures here once generated.
+    this.animSystem = new AnimationSystem(this);
+    this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
+    this.companion.setAnimationSystem(this.animSystem);
+    this.setupCompanionInteraction();
+    this.setupCompanionEventBridge();
+
     // -------- NPCs --------
     // The map declares which NPC sheet to render at each spot; we look up the
     // matching definition (for name + dialogue). Unknown names get a fallback.
@@ -177,6 +201,63 @@ export class WorldSceneV3 extends Phaser.Scene {
     EventBus.on('roomv3-exit', this.handleRoomExit, this);
 
     EventBus.emit('scene-ready', this);
+  }
+
+  private setupCompanionInteraction() {
+    this.companion.setInteractive({ useHandCursor: true });
+    this.companion.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const camera = this.cameras.main;
+      const canvas = this.game.canvas;
+      const screenX = (this.companion.x - camera.worldView.x) * camera.zoom + canvas.offsetLeft;
+      const screenY = (this.companion.y - camera.worldView.y) * camera.zoom + canvas.offsetTop;
+      EventBus.emit('companion-clicked', { screenX, screenY });
+      pointer.event.stopPropagation();
+    });
+  }
+
+  private setupCompanionEventBridge() {
+    EventBus.on('companion-mood', this.onCompanionMood, this);
+    EventBus.on('companion-constellation', this.onCompanionConstellation, this);
+    EventBus.on('companion-away', this.onCompanionAway, this);
+    EventBus.on('companion-equip-cosmetic', this.onCompanionEquip, this);
+    EventBus.on('companion-unequip-cosmetic', this.onCompanionUnequip, this);
+    EventBus.on('companion-cosmetics', this.onCompanionCosmetics, this);
+  }
+
+  private onCompanionMood(mood: string) {
+    const valid: CompanionMood[] = ['happy', 'calm', 'sleepy', 'excited', 'curious', 'idle'];
+    if (valid.includes(mood as CompanionMood)) this.companion.setMood(mood as CompanionMood);
+  }
+
+  private onCompanionConstellation(constellation: string) {
+    const lower = constellation.toLowerCase() as Constellation;
+    if ((CONSTELLATIONS as readonly string[]).includes(lower)) {
+      void this.companion.setConstellation(lower);
+    }
+  }
+
+  private onCompanionAway(data: { away: boolean }) {
+    this.companion.setAway(!!data?.away);
+  }
+
+  private onCompanionEquip(data: { slot: string; cosmeticId: string }) {
+    if (!data) return;
+    if (!(COSMETIC_SLOTS as readonly string[]).includes(data.slot)) return;
+    this.companion.equipCosmetic(data.slot as CosmeticSlot, data.cosmeticId);
+  }
+
+  private onCompanionUnequip(data: { slot: string }) {
+    if (!data) return;
+    if (!(COSMETIC_SLOTS as readonly string[]).includes(data.slot)) return;
+    this.companion.unequipCosmetic(data.slot as CosmeticSlot);
+  }
+
+  private onCompanionCosmetics(data: EquippedCosmetics | string) {
+    if (typeof data === 'string') {
+      this.companion.applyEquippedCosmeticsJson(data);
+    } else if (data && typeof data === 'object') {
+      this.companion.applyEquippedCosmetics(data);
+    }
   }
 
   private handleRoomExit(payload: { returnTo?: { x: number; y: number } } = {}) {
@@ -231,11 +312,20 @@ export class WorldSceneV3 extends Phaser.Scene {
 
   shutdown() {
     EventBus.off('roomv3-exit', this.handleRoomExit, this);
+    EventBus.off('companion-mood', this.onCompanionMood, this);
+    EventBus.off('companion-constellation', this.onCompanionConstellation, this);
+    EventBus.off('companion-away', this.onCompanionAway, this);
+    EventBus.off('companion-equip-cosmetic', this.onCompanionEquip, this);
+    EventBus.off('companion-unequip-cosmetic', this.onCompanionUnequip, this);
+    EventBus.off('companion-cosmetics', this.onCompanionCosmetics, this);
   }
 
   update(time: number) {
     if (!this.player) return;
     this.player.handleInput();
+    if (this.companion) {
+      this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
+    }
     for (const npc of this.npcs) npc.update(time);
     this.updateDoorDetection();
     if (this.currentDoor && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
