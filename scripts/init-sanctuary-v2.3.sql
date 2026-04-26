@@ -1,0 +1,26 @@
+-- Star Sanctuary — V2.3 Schema: Guided onboarding tutorial state
+-- Run from lib/db.ts initializeSanctuary()
+--
+-- Extends sanctuary_player_state with guided-tutorial progress tracking.
+-- The tutorial walks new players through a sequence of steps after the
+-- Spawn Fox intro completes (intro_completed = 1):
+--
+--   1. select-companion   pick a Skrumpey companion
+--   2. enter-room         walk through a doorway into your first room
+--   3. interact-npc       click any room NPC to talk
+--   4. open-quest-board   open the quest board overlay
+--   5. try-minigame       launch any room minigame
+--   6. done               tutorial complete
+--
+-- onboarding_skipped lets the player dismiss the guide permanently.
+-- onboarding_step is a free-form text label so future steps can be added
+-- without another migration.
+
+-- SQLite has no portable ALTER TABLE IF NOT EXISTS, so the actual ADD COLUMN
+-- statements are wrapped in try/catch in lib/db.ts. This file documents the
+-- target shape and is safe to re-run on fresh DBs (the columns are created
+-- by the V1.6 table definition together with these defaults).
+
+-- For brand-new databases, V1.6 creates sanctuary_player_state without these
+-- columns. The lib/db.ts ALTER TABLE block ensures both fresh and existing
+-- databases converge to the same shape.

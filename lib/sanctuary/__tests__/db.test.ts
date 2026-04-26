@@ -46,6 +46,11 @@ function createTestDb(): Database.Database {
     db.exec(fs.readFileSync(v16Path, 'utf-8'));
   }
 
+  // V2.3: onboarding columns are added via ALTER TABLE in lib/db.ts. Mirror
+  // that here so tests exercising the new fields work against the in-memory DB.
+  try { db.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_step TEXT"); } catch { /* exists */ }
+  try { db.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_skipped INTEGER NOT NULL DEFAULT 0"); } catch { /* exists */ }
+
   db.prepare('INSERT INTO star_skrumpey_metadata (token_id, name, constellation, aura, form, mood) VALUES (?, ?, ?, ?, ?, ?)')
     .run(3, 'Star #3', 'aether', 'mystic', 'classic', 'happy');
   db.prepare('INSERT INTO star_skrumpey_metadata (token_id, name, constellation, aura, form, mood) VALUES (?, ?, ?, ?, ?, ?)')
@@ -531,5 +536,99 @@ describe('Sanctuary Player State (v1.6)', () => {
     const fresh = db.prepare('SELECT intro_completed FROM sanctuary_player_state WHERE wallet_address = ?').get('0xnew') as any;
     expect(done.intro_completed).toBe(1);
     expect(fresh.intro_completed).toBe(0);
+  });
+});
+
+describe('Sanctuary Onboarding (v2.3)', () => {
+  let db: Database.Database;
+
+  beforeAll(() => {
+    db = createTestDb();
+  });
+
+  it('exposes onboarding columns on sanctuary_player_state', () => {
+    const cols = db
+      .prepare("PRAGMA table_info(sanctuary_player_state)")
+      .all() as Array<{ name: string }>;
+    const names = cols.map((c) => c.name);
+    expect(names).toContain('onboarding_step');
+    expect(names).toContain('onboarding_skipped');
+  });
+
+  it('defaults onboarding_step to NULL and onboarding_skipped to 0 for new visits', () => {
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, total_visits)
+      VALUES (?, 0, 1)
+      ON CONFLICT(wallet_address) DO NOTHING
+    `).run('0xfresh-onboard');
+
+    const row = db
+      .prepare('SELECT onboarding_step, onboarding_skipped FROM sanctuary_player_state WHERE wallet_address = ?')
+      .get('0xfresh-onboard') as any;
+    expect(row.onboarding_step).toBeNull();
+    expect(row.onboarding_skipped).toBe(0);
+  });
+
+  it('persists step transitions through the tutorial sequence', () => {
+    const upsert = db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_step)
+      VALUES (?, 0, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        onboarding_step = excluded.onboarding_step,
+        updated_at = CURRENT_TIMESTAMP
+    `);
+
+    const sequence = [
+      'select-companion',
+      'enter-room',
+      'interact-npc',
+      'open-quest-board',
+      'try-minigame',
+      'done',
+    ];
+
+    for (const step of sequence) {
+      upsert.run('0xtutorial', step);
+      const row = db
+        .prepare('SELECT onboarding_step FROM sanctuary_player_state WHERE wallet_address = ?')
+        .get('0xtutorial') as any;
+      expect(row.onboarding_step).toBe(step);
+    }
+  });
+
+  it('skip-onboarding marks state as skipped and step=done', () => {
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_skipped, onboarding_step)
+      VALUES (?, 0, 1, 'done')
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        onboarding_skipped = 1,
+        onboarding_step = 'done',
+        updated_at = CURRENT_TIMESTAMP
+    `).run('0xskipper');
+
+    const row = db
+      .prepare('SELECT onboarding_step, onboarding_skipped FROM sanctuary_player_state WHERE wallet_address = ?')
+      .get('0xskipper') as any;
+    expect(row.onboarding_skipped).toBe(1);
+    expect(row.onboarding_step).toBe('done');
+  });
+
+  it('onboarding state is independent per wallet', () => {
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_step)
+      VALUES (?, 1, 'enter-room')
+      ON CONFLICT(wallet_address) DO UPDATE SET onboarding_step = 'enter-room'
+    `).run('0xrunner-a');
+
+    db.prepare(`
+      INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_step)
+      VALUES (?, 1, 'try-minigame')
+      ON CONFLICT(wallet_address) DO UPDATE SET onboarding_step = 'try-minigame'
+    `).run('0xrunner-b');
+
+    const a = db.prepare('SELECT onboarding_step FROM sanctuary_player_state WHERE wallet_address = ?').get('0xrunner-a') as any;
+    const b = db.prepare('SELECT onboarding_step FROM sanctuary_player_state WHERE wallet_address = ?').get('0xrunner-b') as any;
+    expect(a.onboarding_step).toBe('enter-room');
+    expect(b.onboarding_step).toBe('try-minigame');
   });
 });

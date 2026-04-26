@@ -81,6 +81,11 @@ const WelcomeDialog = dynamic(
   { ssr: false }
 );
 
+const OnboardingOverlay = dynamic(
+  () => import('@/components/sanctuary/overlays/OnboardingOverlay'),
+  { ssr: false }
+);
+
 const LevelUpCelebration = dynamic(
   () => import('@/components/sanctuary/overlays/LevelUpCelebration'),
   { ssr: false }
@@ -177,6 +182,7 @@ export default function SanctuaryV2() {
         <JournalOverlay walletAddress={address} tokenId={activeTokenId} />
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
         <WelcomeDialog walletAddress={address} />
+        <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
         <AudioBootstrap />
         <LevelUpCelebration />
         <ChatBubble />

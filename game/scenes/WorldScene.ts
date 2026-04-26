@@ -349,6 +349,7 @@ export class WorldScene extends Phaser.Scene {
   private enterDoor(door: Door) {
     const returnTo = { x: door.x + door.w / 2, y: door.y + door.h + 12 };
     EventBus.emit('door-entered', { room: door.room, returnTo });
+    EventBus.emit('room-entered', { room: door.room, source: 'world-v2' });
     this.cameras.main.fadeOut(250, 0, 0, 0);
     this.time.delayedCall(260, () => {
       this.scene.sleep();

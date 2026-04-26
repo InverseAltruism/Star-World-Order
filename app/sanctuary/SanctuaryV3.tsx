@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useAccount } from 'wagmi';
 import type { PhaserGameV3Ref } from '@/components/sanctuary-v3/PhaserGameV3';
@@ -31,6 +31,10 @@ const ShopDialog = dynamic(
   () => import('@/components/sanctuary/overlays/ShopDialog'),
   { ssr: false },
 );
+const OnboardingOverlay = dynamic(
+  () => import('@/components/sanctuary/overlays/OnboardingOverlay'),
+  { ssr: false },
+);
 const AudioBootstrap = dynamic(
   () => import('@/components/sanctuary/AudioBootstrap'),
   { ssr: false },
@@ -39,7 +43,26 @@ const AudioBootstrap = dynamic(
 export default function SanctuaryV3() {
   const gameRef = useRef<PhaserGameV3Ref | null>(null);
   const { address, isConnected } = useAccount();
+  const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
   const handleSceneReady = useCallback(() => {}, []);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/sanctuary/companion?address=${address}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data.companion) {
+          setActiveTokenId(data.companion.token_id);
+        }
+      } catch {
+        // Non-critical
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [address]);
 
   return (
     <div className="space-y-4">
@@ -73,6 +96,7 @@ export default function SanctuaryV3() {
         <QuestBoard walletAddress={address} tokenId={null} />
         <QuestTracker walletAddress={address} tokenId={null} />
         <ShopDialog walletAddress={address} tokenId={null} />
+        <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
         <AudioBootstrap />
       </div>
 
