@@ -151,7 +151,10 @@ export default function WelcomeDialog({
         body: JSON.stringify({ address: walletAddress, action: 'complete-intro' }),
       });
       const data = await res.json();
-      if (data.success && data.state) setState(data.state as PlayerState);
+      if (data.success && data.state) {
+        setState(data.state as PlayerState);
+        EventBus.emit('intro-completed', { walletAddress });
+      }
     } catch {
       // Non-critical; close anyway
     } finally {

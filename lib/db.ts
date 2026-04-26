@@ -5809,11 +5809,21 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v22Path, 'utf-8');
     database.exec(sql);
   }
+  const v23Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.3.sql');
+  if (fs.existsSync(v23Path)) {
+    const sql = fs.readFileSync(v23Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
   catch { /* column already exists */ }
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN level INTEGER NOT NULL DEFAULT 1'); }
+  catch { /* column already exists */ }
+  // V2.3: guided onboarding tutorial state on sanctuary_player_state.
+  try { database.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_step TEXT"); }
+  catch { /* column already exists */ }
+  try { database.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_skipped INTEGER NOT NULL DEFAULT 0"); }
   catch { /* column already exists */ }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
@@ -6816,6 +6826,23 @@ export function getSanctuaryState(walletAddress: string): {
   return { activeCompanion, companions, recentJournal };
 }
 
+export type OnboardingStep =
+  | 'select-companion'
+  | 'enter-room'
+  | 'interact-npc'
+  | 'open-quest-board'
+  | 'try-minigame'
+  | 'done';
+
+export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
+  'select-companion',
+  'enter-room',
+  'interact-npc',
+  'open-quest-board',
+  'try-minigame',
+  'done',
+] as const;
+
 export interface SanctuaryPlayerState {
   wallet_address: string;
   intro_completed: number;
@@ -6824,6 +6851,8 @@ export interface SanctuaryPlayerState {
   total_visits: number;
   created_at: string;
   updated_at: string;
+  onboarding_step: OnboardingStep | null;
+  onboarding_skipped: number;
 }
 
 export function getPlayerState(walletAddress: string): SanctuaryPlayerState | null {
@@ -6857,6 +6886,43 @@ export function markIntroCompleted(walletAddress: string): SanctuaryPlayerState 
     VALUES (?, 1)
     ON CONFLICT(wallet_address) DO UPDATE SET
       intro_completed = 1,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(addr);
+  return getPlayerState(addr) as SanctuaryPlayerState;
+}
+
+function isValidOnboardingStep(step: string): step is OnboardingStep {
+  return (ONBOARDING_STEPS as readonly string[]).includes(step);
+}
+
+export function setOnboardingStep(
+  walletAddress: string,
+  step: OnboardingStep,
+): SanctuaryPlayerState {
+  if (!isValidOnboardingStep(step)) {
+    throw new Error(`Invalid onboarding step: ${step}`);
+  }
+  const addr = walletAddress.toLowerCase();
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_step)
+    VALUES (?, 0, ?)
+    ON CONFLICT(wallet_address) DO UPDATE SET
+      onboarding_step = excluded.onboarding_step,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(addr, step);
+  return getPlayerState(addr) as SanctuaryPlayerState;
+}
+
+export function skipOnboarding(walletAddress: string): SanctuaryPlayerState {
+  const addr = walletAddress.toLowerCase();
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO sanctuary_player_state (wallet_address, intro_completed, onboarding_skipped, onboarding_step)
+    VALUES (?, 0, 1, 'done')
+    ON CONFLICT(wallet_address) DO UPDATE SET
+      onboarding_skipped = 1,
+      onboarding_step = 'done',
       updated_at = CURRENT_TIMESTAMP
   `).run(addr);
   return getPlayerState(addr) as SanctuaryPlayerState;
