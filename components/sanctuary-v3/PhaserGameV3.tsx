@@ -25,6 +25,9 @@ const PhaserGameV3 = forwardRef<PhaserGameV3Ref, Props>(function PhaserGameV3(
     gameRef.current = game;
     if (typeof ref === 'function') ref({ game, scene: null });
     else if (ref) ref.current = { game, scene: null };
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      (window as unknown as { __SWO_PHASER_V3__?: Phaser.Game }).__SWO_PHASER_V3__ = game;
+    }
     return () => { game.destroy(true); gameRef.current = null; };
   }, [ref]);
 

@@ -15,13 +15,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/*
-          SNES-mood bitmap font for the Forgotten Memories palette (SWO_V3_FONT_SWAP).
-          Pixelify Sans is a true bitmap pixel font with 4 weights for hierarchy.
-          The CSS provides Courier New as fallback.
-        */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
           rel="stylesheet"
         />
       </head>

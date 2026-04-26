@@ -16,18 +16,14 @@ export class BootSceneV3 extends Phaser.Scene {
     this.load.image('fm-tileset', '/sanctuary-v3/tilesets/forgotten-memories/tileset.png');
     this.load.image('fm-trees', '/sanctuary-v3/tilesets/forgotten-memories/trees_separated.png');
     this.load.image('fm-props', '/sanctuary-v3/tilesets/forgotten-memories/props.png');
-    // Water atlas: 1024×1024 with 6 horizontal frames at 1024/6 ≈ 170-px wide each.
-    // The sheet appears to be a 6-frame strip across; we treat it as a spritesheet.
-    this.load.spritesheet('fm-water', '/sanctuary-v3/tilesets/forgotten-memories/water_6frames.png', {
-      frameWidth: 128, frameHeight: 128,
-    });
 
     // Tilemap for the overworld (Tiled JSON).
     this.load.tilemapTiledJSON('overworld', '/sanctuary-v3/maps/overworld.json');
 
-    // Buildings (8 themed exteriors, 128×128 each).
+    // Buildings (8 themed exteriors, 128×128 each) + interiors (256×192 each).
     for (const id of BUILDING_IDS) {
       this.load.image(`building-v3-${id}`, `/sanctuary-v3/buildings/${id}.png`);
+      this.load.image(`interior-v3-${id}`, `/sanctuary-v3/interiors/${id}.png`);
     }
 
     // SWO themed prop tiles (scattered decoration).

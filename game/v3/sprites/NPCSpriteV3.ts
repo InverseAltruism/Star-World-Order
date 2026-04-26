@@ -28,7 +28,10 @@ export class NPCSpriteV3 extends Phaser.GameObjects.Container {
 
     const key = npcSpriteKey(def.id);
     const hasSheet = scene.textures.exists(key);
-    this.sprite = scene.add.sprite(0, 0, hasSheet ? key : '__MISSING', 0);
+    // 4×4 sheet rows: 0=up, 1=left, 2=right, 3=down. Default to a down-facing
+    // (toward-camera) frame so NPCs greet the player instead of turning their
+    // backs. Pick frame 12 = row 3 col 0.
+    this.sprite = scene.add.sprite(0, 0, hasSheet ? key : '__MISSING', 12);
     this.sprite.setScale(SCALE);
     this.add(this.sprite);
 
@@ -36,7 +39,7 @@ export class NPCSpriteV3 extends Phaser.GameObjects.Container {
     this.shadow.setDepth(7);
 
     this.nameTag = scene.add.text(0, -28, def.name, {
-      fontFamily: '"Pixelify Sans", monospace',
+      fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: '#ffd700',
       stroke: '#000000',

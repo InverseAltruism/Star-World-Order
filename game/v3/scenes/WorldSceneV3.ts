@@ -24,7 +24,6 @@ import {
 } from '../../systems/CosmeticSystem';
 
 const CAMERA_ZOOM = 1.5;
-const WATER_FPS = 6;
 const TILE = 32;
 const NAV_CELL = 16; // half-tile pathfinding grid, matches V2's WorldScene
 
@@ -43,7 +42,6 @@ export class WorldSceneV3 extends Phaser.Scene {
   private animSystem!: AnimationSystem;
   private npcs: NPCSpriteV3[] = [];
   private collisionGroup!: Phaser.Physics.Arcade.StaticGroup;
-  private waterSprites: Phaser.GameObjects.Sprite[] = [];
   private doors: DoorMarker[] = [];
   private currentDoor: DoorMarker | null = null;
   private doorPrompt: Phaser.GameObjects.Text | null = null;
@@ -65,12 +63,6 @@ export class WorldSceneV3 extends Phaser.Scene {
     const groundLayer = map.createLayer('ground', fmTileset, 0, 0);
     if (!groundLayer) throw new Error('ground layer missing from overworld.json');
     groundLayer.setDepth(-10);
-
-    // Optional decoration overlay — sparse transparent grass tufts on top of
-    // ground to break up the carpet look. Older overworld.json files may not
-    // have this layer; the renderer no-ops if it's missing.
-    const decorationLayer = map.createLayer('ground_decoration', fmTileset, 0, 0);
-    if (decorationLayer) decorationLayer.setDepth(-9);
 
     const worldW = map.widthInPixels;
     const worldH = map.heightInPixels;
@@ -101,33 +93,6 @@ export class WorldSceneV3 extends Phaser.Scene {
       // Props use bottom-anchor convention: y is the BOTTOM of the prop sprite.
       const py = (o.y ?? 0) + (o.height ?? 0);
       this.add.image(px, py, key).setOrigin(0.5, 1).setDepth(6);
-    }
-
-    // -------- Animated water --------
-    if (!this.anims.exists('water-flow')) {
-      this.anims.create({
-        key: 'water-flow',
-        frames: this.anims.generateFrameNumbers('fm-water', { start: 0, end: 5 }),
-        frameRate: WATER_FPS,
-        repeat: -1,
-      });
-    }
-    const water = map.getObjectLayer('water')?.objects ?? [];
-    for (const o of water) {
-      // Tile the 128×128 water sprite across the region defined by the object.
-      const w = o.width ?? 128;
-      const h = o.height ?? 128;
-      const tilesX = Math.ceil(w / 128);
-      const tilesY = Math.ceil(h / 128);
-      for (let ty = 0; ty < tilesY; ty++) {
-        for (let tx = 0; tx < tilesX; tx++) {
-          const wx = (o.x ?? 0) + tx * 128;
-          const wy = (o.y ?? 0) + ty * 128;
-          const s = this.add.sprite(wx, wy, 'fm-water', 0).setOrigin(0, 0).setDepth(-5);
-          s.play('water-flow');
-          this.waterSprites.push(s);
-        }
-      }
     }
 
     // -------- Collision --------
@@ -171,12 +136,14 @@ export class WorldSceneV3 extends Phaser.Scene {
     this.finder.setIterationsPerCalculation(200);
 
     // -------- Spawn the player --------
-    // Pick spawn from the NPCs object layer's 'spawn-fox' position; if missing
-    // fall back to map centre. Player is offset 2 tiles south of spawn fox.
+    // Player spawns two tiles south of the spawn-fox so they don't overlap
+    // and so the camera frames both nicely on first paint.
     const npcObjs = map.getObjectLayer('npcs')?.objects ?? [];
     const fox = npcObjs.find(o => o.name === 'spawn-fox');
-    const spawnX = fox ? (fox.x ?? 0) - 64 : worldW / 2;
-    const spawnY = fox ? (fox.y ?? 0) + 32 : worldH / 2;
+    const foxCx = fox ? (fox.x ?? 0) + (fox.width ?? 0) / 2 : worldW / 2;
+    const foxCy = fox ? (fox.y ?? 0) + (fox.height ?? 0) / 2 : worldH / 2;
+    const spawnX = foxCx;
+    const spawnY = foxCy + 2 * TILE;
     this.player = new PlayerSpriteV3(this, spawnX, spawnY);
     this.player.setNavCell(NAV_CELL);
     this.physics.add.collider(this.player, this.collisionGroup);
@@ -184,13 +151,14 @@ export class WorldSceneV3 extends Phaser.Scene {
     this.setupClickToMove();
 
     // -------- Companion --------
-    // Reuses V2's CompanionSprite + AnimationSystem (cosmic-palette assets).
-    // FM-palette companion sheets are tracked under [SWO_V3_COMPANION_FM_PALETTE]
-    // and will swap textures here once generated.
+    // V2's cosmic-palette CompanionSprite clashes badly with the FM look; we
+    // construct it so EventBus wiring + cosmetics flow stays intact, but keep
+    // it hidden + non-interactive until FM-palette companion sheets are
+    // generated under [SWO_V3_COMPANION_FM_PALETTE].
     this.animSystem = new AnimationSystem(this);
     this.companion = new CompanionSprite(this, spawnX + 20, spawnY + 10);
     this.companion.setAnimationSystem(this.animSystem);
-    this.setupCompanionInteraction();
+    this.companion.setVisible(false);
     this.setupCompanionEventBridge();
 
     // -------- NPCs --------
@@ -223,7 +191,7 @@ export class WorldSceneV3 extends Phaser.Scene {
     }
     this.doorPrompt = this.add
       .text(0, 0, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '8px',
         color: '#ffd700',
         stroke: '#000000',

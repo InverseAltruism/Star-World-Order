@@ -9,11 +9,11 @@ const PLAYER_SPEED = 110;
 const SHEET_KEY = 'player-v3-sheet';
 
 // rd_animation__four_angle_walking outputs a 4×4 grid (rows = directions,
-// cols = walk-cycle frames). Empirical row order from the model: down=0,
-// left=1, right=2, up=3 (matches V2 convention; we flip if a future sheet
-// reads as down/up/left/right instead).
+// cols = walk-cycle frames). Verified by inspecting the rendered sheets:
+// row 0 shows the back of the head (away from camera), row 3 shows the
+// face. So the row order is up=0, left=1, right=2, down=3.
 const DIRECTION_ROW: Record<Direction, number> = {
-  down: 0, left: 1, right: 2, up: 3,
+  up: 0, left: 1, right: 2, down: 3,
 };
 
 interface PathPoint { x: number; y: number }

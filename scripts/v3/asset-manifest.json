@@ -5,7 +5,7 @@
     "fields: id, kind (npc|prop|tile|building), prompt_style, width, height, prompt, seed, output_path, asset_class (for normalize thresholds), enabled.",
     "When enabled=false, generate.mjs skips the entry. Toggle to true when ready.",
     "Spawn Fox is enabled first to validate the pipeline; the rest stay disabled until user signs off on the test result.",
-    "All entries share a common style template \u2014 see scripts/v3/lib/prompt-template.mjs (TODO) \u2014 and a common negative prompt."
+    "All entries share a common style template — see scripts/v3/lib/prompt-template.mjs (TODO) — and a common negative prompt."
   ],
   "version": 1,
   "common": {
@@ -20,8 +20,8 @@
       "id": "player-wanderer",
       "kind": "npc",
       "asset_class": "npc",
-      "_note": "V3 player sprite \u2014 generic adventurer in earthy palette, four_angle_walking 48\u00d748",
-      "enabled": true,
+      "_note": "V3 player sprite — generic adventurer in earthy palette, four_angle_walking 48×48",
+      "enabled": false,
       "prompt_style": "rd_animation__four_angle_walking",
       "width": 48,
       "height": 48,
@@ -470,6 +470,111 @@
       "prompt": "small stone forge building with stone chimney emitting orange-red glow, single wooden front-facing door at the bottom center, stack of firewood on one side, anvil visible just inside the doorway, dark slate-blue roof, top-down 3/4 view with slight SNES-style depth, transparent background",
       "output_path": "public/sanctuary-v3/buildings/aura-forge.png",
       "remove_bg": true
+    },
+    {
+      "id": "interior-observatory",
+      "kind": "building",
+      "asset_class": "building",
+      "_note": "V3 interior backdrop for the observatory — single 384×288 PNG rendered as the room scene's floor+walls",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7001,
+      "prompt": "interior of a small round stone tower observatory, top-down 3/4 view, dark slate-blue stone floor with subtle astronomical compass-rose pattern in the center, mossy stone walls, two tall arched windows on the north wall showing a starry night sky, doorway opening at the bottom-center of the south wall with a wooden lintel, scattered rolled-up star charts and a small wooden side desk in the corner, no telescope or main centerpiece object, soft warm lantern light, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/observatory.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-cosmic-library",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7002,
+      "prompt": "interior of a cozy wooden library, top-down 3/4 view, polished oak plank floor with a worn red rug at the centre, dark walnut walls with built-in bookshelves on east and west walls fully stocked with leather-bound books, two warm stained-glass windows on the north wall, doorway opening at bottom-center of the south wall with a wooden door frame, a small reading desk with stacked books in one corner, no main centerpiece object, soft warm candlelight, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/cosmic-library.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-star-garden",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7003,
+      "prompt": "interior of a wooden greenhouse pavilion, top-down 3/4 view, warm sandstone floor with a star-shaped tile pattern at the centre, wooden walls with large arched glass windows on north east and west sides showing dusk sky, climbing vines along the wall seams, small wooden planter boxes along the walls with sprouting saplings, doorway opening at bottom-center of the south wall, no main centerpiece object, soft golden hour light, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/star-garden.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-hot-springs",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7004,
+      "prompt": "interior of a small wooden bathhouse, top-down 3/4 view, dark wooden plank floor with stone tile borders, mossy wooden plank walls, two small steamy windows on the north wall, doorway opening at bottom-center of the south wall, wooden bench along one wall, hanging paper lanterns, no main centerpiece tub object, soft warm steam haze, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/hot-springs.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-training-grounds",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7005,
+      "prompt": "interior of a wooden training hall, top-down 3/4 view, packed dirt floor with darker scuffed circle in the centre where practice happens, sturdy wooden plank walls with built-in weapon-rack alcoves on east and west walls holding wooden practice swords and shields, two narrow vertical windows on the north wall, doorway opening at bottom-center of the south wall, antique gold star banner hung above the doorway, no main centerpiece dummy, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/training-grounds.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-dream-hollow",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7106,
+      "prompt": "interior of an underground grotto, top-down 3/4 view, INDOORS underground room with curving stone-and-root walls fully enclosing a small mossy chamber, NO trees, NO sky, NO outdoor scenery, soft mossy floor at the centre with a small bedroll, organic root walls with bioluminescent fungi growing along the seams emitting gentle teal-violet glow, soft glowing crystal spots embedded in the dome ceiling, doorway opening at the bottom-center of the south wall framed by twisting roots, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/dream-hollow.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-nebula-kitchen",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7007,
+      "prompt": "interior of a cottage kitchen, top-down 3/4 view, warm wooden plank floor with worn welcome rug at the entrance, wood-plank walls with built-in shelves on east and west walls holding clay pots and dried herbs, hanging copper pans, two warm windows on the north wall, doorway opening at bottom-center of the south wall, simple wooden table with a chopping board against the east wall, no central stove object, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/nebula-kitchen.png",
+      "remove_bg": false
+    },
+    {
+      "id": "interior-aura-forge",
+      "kind": "building",
+      "asset_class": "building",
+      "enabled": false,
+      "prompt_style": "rd_pro__topdown",
+      "width": 256,
+      "height": 192,
+      "seed": 7008,
+      "prompt": "interior of a small smithy, top-down 3/4 view, dark stone floor with scorch marks radiating from the centre, soot-darkened stone walls, large stone hearth with glowing embers built into the north wall, hammers and tongs hanging on the east wall, two narrow vertical windows on the north wall on either side of the hearth, doorway opening at bottom-center of the south wall, no central anvil object, soft warm forge glow, palette matches the forgotten sanctuary tileset",
+      "output_path": "public/sanctuary-v3/interiors/aura-forge.png",
+      "remove_bg": false
     }
   ]
 }

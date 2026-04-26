@@ -12,7 +12,7 @@ This file tracks every external asset used in V3, with attribution and license n
 
 ## Generated assets (Retro Diffusion)
 
-NPCs, themed props, and building exteriors are generated via the Retro Diffusion API using a custom user style locked to the Forgotten Memories palette + style reference. See `docs/SANCTUARY_V3.md` §9 for the pipeline.
+NPCs, themed props, building exteriors, and interior backdrops are generated via the Retro Diffusion API using a custom user style locked to the Forgotten Memories palette + style reference. See `docs/SANCTUARY_V3.md` §9 for the pipeline.
 
 Each generated asset is logged in `scripts/v3/asset-manifest.json` with prompt, style ID, seed, and SHA-256 of the produced PNG.
 
