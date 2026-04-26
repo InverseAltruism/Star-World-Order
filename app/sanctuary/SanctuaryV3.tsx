@@ -31,6 +31,10 @@ const ShopDialog = dynamic(
   () => import('@/components/sanctuary/overlays/ShopDialog'),
   { ssr: false },
 );
+const AudioBootstrap = dynamic(
+  () => import('@/components/sanctuary/AudioBootstrap'),
+  { ssr: false },
+);
 
 export default function SanctuaryV3() {
   const gameRef = useRef<PhaserGameV3Ref | null>(null);
@@ -69,6 +73,7 @@ export default function SanctuaryV3() {
         <QuestBoard walletAddress={address} tokenId={null} />
         <QuestTracker walletAddress={address} tokenId={null} />
         <ShopDialog walletAddress={address} tokenId={null} />
+        <AudioBootstrap />
       </div>
 
       <div className="text-xs text-gray-500 px-2">
