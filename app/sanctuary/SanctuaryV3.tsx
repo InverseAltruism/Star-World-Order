@@ -35,6 +35,10 @@ const OnboardingOverlay = dynamic(
   () => import('@/components/sanctuary/overlays/OnboardingOverlay'),
   { ssr: false },
 );
+const AudioBootstrap = dynamic(
+  () => import('@/components/sanctuary/AudioBootstrap'),
+  { ssr: false },
+);
 
 export default function SanctuaryV3() {
   const gameRef = useRef<PhaserGameV3Ref | null>(null);
@@ -93,6 +97,7 @@ export default function SanctuaryV3() {
         <QuestTracker walletAddress={address} tokenId={null} />
         <ShopDialog walletAddress={address} tokenId={null} />
         <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
+        <AudioBootstrap />
       </div>
 
       <div className="text-xs text-gray-500 px-2">

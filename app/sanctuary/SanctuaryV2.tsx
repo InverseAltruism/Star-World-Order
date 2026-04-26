@@ -96,6 +96,11 @@ const DevMapEditor = dynamic(
   { ssr: false }
 );
 
+const AudioBootstrap = dynamic(
+  () => import('@/components/sanctuary/AudioBootstrap'),
+  { ssr: false }
+);
+
 export default function SanctuaryV2() {
   const gameRef = useRef<PhaserGameRef | null>(null);
   const searchParams = useSearchParams();
@@ -178,6 +183,7 @@ export default function SanctuaryV2() {
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
         <WelcomeDialog walletAddress={address} />
         <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
+        <AudioBootstrap />
         <LevelUpCelebration />
         <ChatBubble />
         <CompanionChatOverlay walletAddress={address} tokenId={activeTokenId} />

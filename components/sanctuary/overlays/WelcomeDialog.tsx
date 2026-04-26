@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import AudioSettingsPanel from '@/components/sanctuary/overlays/AudioSettingsPanel';
 
 interface NPCClickPayload {
   npcId: string;
@@ -250,6 +251,7 @@ export default function WelcomeDialog({
                 <p className="text-gray-200 text-[11px] leading-relaxed">
                   {HELP_DIALOGUE.body}
                 </p>
+                <AudioSettingsPanel />
               </>
             )}
           </div>
