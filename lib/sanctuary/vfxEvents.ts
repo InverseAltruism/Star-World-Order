@@ -116,8 +116,12 @@ export function onCompanionVfx(
  * Companion radial-menu actions. Source of truth lives in
  * `lib/sanctuary/validation.ts` (the API contract); this is the matching
  * client-facing literal type so V2 + V3 radial menus share one mapping.
+ *
+ * `sleep` / `play` were added in V2.4 (`[SWO_V2_COMPANION_INTERACT_AFFECTS_STATS]`).
+ * The V2 radial menu does not currently surface them, but room NPC dialogs
+ * and future menus can trigger them and rely on the same VFX defaults.
  */
-export type CompanionInteractAction = 'pet' | 'feed' | 'talk';
+export type CompanionInteractAction = 'pet' | 'feed' | 'talk' | 'sleep' | 'play';
 
 /**
  * Canonical mapping: which VFX kind a given radial-menu action should
@@ -126,13 +130,17 @@ export type CompanionInteractAction = 'pet' | 'feed' | 'talk';
  *
  * Both V2 (`CompanionMenu.tsx`) and the future V3 RadialMenu must consume
  * this mapping rather than redeclaring it locally — keeps `pet → sparkle`
- * and `feed → food` consistent across visual tracks.
+ * and `feed → food` consistent across visual tracks. `play` reuses the
+ * generic positive `sparkle`; `sleep` reuses the ambient `glow` so the
+ * dozing-off cue reads visually distinct from the celebration cues.
  */
 export const COMPANION_INTERACT_VFX: Readonly<
   Partial<Record<CompanionInteractAction, CompanionVfxKind>>
 > = Object.freeze({
   pet: 'sparkle',
   feed: 'food',
+  play: 'sparkle',
+  sleep: 'glow',
 });
 
 /**

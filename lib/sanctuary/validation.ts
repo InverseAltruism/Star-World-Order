@@ -19,7 +19,7 @@ export const paginationPage = z.coerce
 export const paginationLimit = (max: number, fallback: number) =>
   z.coerce.number().int().min(1).max(max).default(fallback);
 
-export const interactAction = z.enum(['feed', 'pet', 'talk']);
+export const interactAction = z.enum(['feed', 'pet', 'talk', 'sleep', 'play']);
 
 export const nftTraitsAction = z.enum(['distribution', 'filter']);
 

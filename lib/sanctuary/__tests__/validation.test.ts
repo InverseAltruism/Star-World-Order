@@ -114,6 +114,8 @@ describe('interactAction', () => {
     expect(interactAction.safeParse('feed').success).toBe(true);
     expect(interactAction.safeParse('pet').success).toBe(true);
     expect(interactAction.safeParse('talk').success).toBe(true);
+    expect(interactAction.safeParse('sleep').success).toBe(true);
+    expect(interactAction.safeParse('play').success).toBe(true);
   });
 
   it('rejects invalid action', () => {

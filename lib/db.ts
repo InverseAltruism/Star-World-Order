@@ -16,6 +16,10 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import { getResilientClient } from './rpcClient';
+import {
+  applyInteractionStats,
+  type CompanionStatAction,
+} from './sanctuary/companionStats';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -5718,6 +5722,14 @@ export interface SanctuaryCompanion {
   equipped_cosmetics: string;
   xp: number;
   level: number;
+  // V2.4 vitality stats — clamped 0–100. `is_sleeping` is queryable for HUD
+  // display; `sleep_started_at` lets `interactWithCompanion` compute energy
+  // recovery (+60/hour) when waking the companion or refreshing energy mid-sleep.
+  hunger: number;
+  happiness: number;
+  energy: number;
+  is_sleeping: number;
+  sleep_started_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -5814,6 +5826,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v23Path, 'utf-8');
     database.exec(sql);
   }
+  const v24Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.4.sql');
+  if (fs.existsSync(v24Path)) {
+    const sql = fs.readFileSync(v24Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -5824,6 +5841,17 @@ function initializeSanctuary(database: Database.Database): void {
   try { database.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_step TEXT"); }
   catch { /* column already exists */ }
   try { database.exec("ALTER TABLE sanctuary_player_state ADD COLUMN onboarding_skipped INTEGER NOT NULL DEFAULT 0"); }
+  catch { /* column already exists */ }
+  // V2.4: companion vitality stats (hunger/happiness/energy + sleep state).
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN hunger INTEGER NOT NULL DEFAULT 50'); }
+  catch { /* column already exists */ }
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN happiness INTEGER NOT NULL DEFAULT 50'); }
+  catch { /* column already exists */ }
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN energy INTEGER NOT NULL DEFAULT 100'); }
+  catch { /* column already exists */ }
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN is_sleeping INTEGER NOT NULL DEFAULT 0'); }
+  catch { /* column already exists */ }
+  try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN sleep_started_at DATETIME'); }
   catch { /* column already exists */ }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
@@ -5931,6 +5959,7 @@ export function getActiveCompanion(walletAddress: string): SanctuaryCompanionWit
            sc.current_activity, sc.activity_started_at, sc.activity_ends_at,
            sc.bond_score, sc.total_interactions, sc.equipped_cosmetics,
            sc.xp, sc.level, sc.created_at, sc.updated_at,
+           sc.hunger, sc.happiness, sc.energy, sc.is_sleeping, sc.sleep_started_at,
            sc.xp as companion_xp, sc.level as companion_level,
            ssm.constellation, ssm.aura, ssm.form, ssm.mood,
            ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
@@ -5956,6 +5985,7 @@ export function getAllCompanions(walletAddress: string): SanctuaryCompanionWithM
            sc.current_activity, sc.activity_started_at, sc.activity_ends_at,
            sc.bond_score, sc.total_interactions, sc.equipped_cosmetics,
            sc.xp, sc.level, sc.created_at, sc.updated_at,
+           sc.hunger, sc.happiness, sc.energy, sc.is_sleeping, sc.sleep_started_at,
            sc.xp as companion_xp, sc.level as companion_level,
            ssm.constellation, ssm.aura, ssm.form, ssm.mood,
            ssm.background, ssm.eyes, ssm.hat, ssm.image_url,
@@ -6039,8 +6069,10 @@ export function switchCompanion(walletAddress: string, newTokenId: number): Sanc
 }
 
 const DAILY_INTERACTION_CAP = 15;
-const INTERACTION_BOND: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2 };
-const INTERACTION_XP: Record<string, number> = { feed: 3, pet: 2, talk: 2 };
+// `play` rewards bond like talk-equivalent; `sleep` is a state toggle and
+// gives no bond/XP (it's not a social interaction).
+const INTERACTION_BOND: Record<string, number> = { feed: 0.5, pet: 0.3, talk: 0.2, play: 0.4, sleep: 0 };
+const INTERACTION_XP: Record<string, number> = { feed: 3, pet: 2, talk: 2, play: 3, sleep: 0 };
 const STAR_HOLDER_XP_MULTIPLIER = 1.5;
 const STAR_HOLDER_BOND_MULTIPLIER = 1.25;
 
@@ -6056,16 +6088,18 @@ function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: stri
 }
 
 export function interactWithCompanion(
-  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk',
+  walletAddress: string, tokenId: number, action: CompanionStatAction,
   options?: { isStar?: boolean }
 ): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
-  const messages: Record<string, string> = {
+  const messages: Record<CompanionStatAction, string> = {
     feed: 'Enjoyed a tasty cosmic treat. Bond strengthened!',
     pet: 'Received gentle pats. Feeling cozy and loved.',
     talk: 'Had a heartfelt conversation with their owner.',
+    play: 'Burned off some cosmic zoomies. Feels alive!',
+    sleep: 'Curled up for a cosmic nap. Energy slowly returning.',
   };
 
   const txn = db.transaction(() => {
@@ -6080,6 +6114,21 @@ export function interactWithCompanion(
       throw new Error('Daily interaction limit reached. Come back tomorrow!');
     }
 
+    // Compute the new vitality snapshot. This throws SleepingCompanionError
+    // when a non-sleep action is attempted while is_sleeping=1 and the
+    // recovered energy is still below SLEEP_BLOCK_THRESHOLD.
+    const stats = applyInteractionStats(
+      {
+        hunger: comp.hunger,
+        happiness: comp.happiness,
+        energy: comp.energy,
+        is_sleeping: comp.is_sleeping,
+        sleep_started_at: comp.sleep_started_at,
+      },
+      action,
+      new Date(),
+    );
+
     const starBonus = options?.isStar ?? false;
     const bondGain = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
     const xpGain = Math.round(INTERACTION_XP[action] * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
@@ -6088,15 +6137,32 @@ export function interactWithCompanion(
       UPDATE sanctuary_companions
       SET bond_score = MIN(bond_score + ?, 100.0),
           total_interactions = total_interactions + 1,
+          hunger = ?,
+          happiness = ?,
+          energy = ?,
+          is_sleeping = ?,
+          sleep_started_at = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(bondGain, comp.id);
+    `).run(
+      bondGain,
+      stats.hunger,
+      stats.happiness,
+      stats.energy,
+      stats.is_sleeping,
+      stats.sleep_started_at,
+      comp.id,
+    );
 
-    addUserXP(addr, xpGain);
+    if (xpGain > 0) addUserXP(addr, xpGain);
 
     const bonusTag = starBonus ? ' (Star Bonus!)' : '';
     const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action] + bonusTag,
-      JSON.stringify({ action, bond: bondGain, xp: xpGain, starBonus }));
+      JSON.stringify({
+        action, bond: bondGain, xp: xpGain, starBonus,
+        hunger: stats.hunger, happiness: stats.happiness, energy: stats.energy,
+        is_sleeping: stats.is_sleeping, woke_up: stats.woke_up,
+      }));
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
@@ -7672,7 +7738,7 @@ export function claimSanctuaryQuestReward(
 
 // Hook trait + quest updates into existing interactions
 export function interactWithCompanionV15(
-  walletAddress: string, tokenId: number, action: 'feed' | 'pet' | 'talk',
+  walletAddress: string, tokenId: number, action: CompanionStatAction,
   options?: { isStar?: boolean }
 ): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
   const result = interactWithCompanion(walletAddress, tokenId, action, options);

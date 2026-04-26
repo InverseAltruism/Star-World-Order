@@ -16,6 +16,11 @@ interface CompanionData {
   current_activity: string;
   activity_ends_at: string | null;
   equipped_cosmetics: string | null;
+  // V2.4 — vitality + sleep state. is_sleeping is the queryable companion
+  // field the HUD reflects so the player sees a 💤 marker until the
+  // companion auto-wakes (energy ≥ 100) or recovers past the block threshold.
+  is_sleeping: number;
+  energy: number;
 }
 
 interface CompanionHUDProps {
@@ -118,6 +123,8 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           current_activity: data.companion.current_activity ?? 'lounging',
           activity_ends_at: data.companion.activity_ends_at ?? null,
           equipped_cosmetics: equipped,
+          is_sleeping: data.companion.is_sleeping ?? 0,
+          energy: data.companion.energy ?? 100,
         });
         // Push the loadout into the Phaser scene so cosmetic layers render.
         EventBus.emit('companion-cosmetics', equipped);
@@ -239,7 +246,10 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
 
   const displayName =
     companion.nickname || `Skrumpey #${companion.token_id}`;
-  const moodEmoji = MOOD_EMOJI[companion.mood ?? ''] ?? '\u{1F438}';
+  const isSleeping = companion.is_sleeping === 1;
+  const moodEmoji = isSleeping
+    ? '\u{1F4A4}'
+    : MOOD_EMOJI[companion.mood ?? ''] ?? '\u{1F438}';
   const bondPct = Math.min((companion.bond_score / 100) * 100, 100);
   const xp = xpProgress(companion.total_xp, companion.level);
   const xpPct = xp.needed > 0 ? Math.min((xp.current / xp.needed) * 100, 100) : 100;
