@@ -9,6 +9,7 @@ import { ForgeHammerScene } from '../scenes/ForgeHammerScene';
 import { CookingRhythmScene } from '../scenes/CookingRhythmScene';
 import { DreamCatcherScene } from '../scenes/DreamCatcherScene';
 import { LoreTriviaScene } from '../scenes/LoreTriviaScene';
+import { DeslopPostFXPipeline, DESLOP_PIPELINE_KEY } from '../shaders/DeslopPostFX';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -42,4 +43,7 @@ export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   antialias: false,
   roundPixels: true,
+  pipeline: {
+    [DESLOP_PIPELINE_KEY]: DeslopPostFXPipeline,
+  } as unknown as Phaser.Types.Core.PipelineConfig,
 };

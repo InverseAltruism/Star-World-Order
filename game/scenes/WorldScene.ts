@@ -20,6 +20,11 @@ import {
 } from '../config/worldLayout';
 import { getOverworldNPCDefinitions } from '../config/npcDefinitions';
 import { cameraState } from '../systems/CameraState';
+import {
+  DeslopPostFXPipeline,
+  DESLOP_PIPELINE_KEY,
+} from '../shaders/DeslopPostFX';
+import { isDeslopEnabledFromBrowser } from '../shaders/deslopPalette';
 
 const CAMERA_ZOOM = 1.5;
 
@@ -98,7 +103,39 @@ export class WorldScene extends Phaser.Scene {
       if (params.get('edit') === '1') this.setEditorMode(true);
     }
 
+    this.setupDeslopShader();
+
     EventBus.emit('scene-ready', this);
+  }
+
+  private setupDeslopShader() {
+    const cam = this.cameras.main;
+    const apply = (on: boolean) => {
+      if (on) {
+        cam.setPostPipeline(DeslopPostFXPipeline);
+      } else {
+        cam.removePostPipeline(DESLOP_PIPELINE_KEY);
+      }
+    };
+    apply(isDeslopEnabledFromBrowser());
+
+    EventBus.on('deslop-toggle', (data: boolean | { on?: boolean }) => {
+      const on = typeof data === 'boolean' ? data : !!data?.on;
+      apply(on);
+    });
+
+    if (typeof window !== 'undefined') {
+      // dev hook so operators can A/B test without reloading
+      (window as unknown as { swoDeslop?: (on: boolean) => void }).swoDeslop =
+        (on: boolean) => {
+          try {
+            window.localStorage.setItem('swo_deslop', on ? '1' : '0');
+          } catch {
+            /* private mode — ignore */
+          }
+          apply(on);
+        };
+    }
   }
 
   private buildNavGrid() {
