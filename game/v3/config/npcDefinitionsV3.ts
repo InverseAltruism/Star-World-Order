@@ -18,6 +18,20 @@ export const BUILDING_IDS: readonly BuildingId[] = [
   'training-grounds', 'dream-hollow', 'nebula-kitchen', 'aura-forge',
 ] as const;
 
+// Display names matching V2's `Door.room` values + audio.ts AMBIENT_TRACKS keys.
+// Used by WorldSceneV3 to emit `location-entered`/`location-exited` events that
+// the shared audio service + Colyseus multiplayer hook already consume.
+export const BUILDING_DISPLAY_NAMES: Readonly<Record<BuildingId, string>> = Object.freeze({
+  'hot-springs': 'Hot Springs',
+  observatory: 'Observatory',
+  'training-grounds': 'Training Grounds',
+  'star-garden': 'Star Garden',
+  'cosmic-library': 'Cosmic Library',
+  'nebula-kitchen': 'Nebula Kitchen',
+  'dream-hollow': 'Dream Hollow',
+  'aura-forge': 'Aura Forge',
+});
+
 export type NPCSheet =
   | 'spawn-fox'
   | 'springs-duck'
