@@ -7243,6 +7243,87 @@ export function getTopChatMemories(
   return getChatMemories(walletAddress, tokenId, { limit });
 }
 
+// ─── V2.1: Memory Consolidation (weekly batch job) ──────────────────
+
+export interface CompanionMemoryOwner {
+  wallet_address: string;
+  token_id: number;
+}
+
+export function listCompanionMemoryOwners(): CompanionMemoryOwner[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT DISTINCT wallet_address, token_id
+    FROM sanctuary_chat_memories
+    ORDER BY wallet_address ASC, token_id ASC
+  `).all() as CompanionMemoryOwner[];
+}
+
+export function getAllChatMemoriesForCompanion(
+  walletAddress: string,
+  tokenId: number,
+): SanctuaryChatMemory[] {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT * FROM sanctuary_chat_memories
+    WHERE wallet_address = ? AND token_id = ?
+    ORDER BY id ASC
+  `).all(walletAddress.toLowerCase(), tokenId) as SanctuaryChatMemory[];
+}
+
+export interface ApplyConsolidationPlan {
+  merges: Array<{
+    keepId: number;
+    removeIds: number[];
+    newImportance: number;
+    newMentionCount: number;
+  }>;
+  decays: Array<{ id: number; newImportance: number }>;
+}
+
+export interface ApplyConsolidationResult {
+  merged: number;
+  decayed: number;
+}
+
+export function applyMemoryConsolidationPlan(
+  plan: ApplyConsolidationPlan,
+): ApplyConsolidationResult {
+  const db = getDatabase();
+  const updateKeeper = db.prepare(`
+    UPDATE sanctuary_chat_memories
+    SET importance = ?, mention_count = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+  const deleteOne = db.prepare(`DELETE FROM sanctuary_chat_memories WHERE id = ?`);
+  const decayOne = db.prepare(`
+    UPDATE sanctuary_chat_memories
+    SET importance = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+
+  let merged = 0;
+  let decayed = 0;
+
+  const txn = db.transaction(() => {
+    for (const m of plan.merges) {
+      if (m.removeIds.length === 0) continue;
+      updateKeeper.run(m.newImportance, m.newMentionCount, m.keepId);
+      for (const rid of m.removeIds) {
+        deleteOne.run(rid);
+        merged += 1;
+      }
+    }
+    for (const d of plan.decays) {
+      decayOne.run(d.newImportance, d.id);
+      decayed += 1;
+    }
+  });
+  txn();
+
+  return { merged, decayed };
+}
+
 export function generateTemplateCompanionReply(
   companion: SanctuaryCompanionWithMeta,
   userMessage: string,
