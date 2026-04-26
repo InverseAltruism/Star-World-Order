@@ -44,6 +44,12 @@ export class WorldSceneV3 extends Phaser.Scene {
     if (!groundLayer) throw new Error('ground layer missing from overworld.json');
     groundLayer.setDepth(-10);
 
+    // Optional decoration overlay — sparse transparent grass tufts on top of
+    // ground to break up the carpet look. Older overworld.json files may not
+    // have this layer; the renderer no-ops if it's missing.
+    const decorationLayer = map.createLayer('ground_decoration', fmTileset, 0, 0);
+    if (decorationLayer) decorationLayer.setDepth(-9);
+
     const worldW = map.widthInPixels;
     const worldH = map.heightInPixels;
     this.physics.world.setBounds(0, 0, worldW, worldH);
