@@ -107,7 +107,7 @@ function NeonSign({ text, color }: { text: string; color: string }) {
             0 0 40px ${color},
             0 0 80px ${color}
           `,
-          fontFamily: "'Press Start 2P', cursive",
+          fontFamily: "'Pixelify Sans', cursive",
         }}
       >
         {text}

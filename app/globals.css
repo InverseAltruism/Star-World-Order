@@ -26,7 +26,7 @@
   --sunset-warm: #ff9d4d;
   
   --crt-glow: rgba(0, 255, 255, 0.1);
-  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+  --font-pixel: 'Pixelify Sans', 'Courier New', monospace;
   
   /* Loading screen zoom animation values */
   /* Desktop: zoom 4.5x and shift down 10% to center the screen content */

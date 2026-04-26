@@ -61,7 +61,7 @@ export class DreamCatcherScene extends MinigameScene {
 
     this.add
       .text(600, 90, 'CATCH DREAMS · AVOID NIGHTMARES', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '12px',
         color: '#cc66ff',
         stroke: '#000000',
@@ -72,7 +72,7 @@ export class DreamCatcherScene extends MinigameScene {
 
     this.statusText = this.add
       .text(600, 840, 'ARROW KEYS / A · D TO MOVE', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '10px',
         color: '#9966ff',
         stroke: '#000000',

@@ -170,7 +170,7 @@ export class RoomSceneV3 extends Phaser.Scene {
     // Visible "[E] EXIT" hint.
     this.add
       .text(ROOM_W / 2, ROOM_H - TILE - 18, '[E] EXIT', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '8px',
         color: '#ff66aa',
         stroke: '#000000',
@@ -189,7 +189,7 @@ export class RoomSceneV3 extends Phaser.Scene {
     const screenW = this.scale.width;
     this.add
       .text(screenW / 2, 16, this.roomId.toUpperCase().replace(/-/g, ' '), {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '14px',
         color: '#ffd700',
         stroke: '#000000',

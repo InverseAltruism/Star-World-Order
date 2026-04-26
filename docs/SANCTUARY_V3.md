@@ -340,7 +340,7 @@ scripts/v3/
 | NPC sprites | Mixed sources, style mismatch | RD `walking_and_idle`, palette-locked |
 | Player | V2 character sheet | RD-regenerated to FM palette |
 | Companion | Existing constellation PNGs (kept — on-spec) | Same — no change |
-| Font | Press Start 2P | TBD bitmap font matching FM mood |
+| Font | Pixelify Sans (was Press Start 2P) | Pixelify Sans — SNES-mood bitmap, FM-aligned |
 | Phaser scenes | `WorldScene`, `RoomScene`, minigame scenes | `WorldSceneV3`, `RoomSceneV3` (same minigames) |
 | Game logic — minigames | Existing | **Identical, reused as-is** |
 | Game logic — quest board, shop, training, companion chat | Existing | **Identical, reused as-is** |
@@ -359,7 +359,7 @@ scripts/v3/
 | Phase | Scope | Effort | Stop point | RD spend |
 |-------|-------|--------|-------------|----------|
 | **0** | Approve this canonical doc | 0 | (you confirm) | $0 |
-| **1** | Add LICENSE.txt to FM folder; replace `Press Start 2P` font globally with a SNES-mood bitmap font | ~1h | Font visible on V2 + V3 placeholder | $0 |
+| **1** | ✅ DONE — Replaced `Press Start 2P` globally with **Pixelify Sans** (Google Fonts, 4 weights, true bitmap pixel font, SNES-JRPG mood). LICENSE.txt for FM folder still pending. | ~1h | Font visible on V2 + V3 + DOM chrome | $0 |
 | **2** | Build RD pipeline: `scripts/v3/{generate,normalize,extract-palette}.mjs`, create custom RD user style, save style ID | ~2h | Pipeline runs; one test prop generates + normalizes successfully | ~$0.05 |
 | **3** | Generate ONE NPC (Spawn Fox) end-to-end through the pipeline. Render it on top of the FM tileset in a quick test scene. **You eyeball it.** | ~30min | **You sign off on the style.** If it looks slop, we re-prompt before any bulk spend. | ~$0.10 |
 | **4** | Bulk-generate the rest: 9 more NPCs + ~15 themed props + 8 building exteriors. Each goes through normalize. | ~30min wall | All assets in `public/sanctuary-v3/` passing checklist | ~$3 |

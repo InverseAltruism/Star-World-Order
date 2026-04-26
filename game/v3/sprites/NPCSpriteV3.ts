@@ -36,7 +36,7 @@ export class NPCSpriteV3 extends Phaser.GameObjects.Container {
     this.shadow.setDepth(7);
 
     this.nameTag = scene.add.text(0, -28, def.name, {
-      fontFamily: '"Press Start 2P", monospace',
+      fontFamily: '"Pixelify Sans", monospace',
       fontSize: '8px',
       color: '#ffd700',
       stroke: '#000000',

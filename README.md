@@ -306,7 +306,7 @@ When a governance proposal is created, a discussion thread is automatically crea
 - **Contracts**: Solidity 0.8.20, OpenZeppelin 5.x
 - **Database**: SQLite (better-sqlite3)
 - **Floor Prices**: Local ME Scraper API (auto-updates every 30 min)
-- **Font**: Press Start 2P (Retro Pixel)
+- **Font**: Pixelify Sans (SNES-mood bitmap, 4 weights)
 
 ## 📄 License
 
