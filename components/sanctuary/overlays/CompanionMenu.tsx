@@ -3,8 +3,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import {
+  emitCompanionVfx,
+  type CompanionVfxKind,
+} from '@/lib/sanctuary/vfxEvents';
 
 type InteractAction = 'pet' | 'feed' | 'talk';
+
+// Map interact action → shared VFX kind. `talk` opens the chat overlay
+// instead of rendering a reaction, so it has no VFX entry.
+const ACTION_VFX: Partial<Record<InteractAction, CompanionVfxKind>> = {
+  pet: 'sparkle',
+  feed: 'food',
+};
 
 interface MenuPosition {
   x: number;
@@ -115,6 +126,14 @@ export default function CompanionMenu({
   const triggerReaction = useCallback((action: InteractAction, x: number, y: number) => {
     setReaction({ type: action, x, y });
     setTimeout(() => setReaction(null), 800);
+
+    // Publish through the shared VFX contract so V3 (and any future
+    // listener — analytics, replay capture, etc.) can render its own
+    // sprite-sheet effect. V2 keeps its inline emoji rendering above.
+    const kind = ACTION_VFX[action];
+    if (kind) {
+      emitCompanionVfx(EventBus, { kind, x, y, durationMs: 800, source: action });
+    }
   }, []);
 
   const handleAction = useCallback(async (action: InteractAction) => {
