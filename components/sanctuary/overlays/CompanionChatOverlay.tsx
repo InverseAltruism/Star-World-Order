@@ -138,15 +138,23 @@ export default function CompanionChatOverlay({
     }
   }, [lines, typing]);
 
-  // Position the panel above the companion sprite
+  // Position the panel above the companion sprite, clamped so the rendered
+  // panel never spills past the viewport on small screens. The wrapper uses
+  // -translate-x-1/2 + max-w-[calc(100vw-1rem)], so we clamp by the actual
+  // rendered width (minus the safe margin) rather than the design constant.
   useEffect(() => {
     if (!open) return;
     const tick = () => {
       const el = panelRef.current;
       if (el) {
         const screen = worldToScreen(cameraState.companionX, cameraState.companionY);
-        el.style.left = `${screen.x}px`;
-        el.style.top = `${screen.y + PANEL_OFFSET_Y}px`;
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+        const half = el.offsetWidth / 2;
+        const margin = 8;
+        const x = Math.min(Math.max(screen.x, half + margin), vw - half - margin);
+        const y = Math.max(margin, screen.y + PANEL_OFFSET_Y);
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -246,7 +254,9 @@ export default function CompanionChatOverlay({
     <div className="absolute inset-0 z-30 pointer-events-none">
       <div
         ref={panelRef}
-        className="absolute pointer-events-auto -translate-x-1/2"
+        // Fluid sizing: keep the design width on tablets+ but cap to the
+        // viewport (with 1 rem of breathing room on each side) below 768 px.
+        className="absolute pointer-events-auto -translate-x-1/2 max-w-[calc(100vw-1rem)]"
         style={{
           width: PANEL_WIDTH,
           willChange: 'left, top',
@@ -273,7 +283,9 @@ export default function CompanionChatOverlay({
               <button
                 onClick={close}
                 aria-label="Close chat"
-                className="text-[8px] text-gray-400 hover:text-white leading-none"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center
+                           text-base text-gray-400 hover:text-white leading-none
+                           touch-manipulation select-none -mr-2"
               >
                 ✕
               </button>
@@ -337,16 +349,21 @@ export default function CompanionChatOverlay({
               placeholder={typing ? 'Companion is typing…' : 'Press Enter to send'}
               maxLength={MAX_LENGTH}
               disabled={sending || typing}
-              className="flex-1 px-1.5 py-1 rounded bg-[#0a0a1a]/80 border border-[#9966ff]/30
-                         text-[7px] text-white font-['Press_Start_2P'] placeholder:text-gray-500
+              // 16 px font keeps iOS Safari from auto-zooming when the field gains focus.
+              style={{ fontSize: '16px' }}
+              className="flex-1 min-w-0 px-2 rounded bg-[#0a0a1a]/80 border border-[#9966ff]/30
+                         min-h-[44px] text-white font-['Press_Start_2P'] placeholder:text-gray-500
                          outline-none focus:border-[#9966ff]/70 disabled:opacity-50"
             />
             <button
               onClick={() => void send()}
+              onMouseDown={(e) => e.preventDefault()}
               disabled={!draft.trim() || sending || typing}
-              className="px-2 py-1 rounded bg-[#9966ff]/20 border border-[#9966ff]/40
+              className="px-3 min-h-[44px] min-w-[44px] rounded bg-[#9966ff]/20 border border-[#9966ff]/40
                          text-[#9966ff] text-[7px] font-['Press_Start_2P']
-                         hover:bg-[#9966ff]/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                         hover:bg-[#9966ff]/30 active:bg-[#9966ff]/40 transition-all
+                         disabled:opacity-40 disabled:cursor-not-allowed
+                         touch-manipulation select-none shrink-0"
             >
               {sending ? '…' : 'Send'}
             </button>

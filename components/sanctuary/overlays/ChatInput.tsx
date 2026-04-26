@@ -62,7 +62,10 @@ export default function ChatInput() {
   );
 
   return (
-    <div className="absolute bottom-2 left-2 right-2 z-20 flex gap-2">
+    <div
+      className="absolute bottom-2 left-2 right-2 z-20 flex gap-2 max-w-full"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+    >
       <input
         ref={inputRef}
         value={text}
@@ -72,9 +75,13 @@ export default function ChatInput() {
         onBlur={() => setFocused(false)}
         placeholder={focused ? 'Type a message...' : 'Press Enter to chat'}
         maxLength={MAX_LENGTH}
+        // 16 px font keeps iOS Safari from auto-zooming the viewport on focus,
+        // which is the dominant mobile UX bug for chat inputs.
+        style={{ fontSize: '16px' }}
         className={`
-          flex-1 px-3 py-1.5 rounded
-          bg-[#0a0a1a]/90 border text-xs text-white
+          flex-1 min-w-0 px-3 rounded
+          min-h-[44px]
+          bg-[#0a0a1a]/90 border text-white
           font-['Press_Start_2P'] placeholder:text-gray-500
           outline-none transition-all
           ${focused
@@ -86,9 +93,14 @@ export default function ChatInput() {
       {focused && text.trim() && (
         <button
           onClick={send}
-          className="px-3 py-1.5 rounded bg-[#00f7ff]/20 border border-[#00f7ff]/40
+          // onMouseDown.preventDefault avoids stealing focus from the input
+          // before the click registers — otherwise the input blurs and the
+          // button vanishes mid-tap on touch devices.
+          onMouseDown={(e) => e.preventDefault()}
+          className="px-4 min-h-[44px] min-w-[44px] rounded bg-[#00f7ff]/20 border border-[#00f7ff]/40
                      text-[#00f7ff] text-xs font-['Press_Start_2P']
-                     hover:bg-[#00f7ff]/30 transition-all"
+                     hover:bg-[#00f7ff]/30 active:bg-[#00f7ff]/40 transition-all
+                     touch-manipulation select-none shrink-0"
         >
           Send
         </button>

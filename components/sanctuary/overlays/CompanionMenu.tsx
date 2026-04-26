@@ -36,7 +36,9 @@ const ACTIONS: { action: InteractAction; icon: string; label: string; angle: num
   { action: 'talk', icon: '💬', label: 'Talk', angle: -330 },
 ];
 
-const RADIAL_DISTANCE = 56;
+// Mobile-friendly radial spacing — buttons are 56 px wide (≥44 px tap target),
+// so the orbit must keep ≥36 px gap between centers on small screens.
+const RADIAL_DISTANCE = 64;
 
 let floatingId = 0;
 
@@ -64,7 +66,15 @@ export default function CompanionMenu({
       setTimeout(() => setBusyNotice(null), 1600);
       return;
     }
-    setMenuPos({ x: payload.screenX, y: payload.screenY });
+    // Clamp menu inside the viewport so the radial cluster stays tappable on
+    // small phones. Each button is 56 px (radius 28) at distance RADIAL_DISTANCE
+    // from center, plus an 8 px safety margin so the button never clips the edge.
+    const margin = RADIAL_DISTANCE + 28 + 8;
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 768;
+    const x = Math.min(Math.max(payload.screenX, margin), Math.max(margin, w - margin));
+    const y = Math.min(Math.max(payload.screenY, margin), Math.max(margin, h - margin));
+    setMenuPos({ x, y });
     setVisible(true);
   }, [busyOnQuest]);
 
@@ -229,9 +239,10 @@ export default function CompanionMenu({
               onClick={() => handleAction(action)}
               disabled={interacting !== null}
               className={`
-                absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 rounded-full
+                absolute w-14 h-14 min-w-[44px] min-h-[44px] -translate-x-1/2 -translate-y-1/2 rounded-full
                 flex flex-col items-center justify-center
                 bg-black/90 border-2 transition-all duration-150
+                touch-manipulation select-none
                 ${isActive
                   ? 'border-[#ffd700] shadow-[0_0_12px_rgba(255,215,0,0.5)] scale-110'
                   : 'border-[#00f7ff]/50 hover:border-[#ffd700] hover:shadow-[0_0_8px_rgba(255,215,0,0.3)] hover:scale-110'

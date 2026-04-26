@@ -100,13 +100,13 @@ export default function QuestTracker({ walletAddress, tokenId }: QuestTrackerPro
   return (
     <div className="absolute top-2 right-2 z-20 pointer-events-none select-none">
       <div
-        className="w-56 bg-black/85 border border-[#ffd700]/30 rounded-lg
+        className="w-56 max-w-[calc(100vw-1rem)] bg-black/85 border border-[#ffd700]/30 rounded-lg
           shadow-[0_0_15px_rgba(255,215,0,0.15)] pointer-events-auto overflow-hidden"
       >
         {/* Header */}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="w-full flex items-center justify-between px-2 py-1.5 bg-[#1a0033]/60 border-b border-[#ffd700]/20 hover:bg-[#1a0033]/80 transition-colors"
+          className="w-full min-h-[44px] flex items-center justify-between px-2 py-1.5 bg-[#1a0033]/60 border-b border-[#ffd700]/20 hover:bg-[#1a0033]/80 transition-colors touch-manipulation"
           aria-label={expanded ? 'Collapse quest tracker' : 'Expand quest tracker'}
         >
           <div className="flex items-center gap-1.5">
@@ -184,7 +184,7 @@ export default function QuestTracker({ walletAddress, tokenId }: QuestTrackerPro
 
             <button
               onClick={openBoard}
-              className="w-full mt-1 py-1 text-[7px] text-[#ffd700]/70 hover:text-[#ffd700] border border-[#ffd700]/20 hover:border-[#ffd700]/50 rounded transition-colors font-['Press_Start_2P']"
+              className="w-full mt-1 min-h-[44px] text-[7px] text-[#ffd700]/70 hover:text-[#ffd700] border border-[#ffd700]/20 hover:border-[#ffd700]/50 rounded transition-colors font-['Press_Start_2P'] touch-manipulation"
             >
               OPEN BOARD
             </button>
