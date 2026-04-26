@@ -163,7 +163,7 @@ The existing Skrumpey sprites define the visual floor. All Sanctuary assets must
 
 ## 5. Typography in Sanctuary
 
-Inherits SWO global: **Press Start 2P** for all text.
+Inherits SWO global: **Pixelify Sans** for all text (SNES-mood bitmap font, swapped from Press Start 2P 2026-04-26 per `[SWO_V3_FONT_SWAP]`).
 
 | Element | Size | Color | Notes |
 |---------|------|-------|-------|

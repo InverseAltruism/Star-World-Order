@@ -62,7 +62,7 @@ export class MemoryMatchScene extends MinigameScene {
 
     this.statusText = this.add
       .text(600, 110, '', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '10px',
         color: '#ffd700',
         stroke: '#000000',

@@ -15,13 +15,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* 
-          Note: Using external font link as fallback. For production optimization,
-          consider using next/font/google when build environment supports it.
-          The CSS provides Courier New as fallback for the pixel font.
+        {/*
+          SNES-mood bitmap font for the Forgotten Memories palette (SWO_V3_FONT_SWAP).
+          Pixelify Sans is a true bitmap pixel font with 4 weights for hierarchy.
+          The CSS provides Courier New as fallback.
         */}
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" 
+        <link
+          href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

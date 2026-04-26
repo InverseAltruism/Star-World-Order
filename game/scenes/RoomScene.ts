@@ -229,7 +229,7 @@ export class RoomScene extends Phaser.Scene {
 
     const hint = this.add
       .text(zoneCenterX, zoneCenterY - 28, '[E] EXIT', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '10px',
         color: '#ff00ff',
         stroke: '#000000',
@@ -252,7 +252,7 @@ export class RoomScene extends Phaser.Scene {
     const screenW = this.scale.width;
     this.add
       .text(screenW / 2, 16, this.room.toUpperCase(), {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '14px',
         color: '#ffd700',
         stroke: '#000000',

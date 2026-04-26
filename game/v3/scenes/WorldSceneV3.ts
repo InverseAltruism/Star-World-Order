@@ -160,7 +160,7 @@ export class WorldSceneV3 extends Phaser.Scene {
     }
     this.doorPrompt = this.add
       .text(0, 0, '', {
-        fontFamily: '"Press Start 2P", monospace',
+        fontFamily: '"Pixelify Sans", monospace',
         fontSize: '8px',
         color: '#ffd700',
         stroke: '#000000',

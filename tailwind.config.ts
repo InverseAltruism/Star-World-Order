@@ -33,7 +33,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        pixel: ['"Press Start 2P"', 'monospace'],
+        pixel: ['"Pixelify Sans"', 'monospace'],
       },
       animation: {
         'pixel-float': 'pixelFloat 3s ease-in-out infinite',
