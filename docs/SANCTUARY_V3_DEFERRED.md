@@ -11,6 +11,7 @@ This file is a snapshot of what V3 contains so we don't lose track.
 - **Reachable:** Yes — `?v=3` still routes to `SanctuaryV3` via `app/sanctuary/SanctuaryRouter.tsx`.
 - **Promoted:** No — not linked from the main UI; only direct-URL access.
 - **Iteration:** Paused. No new commits to `game/v3/`, `public/sanctuary-v3/`, or `scripts/v3/` without an explicit decision to revive V3.
+- **V1:** Fallback-only as of 2026-04-27. The legacy V1 surface still renders when no `?v=` param is set, kept for deep-link compatibility; it now displays an in-page banner directing players to `?v=2`. No new feature work on V1.
 
 ---
 

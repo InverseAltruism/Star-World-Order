@@ -928,6 +928,27 @@ function CompanionPicker({
   );
 }
 
+function V1ArchiveBanner() {
+  return (
+    <div className="pixel-card p-4 mb-4 border-2 border-[#ffd700]/50 bg-gradient-to-r from-[#ffd700]/10 via-[#9966ff]/10 to-[#ffd700]/10">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="text-center sm:text-left">
+          <p className="text-[#ffd700] text-[10px] tracking-wider mb-1">SANCTUARY HAS MOVED</p>
+          <p className="text-gray-400 text-[8px]">
+            This is the legacy V1 surface (kept for deep links). Open the new Sanctuary for the latest experience.
+          </p>
+        </div>
+        <a
+          href="?v=2"
+          className="flex-shrink-0 px-4 py-2 rounded-lg bg-[#ffd700]/20 border border-[#ffd700]/60 text-[#ffd700] text-[9px] tracking-wider hover:bg-[#ffd700]/30 hover:border-[#ffd700] transition-all"
+        >
+          OPEN NEW SANCTUARY →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function StarBadge() {
   return (
     <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ffd700]/15 border border-[#ffd700]/40">
@@ -1106,6 +1127,7 @@ function HolderSanctuary() {
 
   return (
     <div className="space-y-6">
+      <V1ArchiveBanner />
       <div className="text-center mb-6">
         <h1
           className="text-lg text-[#ffd700] tracking-widest mb-1"
@@ -1208,6 +1230,7 @@ export default function SanctuaryContent() {
   if (!gated) {
     return (
       <div className="space-y-6">
+        <V1ArchiveBanner />
         <div className="text-center mb-6">
           <h1
             className="text-lg text-[#ffd700] tracking-widest mb-1"
