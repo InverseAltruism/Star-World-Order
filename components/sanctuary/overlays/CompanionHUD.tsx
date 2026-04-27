@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { resolveCompanionMood, type MoodStatInput } from '@/lib/sanctuary/mood';
 
 interface CompanionData {
   nickname: string | null;
@@ -16,11 +17,14 @@ interface CompanionData {
   current_activity: string;
   activity_ends_at: string | null;
   equipped_cosmetics: string | null;
-  // V2.4 — vitality + sleep state. is_sleeping is the queryable companion
-  // field the HUD reflects so the player sees a 💤 marker until the
-  // companion auto-wakes (energy ≥ 100) or recovers past the block threshold.
-  is_sleeping: number;
-  energy: number;
+  // V2.4 vitality stats (optional — null/undefined for legacy companions).
+  // When populated, drive stat-derived mood; when null, trait-mood fallback
+  // applies. The 'sleeping' branch in the mood resolver renders the 💤
+  // marker until the companion auto-wakes (energy ≥ 100).
+  hunger: number | null;
+  happiness: number | null;
+  energy: number | null;
+  is_sleeping: number | null;
 }
 
 interface CompanionHUDProps {
@@ -33,6 +37,11 @@ const MOOD_EMOJI: Record<string, string> = {
   calm: '\u{1F60C}',
   sleepy: '\u{1F634}',
   curious: '\u{1F9D0}',
+  // V2.4 stat-derived moods
+  sleeping: '\u{1F4A4}',
+  hungry: '\u{1F37D}\u{FE0F}',
+  lonely: '\u{1F62E}\u{200D}\u{1F4A8}',
+  idle: '\u{1F643}',
 };
 
 const XP_PER_LEVEL = 100;
@@ -123,8 +132,10 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           current_activity: data.companion.current_activity ?? 'lounging',
           activity_ends_at: data.companion.activity_ends_at ?? null,
           equipped_cosmetics: equipped,
-          is_sleeping: data.companion.is_sleeping ?? 0,
-          energy: data.companion.energy ?? 100,
+          hunger: data.companion.hunger ?? null,
+          happiness: data.companion.happiness ?? null,
+          energy: data.companion.energy ?? null,
+          is_sleeping: data.companion.is_sleeping ?? null,
         });
         // Push the loadout into the Phaser scene so cosmetic layers render.
         EventBus.emit('companion-cosmetics', equipped);
@@ -246,10 +257,17 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
 
   const displayName =
     companion.nickname || `Skrumpey #${companion.token_id}`;
-  const isSleeping = companion.is_sleeping === 1;
-  const moodEmoji = isSleeping
-    ? '\u{1F4A4}'
-    : MOOD_EMOJI[companion.mood ?? ''] ?? '\u{1F438}';
+  const statsInput: MoodStatInput | null =
+    companion.hunger !== null && companion.happiness !== null && companion.energy !== null
+      ? {
+          hunger: companion.hunger,
+          happiness: companion.happiness,
+          energy: companion.energy,
+          is_sleeping: companion.is_sleeping ?? 0,
+        }
+      : null;
+  const effectiveMood = resolveCompanionMood(statsInput, companion.mood);
+  const moodEmoji = MOOD_EMOJI[effectiveMood ?? ''] ?? '\u{1F438}';
   const bondPct = Math.min((companion.bond_score / 100) * 100, 100);
   const xp = xpProgress(companion.total_xp, companion.level);
   const xpPct = xp.needed > 0 ? Math.min((xp.current / xp.needed) * 100, 100) : 100;
