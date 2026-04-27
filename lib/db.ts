@@ -18,8 +18,10 @@ import crypto from 'crypto';
 import { getResilientClient } from './rpcClient';
 import {
   applyInteractionStats,
+  toSqlDate,
   type CompanionStatAction,
 } from './sanctuary/companionStats';
+import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -5730,6 +5732,10 @@ export interface SanctuaryCompanion {
   energy: number;
   is_sleeping: number;
   sleep_started_at: string | null;
+  // V2.5 — last time the persisted vitality snapshot was reconciled with
+  // wall-clock decay. `decayStats(companion, now)` projects forward from
+  // this timestamp; `tickStats` writes the projection back and bumps it.
+  stats_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -5831,6 +5837,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v24Path, 'utf-8');
     database.exec(sql);
   }
+  const v25Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.5.sql');
+  if (fs.existsSync(v25Path)) {
+    const sql = fs.readFileSync(v25Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -5853,6 +5864,13 @@ function initializeSanctuary(database: Database.Database): void {
   catch { /* column already exists */ }
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN sleep_started_at DATETIME'); }
   catch { /* column already exists */ }
+  // V2.5: tamagotchi-style decay — `stats_updated_at` lets `decayStats`
+  // project current vitality from the persisted snapshot. Backfilled to
+  // CURRENT_TIMESTAMP for existing rows so day-1 projections are accurate.
+  try {
+    database.exec('ALTER TABLE sanctuary_companions ADD COLUMN stats_updated_at DATETIME');
+    database.exec('UPDATE sanctuary_companions SET stats_updated_at = CURRENT_TIMESTAMP WHERE stats_updated_at IS NULL');
+  } catch { /* column already exists */ }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
     const sql = fs.readFileSync(rateLimitPath, 'utf-8');
@@ -6114,19 +6132,34 @@ export function interactWithCompanion(
       throw new Error('Daily interaction limit reached. Come back tomorrow!');
     }
 
+    // First reconcile decay since the last `stats_updated_at` so the action's
+    // deltas land on the projected (not stale persisted) snapshot. V2.5 —
+    // [SWO_V2_COMPANION_STATS_SCHEMA].
+    const now = new Date();
+    const decayed = decayStats(
+      {
+        hunger: comp.hunger,
+        happiness: comp.happiness,
+        energy: comp.energy,
+        stats_updated_at: comp.stats_updated_at,
+        is_sleeping: comp.is_sleeping,
+      },
+      now,
+    );
+
     // Compute the new vitality snapshot. This throws SleepingCompanionError
     // when a non-sleep action is attempted while is_sleeping=1 and the
     // recovered energy is still below SLEEP_BLOCK_THRESHOLD.
     const stats = applyInteractionStats(
       {
-        hunger: comp.hunger,
-        happiness: comp.happiness,
-        energy: comp.energy,
+        hunger: decayed.hunger,
+        happiness: decayed.happiness,
+        energy: decayed.energy,
         is_sleeping: comp.is_sleeping,
         sleep_started_at: comp.sleep_started_at,
       },
       action,
-      new Date(),
+      now,
     );
 
     const starBonus = options?.isStar ?? false;
@@ -6142,6 +6175,7 @@ export function interactWithCompanion(
           energy = ?,
           is_sleeping = ?,
           sleep_started_at = ?,
+          stats_updated_at = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
@@ -6151,6 +6185,7 @@ export function interactWithCompanion(
       stats.energy,
       stats.is_sleeping,
       stats.sleep_started_at,
+      toSqlDate(now),
       comp.id,
     );
 
@@ -6171,6 +6206,78 @@ export function interactWithCompanion(
   });
 
   return txn();
+}
+
+/**
+ * V2.5 — read-only stats projection for the GET /api/sanctuary/companion/stats
+ * route. Returns the current decayed values plus the labelled needs[] without
+ * mutating the persisted snapshot. Returns null when the wallet has no active
+ * companion for the given token id.
+ */
+export function getCompanionStatsSnapshot(
+  walletAddress: string,
+  tokenId: number,
+  now: Date = new Date(),
+): { stats: DecayedStats; needs: string[]; updated_at: string | null } | null {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const comp = db.prepare(
+    'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+  ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+  if (!comp) return null;
+
+  const stats = decayStats(
+    {
+      hunger: comp.hunger,
+      happiness: comp.happiness,
+      energy: comp.energy,
+      stats_updated_at: comp.stats_updated_at,
+      is_sleeping: comp.is_sleeping,
+    },
+    now,
+  );
+  return { stats, needs: computeNeeds(stats), updated_at: comp.stats_updated_at };
+}
+
+/**
+ * V2.5 — converge the persisted vitality snapshot with wall-clock decay and
+ * bump `stats_updated_at`. Idempotent: calling twice in the same second is a
+ * no-op since the elapsed delta rounds to zero. `interactWithCompanion`
+ * applies decay inline (see `decayed` snapshot above), so direct callers only
+ * need this when they want to persist decay outside an interact path — e.g.
+ * a background refresh job. Returns the updated row, or null when no active
+ * companion exists for the wallet/token pair.
+ */
+export function tickStats(
+  walletAddress: string,
+  tokenId: number,
+  now: Date = new Date(),
+): SanctuaryCompanion | null {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const comp = db.prepare(
+    'SELECT * FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1'
+  ).get(addr, tokenId) as SanctuaryCompanion | undefined;
+  if (!comp) return null;
+
+  const decayed = decayStats(
+    {
+      hunger: comp.hunger,
+      happiness: comp.happiness,
+      energy: comp.energy,
+      stats_updated_at: comp.stats_updated_at,
+      is_sleeping: comp.is_sleeping,
+    },
+    now,
+  );
+
+  db.prepare(`
+    UPDATE sanctuary_companions
+    SET hunger = ?, happiness = ?, energy = ?, stats_updated_at = ?
+    WHERE id = ?
+  `).run(decayed.hunger, decayed.happiness, decayed.energy, toSqlDate(now), comp.id);
+
+  return db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?').get(comp.id) as SanctuaryCompanion;
 }
 
 export function addJournalEntry(
