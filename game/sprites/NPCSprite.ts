@@ -7,9 +7,15 @@ const IDLE_BOB_AMPLITUDE = 1.5;
 const INDICATOR_BOB_SPEED = 0.004;
 const INDICATOR_BOB_AMPLITUDE = 3;
 
-const NPC_DISPLAY_HEIGHT = 60;
-const PLACEHOLDER_SCALE = 1.5;
+// Target on-screen NPC height in pixels. The painted player sprite renders
+// ~62 px tall, so 48 keeps NPCs noticeably smaller than the player instead of
+// dwarfing them.
+const NPC_DISPLAY_HEIGHT = 48;
+const PLACEHOLDER_SCALE = 1.2;
 const ALPHA_THRESHOLD = 16;
+// Minimum click hit-region in px. At a 48 px sprite the natural displayWidth
+// drops to roughly 32–40, so the floor keeps small NPCs comfortably clickable.
+const MIN_HIT_SIZE = 28;
 
 function npcFrame0TextureKey(id: string): string {
   return `npc-frame0-${id}`;
@@ -87,8 +93,8 @@ export class NPCSprite extends Phaser.GameObjects.Container {
     this.indicator.setVisible(false);
     this.add(this.indicator);
 
-    const hitW = Math.max(24, this.sprite.displayWidth);
-    const hitH = Math.max(24, this.sprite.displayHeight);
+    const hitW = Math.max(MIN_HIT_SIZE, this.sprite.displayWidth);
+    const hitH = Math.max(MIN_HIT_SIZE, this.sprite.displayHeight);
     this.setSize(hitW, hitH);
     this.setInteractive({ useHandCursor: true });
 
