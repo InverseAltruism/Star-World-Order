@@ -2,14 +2,21 @@ import { describe, it, expect } from 'vitest';
 import {
   buildChatPrompt,
   buildMemoryContextBlock,
+  buildCompanionStateBlock,
   bondLabel,
   moodLabel,
   estimateTokens,
   estimatePromptTokens,
+  formatHungerDescriptor,
+  formatHappinessDescriptor,
+  formatEnergyDescriptor,
+  formatTimeAgo,
   CONSTELLATION_PERSONAS,
   DEFAULT_PERSONA,
   MEMORY_INJECT_TOKEN_BUDGET,
   MAX_INJECTED_MEMORIES,
+  STATE_INJECT_TOKEN_BUDGET,
+  type CompanionStateInput,
 } from '../chatPersonality';
 import type {
   SanctuaryCompanionWithMeta,
@@ -377,5 +384,211 @@ describe('estimatePromptTokens', () => {
       userMessage: 'Hello world',
     });
     expect(estimatePromptTokens(out)).toBeGreaterThan(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// State injection — V2.5 [SWO_V2_COMPANION_CHAT_KNOWS_STATS]
+// ---------------------------------------------------------------------------
+
+const NOW = new Date('2026-04-27T12:00:00Z');
+
+const stateInput = (overrides: Partial<CompanionStateInput> = {}): CompanionStateInput => ({
+  hunger: 80,
+  happiness: 80,
+  energy: 80,
+  is_sleeping: 0,
+  needs: [],
+  recentActions: [],
+  ...overrides,
+});
+
+describe('descriptor helpers', () => {
+  it('hunger descriptor reflects severity', () => {
+    expect(formatHungerDescriptor(95)).toContain('full');
+    expect(formatHungerDescriptor(60)).toContain('satisfied');
+    expect(formatHungerDescriptor(40)).toContain('peckish');
+    expect(formatHungerDescriptor(20)).toContain('hungry');
+    expect(formatHungerDescriptor(5)).toContain('starving');
+  });
+
+  it('happiness descriptor reflects severity', () => {
+    expect(formatHappinessDescriptor(90)).toContain('sparkling');
+    expect(formatHappinessDescriptor(60)).toContain('cheerful');
+    expect(formatHappinessDescriptor(40)).toContain('dim');
+    expect(formatHappinessDescriptor(20)).toContain('lonely');
+    expect(formatHappinessDescriptor(5)).toContain('lonely');
+  });
+
+  it('energy descriptor reflects severity', () => {
+    expect(formatEnergyDescriptor(90)).toContain('rested');
+    expect(formatEnergyDescriptor(60)).toContain('alert');
+    expect(formatEnergyDescriptor(40)).toContain('drowsy');
+    expect(formatEnergyDescriptor(20)).toContain('tired');
+    expect(formatEnergyDescriptor(5)).toContain('exhausted');
+  });
+
+  it('descriptors clamp out-of-range values', () => {
+    expect(formatHungerDescriptor(150)).toContain('full');
+    expect(formatHungerDescriptor(-50)).toContain('starving');
+    expect(formatHappinessDescriptor(Number.NaN)).toContain('lonely');
+  });
+});
+
+describe('formatTimeAgo', () => {
+  it('formats minutes ago', () => {
+    expect(formatTimeAgo('2026-04-27 11:55:00', NOW)).toBe('5m ago');
+  });
+  it('formats moments ago for very recent events', () => {
+    expect(formatTimeAgo('2026-04-27 11:59:50', NOW)).toBe('just moments ago');
+  });
+  it('formats hours ago', () => {
+    expect(formatTimeAgo('2026-04-27 09:00:00', NOW)).toBe('3h ago');
+  });
+  it('formats days ago for distant events', () => {
+    expect(formatTimeAgo('2026-04-24 12:00:00', NOW)).toBe('3d ago');
+  });
+  it('returns "recently" for unparseable input', () => {
+    expect(formatTimeAgo('not-a-date', NOW)).toBe('recently');
+  });
+});
+
+describe('buildCompanionStateBlock', () => {
+  it('renders qualitative descriptors with no raw stat numbers', () => {
+    const block = buildCompanionStateBlock(
+      stateInput({ hunger: 22, happiness: 85, energy: 45 }),
+      NOW,
+    );
+    expect(block).toContain('hungry');
+    expect(block).toContain('sparkling');
+    expect(block).toContain('drowsy');
+    expect(block).not.toMatch(/\b22\b/);
+    expect(block).not.toMatch(/\b85\b/);
+    expect(block).not.toMatch(/\b45\b/);
+    expect(block).not.toMatch(/\d+%/);
+  });
+
+  it('lists active needs but never as raw numbers', () => {
+    const block = buildCompanionStateBlock(
+      stateInput({ hunger: 10, happiness: 10, needs: ['hungry', 'lonely'] }),
+      NOW,
+    );
+    expect(block).toContain('Active needs');
+    expect(block).toContain('hungry');
+    expect(block).toContain('lonely');
+  });
+
+  it('falls back when no needs are active', () => {
+    const block = buildCompanionStateBlock(stateInput(), NOW);
+    expect(block).toContain('feeling steady');
+  });
+
+  it('flags napping when is_sleeping is 1', () => {
+    const block = buildCompanionStateBlock(stateInput({ is_sleeping: 1 }), NOW);
+    expect(block).toContain('currently napping');
+  });
+
+  it('renders up to 3 recent actions with friendly verbs', () => {
+    const block = buildCompanionStateBlock(
+      stateInput({
+        recentActions: [
+          { action: 'feed', created_at: '2026-04-27 11:30:00' },
+          { action: 'play', created_at: '2026-04-27 09:00:00' },
+          { action: 'pet', created_at: '2026-04-26 12:00:00' },
+          { action: 'talk', created_at: '2026-04-25 12:00:00' },
+        ],
+      }),
+      NOW,
+    );
+    expect(block).toContain('fed me');
+    expect(block).toContain('played with me');
+    expect(block).toContain('petted me');
+    expect(block).not.toContain('talked with me');
+  });
+
+  it('falls back when no recent actions', () => {
+    const block = buildCompanionStateBlock(stateInput(), NOW);
+    expect(block).toContain('nothing recent');
+  });
+
+  it('respects the 200 token injection budget', () => {
+    const block = buildCompanionStateBlock(
+      stateInput({
+        hunger: 5,
+        happiness: 5,
+        energy: 5,
+        is_sleeping: 1,
+        needs: ['hungry', 'lonely', 'tired'],
+        recentActions: [
+          { action: 'feed', created_at: '2026-04-27 11:30:00' },
+          { action: 'play', created_at: '2026-04-27 09:00:00' },
+          { action: 'pet', created_at: '2026-04-26 12:00:00' },
+        ],
+      }),
+      NOW,
+    );
+    expect(estimateTokens(block)).toBeLessThanOrEqual(STATE_INJECT_TOKEN_BUDGET);
+  });
+
+  it('STATE_INJECT_TOKEN_BUDGET equals 200', () => {
+    expect(STATE_INJECT_TOKEN_BUDGET).toBe(200);
+  });
+});
+
+describe('buildChatPrompt with companion state', () => {
+  it('injects the state block into the system prompt when state is provided', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      state: stateInput({ hunger: 25, needs: ['hungry'] }),
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    expect(out.system).toContain('current physical state');
+    expect(out.system).toContain('hungry');
+    expect(out.system).toContain('Never quote raw stat numbers');
+  });
+
+  it('does not inject the state block when state is omitted', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      userMessage: 'Hi',
+    });
+    expect(out.system).not.toContain('current physical state');
+  });
+
+  it('injection plus full prompt stays well under model limits', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      state: stateInput({
+        hunger: 20,
+        happiness: 20,
+        energy: 20,
+        is_sleeping: 1,
+        needs: ['hungry', 'lonely', 'tired'],
+        recentActions: [
+          { action: 'feed', created_at: '2026-04-27 11:30:00' },
+          { action: 'play', created_at: '2026-04-27 10:00:00' },
+          { action: 'pet', created_at: '2026-04-27 09:00:00' },
+        ],
+      }),
+      now: NOW,
+      userMessage: 'How are you?',
+    });
+    expect(estimatePromptTokens(out)).toBeLessThan(2000);
+  });
+
+  it('the system prompt instructs the model to reference state qualitatively', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      state: stateInput(),
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    expect(out.system).toMatch(/qualitative|qualitatively/i);
+    expect(out.system).toMatch(/never\s+(state|quote)\s+raw\s+numbers|raw\s+stat\s+numbers/i);
   });
 });
