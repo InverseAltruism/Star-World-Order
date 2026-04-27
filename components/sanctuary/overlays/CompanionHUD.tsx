@@ -17,7 +17,10 @@ interface CompanionData {
   current_activity: string;
   activity_ends_at: string | null;
   equipped_cosmetics: string | null;
-  // V2.4 vitality stats (optional — null/undefined for legacy companions)
+  // V2.4 vitality stats (optional — null/undefined for legacy companions).
+  // When populated, drive stat-derived mood; when null, trait-mood fallback
+  // applies. The 'sleeping' branch in the mood resolver renders the 💤
+  // marker until the companion auto-wakes (energy ≥ 100).
   hunger: number | null;
   happiness: number | null;
   energy: number | null;
