@@ -1,0 +1,15 @@
+-- Star Sanctuary — V2.5 Schema: Tamagotchi-style stats decay
+-- Run from lib/db.ts initializeSanctuary().
+--
+-- Adds the `stats_updated_at` column to sanctuary_companions so the pure
+-- helper `decayStats` (lib/sanctuary/decay.ts) can project the current
+-- vitality values from the persisted snapshot. Server-side `tickStats`
+-- in lib/db.ts converges the persisted values whenever an `interact`
+-- path runs, so the column is always reasonably fresh.
+--
+-- The column is additive — V2.4 stat columns (hunger/happiness/energy +
+-- is_sleeping/sleep_started_at) remain untouched.
+--
+-- SQLite lacks portable ALTER TABLE IF NOT EXISTS, so the actual
+-- ADD COLUMN statement is wrapped in try/catch in lib/db.ts. This file
+-- documents the target shape and is safe to re-run on existing DBs.
