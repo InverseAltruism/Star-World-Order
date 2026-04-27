@@ -66,6 +66,12 @@ No AI chat in V1. The `talk` interaction is a placeholder that increments bond a
 
 ### D6. STAR Currency: Evaluate Deliberately
 
+> **Update 2026-04-27:** This decision is now resolved by
+> [ADR-002](./SANCTUARY_ADR_002_STAR_CURRENCY.md). STAR is **soulbound** on
+> Monad, implemented as an ERC-20-shaped credit token whose transfers revert.
+> Off-chain ledger remains canonical for earnings; on-chain mint is lazy and
+> cosmetic-mint-driven. The text below is preserved for historical context.
+
 The STAR token on Monad is the intended currency for Sanctuary cosmetics, but its token design is **not yet decided**:
 
 - **Soulbound (non-transferable):** Pure engagement reward, no secondary market, no speculation. Simplest.
@@ -82,7 +88,7 @@ The STAR token on Monad is the intended currency for Sanctuary cosmetics, but it
 
 | # | Question | Owner | Blocks |
 |---|----------|-------|--------|
-| OQ1 | STAR token design: soulbound vs transferable vs hybrid | Operator | P3 (cosmetic shop) |
+| OQ1 | ~~STAR token design: soulbound vs transferable vs hybrid~~ — **Resolved by [ADR-002](./SANCTUARY_ADR_002_STAR_CURRENCY.md): soulbound** | Operator | ~~P3 (cosmetic shop)~~ — unblocked |
 | OQ2 | Activity duration tuning: what's the right range for timer-based activities (1h–8h)? | Design pass after V1 launch | P3.6 (balance pass) |
 | OQ3 | World map visual format: 2D illustrated map vs node graph vs list view? | Frontend PR (P2.4) | P2.4 |
 | OQ4 | Quest narrative depth: simple fetch-quest vs branching story? | V1.5 scope | P4.3 |
