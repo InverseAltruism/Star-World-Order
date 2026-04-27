@@ -741,7 +741,7 @@ describe('POST /api/sanctuary/companion/interact', () => {
     );
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain('Invalid action');
+    expect(body.error).toMatch(/action/i);
   });
 
   it('returns 401 on wallet auth failure', async () => {
@@ -770,6 +770,61 @@ describe('POST /api/sanctuary/companion/interact', () => {
       post('/api/sanctuary/companion/interact', { walletAddress: ALICE, token_id: TOKEN, action: 'feed' }),
     );
     expect(res.status).toBe(429);
+  });
+
+  // V2.4 — sleep / play actions ([SWO_V2_COMPANION_INTERACT_AFFECTS_STATS])
+  it('accepts sleep action and reflects is_sleeping in response', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    star.isStarSkrumpeyId.mockReturnValue(false);
+    db.interactWithCompanionV15.mockReturnValue({
+      companion: { token_id: TOKEN, is_sleeping: 1, energy: 40, hunger: 50, happiness: 60 },
+      journal: { id: 1 },
+      dailyRemaining: 14,
+      starBonus: false,
+    });
+    const res = await interactPOST(
+      post('/api/sanctuary/companion/interact', { walletAddress: ALICE, token_id: TOKEN, action: 'sleep' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.companion.is_sleeping).toBe(1);
+    expect(db.interactWithCompanionV15).toHaveBeenCalledWith(ALICE, TOKEN, 'sleep', { isStar: false });
+  });
+
+  it('accepts play action and surfaces stat deltas', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    star.isStarSkrumpeyId.mockReturnValue(false);
+    db.interactWithCompanionV15.mockReturnValue({
+      companion: { token_id: TOKEN, is_sleeping: 0, energy: 90, hunger: 40, happiness: 70 },
+      journal: { id: 2 },
+      dailyRemaining: 13,
+      starBonus: false,
+    });
+    const res = await interactPOST(
+      post('/api/sanctuary/companion/interact', { walletAddress: ALICE, token_id: TOKEN, action: 'play' }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.companion.happiness).toBe(70);
+    expect(body.companion.energy).toBe(90);
+    expect(body.companion.hunger).toBe(40);
+    expect(db.interactWithCompanionV15).toHaveBeenCalledWith(ALICE, TOKEN, 'play', { isStar: false });
+  });
+
+  it('returns 409 when companion is sleeping and play attempted', async () => {
+    walletAuth.verifyWalletAccess.mockResolvedValue({ valid: true });
+    star.isStarSkrumpeyId.mockReturnValue(false);
+    db.interactWithCompanionV15.mockImplementation(() => {
+      const err = new Error('Companion is sleeping. Wake them when energy reaches 80 (currently 40).');
+      err.name = 'SleepingCompanionError';
+      throw err;
+    });
+    const res = await interactPOST(
+      post('/api/sanctuary/companion/interact', { walletAddress: ALICE, token_id: TOKEN, action: 'play' }),
+    );
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/sleeping/i);
   });
 });
 

@@ -1,0 +1,16 @@
+-- Star Sanctuary — V2.4 Schema: Companion vitality stats
+-- Run from lib/db.ts initializeSanctuary()
+--
+-- Extends sanctuary_companions with the four vitality stats that
+-- interact actions (feed/pet/talk/play/sleep) mutate:
+--
+--   hunger            0–100 (feed +25, play −10)
+--   happiness         0–100 (pet +15, talk +8, play +20)
+--   energy            0–100 (sleep recovers +60/hour, play −10)
+--   is_sleeping       0/1 (set by sleep, blocks other actions until energy ≥ 80)
+--   sleep_started_at  DATETIME tracking when the current sleep began so
+--                     elapsed time → energy recovery can be computed
+--
+-- SQLite lacks portable ALTER TABLE IF NOT EXISTS, so the actual ADD COLUMN
+-- statements are wrapped in try/catch in lib/db.ts. This file documents the
+-- target shape and is safe to re-run on existing DBs.

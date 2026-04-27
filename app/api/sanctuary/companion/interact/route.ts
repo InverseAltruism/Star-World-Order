@@ -46,8 +46,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to interact';
+    const name = error instanceof Error ? error.name : '';
     const status = message.includes('No active companion') ? 404
       : message.includes('Daily interaction limit') ? 429
+      : name === 'SleepingCompanionError' || message.includes('Companion is sleeping') ? 409
       : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
