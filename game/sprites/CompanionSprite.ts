@@ -7,6 +7,25 @@ import {
   type CosmeticSlot,
   type EquippedCosmetics,
 } from '../systems/CosmeticSystem';
+import {
+  deriveMoodFromStats,
+  statMoodToAnimationMood,
+  type MoodStatInput,
+} from '@/lib/sanctuary/mood';
+
+const VALID_MOODS: ReadonlyArray<CompanionMood> = ['happy', 'calm', 'sleepy', 'excited', 'curious', 'idle'];
+function isCompanionMood(value: string): value is CompanionMood {
+  return (VALID_MOODS as readonly string[]).includes(value);
+}
+
+function statsArePopulated(stats: MoodStatInput | null | undefined): stats is MoodStatInput {
+  if (!stats) return false;
+  return (
+    Number.isFinite(stats.hunger) &&
+    Number.isFinite(stats.happiness) &&
+    Number.isFinite(stats.energy)
+  );
+}
 
 const LERP_FACTOR = 0.15;
 const FOLLOW_DISTANCE = 20;
@@ -157,6 +176,23 @@ export class CompanionSprite extends Phaser.GameObjects.Container {
     if (this.animSystem.setMood(mood)) {
       this.refreshTexture();
     }
+  }
+
+  /**
+   * Update mood from a current vitality snapshot. Prefers stats-derived mood
+   * (V2.4 companions); falls back to the supplied trait mood for legacy
+   * companions whose stats have not yet been populated. The derived StatMood
+   * is mapped to an existing CompanionMood animation — no new art.
+   */
+  setMoodFromStats(stats: MoodStatInput | null | undefined, traitMood: string | null | undefined) {
+    if (!this.animSystem) return;
+    let target: CompanionMood | null = null;
+    if (statsArePopulated(stats)) {
+      target = statMoodToAnimationMood(deriveMoodFromStats(stats));
+    } else if (traitMood && isCompanionMood(traitMood)) {
+      target = traitMood;
+    }
+    if (target) this.setMood(target);
   }
 
   async setConstellation(constellation: Constellation) {
