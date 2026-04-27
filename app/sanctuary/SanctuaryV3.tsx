@@ -63,6 +63,10 @@ const OnboardingOverlay = dynamic(
   () => import('@/components/sanctuary/overlays/OnboardingOverlay'),
   { ssr: false },
 );
+const NoSkrumpeyGate = dynamic(
+  () => import('@/components/sanctuary/overlays/NoSkrumpeyGate'),
+  { ssr: false },
+);
 const AudioBootstrap = dynamic(
   () => import('@/components/sanctuary/AudioBootstrap'),
   { ssr: false },
@@ -133,6 +137,11 @@ export default function SanctuaryV3() {
         <WelcomeDialog walletAddress={address} />
         <CompanionChatOverlay walletAddress={address} tokenId={activeTokenId} />
         <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
+        <NoSkrumpeyGate
+          walletAddress={address}
+          tokenId={activeTokenId}
+          onCompanionSelected={(id) => setActiveTokenId(id)}
+        />
         <AudioBootstrap />
         <LevelUpCelebration />
       </div>

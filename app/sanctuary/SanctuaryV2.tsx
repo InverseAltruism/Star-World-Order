@@ -86,6 +86,11 @@ const OnboardingOverlay = dynamic(
   { ssr: false }
 );
 
+const NoSkrumpeyGate = dynamic(
+  () => import('@/components/sanctuary/overlays/NoSkrumpeyGate'),
+  { ssr: false }
+);
+
 const LevelUpCelebration = dynamic(
   () => import('@/components/sanctuary/overlays/LevelUpCelebration'),
   { ssr: false }
@@ -183,6 +188,11 @@ export default function SanctuaryV2() {
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
         <WelcomeDialog walletAddress={address} />
         <OnboardingOverlay walletAddress={address} tokenId={activeTokenId} />
+        <NoSkrumpeyGate
+          walletAddress={address}
+          tokenId={activeTokenId}
+          onCompanionSelected={(id) => setActiveTokenId(id)}
+        />
         <AudioBootstrap />
         <LevelUpCelebration />
         <ChatBubble />

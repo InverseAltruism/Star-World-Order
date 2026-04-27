@@ -175,6 +175,9 @@ export default function QuestDialog({
       ) {
         return;
       }
+      // NoSkrumpeyGate handles the no-companion path; bail so the user isn't
+      // shown an empty quest dialog before the gate intercepts.
+      if (tokenId === null) return;
       setNpc(payload);
       setVisible(true);
       setQuestFeedback(null);
@@ -186,7 +189,7 @@ export default function QuestDialog({
         loadTrainingOptions();
       }
     },
-    [loadQuests, loadMapLocations, loadCompanionState, loadTrainingOptions]
+    [tokenId, loadQuests, loadMapLocations, loadCompanionState, loadTrainingOptions]
   );
 
   useEffect(() => {
