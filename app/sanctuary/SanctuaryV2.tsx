@@ -104,10 +104,23 @@ const AudioBootstrap = dynamic(
 export default function SanctuaryV2() {
   const gameRef = useRef<PhaserGameRef | null>(null);
   const searchParams = useSearchParams();
-  const editMode = searchParams.get('edit') === '1';
+  const [editorOpen, setEditorOpen] = useState(searchParams.get('edit') === '1');
   const { address, isConnected } = useAccount();
   const [activeTokenId, setActiveTokenId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'M' || e.key === 'm')) {
+        const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        e.preventDefault();
+        setEditorOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (!address) return;
@@ -188,7 +201,7 @@ export default function SanctuaryV2() {
         <ChatBubble />
         <CompanionChatOverlay walletAddress={address} tokenId={activeTokenId} />
         <ChatInput />
-        {editMode && <DevMapEditor />}
+        {editorOpen && <DevMapEditor />}
       </div>
     </div>
   );

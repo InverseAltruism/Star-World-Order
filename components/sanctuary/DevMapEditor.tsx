@@ -65,7 +65,23 @@ export default function DevMapEditor() {
     return out.join('\n');
   };
 
-  const copy = () => { navigator.clipboard.writeText(asTS()); };
+  const asJSON = () => {
+    const spawn = entries.find((e) => e.kind === 'spawn') as SpawnEntry | undefined;
+    const doors = entries.filter((e) => e.kind === 'door') as DoorEntry[];
+    const cols = entries.filter((e) => e.kind === 'collision') as CollisionEntry[];
+    return JSON.stringify(
+      {
+        spawn: spawn ? { x: spawn.x, y: spawn.y } : null,
+        doors: doors.map(({ room, x, y, w, h }) => ({ room, x, y, w, h })),
+        collision: cols.map(({ x, y, w, h }) => ({ x, y, w, h })),
+      },
+      null,
+      2,
+    );
+  };
+
+  const copyTS = () => { navigator.clipboard.writeText(asTS()); };
+  const copyJSON = () => { navigator.clipboard.writeText(asJSON()); };
   const undo = () => setEntries((e) => e.slice(0, -1));
   const clear = () => { setEntries([]); setCorner(null); };
 
@@ -115,9 +131,15 @@ export default function DevMapEditor() {
         ))}
       </div>
       <div className="flex gap-1">
-        <button onClick={copy} className="flex-1 px-2 py-1 bg-[#00ff88] text-black font-bold rounded text-[9px]">COPY TS</button>
-        <button onClick={undo} className="px-2 py-1 bg-black border border-[#ffd700] text-[#ffd700] rounded text-[9px]">UNDO</button>
-        <button onClick={clear} className="px-2 py-1 bg-black border border-[#ff00ff] text-[#ff00ff] rounded text-[9px]">CLEAR</button>
+        <button onClick={copyTS} className="flex-1 px-2 py-1 bg-[#00ff88] text-black font-bold rounded text-[9px]">COPY TS</button>
+        <button onClick={copyJSON} className="flex-1 px-2 py-1 bg-[#00f7ff] text-black font-bold rounded text-[9px]">COPY JSON</button>
+      </div>
+      <div className="flex gap-1">
+        <button onClick={undo} className="flex-1 px-2 py-1 bg-black border border-[#ffd700] text-[#ffd700] rounded text-[9px]">UNDO</button>
+        <button onClick={clear} className="flex-1 px-2 py-1 bg-black border border-[#ff00ff] text-[#ff00ff] rounded text-[9px]">CLEAR</button>
+      </div>
+      <div className="text-[#888] text-[9px] leading-tight pt-1 border-t border-[#00ff88]/20">
+        toggle: <span className="text-[#00ff88]">Ctrl+Shift+M</span> · or <span className="text-[#00ff88]">?edit=1</span>
       </div>
     </div>
   );
