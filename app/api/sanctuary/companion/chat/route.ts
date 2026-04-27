@@ -6,12 +6,14 @@ import {
   getCompanionChatHistoryCount,
   getActiveCompanion,
   getJournalEntries,
+  getJournalEntriesPaginated,
   getUnlockedTraits,
   generateTemplateCompanionReply,
   persistCompanionChatExchange,
   getTopChatMemories,
   upsertChatMemory,
 } from '@/lib/db';
+import { decayStats, computeNeeds } from '@/lib/sanctuary/decay';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import {
@@ -140,6 +142,37 @@ export async function POST(request: NextRequest) {
     const unlockedTraits = getUnlockedTraits(address, tid);
     const memories = getTopChatMemories(address, tid, 5);
 
+    const now = new Date();
+    const projectedStats = decayStats(
+      {
+        hunger: companion.hunger,
+        happiness: companion.happiness,
+        energy: companion.energy,
+        stats_updated_at: companion.stats_updated_at,
+        is_sleeping: companion.is_sleeping,
+      },
+      now,
+    );
+    const needs = computeNeeds(projectedStats);
+
+    const recentActions = (() => {
+      try {
+        const page = getJournalEntriesPaginated(address, tid, { type: 'interaction', limit: 3, page: 1 });
+        return page.entries.map((e) => {
+          let action = 'interact';
+          try {
+            const meta = JSON.parse(e.metadata || '{}');
+            if (typeof meta.action === 'string') action = meta.action;
+          } catch {
+            // Ignore malformed metadata; keep default action label.
+          }
+          return { action, created_at: e.created_at };
+        });
+      } catch {
+        return [];
+      }
+    })();
+
     const prompt = buildChatPrompt({
       companion,
       history,
@@ -147,6 +180,15 @@ export async function POST(request: NextRequest) {
       unlockedTraits,
       memories,
       memoryExtractionInstruction: buildMemoryExtractionInstruction(),
+      state: {
+        hunger: projectedStats.hunger,
+        happiness: projectedStats.happiness,
+        energy: projectedStats.energy,
+        is_sleeping: companion.is_sleeping,
+        needs,
+        recentActions,
+      },
+      now,
       userMessage: message,
     });
 

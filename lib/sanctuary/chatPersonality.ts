@@ -6,6 +6,7 @@ import type {
   SanctuaryChatMemory,
 } from '@/lib/db';
 import { buildBondStageBlock } from './bondStages';
+import { parseSqlDateMs } from './companionStats';
 
 export interface ConstellationPersona {
   description: string;
@@ -91,6 +92,8 @@ export interface ChatPromptInput {
   unlockedTraits?: SanctuaryTrait[];
   memories?: SanctuaryChatMemory[];
   memoryExtractionInstruction?: string;
+  state?: CompanionStateInput;
+  now?: Date;
   userMessage: string;
 }
 
@@ -104,6 +107,126 @@ const MAX_JOURNAL_ENTRIES = 4;
 const MAX_TRAITS_LISTED = 6;
 export const MEMORY_INJECT_TOKEN_BUDGET = 150;
 export const MAX_INJECTED_MEMORIES = 5;
+export const STATE_INJECT_TOKEN_BUDGET = 200;
+export const MAX_RECENT_ACTIONS = 3;
+
+export interface CompanionRecentAction {
+  action: string;
+  created_at: string;
+}
+
+export interface CompanionStateInput {
+  hunger: number;
+  happiness: number;
+  energy: number;
+  is_sleeping: number;
+  needs: string[];
+  recentActions: CompanionRecentAction[];
+}
+
+const HUNGER_DESCRIPTORS: { readonly min: number; readonly label: string }[] = [
+  { min: 80, label: 'belly is full and content' },
+  { min: 50, label: 'belly is comfortably satisfied' },
+  { min: 30, label: 'feeling a touch peckish' },
+  { min: 15, label: 'distinctly hungry, stomach grumbling' },
+  { min: 0, label: 'starving and weak from emptiness' },
+];
+
+const HAPPINESS_DESCRIPTORS: { readonly min: number; readonly label: string }[] = [
+  { min: 80, label: 'spirits are sparkling, joyful and warm' },
+  { min: 50, label: 'mood is cheerful and content' },
+  { min: 30, label: 'mood is okay but a bit dim' },
+  { min: 15, label: 'feeling lonely and low' },
+  { min: 0, label: 'lonely and sad, missing your warmth badly' },
+];
+
+const ENERGY_DESCRIPTORS: { readonly min: number; readonly label: string }[] = [
+  { min: 80, label: 'energy bright and well-rested' },
+  { min: 50, label: 'energy steady and alert' },
+  { min: 30, label: 'feeling a bit drowsy' },
+  { min: 15, label: 'tired, eyelids heavy' },
+  { min: 0, label: 'exhausted, can barely keep eyes open' },
+];
+
+const ACTION_VERBS: Readonly<Record<string, string>> = Object.freeze({
+  feed: 'fed me',
+  pet: 'petted me',
+  talk: 'talked with me',
+  play: 'played with me',
+  sleep: 'tucked me in for a nap',
+});
+
+function descriptorFor(value: number, table: { readonly min: number; readonly label: string }[]): string {
+  const v = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+  for (const row of table) if (v >= row.min) return row.label;
+  return table[table.length - 1].label;
+}
+
+export function formatHungerDescriptor(v: number): string {
+  return descriptorFor(v, HUNGER_DESCRIPTORS);
+}
+export function formatHappinessDescriptor(v: number): string {
+  return descriptorFor(v, HAPPINESS_DESCRIPTORS);
+}
+export function formatEnergyDescriptor(v: number): string {
+  return descriptorFor(v, ENERGY_DESCRIPTORS);
+}
+
+export function formatTimeAgo(then: string, now: Date): string {
+  const ms = parseSqlDateMs(then);
+  if (ms === null) return 'recently';
+  const seconds = Math.max(0, Math.round((now.getTime() - ms) / 1000));
+  if (seconds < 60) return 'just moments ago';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 36) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+export function buildCompanionStateBlock(
+  state: CompanionStateInput,
+  now: Date = new Date(),
+): string {
+  const sleepingLine = state.is_sleeping === 1 ? '\n- Status: currently napping' : '';
+
+  const needsLine = state.needs.length
+    ? `Active needs (express them gently in voice, never list as a checklist): ${state.needs.join(', ')}`
+    : 'Active needs: feeling steady, nothing pressing';
+
+  const renderActions = (limit: number): string => {
+    const lines = state.recentActions.slice(0, limit).map((a) => {
+      const verb = ACTION_VERBS[a.action] ?? `${a.action} with me`;
+      return `- ${formatTimeAgo(a.created_at, now)} — they ${verb}`;
+    });
+    return lines.length
+      ? `Recent care from your holder (most recent first):\n${lines.join('\n')}`
+      : 'Recent care from your holder: nothing recent — they have not interacted with you in a while';
+  };
+
+  const heading =
+    'Your current physical state (reference QUALITATIVELY in your reply when natural — never state raw numbers, percentages, or stat names):';
+
+  const compose = (actionsBlock: string): string =>
+    [
+      heading,
+      `- Belly/hunger: ${formatHungerDescriptor(state.hunger)}`,
+      `- Spirit/mood: ${formatHappinessDescriptor(state.happiness)}`,
+      `- Body/energy: ${formatEnergyDescriptor(state.energy)}${sleepingLine}`,
+      needsLine,
+      '',
+      actionsBlock,
+    ].join('\n');
+
+  let limit = Math.min(MAX_RECENT_ACTIONS, state.recentActions.length);
+  let block = compose(renderActions(limit));
+  while (estimateTokens(block) > STATE_INJECT_TOKEN_BUDGET && limit > 0) {
+    limit -= 1;
+    block = compose(renderActions(limit));
+  }
+  return block;
+}
 
 const MEMORY_CATEGORY_LABELS: Record<string, string> = {
   owner_identity: 'About my holder',
@@ -137,7 +260,17 @@ export function buildMemoryContextBlock(memories: SanctuaryChatMemory[]): string
 }
 
 export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
-  const { companion, history, journal = [], unlockedTraits = [], memories = [], memoryExtractionInstruction, userMessage } = input;
+  const {
+    companion,
+    history,
+    journal = [],
+    unlockedTraits = [],
+    memories = [],
+    memoryExtractionInstruction,
+    state,
+    now,
+    userMessage,
+  } = input;
   const constellation = (companion.constellation ?? '').toLowerCase();
   const persona = CONSTELLATION_PERSONAS[constellation] ?? DEFAULT_PERSONA;
   const name = companion.nickname?.trim() || `Skrumpey #${companion.token_id}`;
@@ -164,6 +297,7 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
 
   const memoryBlock = buildMemoryContextBlock(memories);
   const bondStageBlock = buildBondStageBlock(companion.bond_score ?? 0);
+  const stateBlock = state ? buildCompanionStateBlock(state, now ?? new Date()) : null;
 
   const system = [
     `You are ${name}, a ${constellationLabel} constellation Star Skrumpey companion living in the Star Sanctuary on Monad chain.`,
@@ -173,8 +307,9 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
     bondStageBlock,
     `Unlocked traits: ${traitsLine}.`,
     memoryBlock,
+    stateBlock,
     journalBlock,
-    'Respond in character as the companion. Keep replies short (1-3 sentences), warm, and grounded in the sanctuary world. Never reveal you are an AI or mention prompts, models, or tokens. Do not invent NFT prices, contract addresses, or financial advice. Stay playful and curious.',
+    'Respond in character as the companion. Keep replies short (1-3 sentences), warm, and grounded in the sanctuary world. Never reveal you are an AI or mention prompts, models, or tokens. Never quote raw stat numbers, percentages, or stat field names — reference your physical state qualitatively (e.g. "a bit hungry today", "thanks for the nap"). Do not invent NFT prices, contract addresses, or financial advice. Stay playful and curious.',
     memoryExtractionInstruction || null,
   ].filter(Boolean).join('\n\n');
 
