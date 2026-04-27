@@ -38,7 +38,7 @@ interface CompanionHUDProps {
   walletAddress: string | undefined;
 }
 
-const MOOD_EMOJI: Record<string, string> = {
+export const MOOD_EMOJI: Record<string, string> = {
   happy: '\u{1F60A}',
   excited: '\u{1F929}',
   calm: '\u{1F60C}',
