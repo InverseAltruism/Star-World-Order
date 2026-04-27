@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import { resolveCompanionMood, type MoodStatInput } from '@/lib/sanctuary/mood';
+import {
+  alertIcon,
+  describeNeeds,
+  lowStats,
+  newlyCrossed,
+  type NeedStats,
+} from '@/lib/sanctuary/needs';
 
 interface CompanionData {
   nickname: string | null;
@@ -97,6 +104,11 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const [claiming, setClaiming] = useState(false);
   const [claimFeedback, setClaimFeedback] = useState<string | null>(null);
   const prevAwayRef = useRef<boolean>(false);
+  // Tracks the last observed vitality snapshot so we can detect downward
+  // crossings of the alert threshold. The visible alert state is derived
+  // from the current snapshot, but `prevNeedsRef` lets us emit the
+  // companion-need-alert event at most once per stat per cross.
+  const prevNeedsRef = useRef<NeedStats | null>(null);
 
   const fetchStarBalance = useCallback(async () => {
     if (!walletAddress) return;
@@ -183,6 +195,20 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
     }
   }, [onQuest]);
 
+  useEffect(() => {
+    if (!companion) return;
+    const next: NeedStats = {
+      hunger: companion.hunger,
+      happiness: companion.happiness,
+      energy: companion.energy,
+    };
+    const crossed = newlyCrossed(prevNeedsRef.current, next);
+    if (crossed.length > 0) {
+      EventBus.emit('companion-need-alert', { stats: crossed });
+    }
+    prevNeedsRef.current = next;
+  }, [companion]);
+
   const onEnter = useCallback((payload: { name: string }) => {
     setLocationName(payload.name);
     setLocationVisible(true);
@@ -207,6 +233,14 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
 
   const openTraits = useCallback(() => {
     EventBus.emit('traits-overlay-toggle');
+  }, []);
+
+  const openCompanionMenu = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    EventBus.emit('companion-clicked', {
+      screenX: window.innerWidth / 2,
+      screenY: window.innerHeight / 2,
+    });
   }, []);
 
   const handleClaim = useCallback(async () => {
@@ -274,6 +308,16 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const compXp = companionXpProgress(companion.companion_xp, companion.companion_level);
   const compXpPct = compXp.needed > 0 ? Math.min((compXp.current / compXp.needed) * 100, 100) : 100;
 
+  const needSnapshot: NeedStats = {
+    hunger: companion.hunger,
+    happiness: companion.happiness,
+    energy: companion.energy,
+  };
+  const lowNeeds = lowStats(needSnapshot);
+  const alertVisible = lowNeeds.length > 0;
+  const alertGlyph = alertIcon(lowNeeds);
+  const alertTooltip = describeNeeds(needSnapshot);
+
   const questName = onQuest
     ? companion.current_activity.slice('exploring:'.length)
     : null;
@@ -297,6 +341,23 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
             {starBalance.toLocaleString()}
           </span>
         </div>
+      )}
+
+      {/* Need alert badge — soft, non-blocking, appears when any vitality
+          stat drops below NEED_ALERT_THRESHOLD. Click jumps to the
+          companion radial menu so the user can feed/pet/talk. The slot is
+          absolutely positioned so toggling visibility never relayouts the
+          rest of the HUD. */}
+      {alertVisible && (
+        <button
+          type="button"
+          onClick={openCompanionMenu}
+          className="absolute top-12 right-2 z-20 flex items-center justify-center w-7 h-7 bg-black/80 border border-[#ff6644]/70 rounded-full text-base leading-none pointer-events-auto select-none shadow-[0_0_8px_rgba(255,102,68,0.35)] hover:bg-[#3a1410]/80 hover:border-[#ff8866] transition-colors animate-pulse"
+          aria-label={`Companion needs attention: ${alertTooltip}`}
+          title={`${alertTooltip} — tap to interact`}
+        >
+          <span aria-hidden="true">{alertGlyph}</span>
+        </button>
       )}
 
       {/* Companion status bar */}
