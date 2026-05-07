@@ -22,6 +22,11 @@ import {
   writeLastCelebratedMilestone,
   type BondMilestone,
 } from '@/lib/sanctuary/bondMilestones';
+import {
+  freshestVisitIso,
+  readLastVisit,
+  writeLastVisit,
+} from '@/lib/sanctuary/lastVisitStore';
 
 const SanctuaryContent = dynamic(() => import('./SanctuaryContent'), { ssr: false });
 
@@ -185,6 +190,11 @@ export default function CompanionView() {
     Set<'hunger' | 'happiness' | 'energy'>
   >(() => new Set());
   const [bondCelebration, setBondCelebration] = useState<BondCelebration | null>(null);
+  // Snapshot of the localStorage "last opened" marker captured the moment we
+  // first see this token id this session — so the cozy line below can refer
+  // to the *previous* page-open rather than the one happening right now (we
+  // overwrite the marker immediately afterward; see the effect below).
+  const [localVisitMs, setLocalVisitMs] = useState<number | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactionIdRef = useRef(0);
   const deltaIdRef = useRef(0);
@@ -261,6 +271,17 @@ export default function CompanionView() {
       fetchJournal(companion.token_id);
     }
   }, [companion?.token_id, fetchJournal]);
+
+  // Capture the previous "you opened the screen at" marker, then immediately
+  // refresh it for the next page-open. The captured value is what feeds the
+  // cozy `lastVisitedPhrase` line — overwriting first would always show "you
+  // just popped in" no matter how long it had been.
+  useEffect(() => {
+    const tokenId = companion?.token_id;
+    if (tokenId === undefined) return;
+    setLocalVisitMs(readLastVisit(tokenId));
+    writeLastVisit(tokenId, Date.now());
+  }, [companion?.token_id]);
 
   const flashFeedback = useCallback((msg: string) => {
     setFeedback(msg);
@@ -537,7 +558,12 @@ export default function CompanionView() {
     effectiveMood as CozyMood,
     isSleeping,
   );
-  const lastVisit = lastVisitedPhrase(companion.stats_updated_at);
+  // Prefer the local "page-open" marker over `stats_updated_at` whenever it
+  // is fresher, so the cozy line refreshes on every open even when the
+  // player just lurks without interacting.
+  const lastVisit = lastVisitedPhrase(
+    freshestVisitIso(localVisitMs, companion.stats_updated_at),
+  );
 
   return (
     <div className="space-y-6">
