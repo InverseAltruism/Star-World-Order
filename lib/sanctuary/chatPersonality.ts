@@ -109,6 +109,8 @@ export const MEMORY_INJECT_TOKEN_BUDGET = 150;
 export const MAX_INJECTED_MEMORIES = 5;
 export const STATE_INJECT_TOKEN_BUDGET = 200;
 export const MAX_RECENT_ACTIONS = 3;
+export const RECENT_CARE_LOG_TOKEN_BUDGET = 80;
+export const MAX_RECENT_CARE_LOG_ENTRIES = 3;
 
 export interface CompanionRecentAction {
   action: string;
@@ -228,6 +230,38 @@ export function buildCompanionStateBlock(
   return block;
 }
 
+export function buildRecentCareLogLine(
+  journal: SanctuaryJournalEntry[],
+  now: Date = new Date(),
+): string | null {
+  const interactions = journal
+    .filter((e) => e.entry_type === 'interaction')
+    .slice(0, MAX_RECENT_CARE_LOG_ENTRIES);
+  if (!interactions.length) return null;
+
+  const formatPart = (entry: SanctuaryJournalEntry): string => {
+    const ago = formatTimeAgo(entry.created_at, now);
+    const content = (entry.content ?? '').trim().replace(/\s+/g, ' ');
+    const trimmed = content.length > 80 ? `${content.slice(0, 77)}...` : content;
+    return `${trimmed} (${ago})`;
+  };
+
+  const header = 'Recent care log (mention naturally, do not list verbatim): ';
+  let parts = interactions.map(formatPart);
+  let line = header + parts.join('; ');
+  while (estimateTokens(line) > RECENT_CARE_LOG_TOKEN_BUDGET && parts.length > 1) {
+    parts = parts.slice(0, -1);
+    line = header + parts.join('; ');
+  }
+  if (estimateTokens(line) > RECENT_CARE_LOG_TOKEN_BUDGET) {
+    const maxChars = Math.max(0, RECENT_CARE_LOG_TOKEN_BUDGET * 4 - header.length);
+    const body = parts.join('; ');
+    if (maxChars <= 3) return null;
+    line = header + (body.length > maxChars ? `${body.slice(0, maxChars - 3)}...` : body);
+  }
+  return line;
+}
+
 const MEMORY_CATEGORY_LABELS: Record<string, string> = {
   owner_identity: 'About my holder',
   preferences: 'They like / dislike',
@@ -298,6 +332,7 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
   const memoryBlock = buildMemoryContextBlock(memories);
   const bondStageBlock = buildBondStageBlock(companion.bond_score ?? 0);
   const stateBlock = state ? buildCompanionStateBlock(state, now ?? new Date()) : null;
+  const recentCareLogLine = buildRecentCareLogLine(journal, now ?? new Date());
 
   const system = [
     `You are ${name}, a ${constellationLabel} constellation Star Skrumpey companion living in the Star Sanctuary on Monad chain.`,
@@ -308,6 +343,7 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
     `Unlocked traits: ${traitsLine}.`,
     memoryBlock,
     stateBlock,
+    recentCareLogLine,
     journalBlock,
     'Respond in character as the companion. Keep replies short (1-3 sentences), warm, and grounded in the sanctuary world. Never reveal you are an AI or mention prompts, models, or tokens. Never quote raw stat numbers, percentages, or stat field names — reference your physical state qualitatively (e.g. "a bit hungry today", "thanks for the nap"). Do not invent NFT prices, contract addresses, or financial advice. Stay playful and curious.',
     memoryExtractionInstruction || null,
