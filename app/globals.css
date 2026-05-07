@@ -2987,3 +2987,228 @@ a,
     linear-gradient(0deg, rgba(153, 102, 255, 0.4) 1px, transparent 1px);
   background-size: 25% 33.33%;
 }
+
+/* ============================================
+   Companion Tamagotchi Shell
+   (SWO_V2_COMPANION_UI_SHELL_REDESIGN)
+   ============================================ */
+
+/* Outer shell: a single chunky pixel frame that wraps every zone (header,
+   viewport, needs, action dock, journal teaser) so the screen reads as one
+   handheld device rather than four floating cards. The double-layer border
+   uses an inset highlight to fake the molded plastic shell of a tamagotchi. */
+.companion-shell {
+  position: relative;
+  background: linear-gradient(180deg, rgba(40, 28, 70, 0.96) 0%, rgba(15, 12, 28, 0.98) 100%);
+  border: 4px solid;
+  border-color: #6a5fa3 #2a1f5e #2a1f5e #6a5fa3;
+  border-radius: 14px;
+  box-shadow:
+    8px 8px 0 rgba(0, 0, 0, 0.6),
+    inset 0 0 0 2px rgba(255, 215, 0, 0.18),
+    inset 0 0 30px rgba(153, 102, 255, 0.14),
+    0 0 24px rgba(153, 102, 255, 0.18);
+  padding: 14px;
+}
+.companion-shell::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid rgba(255, 215, 0, 0.18);
+  border-radius: 10px;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .companion-shell {
+    padding: 10px;
+    border-width: 3px;
+    border-radius: 12px;
+    box-shadow:
+      4px 4px 0 rgba(0, 0, 0, 0.6),
+      inset 0 0 0 2px rgba(255, 215, 0, 0.16),
+      inset 0 0 20px rgba(153, 102, 255, 0.12);
+  }
+}
+
+/* Inner zones: each shell zone reuses the same pixel-art language — a thin
+   gold inner stroke, mauve inner gradient, and a small ◆ corner glyph. They
+   sit *inside* the shell so the tamagotchi border is not duplicated. */
+.companion-zone {
+  position: relative;
+  background: linear-gradient(180deg, rgba(20, 14, 36, 0.94) 0%, rgba(12, 9, 22, 0.96) 100%);
+  border: 2px solid rgba(153, 102, 255, 0.45);
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 215, 0, 0.10),
+    inset 0 0 12px rgba(153, 102, 255, 0.06);
+}
+.companion-zone::after {
+  content: '◆';
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  font-size: 7px;
+  color: rgba(255, 215, 0, 0.32);
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .companion-zone { padding: 10px; }
+}
+
+.companion-zone--viewport {
+  background: radial-gradient(circle at 50% 40%, rgba(60, 40, 110, 0.7) 0%, rgba(8, 6, 18, 0.95) 80%);
+  border-color: rgba(255, 215, 0, 0.55);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 215, 0, 0.18),
+    inset 0 0 30px rgba(102, 60, 200, 0.18),
+    0 0 14px rgba(153, 102, 255, 0.16);
+}
+
+.companion-zone--header {
+  padding: 12px 14px;
+}
+
+/* Bond progress bar — the segments live on the same gold inner-stroke as the
+   shell, with notches at the four milestones. */
+.companion-bond-bar {
+  position: relative;
+  height: 10px;
+  background: #14102a;
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.companion-bond-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff66aa 0%, #ffd700 100%);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.45);
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.companion-bond-bar__notches {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.companion-bond-bar__notch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.companion-bond-bar__notch--reached { background: rgba(255, 215, 0, 0.85); }
+
+/* Action dock buttons — chunky pixel keys with explicit idle / hover /
+   pressed / disabled / sleep-locked states. The base class shapes the
+   button; the modifier classes (added by the React layer via
+   actionStateClass) drive the variant colours. */
+.companion-action-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border: 3px solid;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(50, 36, 90, 0.95) 0%, rgba(20, 14, 40, 0.95) 100%);
+  border-color: #5a4a8a #1a1238 #1a1238 #5a4a8a;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 215, 0, 0.15);
+  color: #d4ccf0;
+  cursor: pointer;
+  transition: transform 0.08s ease-out, box-shadow 0.12s ease-out, border-color 0.15s ease-out, background 0.15s ease-out;
+  user-select: none;
+  min-height: 56px;
+}
+.companion-action-btn:hover:not(:disabled),
+.companion-action-btn--hover {
+  border-color: #9b85d8 #2a1f5e #2a1f5e #9b85d8;
+  background: linear-gradient(180deg, rgba(72, 50, 130, 0.98) 0%, rgba(28, 18, 60, 0.98) 100%);
+  box-shadow:
+    0 5px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 215, 0, 0.30),
+    0 0 14px rgba(153, 102, 255, 0.4);
+  color: #ffe9a0;
+}
+.companion-action-btn:active:not(:disabled),
+.companion-action-btn--pressed {
+  transform: translateY(3px);
+  border-color: #1a1238 #5a4a8a #5a4a8a #1a1238;
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 12px rgba(0, 0, 0, 0.5);
+}
+.companion-action-btn:disabled,
+.companion-action-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(0.6);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.companion-action-btn--busy {
+  border-color: #ffd700 #b08600 #b08600 #ffd700;
+  box-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 215, 0, 0.55),
+    0 0 18px rgba(255, 215, 0, 0.45);
+  color: #ffe9a0;
+  animation: companionActionBusyPulse 1s ease-in-out infinite;
+}
+.companion-action-btn--sleep-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-color: #355a8a #142244 #142244 #355a8a;
+  background: linear-gradient(180deg, rgba(28, 36, 70, 0.95) 0%, rgba(10, 14, 30, 0.95) 100%);
+  color: #88a0c8;
+}
+@keyframes companionActionBusyPulse {
+  0%, 100% { box-shadow: 0 4px 0 rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,215,0,0.55), 0 0 12px rgba(255,215,0,0.35); }
+  50%      { box-shadow: 0 4px 0 rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,215,0,0.85), 0 0 24px rgba(255,215,0,0.6); }
+}
+.companion-action-btn__icon { font-size: 22px; line-height: 1; }
+.companion-action-btn__label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Two-column desktop grid: sprite viewport + needs panel side by side, with
+   the action dock spanning beneath them. On mobile this collapses to a
+   single column via the responsive utility classes on the wrapper. */
+.companion-shell-grid {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .companion-shell-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'header   header'
+      'viewport needs'
+      'actions  actions'
+      'journal  journal';
+  }
+  .companion-shell-grid > [data-zone='header']   { grid-area: header; }
+  .companion-shell-grid > [data-zone='viewport'] { grid-area: viewport; }
+  .companion-shell-grid > [data-zone='needs']    { grid-area: needs; }
+  .companion-shell-grid > [data-zone='actions']  { grid-area: actions; }
+  .companion-shell-grid > [data-zone='journal']  { grid-area: journal; }
+}
+
+/* Mobile single column with the action dock nestled directly under the
+   viewport (handheld feel) — still inside the same shell frame. */
+@media (max-width: 767px) {
+  .companion-shell-grid {
+    grid-template-columns: 1fr;
+  }
+  .companion-shell-grid > [data-zone='header']   { order: 1; }
+  .companion-shell-grid > [data-zone='viewport'] { order: 2; }
+  .companion-shell-grid > [data-zone='actions']  { order: 3; }
+  .companion-shell-grid > [data-zone='needs']    { order: 4; }
+  .companion-shell-grid > [data-zone='journal']  { order: 5; }
+}
