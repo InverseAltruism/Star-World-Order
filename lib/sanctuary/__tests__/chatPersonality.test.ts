@@ -3,6 +3,7 @@ import {
   buildChatPrompt,
   buildMemoryContextBlock,
   buildCompanionStateBlock,
+  buildRecentCareLogLine,
   bondLabel,
   moodLabel,
   estimateTokens,
@@ -16,6 +17,8 @@ import {
   MEMORY_INJECT_TOKEN_BUDGET,
   MAX_INJECTED_MEMORIES,
   STATE_INJECT_TOKEN_BUDGET,
+  RECENT_CARE_LOG_TOKEN_BUDGET,
+  MAX_RECENT_CARE_LOG_ENTRIES,
   type CompanionStateInput,
 } from '../chatPersonality';
 import type {
@@ -590,5 +593,153 @@ describe('buildChatPrompt with companion state', () => {
     });
     expect(out.system).toMatch(/qualitative|qualitatively/i);
     expect(out.system).toMatch(/never\s+(state|quote)\s+raw\s+numbers|raw\s+stat\s+numbers/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Recent care log — V2.5 [SWO_V2_COMPANION_CHAT_REMEMBERS_RECENT_ACTIONS]
+// ---------------------------------------------------------------------------
+
+describe('buildRecentCareLogLine', () => {
+  it('returns null when no journal entries are provided', () => {
+    expect(buildRecentCareLogLine([], NOW)).toBeNull();
+  });
+
+  it('returns null when no interaction entries exist', () => {
+    const entries = [
+      journal(1, 'achievement', 'Unlocked Foodie', '2026-04-27 11:55:00'),
+      journal(2, 'activity', 'Visited Hot Springs', '2026-04-27 10:00:00'),
+      journal(3, 'system', 'Weekly reset', '2026-04-26 12:00:00'),
+    ];
+    expect(buildRecentCareLogLine(entries, NOW)).toBeNull();
+  });
+
+  it('renders content joined by "; " when interactions exist', () => {
+    const entries = [
+      journal(1, 'interaction', 'Fed a cosmic treat.', '2026-04-27 11:30:00'),
+      journal(2, 'interaction', 'Played fetch.', '2026-04-27 09:00:00'),
+      journal(3, 'interaction', 'Gentle pets.', '2026-04-26 12:00:00'),
+    ];
+    const line = buildRecentCareLogLine(entries, NOW);
+    expect(line).toBeTruthy();
+    expect(line).toContain('Recent care log');
+    expect(line).toContain('Fed a cosmic treat.');
+    expect(line).toContain('Played fetch.');
+    expect(line).toContain('Gentle pets.');
+    expect(line).toContain('; ');
+    expect(line).toContain('30m ago');
+    expect(line).toContain('3h ago');
+    expect(line).toContain('24h ago');
+  });
+
+  it('only uses interaction-typed journal entries', () => {
+    const entries = [
+      journal(1, 'achievement', 'Unlocked Foodie', '2026-04-27 11:55:00'),
+      journal(2, 'interaction', 'Fed a cosmic treat.', '2026-04-27 11:30:00'),
+      journal(3, 'activity', 'Visited Hot Springs', '2026-04-27 10:00:00'),
+    ];
+    const line = buildRecentCareLogLine(entries, NOW);
+    expect(line).toBeTruthy();
+    expect(line).toContain('Fed a cosmic treat.');
+    expect(line).not.toContain('Foodie');
+    expect(line).not.toContain('Hot Springs');
+  });
+
+  it('caps to MAX_RECENT_CARE_LOG_ENTRIES interactions', () => {
+    const entries: SanctuaryJournalEntry[] = [];
+    for (let i = 0; i < 6; i++) {
+      entries.push(journal(i + 1, 'interaction', `Event ${i + 1}.`, '2026-04-27 11:30:00'));
+    }
+    const line = buildRecentCareLogLine(entries, NOW);
+    expect(line).toBeTruthy();
+    const matches = line!.match(/Event \d+\./g) || [];
+    expect(matches.length).toBeLessThanOrEqual(MAX_RECENT_CARE_LOG_ENTRIES);
+  });
+
+  it('respects the 80-token budget even with verbose interaction content', () => {
+    const longText = 'a'.repeat(400);
+    const entries = [
+      journal(1, 'interaction', longText, '2026-04-27 11:30:00'),
+      journal(2, 'interaction', longText, '2026-04-27 09:00:00'),
+      journal(3, 'interaction', longText, '2026-04-26 12:00:00'),
+    ];
+    const line = buildRecentCareLogLine(entries, NOW);
+    expect(line).toBeTruthy();
+    expect(estimateTokens(line!)).toBeLessThanOrEqual(RECENT_CARE_LOG_TOKEN_BUDGET);
+  });
+
+  it('RECENT_CARE_LOG_TOKEN_BUDGET equals 80', () => {
+    expect(RECENT_CARE_LOG_TOKEN_BUDGET).toBe(80);
+  });
+});
+
+describe('buildChatPrompt with recent care log', () => {
+  it('includes the recent care log line when interaction journal entries exist', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      journal: [
+        journal(1, 'interaction', 'Fed a cosmic treat.', '2026-04-27 11:30:00'),
+        journal(2, 'interaction', 'Played fetch.', '2026-04-27 09:00:00'),
+      ],
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    expect(out.system).toContain('Recent care log');
+    expect(out.system).toContain('Fed a cosmic treat.');
+    expect(out.system).toContain('30m ago');
+  });
+
+  it('omits the recent care log line when no interaction entries exist', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      journal: [
+        journal(1, 'achievement', 'Unlocked Foodie', '2026-04-27 11:55:00'),
+        journal(2, 'activity', 'Visited Hot Springs', '2026-04-27 10:00:00'),
+      ],
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    expect(out.system).not.toContain('Recent care log');
+  });
+
+  it('omits the recent care log line when no journal entries are provided', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    expect(out.system).not.toContain('Recent care log');
+  });
+
+  it('care log + state block stay within combined ≤200 token envelope', () => {
+    const out = buildChatPrompt({
+      companion: mockCompanion(),
+      history: [],
+      journal: [
+        journal(1, 'interaction', 'Fed a cosmic treat that made me beam.', '2026-04-27 11:30:00'),
+        journal(2, 'interaction', 'Played fetch in the cosmic garden.', '2026-04-27 09:00:00'),
+        journal(3, 'interaction', 'Pets and gentle scratches.', '2026-04-26 12:00:00'),
+      ],
+      state: stateInput({
+        hunger: 30,
+        happiness: 60,
+        energy: 50,
+        needs: ['hungry'],
+        recentActions: [
+          { action: 'feed', created_at: '2026-04-27 11:30:00' },
+        ],
+      }),
+      now: NOW,
+      userMessage: 'Hi',
+    });
+    const stateBlockMatch = out.system.match(/Your current physical state[\s\S]*?(?=\n\nRecent care log)/);
+    const careLogMatch = out.system.match(/Recent care log[^\n]*/);
+    expect(stateBlockMatch).toBeTruthy();
+    expect(careLogMatch).toBeTruthy();
+    expect(estimateTokens(stateBlockMatch![0])).toBeLessThanOrEqual(STATE_INJECT_TOKEN_BUDGET);
+    expect(estimateTokens(careLogMatch![0])).toBeLessThanOrEqual(RECENT_CARE_LOG_TOKEN_BUDGET);
   });
 });
