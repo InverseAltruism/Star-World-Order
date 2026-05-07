@@ -8,6 +8,12 @@ import {
   vfxKindForInteractAction,
   type CompanionInteractAction,
 } from '@/lib/sanctuary/vfxEvents';
+import {
+  crossedBondMilestones,
+  highestMilestone,
+  readLastCelebratedMilestone,
+  writeLastCelebratedMilestone,
+} from '@/lib/sanctuary/bondMilestones';
 
 type InteractAction = CompanionInteractAction;
 
@@ -180,6 +186,35 @@ export default function CompanionMenu({
         } else {
           addFloatingText('+2 Bond', '#ff66aa', pos.x - 20, pos.y - 40);
           addFloatingText('+5 XP', '#ffd700', pos.x + 20, pos.y - 55);
+        }
+
+        // [SWO_V2_COMPANION_BOND_MILESTONE_CELEBRATE]: detect upward bond
+        // crossings of [25, 50, 75, 100] and fire one `heart` VFX burst per
+        // threshold per companion. The persisted watermark is shared with
+        // the Companion screen via localStorage so a celebration in one
+        // surface won't replay in the other.
+        if (companion && typeof tokenId === 'number') {
+          const nextBond = typeof companion.bond_score === 'number'
+            ? companion.bond_score
+            : null;
+          const gained = typeof companion.bond_gained === 'number'
+            ? companion.bond_gained
+            : 0;
+          const prevBond = nextBond !== null ? nextBond - gained : null;
+          const lastCelebrated = readLastCelebratedMilestone(tokenId);
+          const top = highestMilestone(
+            crossedBondMilestones(prevBond, nextBond, lastCelebrated),
+          );
+          if (top !== null) {
+            emitCompanionVfx(EventBus, {
+              kind: 'heart',
+              x: pos.x,
+              y: pos.y,
+              durationMs: 2200,
+              source: `bond-milestone-${top}`,
+            });
+            writeLastCelebratedMilestone(tokenId, top);
+          }
         }
 
         EventBus.emit('companion-interacted', { action, companion: data.companion });

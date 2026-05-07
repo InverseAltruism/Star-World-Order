@@ -627,6 +627,45 @@ body::before {
 }
 
 /* ============================================
+   Bond-milestone celebration
+   (SWO_V2_COMPANION_BOND_MILESTONE_CELEBRATE)
+   ============================================ */
+
+/* Brief 2.5s banner that slides down from above the sprite when a bond
+   milestone (25/50/75/100) is reached. Pure CSS so the React component just
+   mounts the element and unmounts after the trigger duration. */
+@keyframes bondMilestoneBannerIn {
+  0%   { opacity: 0; transform: translate(-50%, -16px) scale(0.92); }
+  15%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  85%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(0.96); }
+}
+.companion-bond-banner {
+  animation: bondMilestoneBannerIn 2.5s ease-out forwards;
+}
+
+/* Heart confetti — each .heart-particle spawns at the sprite center and
+   drifts outward + upward for ~2s. Per-particle CSS variables (--dx, --dy,
+   --rot, --delay) let the React layer randomize trajectories without
+   redefining the keyframes. */
+@keyframes bondHeartFloat {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
+  20%  { opacity: 1; transform: translate(calc(-50% + calc(var(--dx, 0px) * 0.4)), calc(-50% + calc(var(--dy, 0px) * 0.4))) scale(1) rotate(calc(var(--rot, 0deg) * 0.4)); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(0.7) rotate(var(--rot, 0deg)); }
+}
+.heart-particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: 18px;
+  pointer-events: none;
+  opacity: 0;
+  animation: bondHeartFloat 2.2s ease-out forwards;
+  animation-delay: var(--delay, 0ms);
+  text-shadow: 0 0 6px rgba(255, 102, 170, 0.7);
+}
+
+/* ============================================
    Cozy Gaming Station Loading Experience
    ============================================ */
 

@@ -12,6 +12,16 @@ import {
   type CozyMood,
 } from '@/lib/sanctuary/companionGreeting';
 import { MOOD_EMOJI } from '@/components/sanctuary/overlays/CompanionHUD';
+import EventBus from '@/components/sanctuary/EventBus';
+import { emitCompanionVfx } from '@/lib/sanctuary/vfxEvents';
+import {
+  bondMilestoneBanner,
+  crossedBondMilestones,
+  highestMilestone,
+  readLastCelebratedMilestone,
+  writeLastCelebratedMilestone,
+  type BondMilestone,
+} from '@/lib/sanctuary/bondMilestones';
 
 const SanctuaryContent = dynamic(() => import('./SanctuaryContent'), { ssr: false });
 
@@ -82,6 +92,12 @@ const NEED_LABEL: Record<'hunger' | 'happiness' | 'energy', string> = {
   happiness: 'Lonely — let’s talk',
   energy: 'Sleepy — needs rest',
 };
+
+interface BondCelebration {
+  id: number;
+  milestone: BondMilestone;
+  message: string;
+}
 
 const MOOD_LABEL: Record<string, string> = {
   happy: 'Happy',
@@ -168,9 +184,12 @@ export default function CompanionView() {
   const [recentlyChanged, setRecentlyChanged] = useState<
     Set<'hunger' | 'happiness' | 'energy'>
   >(() => new Set());
+  const [bondCelebration, setBondCelebration] = useState<BondCelebration | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactionIdRef = useRef(0);
   const deltaIdRef = useRef(0);
+  const celebrationIdRef = useRef(0);
+  const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchCompanion = useCallback(async () => {
     if (!address) return;
@@ -257,6 +276,32 @@ export default function CompanionView() {
     }, 1100);
   }, []);
 
+  const triggerBondCelebration = useCallback(
+    (milestone: BondMilestone, name: string) => {
+      const id = ++celebrationIdRef.current;
+      const message = bondMilestoneBanner(milestone, name);
+      setBondCelebration({ id, milestone, message });
+      // Emit a `heart` VFX through the shared contract so the V2 world
+      // CompanionMenu (and any other listener) renders a matching burst.
+      // Coordinates are best-effort screen-center for the screen surface;
+      // the V2 world listener resolves its own anchoring per scene.
+      if (typeof window !== 'undefined') {
+        emitCompanionVfx(EventBus, {
+          kind: 'heart',
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+          durationMs: 2200,
+          source: `bond-milestone-${milestone}`,
+        });
+      }
+      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+      celebrationTimer.current = setTimeout(() => {
+        setBondCelebration((prev) => (prev && prev.id === id ? null : prev));
+      }, 2500);
+    },
+    [],
+  );
+
   const pushStatDelta = useCallback(
     (stat: 'hunger' | 'happiness' | 'energy', delta: number) => {
       if (delta === 0) return;
@@ -322,6 +367,8 @@ export default function CompanionView() {
             happiness: data.companion.happiness ?? companion.happiness,
             energy: data.companion.energy ?? companion.energy,
           };
+          const prevBond = companion.bond_score;
+          const nextBond = data.companion.bond_score ?? prevBond;
           setCompanion((prev) =>
             prev
               ? {
@@ -331,13 +378,31 @@ export default function CompanionView() {
                   energy: next.energy,
                   is_sleeping:
                     data.companion.is_sleeping ?? prev.is_sleeping,
-                  bond_score: data.companion.bond_score ?? prev.bond_score,
+                  bond_score: nextBond,
                   mood: data.companion.mood ?? prev.mood,
                   stats_updated_at:
                     data.companion.stats_updated_at ?? prev.stats_updated_at,
                 }
               : prev,
           );
+          // Detect upward crossings of [25, 50, 75, 100] and fire one
+          // celebration moment per threshold per companion. lastCelebrated
+          // is persisted in localStorage so a refresh or a wobble around the
+          // threshold cannot retrigger a banner that was already shown.
+          const lastCelebrated = readLastCelebratedMilestone(companion.token_id);
+          const crossings = crossedBondMilestones(
+            prevBond,
+            nextBond,
+            lastCelebrated,
+          );
+          const top = highestMilestone(crossings);
+          if (top !== null) {
+            triggerBondCelebration(
+              top,
+              companion.nickname || `Skrumpey #${companion.token_id}`,
+            );
+            writeLastCelebratedMilestone(companion.token_id, top);
+          }
           // Floating "+N" near each stat bar that moved (uses the projected
           // post-decay delta from server-side, so tiny rounding deltas don't
           // create noisy +1s).
@@ -362,8 +427,14 @@ export default function CompanionView() {
         setInteracting(null);
       }
     },
-    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta],
+    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta, triggerBondCelebration],
   );
+
+  useEffect(() => {
+    return () => {
+      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+    };
+  }, []);
 
   const handleSendChat = useCallback(async () => {
     if (!address || !companion || chatBusy) return;
@@ -536,6 +607,55 @@ export default function CompanionView() {
                 >
                   {moodEmoji}
                 </span>
+
+                {/* Bond-milestone celebration: brief banner above the sprite
+                    plus heart confetti drifting outward. Auto-clears after
+                    ≤2.5s via celebrationTimer. */}
+                {bondCelebration && (
+                  <>
+                    <div
+                      key={`banner-${bondCelebration.id}`}
+                      className="companion-bond-banner absolute left-1/2 -top-10 z-20 pointer-events-none whitespace-nowrap rounded border border-[#ff66aa]/70 bg-black/85 px-3 py-1 text-[8px] font-['Press_Start_2P'] tracking-wider text-[#ff99cc] shadow-[0_0_12px_rgba(255,102,170,0.45)]"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {bondCelebration.message}
+                    </div>
+                    <div
+                      key={`hearts-${bondCelebration.id}`}
+                      className="absolute inset-0 pointer-events-none z-10"
+                      aria-hidden="true"
+                    >
+                      {Array.from({ length: 10 }).map((_, i) => {
+                        // Deterministic spread around the sprite — angles
+                        // evenly distributed so the burst always feels full,
+                        // with a small per-particle delay so they don't all
+                        // fire on exactly the same frame.
+                        const angle = (i / 10) * Math.PI * 2;
+                        const distance = 60 + (i % 3) * 12;
+                        const dx = Math.cos(angle) * distance;
+                        const dy = Math.sin(angle) * distance - 20;
+                        const rot = (i % 2 === 0 ? 1 : -1) * (15 + (i % 4) * 5);
+                        return (
+                          <span
+                            key={i}
+                            className="heart-particle"
+                            style={
+                              {
+                                '--dx': `${dx.toFixed(0)}px`,
+                                '--dy': `${dy.toFixed(0)}px`,
+                                '--rot': `${rot}deg`,
+                                '--delay': `${i * 35}ms`,
+                              } as React.CSSProperties
+                            }
+                          >
+                            {i % 3 === 0 ? '💖' : i % 3 === 1 ? '💗' : '✨'}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
                 {/* Floating reaction emojis layered above the sprite. Each
                     reaction is short-lived (≤1.1s) and absolutely positioned
