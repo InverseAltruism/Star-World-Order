@@ -22,6 +22,7 @@ import {
   type CompanionStatAction,
 } from './sanctuary/companionStats';
 import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
+import { journalLineForAction } from './sanctuary/companionGreeting';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -6112,13 +6113,9 @@ export function interactWithCompanion(
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
-  const messages: Record<CompanionStatAction, string> = {
-    feed: 'Enjoyed a tasty cosmic treat. Bond strengthened!',
-    pet: 'Received gentle pats. Feeling cozy and loved.',
-    talk: 'Had a heartfelt conversation with their owner.',
-    play: 'Burned off some cosmic zoomies. Feels alive!',
-    sleep: 'Curled up for a cosmic nap. Energy slowly returning.',
-  };
+  // Variety pool now lives in companionGreeting.journalLineForAction —
+  // deterministic given (action, mood, hour-of-day bucket) so consecutive
+  // interactions don't repeat the same flat phrase.
 
   const txn = db.transaction(() => {
     const comp = db.prepare(
@@ -6192,7 +6189,11 @@ export function interactWithCompanion(
     if (xpGain > 0) addUserXP(addr, xpGain);
 
     const bonusTag = starBonus ? ' (Star Bonus!)' : '';
-    const journal = addJournalEntry(addr, tokenId, 'interaction', messages[action] + bonusTag,
+    // Seed the variety pool with the action itself — the live trait-mood is
+    // not on SanctuaryCompanion (it comes from the meta view), but rotating
+    // by (action × hour-of-day-bucket) is enough variety for the journal.
+    const message = journalLineForAction(action, action, now.getHours());
+    const journal = addJournalEntry(addr, tokenId, 'interaction', message + bonusTag,
       JSON.stringify({
         action, bond: bondGain, xp: xpGain, starBonus,
         hunger: stats.hunger, happiness: stats.happiness, energy: stats.energy,
