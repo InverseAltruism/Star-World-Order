@@ -6,6 +6,11 @@ import dynamic from 'next/dynamic';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import { resolveCompanionMood, type MoodStatInput } from '@/lib/sanctuary/mood';
 import { describeNeeds, lowStats, type NeedStats } from '@/lib/sanctuary/needs';
+import {
+  greetingForMood,
+  lastVisitedPhrase,
+  type CozyMood,
+} from '@/lib/sanctuary/companionGreeting';
 import { MOOD_EMOJI } from '@/components/sanctuary/overlays/CompanionHUD';
 
 const SanctuaryContent = dynamic(() => import('./SanctuaryContent'), { ssr: false });
@@ -23,11 +28,31 @@ interface CompanionData {
   happiness: number | null;
   energy: number | null;
   is_sleeping: number | null;
+  stats_updated_at: string | null;
   image_url: string | null;
   constellation: string | null;
   current_activity: string;
   activity_ends_at: string | null;
 }
+
+interface SpriteReaction {
+  id: number;
+  kind: QuickAction;
+}
+
+interface StatDelta {
+  id: number;
+  stat: 'hunger' | 'happiness' | 'energy';
+  delta: number;
+}
+
+const ACTION_REACTION_EMOJI: Record<QuickAction, string[]> = {
+  feed: ['🍎', '✨'],
+  pet: ['💗', '💗', '✨'],
+  talk: ['💬', '💕'],
+  sleep: ['💤', '🌙'],
+  play: ['⭐', '✨', '💫'],
+};
 
 interface JournalEntry {
   id: number;
@@ -74,14 +99,18 @@ function StatBar({
   label,
   value,
   color,
+  pulse,
+  delta,
 }: {
   label: string;
   value: number;
   color: string;
+  pulse?: boolean;
+  delta?: number;
 }) {
   const pct = Math.max(0, Math.min(100, value));
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 relative">
       <div className="flex items-center justify-between text-[8px]">
         <span className="text-gray-400 uppercase tracking-wider font-['Press_Start_2P']">
           {label}
@@ -90,12 +119,25 @@ function StatBar({
           {Math.round(value)}
         </span>
       </div>
-      <div className="h-2 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
+      <div
+        className={`h-2 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e] ${
+          pulse ? 'companion-stat-bar-pulse' : ''
+        }`}
+        style={pulse ? ({ '--bar-pulse-color': color } as React.CSSProperties) : undefined}
+      >
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
+      {typeof delta === 'number' && delta !== 0 && (
+        <span
+          className="companion-floating-text absolute right-0 -top-1 text-[8px] font-['Press_Start_2P'] pointer-events-none tabular-nums"
+          style={{ color, textShadow: `0 0 6px ${color}` }}
+        >
+          {delta > 0 ? `+${delta}` : `${delta}`}
+        </span>
+      )}
     </div>
   );
 }
@@ -121,7 +163,14 @@ export default function CompanionView() {
   const [chatLines, setChatLines] = useState<ChatLine[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+  const [spriteReactions, setSpriteReactions] = useState<SpriteReaction[]>([]);
+  const [statDeltas, setStatDeltas] = useState<StatDelta[]>([]);
+  const [recentlyChanged, setRecentlyChanged] = useState<
+    Set<'hunger' | 'happiness' | 'energy'>
+  >(() => new Set());
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reactionIdRef = useRef(0);
+  const deltaIdRef = useRef(0);
 
   const fetchCompanion = useCallback(async () => {
     if (!address) return;
@@ -146,6 +195,7 @@ export default function CompanionView() {
                 happiness: data.companion.happiness ?? null,
                 energy: data.companion.energy ?? null,
                 is_sleeping: data.companion.is_sleeping ?? null,
+                stats_updated_at: data.companion.stats_updated_at ?? null,
                 image_url: data.companion.image_url ?? null,
                 constellation: data.companion.constellation ?? null,
                 current_activity: data.companion.current_activity ?? 'lounging',
@@ -199,9 +249,48 @@ export default function CompanionView() {
     feedbackTimer.current = setTimeout(() => setFeedback(null), 1800);
   }, []);
 
+  const triggerSpriteReaction = useCallback((kind: QuickAction) => {
+    const id = ++reactionIdRef.current;
+    setSpriteReactions((prev) => [...prev, { id, kind }]);
+    setTimeout(() => {
+      setSpriteReactions((prev) => prev.filter((r) => r.id !== id));
+    }, 1100);
+  }, []);
+
+  const pushStatDelta = useCallback(
+    (stat: 'hunger' | 'happiness' | 'energy', delta: number) => {
+      if (delta === 0) return;
+      const id = ++deltaIdRef.current;
+      setStatDeltas((prev) => [...prev, { id, stat, delta }]);
+      setRecentlyChanged((prev) => {
+        const next = new Set(prev);
+        next.add(stat);
+        return next;
+      });
+      setTimeout(() => {
+        setStatDeltas((prev) => prev.filter((d) => d.id !== id));
+        setRecentlyChanged((prev) => {
+          if (!prev.has(stat)) return prev;
+          const next = new Set(prev);
+          next.delete(stat);
+          return next;
+        });
+      }, 1000);
+    },
+    [],
+  );
+
   const handleAction = useCallback(
     async (action: QuickAction) => {
       if (!address || !companion || interacting) return;
+      // Pre-emptively block sleep-action attempts with a warm message rather
+      // than firing a request that the API will reject with HTTP 409. The
+      // server still enforces this — this is just kinder UX.
+      if (companion.is_sleeping === 1 && action !== 'sleep') {
+        const name = companion.nickname || `Skrumpey #${companion.token_id}`;
+        flashFeedback(`shhh — ${name} is sleeping`);
+        return;
+      }
       setInteracting(action);
       try {
         const authHeader = await getWalletAuthHeader(address);
@@ -223,20 +312,44 @@ export default function CompanionView() {
         });
         const data = await res.json();
         if (data.success && data.companion) {
+          const prevSnapshot = {
+            hunger: companion.hunger,
+            happiness: companion.happiness,
+            energy: companion.energy,
+          };
+          const next = {
+            hunger: data.companion.hunger ?? companion.hunger,
+            happiness: data.companion.happiness ?? companion.happiness,
+            energy: data.companion.energy ?? companion.energy,
+          };
           setCompanion((prev) =>
             prev
               ? {
                   ...prev,
-                  hunger: data.companion.hunger ?? prev.hunger,
-                  happiness: data.companion.happiness ?? prev.happiness,
-                  energy: data.companion.energy ?? prev.energy,
+                  hunger: next.hunger,
+                  happiness: next.happiness,
+                  energy: next.energy,
                   is_sleeping:
                     data.companion.is_sleeping ?? prev.is_sleeping,
                   bond_score: data.companion.bond_score ?? prev.bond_score,
                   mood: data.companion.mood ?? prev.mood,
+                  stats_updated_at:
+                    data.companion.stats_updated_at ?? prev.stats_updated_at,
                 }
               : prev,
           );
+          // Floating "+N" near each stat bar that moved (uses the projected
+          // post-decay delta from server-side, so tiny rounding deltas don't
+          // create noisy +1s).
+          for (const k of ['hunger', 'happiness', 'energy'] as const) {
+            const a = prevSnapshot[k];
+            const b = next[k];
+            if (typeof a === 'number' && typeof b === 'number') {
+              const d = Math.round(b - a);
+              if (Math.abs(d) >= 2) pushStatDelta(k, d);
+            }
+          }
+          triggerSpriteReaction(action);
           flashFeedback(`${action.toUpperCase()} ✓`);
           // Refresh journal so the latest entry from the action shows up
           fetchJournal(companion.token_id);
@@ -249,7 +362,7 @@ export default function CompanionView() {
         setInteracting(null);
       }
     },
-    [address, companion, interacting, flashFeedback, fetchJournal],
+    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta],
   );
 
   const handleSendChat = useCallback(async () => {
@@ -348,51 +461,120 @@ export default function CompanionView() {
   const displayName =
     companion.nickname || `Skrumpey #${companion.token_id}`;
 
+  const greeting = greetingForMood(
+    displayName,
+    effectiveMood as CozyMood,
+    isSleeping,
+  );
+  const lastVisit = lastVisitedPhrase(companion.stats_updated_at);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center">
+      <div className="text-center space-y-1">
         <h1
-          className="text-lg text-[#ffd700] tracking-widest mb-1 font-['Press_Start_2P']"
+          className="text-lg text-[#ffd700] tracking-widest font-['Press_Start_2P']"
           style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
         >
           {displayName.toUpperCase()}
         </h1>
+        <p className="text-[#bb88ff] text-[10px] italic px-4 leading-snug">
+          {greeting}
+        </p>
         <p className="text-gray-400 text-[10px]">
           Lv.{companion.level} · Training {companion.companion_level} · Bond{' '}
           {Math.round(companion.bond_score)}
         </p>
+        {lastVisit && (
+          <p className="text-gray-500 text-[8px]">
+            {lastVisit}
+          </p>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Sprite + needs */}
         <div className="pixel-card p-6 space-y-4">
           <div className="flex justify-center">
-            <div
-              className={`relative ${moodAnimClass}`}
-              data-testid="companion-sprite"
-            >
-              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)]">
-                {companion.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={companion.image_url}
-                    alt={displayName}
-                    className="w-full h-full object-cover image-rendering-pixelated"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-7xl">
-                    🐸
+            <div className="relative">
+              {/* Cozy ambient: a few twinkling stars behind the sprite. Pure
+                  decoration; pointer-events disabled so it never intercepts
+                  clicks on the sprite or the mood badge. */}
+              <div
+                className="absolute inset-0 pointer-events-none companion-cozy-stars"
+                aria-hidden="true"
+              >
+                <span className="cozy-star" style={{ left: '12%', top: '18%' }} />
+                <span className="cozy-star" style={{ left: '78%', top: '14%' }} />
+                <span className="cozy-star" style={{ left: '22%', top: '82%' }} />
+                <span className="cozy-star" style={{ left: '88%', top: '70%' }} />
+                <span className="cozy-star" style={{ left: '50%', top: '4%' }} />
+              </div>
+
+              <div
+                className={`relative ${moodAnimClass}`}
+                data-testid="companion-sprite"
+              >
+                <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)]">
+                  {companion.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={companion.image_url}
+                      alt={displayName}
+                      className="w-full h-full object-cover image-rendering-pixelated"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-7xl">
+                      🐸
+                    </div>
+                  )}
+                </div>
+                <span
+                  className="absolute -top-2 -right-2 bg-black/90 border border-[#9966ff]/60 rounded-full px-2 py-1 text-lg shadow-[0_0_10px_rgba(153,102,255,0.4)]"
+                  aria-label={`Mood: ${moodLabel}`}
+                  title={`Mood: ${moodLabel}`}
+                >
+                  {moodEmoji}
+                </span>
+
+                {/* Floating reaction emojis layered above the sprite. Each
+                    reaction is short-lived (≤1.1s) and absolutely positioned
+                    so it never relayouts the card. Multiple emoji per
+                    reaction gives a small flourish per action. */}
+                {spriteReactions.length > 0 && (
+                  <div
+                    className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                    aria-hidden="true"
+                  >
+                    {spriteReactions.map((r) => {
+                      const glyphs = ACTION_REACTION_EMOJI[r.kind];
+                      return (
+                        <div key={r.id} className="absolute inset-0">
+                          {glyphs.map((g, i) => {
+                            const angle = (i / glyphs.length) * Math.PI * 2;
+                            const radius = 36;
+                            const dx = Math.cos(angle) * radius;
+                            const dy = Math.sin(angle) * radius - 12;
+                            return (
+                              <span
+                                key={i}
+                                className="absolute text-2xl companion-floating-text"
+                                style={{
+                                  left: `calc(50% + ${dx}px)`,
+                                  top: `calc(50% + ${dy}px)`,
+                                  animationDelay: `${i * 60}ms`,
+                                }}
+                              >
+                                {g}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-              <span
-                className="absolute -top-2 -right-2 bg-black/90 border border-[#9966ff]/60 rounded-full px-2 py-1 text-lg shadow-[0_0_10px_rgba(153,102,255,0.4)]"
-                aria-label={`Mood: ${moodLabel}`}
-                title={`Mood: ${moodLabel}`}
-              >
-                {moodEmoji}
-              </span>
             </div>
           </div>
 
@@ -417,18 +599,33 @@ export default function CompanionView() {
               label="Hunger"
               value={companion.hunger ?? 0}
               color="#ff9944"
+              pulse={recentlyChanged.has('hunger')}
+              delta={statDeltas.find((d) => d.stat === 'hunger')?.delta}
             />
             <StatBar
               label="Happiness"
               value={companion.happiness ?? 0}
               color="#ff66aa"
+              pulse={recentlyChanged.has('happiness')}
+              delta={statDeltas.find((d) => d.stat === 'happiness')?.delta}
             />
             <StatBar
               label="Energy"
               value={companion.energy ?? 0}
               color="#66ccff"
+              pulse={recentlyChanged.has('energy')}
+              delta={statDeltas.find((d) => d.stat === 'energy')?.delta}
             />
           </div>
+
+          {isSleeping && (
+            <p
+              className="text-center text-[8px] text-[#66ccff] font-['Press_Start_2P'] tracking-wider"
+              role="status"
+            >
+              💤 Shhh — they&apos;re dreaming.
+            </p>
+          )}
         </div>
 
         {/* Actions + Journal */}
@@ -438,29 +635,35 @@ export default function CompanionView() {
               QUICK ACTIONS
             </h2>
             <div className="grid grid-cols-3 gap-2">
-              {ACTIONS.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => handleAction(a.id)}
-                  disabled={interacting !== null}
-                  aria-label={a.label}
-                  className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg border-2 transition-all
-                    ${
-                      interacting === a.id
-                        ? 'border-[#ffd700] bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
-                        : 'border-[#2a2a4e] bg-[#0a0a15] hover:border-[#9966ff]/60 hover:bg-[#1a0f3a]/40'
-                    }
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  `}
-                >
-                  <span className="text-xl leading-none">
-                    {interacting === a.id ? '⏳' : a.icon}
-                  </span>
-                  <span className="text-[7px] text-gray-300 font-['Press_Start_2P']">
-                    {a.label}
-                  </span>
-                </button>
-              ))}
+              {ACTIONS.map((a) => {
+                const muted = isSleeping && a.id !== 'sleep';
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => handleAction(a.id)}
+                    disabled={interacting !== null}
+                    aria-label={muted ? `${a.label} (sleeping)` : a.label}
+                    title={muted ? 'Companion is sleeping — wait until they wake' : a.label}
+                    className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg border-2 transition-all
+                      ${
+                        interacting === a.id
+                          ? 'border-[#ffd700] bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
+                          : muted
+                            ? 'border-[#2a2a4e]/40 bg-[#0a0a15]/40 opacity-50'
+                            : 'border-[#2a2a4e] bg-[#0a0a15] hover:border-[#9966ff]/60 hover:bg-[#1a0f3a]/40'
+                      }
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                    `}
+                  >
+                    <span className="text-xl leading-none">
+                      {interacting === a.id ? '⏳' : a.icon}
+                    </span>
+                    <span className="text-[7px] text-gray-300 font-['Press_Start_2P']">
+                      {a.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             {feedback && (
               <p

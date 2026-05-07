@@ -591,6 +591,42 @@ body::before {
 }
 
 /* ============================================
+   Companion-screen cozy polish
+   (SWO_V2_COMPANION_COZY_POLISH)
+   ============================================ */
+
+/* Soft starfield behind the companion sprite. Each .cozy-star is a 2px dot
+   that twinkles independently — staggered animation-delays make the cluster
+   feel organic without using JS or extra DOM cycles. */
+.companion-cozy-stars .cozy-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #ffd7ff;
+  box-shadow: 0 0 4px rgba(255, 215, 255, 0.6);
+  animation: sanctuaryStarTwinkle 3.4s ease-in-out infinite;
+  opacity: 0.4;
+}
+.companion-cozy-stars .cozy-star:nth-child(2) { animation-delay: 0.6s; background: #b088ff; box-shadow: 0 0 4px rgba(176, 136, 255, 0.6); }
+.companion-cozy-stars .cozy-star:nth-child(3) { animation-delay: 1.2s; background: #88e0ff; box-shadow: 0 0 4px rgba(136, 224, 255, 0.6); }
+.companion-cozy-stars .cozy-star:nth-child(4) { animation-delay: 1.8s; }
+.companion-cozy-stars .cozy-star:nth-child(5) { animation-delay: 2.4s; background: #ffe0a0; box-shadow: 0 0 4px rgba(255, 224, 160, 0.6); }
+
+/* Brief glow pulse on a stat-bar track when its underlying value just
+   changed. Uses the per-bar accent via a CSS variable so the pulse always
+   matches the bar color (orange/pink/cyan). Lives on the bar track, not the
+   fill, so it doesn't fight the fill's width transition. */
+@keyframes companionStatBarPulse {
+  0%   { box-shadow: 0 0 0 0 var(--bar-pulse-color, #ffd700); }
+  35%  { box-shadow: 0 0 8px 2px var(--bar-pulse-color, #ffd700); }
+  100% { box-shadow: 0 0 0 0 var(--bar-pulse-color, #ffd700); }
+}
+.companion-stat-bar-pulse {
+  animation: companionStatBarPulse 0.9s ease-out;
+}
+
+/* ============================================
    Cozy Gaming Station Loading Experience
    ============================================ */
 
