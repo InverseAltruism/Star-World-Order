@@ -9,6 +9,7 @@ import { describeNeeds, lowStats, type NeedStats } from '@/lib/sanctuary/needs';
 import {
   greetingForMood,
   lastVisitedPhrase,
+  timeOfDayPrefix,
   type CozyMood,
 } from '@/lib/sanctuary/companionGreeting';
 import { MOOD_EMOJI } from '@/components/sanctuary/overlays/CompanionHUD';
@@ -558,6 +559,7 @@ export default function CompanionView() {
     effectiveMood as CozyMood,
     isSleeping,
   );
+  const timePrefix = timeOfDayPrefix(new Date().getHours());
   // Prefer the local "page-open" marker over `stats_updated_at` whenever it
   // is fresher, so the cozy line refreshes on every open even when the
   // player just lurks without interacting.
@@ -575,6 +577,9 @@ export default function CompanionView() {
         >
           {displayName.toUpperCase()}
         </h1>
+        <p className="text-[#88ccff] text-[10px] italic px-4 leading-snug">
+          {timePrefix}
+        </p>
         <p className="text-[#bb88ff] text-[10px] italic px-4 leading-snug">
           {greeting}
         </p>

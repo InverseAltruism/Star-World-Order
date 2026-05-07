@@ -5,6 +5,7 @@ import {
   greetingForMood,
   journalLineForAction,
   lastVisitedPhrase,
+  timeOfDayPrefix,
   type CozyAction,
   type CozyMood,
 } from '../companionGreeting';
@@ -134,6 +135,64 @@ describe('lastVisitedPhrase', () => {
     ];
     for (const s of samples) {
       expect(s).not.toMatch(/abandon|forgot|neglect|left/i);
+    }
+  });
+});
+
+describe('timeOfDayPrefix', () => {
+  it('returns the morning line for 5–11 (band: morning)', () => {
+    expect(timeOfDayPrefix(5)).toBe('Good morning.');
+    expect(timeOfDayPrefix(8)).toBe('Good morning.');
+    expect(timeOfDayPrefix(11)).toBe('Good morning.');
+  });
+
+  it('returns the afternoon line for 12–16 (band: afternoon)', () => {
+    expect(timeOfDayPrefix(12)).toBe('Good afternoon.');
+    expect(timeOfDayPrefix(14)).toBe('Good afternoon.');
+    expect(timeOfDayPrefix(16)).toBe('Good afternoon.');
+  });
+
+  it('returns the evening line for 17–21 (band: evening)', () => {
+    expect(timeOfDayPrefix(17)).toBe('Evening, friend.');
+    expect(timeOfDayPrefix(19)).toBe('Evening, friend.');
+    expect(timeOfDayPrefix(21)).toBe('Evening, friend.');
+  });
+
+  it('returns the late-night line for 22–04 (band: late-night), wrapping past midnight', () => {
+    expect(timeOfDayPrefix(22)).toBe('Up late?');
+    expect(timeOfDayPrefix(23)).toBe('Up late?');
+    expect(timeOfDayPrefix(0)).toBe('Up late?');
+    expect(timeOfDayPrefix(2)).toBe('Up late?');
+    expect(timeOfDayPrefix(4)).toBe('Up late?');
+  });
+
+  it('normalizes out-of-range or non-finite hours instead of throwing', () => {
+    expect(() => timeOfDayPrefix(-7)).not.toThrow();
+    expect(() => timeOfDayPrefix(99)).not.toThrow();
+    // -7 wraps to 17 → evening
+    expect(timeOfDayPrefix(-7)).toBe('Evening, friend.');
+    // 99 wraps to 3 → late-night
+    expect(timeOfDayPrefix(99)).toBe('Up late?');
+    // NaN coerces to 0 → late-night
+    expect(timeOfDayPrefix(Number.NaN)).toBe('Up late?');
+  });
+
+  it('never returns the empty string for any hour 0–23', () => {
+    for (let h = 0; h < 24; h++) {
+      const line = timeOfDayPrefix(h);
+      expect(line.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('partitions every hour 0–23 into one of the four band lines', () => {
+    const allowed = new Set([
+      'Good morning.',
+      'Good afternoon.',
+      'Evening, friend.',
+      'Up late?',
+    ]);
+    for (let h = 0; h < 24; h++) {
+      expect(allowed.has(timeOfDayPrefix(h))).toBe(true);
     }
   });
 });
