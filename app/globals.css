@@ -2987,3 +2987,101 @@ a,
     linear-gradient(0deg, rgba(153, 102, 255, 0.4) 1px, transparent 1px);
   background-size: 25% 33.33%;
 }
+
+/* ============================================
+   Sanctuary v2 — Companion Chrome (SWO_V2_RD_COMPANION_CHROME_BATCH_2)
+   Hand-authored 9-slice frame set + decorative ornaments living at
+   /public/sanctuary/ui/chrome/. See manifest.json there for prompt/seed
+   traceability so RD-generated PNG drop-ins can replace these later.
+   ============================================ */
+
+.chrome-panel,
+.chrome-panel--active,
+.chrome-panel--muted {
+  position: relative;
+  border-style: solid;
+  border-width: 8px;
+  border-color: transparent;
+  border-image-slice: 8 fill;
+  border-image-width: 8px;
+  border-image-repeat: repeat;
+  background-clip: padding-box;
+  /* The SVG's middle slice is opaque #0d0a1c, so it serves as the panel
+     background once `border-image-slice: 8 fill` is applied. */
+}
+
+.chrome-panel {
+  border-image-source: url('/sanctuary/ui/chrome/panel_frame.svg');
+}
+.chrome-panel--active {
+  border-image-source: url('/sanctuary/ui/chrome/panel_frame_active.svg');
+}
+.chrome-panel--muted {
+  border-image-source: url('/sanctuary/ui/chrome/panel_frame_muted.svg');
+}
+
+.chrome-button {
+  position: relative;
+  border-style: solid;
+  border-width: 4px;
+  border-color: transparent;
+  border-image-source: url('/sanctuary/ui/chrome/button_outline.svg');
+  border-image-slice: 4;
+  border-image-width: 4px;
+  border-image-repeat: stretch;
+  background-clip: padding-box;
+}
+
+.chrome-button:focus-visible {
+  outline: none;
+  border-image-source: url('/sanctuary/ui/chrome/focus_ring.svg');
+  border-image-slice: 6;
+  border-image-width: 6px;
+  border-width: 6px;
+}
+
+/* Decorative corner ornaments — purely cosmetic, pointer-events: none.
+   Use as siblings inside a chromed panel (e.g. <span className="chrome-flourish-a"/>). */
+.chrome-flourish-a,
+.chrome-flourish-b {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+}
+.chrome-flourish-a {
+  top: 2px;
+  left: 2px;
+  background-image: url('/sanctuary/ui/chrome/corner_flourish_a.svg');
+}
+.chrome-flourish-b {
+  bottom: 2px;
+  right: 2px;
+  background-image: url('/sanctuary/ui/chrome/corner_flourish_b.svg');
+}
+
+/* Tileable horizontal dust strip — used as a soft divider above headings. */
+.chrome-dust {
+  display: block;
+  height: 8px;
+  background-image: url('/sanctuary/ui/chrome/dust_motif.svg');
+  background-repeat: repeat-x;
+  background-size: 32px 8px;
+  image-rendering: pixelated;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Reduced-motion fallback: the chrome itself has no animation, but make
+   sure decorative pieces stay visible (not faded out by other rules). */
+@media (prefers-reduced-motion: reduce) {
+  .chrome-flourish-a,
+  .chrome-flourish-b,
+  .chrome-dust {
+    animation: none !important;
+    opacity: 0.85;
+  }
+}
