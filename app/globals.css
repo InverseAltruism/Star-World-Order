@@ -3361,3 +3361,169 @@ a,
   border-color: #6a3a1e;
   background: #1c1410;
 }
+
+/* ============================================
+   Sanctuary v2 — Companion Misc Cozy VFX
+   (SWO_V2_COMPANION_MISC_COZY_ASSETS)
+   Hand-authored pixel-art SVGs at /public/sanctuary/ui/vfx/. See the
+   sibling manifest.json there for prompt/seed/palette traceability.
+   ============================================ */
+
+/* Base sprite class. All `.vfx-*` sprites are absolutely positioned spans
+   that paint a transparent SVG via background-image. No layout impact. */
+.vfx-sprite {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: pixelated;
+}
+
+/* Per-asset background-image bindings (kept tight so RD drop-ins only swap
+   the file path). Dimensions match manifest.dimensions. */
+.vfx-heart-pip      { width: 8px;  height: 8px;  background-image: url('/sanctuary/ui/vfx/heart_pip.svg'); }
+.vfx-heart-glow     { width: 12px; height: 12px; background-image: url('/sanctuary/ui/vfx/heart_glow.svg'); }
+.vfx-sparkle-4pt    { width: 8px;  height: 8px;  background-image: url('/sanctuary/ui/vfx/sparkle_4pt.svg'); }
+.vfx-sparkle-burst  { width: 12px; height: 12px; background-image: url('/sanctuary/ui/vfx/sparkle_burst.svg'); }
+.vfx-sleepy-z       { width: 8px;  height: 10px; background-image: url('/sanctuary/ui/vfx/sleepy_z.svg'); }
+.vfx-snack-apple    { width: 8px;  height: 8px;  background-image: url('/sanctuary/ui/vfx/snack_apple.svg'); }
+.vfx-snack-berry    { width: 8px;  height: 8px;  background-image: url('/sanctuary/ui/vfx/snack_berry.svg'); }
+.vfx-snack-cookie   { width: 8px;  height: 8px;  background-image: url('/sanctuary/ui/vfx/snack_cookie.svg'); }
+.vfx-sticker-paw    { width: 12px; height: 12px; background-image: url('/sanctuary/ui/vfx/sticker_paw.svg'); }
+.vfx-sticker-star   { width: 12px; height: 12px; background-image: url('/sanctuary/ui/vfx/sticker_star.svg'); }
+.vfx-sticker-moon   { width: 12px; height: 12px; background-image: url('/sanctuary/ui/vfx/sticker_moon.svg'); }
+
+/* Sleepy state stamp — composite ZZZ overlay shown over the sprite while
+   is_sleeping=1. Centered in the sprite frame; 2x scale so the cluster
+   reads from across the screen. Kept as a sibling so it never relayouts
+   the avatar. */
+.vfx-sleepy-zzz-stamp {
+  position: absolute;
+  top: 8%;
+  right: 4%;
+  width: 40px;
+  height: 28px;
+  background-image: url('/sanctuary/ui/vfx/sleepy_zzz.svg');
+  background-repeat: no-repeat;
+  background-size: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  opacity: 0.95;
+  animation: vfxSleepyZzzBob 3.4s ease-in-out infinite;
+}
+
+@keyframes vfxSleepyZzzBob {
+  0%, 100% { transform: translateY(0)    rotate(-1deg); opacity: 0.85; }
+  50%      { transform: translateY(-3px) rotate(1deg);  opacity: 1; }
+}
+
+/* Drifting single-Z particle. Spawned 3x with staggered animation delays
+   so the trio feels organic. Coordinates come from per-instance style. */
+.vfx-sleepy-z {
+  animation: vfxSleepyZDrift 2.8s ease-out infinite;
+  opacity: 0;
+}
+
+@keyframes vfxSleepyZDrift {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.7); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(8px, -28px) scale(1.1); }
+}
+
+/* Very-happy aura — slow ambient pulse around the sprite when mood is
+   happy/excited and bond is high. The container holds a heart_glow + a
+   sparkle_burst at four cozy positions. All decorative; pointer-events
+   off so the sprite stays interactive. */
+.vfx-very-happy-aura {
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
+}
+.vfx-very-happy-aura .vfx-heart-glow,
+.vfx-very-happy-aura .vfx-sparkle-burst,
+.vfx-very-happy-aura .vfx-heart-pip,
+.vfx-very-happy-aura .vfx-sparkle-4pt {
+  animation: vfxAuraTwinkle 2.4s ease-in-out infinite;
+}
+.vfx-very-happy-aura .vfx-heart-glow.vfx-aura-tl     { top: 4%;  left: 6%;   animation-delay: 0s;   }
+.vfx-very-happy-aura .vfx-sparkle-burst.vfx-aura-tr  { top: 6%;  right: 4%;  animation-delay: 0.6s; }
+.vfx-very-happy-aura .vfx-heart-pip.vfx-aura-bl      { bottom: 8%;  left: 8%;  animation-delay: 1.2s; }
+.vfx-very-happy-aura .vfx-sparkle-4pt.vfx-aura-br    { bottom: 10%; right: 6%; animation-delay: 1.8s; }
+
+@keyframes vfxAuraTwinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+/* Snack-pip floating animation: rises from below the sprite, fades out at
+   top. Used by the feed-action; supports per-instance --dx for spread. */
+@keyframes vfxSnackFloat {
+  0%   { opacity: 0; transform: translate(var(--dx, 0px), 12px) scale(0.7); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 0px), -36px) scale(1.1); }
+}
+.vfx-snack-float {
+  position: absolute;
+  animation: vfxSnackFloat 1.4s ease-out forwards;
+}
+
+/* Journal stickers as inline-positioned bullets. Sized to match the
+   list's text leading; sit at the start of each <li>. */
+.vfx-sticker-inline {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+  width: 12px;
+  height: 12px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: pixelated;
+}
+
+/* Journal empty state — paw + moon stickers framing the cozy text. Each
+   floats gently so the empty card no longer feels like a gap. */
+.vfx-journal-empty {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 4px;
+}
+.vfx-journal-empty .vfx-sticker-paw,
+.vfx-journal-empty .vfx-sticker-moon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  animation: vfxStickerBob 3.2s ease-in-out infinite;
+}
+.vfx-journal-empty .vfx-sticker-moon { animation-delay: 1.2s; }
+
+@keyframes vfxStickerBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+
+/* Reduced-motion: pin everything to a calm static frame. All vfx layers
+   stay visible (so the cozy art keeps doing its job) but no flashing. */
+@media (prefers-reduced-motion: reduce) {
+  .vfx-sleepy-zzz-stamp,
+  .vfx-sleepy-z,
+  .vfx-very-happy-aura .vfx-heart-glow,
+  .vfx-very-happy-aura .vfx-sparkle-burst,
+  .vfx-very-happy-aura .vfx-heart-pip,
+  .vfx-very-happy-aura .vfx-sparkle-4pt,
+  .vfx-snack-float,
+  .vfx-journal-empty .vfx-sticker-paw,
+  .vfx-journal-empty .vfx-sticker-moon {
+    animation: none !important;
+    opacity: 0.85 !important;
+    transform: none !important;
+  }
+  .vfx-sleepy-z { opacity: 0.7 !important; }
+}
