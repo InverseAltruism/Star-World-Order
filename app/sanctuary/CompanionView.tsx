@@ -73,6 +73,16 @@ const ACTION_REACTION_EMOJI: Record<QuickAction, string[]> = {
   play: ['⭐', '✨', '💫'],
 };
 
+// Pixel-art VFX sprite class names that float on top of action reactions.
+// See public/sanctuary/ui/vfx/manifest.json for art traceability.
+const ACTION_VFX_SPRITES: Record<QuickAction, string[]> = {
+  feed: ['vfx-snack-apple', 'vfx-snack-berry', 'vfx-snack-cookie'],
+  pet: ['vfx-heart-pip', 'vfx-heart-pip', 'vfx-sparkle-4pt'],
+  talk: ['vfx-sparkle-4pt'],
+  sleep: ['vfx-sleepy-z'],
+  play: ['vfx-sparkle-burst', 'vfx-sparkle-4pt'],
+};
+
 interface JournalEntry {
   id: number;
   entry_type: string;
@@ -623,7 +633,7 @@ export default function CompanionView() {
                 className={`relative ${moodAnimClass}`}
                 data-testid="companion-sprite"
               >
-                <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)]">
+                <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)] relative">
                   {companion.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -636,6 +646,53 @@ export default function CompanionView() {
                       🐸
                     </div>
                   )}
+                  {/* Sleepy state stamp — pixel-art ZZZ overlay. The
+                      manifest pairs this with the sleepy_z drift particles
+                      below so the sleeping panel feels distinct. */}
+                  {isSleeping && (
+                    <span
+                      className="vfx-sleepy-zzz-stamp"
+                      data-testid="companion-vfx-sleepy"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {/* Drifting Z particles — three staggered instances. */}
+                  {isSleeping && (
+                    <>
+                      <span
+                        className="vfx-sprite vfx-sleepy-z"
+                        style={{ left: '70%', top: '55%', animationDelay: '0s' }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="vfx-sprite vfx-sleepy-z"
+                        style={{ left: '78%', top: '40%', animationDelay: '0.9s' }}
+                        aria-hidden="true"
+                      />
+                      <span
+                        className="vfx-sprite vfx-sleepy-z"
+                        style={{ left: '64%', top: '32%', animationDelay: '1.8s' }}
+                        aria-hidden="true"
+                      />
+                    </>
+                  )}
+                  {/* Very-happy aura — only renders when mood is happy/excited
+                      AND bond ≥ 50 AND not sleeping. Composite of heart_glow
+                      + sparkle_burst at four cozy positions. */}
+                  {!isSleeping &&
+                    (effectiveMood === 'happy' || effectiveMood === 'excited') &&
+                    companion.bond_score >= 50 && (
+                      <div
+                        className="vfx-very-happy-aura"
+                        data-testid="companion-vfx-very-happy"
+                        aria-hidden="true"
+                      >
+                        <span className="vfx-sprite vfx-heart-glow vfx-aura-tl" />
+                        <span className="vfx-sprite vfx-sparkle-burst vfx-aura-tr" />
+                        <span className="vfx-sprite vfx-heart-pip vfx-aura-bl" />
+                        <span className="vfx-sprite vfx-sparkle-4pt vfx-aura-br" />
+                      </div>
+                    )}
                 </div>
                 <span
                   className="absolute -top-2 -right-2 bg-black/90 border border-[#9966ff]/60 rounded-full px-2 py-1 text-lg shadow-[0_0_10px_rgba(153,102,255,0.4)]"
@@ -690,6 +747,35 @@ export default function CompanionView() {
                           </span>
                         );
                       })}
+                      {/* Pixel-art celebration garnish — paired with the
+                          emoji burst so the milestone moment includes the
+                          cozy art language too. Six sprites at fixed
+                          radii. */}
+                      {Array.from({ length: 6 }).map((_, i) => {
+                        const angle = ((i + 0.5) / 6) * Math.PI * 2;
+                        const distance = 70;
+                        const dx = Math.cos(angle) * distance;
+                        const dy = Math.sin(angle) * distance - 16;
+                        const rot = (i % 2 === 0 ? 1 : -1) * 12;
+                        const cls = i % 2 === 0
+                          ? 'vfx-sparkle-burst'
+                          : 'vfx-heart-glow';
+                        return (
+                          <span
+                            key={`vfx-${i}`}
+                            className={`vfx-sprite heart-particle ${cls}`}
+                            data-testid="companion-vfx-celebrate"
+                            style={
+                              {
+                                '--dx': `${dx.toFixed(0)}px`,
+                                '--dy': `${dy.toFixed(0)}px`,
+                                '--rot': `${rot}deg`,
+                                '--delay': `${100 + i * 60}ms`,
+                              } as React.CSSProperties
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -705,6 +791,7 @@ export default function CompanionView() {
                   >
                     {spriteReactions.map((r) => {
                       const glyphs = ACTION_REACTION_EMOJI[r.kind];
+                      const vfxSprites = ACTION_VFX_SPRITES[r.kind];
                       return (
                         <div key={r.id} className="absolute inset-0">
                           {glyphs.map((g, i) => {
@@ -724,6 +811,27 @@ export default function CompanionView() {
                               >
                                 {g}
                               </span>
+                            );
+                          })}
+                          {/* Pixel-art VFX layer — small snack/heart/sparkle
+                              sprites that float upward alongside the emoji,
+                              giving every action a tactile pixel-art beat. */}
+                          {vfxSprites.map((cls, i) => {
+                            const offset = ((i % 3) - 1) * 18;
+                            return (
+                              <span
+                                key={`vfx-${i}`}
+                                className={`vfx-sprite vfx-snack-float ${cls}`}
+                                data-testid="companion-vfx-action"
+                                style={
+                                  {
+                                    left: `calc(50% - 4px + ${offset}px)`,
+                                    top: 'calc(50% + 30px)',
+                                    animationDelay: `${i * 90}ms`,
+                                    '--dx': `${offset * 0.5}px`,
+                                  } as React.CSSProperties
+                                }
+                              />
                             );
                           })}
                         </div>
@@ -822,19 +930,56 @@ export default function CompanionView() {
               <span className="text-[7px] text-gray-500">last 3</span>
             </div>
             {journal.length === 0 ? (
-              <p className="text-gray-500 text-[8px] italic">
-                No journal entries yet — interact to start a story.
-              </p>
+              // Empty-state journal: pixel-art stickers anchor the cozy
+              // text so a brand-new player sees craft, not a blank card.
+              // The moon sticker swaps in while the companion is sleeping
+              // for a quieter mood.
+              <div
+                className="vfx-journal-empty"
+                data-testid="companion-vfx-journal-empty"
+              >
+                <span
+                  className={
+                    isSleeping ? 'vfx-sticker-moon' : 'vfx-sticker-paw'
+                  }
+                  aria-hidden="true"
+                />
+                <p className="text-gray-500 text-[8px] italic text-center">
+                  {isSleeping
+                    ? 'Shhh — they’re dreaming up tomorrow’s story.'
+                    : 'No journal entries yet — interact to start a story.'}
+                </p>
+                <span
+                  className={
+                    isSleeping ? 'vfx-sticker-paw' : 'vfx-sticker-moon'
+                  }
+                  aria-hidden="true"
+                />
+              </div>
             ) : (
               <ul className="space-y-2">
-                {journal.map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="text-[8px] text-gray-300 leading-relaxed border-l-2 border-[#9966ff]/40 pl-2"
-                  >
-                    {entry.content}
-                  </li>
-                ))}
+                {journal.map((entry, idx) => {
+                  // Rotate three sticker glyphs through the (max-3) entry
+                  // list so each line gets a pixel-art bullet.
+                  const stickerCls =
+                    idx % 3 === 0
+                      ? 'vfx-sticker-star'
+                      : idx % 3 === 1
+                        ? 'vfx-sticker-paw'
+                        : 'vfx-sticker-moon';
+                  return (
+                    <li
+                      key={entry.id}
+                      className="text-[8px] text-gray-300 leading-relaxed border-l-2 border-[#9966ff]/40 pl-2"
+                    >
+                      <span
+                        className={`vfx-sticker-inline ${stickerCls}`}
+                        aria-hidden="true"
+                      />
+                      {entry.content}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

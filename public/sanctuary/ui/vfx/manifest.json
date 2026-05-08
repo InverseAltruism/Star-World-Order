@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "scope": "sanctuary-v2",
+  "task": "SWO_V2_COMPANION_MISC_COZY_ASSETS",
+  "generated_at": "2026-05-08",
+  "notes": [
+    "Cozy micro-VFX/ornament batch for the Sanctuary companion screen.",
+    "Hand-authored pixel-art SVGs (palette- and grid-compliant) so the batch ships without an RD_API_KEY in CI. Each asset retains a prompt + seed so a future RD regeneration can drop in matching PNGs without code changes — keep the file path and dimensions stable.",
+    "Palette doctrine (matches public/sanctuary/ui/chrome/manifest.json + docs/SANCTUARY_STYLE_DOCTRINE.md): pinks #ff66aa/#ff99cc, gold #ffd070/#fff2c0, cyan #88ccff/#bbe6ff, purple #9966ff/#bb88ff/#ddbbff, warm #ff5544/#ff9966, and the cool indigo background #0d0a1c.",
+    "Where states feel different: empty journal swaps to a paw + moon sticker layout, sleepy state stamps the ZZZ over the sprite, very-happy/milestone burst layers heart_glow + sparkle_burst, all gated behind prefers-reduced-motion."
+  ],
+  "rd_style": {
+    "model": "RD_FAST",
+    "prompt_style": "retro",
+    "size": 64,
+    "n": 1,
+    "negative_prompt": "blurry, photorealistic, smooth gradient, banding, text, watermark, antialiasing"
+  },
+  "assets": [
+    {
+      "name": "heart_pip",
+      "path": "heart_pip.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 8 },
+      "intent": "Tiny floating heart for low-key affection beats — pet-action feedback, bond pip.",
+      "prompt": "A tiny pixel-art heart, hot pink with a soft pink highlight and a single warm-white specular pixel, transparent background, 8x8 sprite-sheet style, cozy Tamagotchi aesthetic.",
+      "seed": 5050801,
+      "palette": ["#ff66aa", "#ff99cc", "#fff2c0"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "heart_glow",
+      "path": "heart_glow.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 12, "h": 12 },
+      "intent": "Larger heart with halo for milestone celebrate flow + very-happy stamp.",
+      "prompt": "A pixel-art heart with a faint pink halo aura, hot-pink core, soft inner highlight, warm-white specular gleam, transparent background, 12x12, cozy stardew/tamagotchi aesthetic.",
+      "seed": 5050802,
+      "palette": ["#ff66aa", "#ff99cc", "#fff2c0"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sparkle_4pt",
+      "path": "sparkle_4pt.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 8 },
+      "intent": "Small twinkle. Used as ambient very-happy decoration and pet-action sparkle.",
+      "prompt": "Pixel-art 4-point sparkle, warm-gold edges, near-white center, transparent background, 8x8, cozy fantasy UI star burst.",
+      "seed": 5050803,
+      "palette": ["#fff2c0", "#ffd070", "#ffffff"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sparkle_burst",
+      "path": "sparkle_burst.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 12, "h": 12 },
+      "intent": "Larger 4-point burst with cyan dust. Used in the milestone celebrate flow + play action.",
+      "prompt": "Pixel-art sparkle burst, gold cross arms with warm-white inner halo, four cyan dust pixels at the diagonals, transparent background, 12x12, cozy fantasy UI.",
+      "seed": 5050804,
+      "palette": ["#ffd070", "#fff2c0", "#88e0ff", "#ffffff"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sleepy_z",
+      "path": "sleepy_z.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 10 },
+      "intent": "Single drifting Z. Used while the companion is sleeping; multiple instances stagger via CSS.",
+      "prompt": "Pixel-art letter Z, soft cyan-blue with a paler diagonal highlight, transparent background, 8x10, cozy sleeping-companion glyph.",
+      "seed": 5050805,
+      "palette": ["#88ccff", "#bbe6ff"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sleepy_zzz",
+      "path": "sleepy_zzz.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 20, "h": 14 },
+      "intent": "Stacked ZZZ trio, the sleepy-state ornament stamp. Makes the sleeping panel visibly distinct.",
+      "prompt": "Three pixel-art Zs stacked diagonally — small dim, medium mid, large bright cyan — transparent background, 20x14, cozy tamagotchi sleep glyph.",
+      "seed": 5050806,
+      "palette": ["#5a8ec8", "#88ccff", "#bbe6ff"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "snack_apple",
+      "path": "snack_apple.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 8 },
+      "intent": "Snack pip — feed-action floating glyph (apple variant).",
+      "prompt": "Pixel-art apple, red-orange body with a brown stem, single green leaf, soft warm highlight, transparent background, 8x8, cozy snack icon.",
+      "seed": 5050807,
+      "palette": ["#ff5544", "#ff9966", "#7a4c2a", "#66cc66", "#44aa44"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "snack_berry",
+      "path": "snack_berry.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 8 },
+      "intent": "Snack pip — feed-action floating glyph (berry cluster variant).",
+      "prompt": "Pixel-art berry cluster, lavender purple berries with green leaf cap and warm-white speculars, transparent background, 8x8, cozy forageable.",
+      "seed": 5050808,
+      "palette": ["#9966ff", "#bb88ff", "#44aa44", "#66cc66", "#fff2c0"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "snack_cookie",
+      "path": "snack_cookie.svg",
+      "kind": "vfx",
+      "dimensions": { "w": 8, "h": 8 },
+      "intent": "Snack pip — feed-action floating glyph (cookie variant). Rotates in for variety.",
+      "prompt": "Pixel-art chocolate-chip cookie, golden-brown round blob with a lighter top edge and dark-brown chip pixels, transparent background, 8x8.",
+      "seed": 5050809,
+      "palette": ["#c69060", "#e8b078", "#5a3018"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sticker_paw",
+      "path": "sticker_paw.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 12, "h": 12 },
+      "intent": "Journal sticker — paw print. Used in the journal empty-state and as a non-text bullet.",
+      "prompt": "Pixel-art lavender paw print, four toe beans plus a rounded pad, soft purple highlight, transparent background, 12x12, cozy journal sticker.",
+      "seed": 5050810,
+      "palette": ["#9966ff", "#bb88ff", "#ddbbff"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sticker_star",
+      "path": "sticker_star.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 12, "h": 12 },
+      "intent": "Journal sticker — gold star, the bond/celebration journal bullet.",
+      "prompt": "Pixel-art 5-point gold star with warm outline, soft halo behind, warm-white highlight pixels, transparent background, 12x12, cozy sticker.",
+      "seed": 5050811,
+      "palette": ["#ffd070", "#fff2c0", "#b88940"],
+      "palette_qa": "ok"
+    },
+    {
+      "name": "sticker_moon",
+      "path": "sticker_moon.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 12, "h": 12 },
+      "intent": "Journal sticker — crescent moon, the sleepy/quiet entry bullet. Pairs with sleepy state.",
+      "prompt": "Pixel-art lavender crescent moon with a soft highlight curve, a single tiny gold star to the right, transparent background, 12x12, cozy sticker.",
+      "seed": 5050812,
+      "palette": ["#bb88ff", "#ddbbff", "#fff2c0"],
+      "palette_qa": "ok"
+    }
+  ],
+  "integration": {
+    "css_classes": [
+      ".vfx-heart-pip / .vfx-heart-glow — animated heart sprites for affection beats and very-happy stamp",
+      ".vfx-sparkle-4pt / .vfx-sparkle-burst — twinkling sparkle sprites used in milestone + very-happy",
+      ".vfx-sleepy-z — drifting single-Z particle (CSS-animated upward)",
+      ".vfx-sleepy-zzz-stamp — large ZZZ overlay used while is_sleeping=1",
+      ".vfx-snack-apple / .vfx-snack-berry / .vfx-snack-cookie — feed-action floating snack pips",
+      ".vfx-sticker-paw / .vfx-sticker-star / .vfx-sticker-moon — journal stickers (decorative bullets and empty-state)",
+      ".vfx-very-happy-aura — composite very-happy stamp shown when mood is happy/excited and bond is high"
+    ],
+    "consumed_by": ["app/sanctuary/CompanionView.tsx"],
+    "states": {
+      "empty_journal": "sticker_paw + sticker_moon used as visual anchors when the journal has no entries — replaces the previous all-text empty state.",
+      "sleepy": "sleepy_zzz is stamped over the sprite when is_sleeping=1, plus 3 drifting sleepy_z particles. Empty-state journal swaps the paw for a moon.",
+      "very_happy": "When mood is happy/excited AND bond ≥ 50, heart_glow + sparkle_burst form a slow ambient aura around the sprite."
+    },
+    "reduced_motion": "All vfx animations are gated behind a prefers-reduced-motion: reduce override that pins them to a single static frame, preserving readability without flashing motion."
+  }
+}
