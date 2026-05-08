@@ -13,6 +13,9 @@ import {
   type CozyMood,
 } from '@/lib/sanctuary/companionGreeting';
 import { MOOD_EMOJI } from '@/components/sanctuary/overlays/CompanionHUD';
+import CompanionActionButton from '@/components/sanctuary/CompanionActionButton';
+import CompanionChip from '@/components/sanctuary/CompanionChip';
+import { COMPANION_ACTIONS } from '@/lib/sanctuary/companionAction';
 import EventBus from '@/components/sanctuary/EventBus';
 import { emitCompanionVfx } from '@/lib/sanctuary/vfxEvents';
 import {
@@ -84,14 +87,6 @@ interface ChatLine {
 }
 
 type QuickAction = 'feed' | 'pet' | 'talk' | 'sleep' | 'play';
-
-const ACTIONS: { id: QuickAction; icon: string; label: string }[] = [
-  { id: 'feed', icon: '🍎', label: 'Feed' },
-  { id: 'pet', icon: '🐾', label: 'Pet' },
-  { id: 'talk', icon: '💬', label: 'Talk' },
-  { id: 'sleep', icon: '💤', label: 'Sleep' },
-  { id: 'play', icon: '🎾', label: 'Play' },
-];
 
 const NEED_LABEL: Record<'hunger' | 'happiness' | 'energy', string> = {
   hunger: 'Hungry — feed me!',
@@ -583,10 +578,17 @@ export default function CompanionView() {
         <p className="text-[#bb88ff] text-[10px] italic px-4 leading-snug">
           {greeting}
         </p>
-        <p className="text-gray-400 text-[10px]">
-          Lv.{companion.level} · Training {companion.companion_level} · Bond{' '}
-          {Math.round(companion.bond_score)}
-        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+          <CompanionChip tone="gold" compact>
+            Lv {companion.level}
+          </CompanionChip>
+          <CompanionChip tone="purple" compact>
+            Training {companion.companion_level}
+          </CompanionChip>
+          <CompanionChip tone="pink" compact>
+            Bond {Math.round(companion.bond_score)}
+          </CompanionChip>
+        </div>
         {lastVisit && (
           <p className="text-gray-500 text-[8px]">
             {lastVisit}
@@ -791,35 +793,16 @@ export default function CompanionView() {
               QUICK ACTIONS
             </h2>
             <div className="grid grid-cols-3 gap-2">
-              {ACTIONS.map((a) => {
-                const muted = isSleeping && a.id !== 'sleep';
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => handleAction(a.id)}
-                    disabled={interacting !== null}
-                    aria-label={muted ? `${a.label} (sleeping)` : a.label}
-                    title={muted ? 'Companion is sleeping — wait until they wake' : a.label}
-                    className={`chrome-button flex flex-col items-center justify-center gap-1 py-3 transition-all
-                      ${
-                        interacting === a.id
-                          ? 'bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
-                          : muted
-                            ? 'bg-[#0a0a15]/40 opacity-50'
-                            : 'bg-[#0a0a15] hover:bg-[#1a0f3a]/40'
-                      }
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    `}
-                  >
-                    <span className="text-xl leading-none">
-                      {interacting === a.id ? '⏳' : a.icon}
-                    </span>
-                    <span className="text-[7px] text-gray-300 font-['Press_Start_2P']">
-                      {a.label}
-                    </span>
-                  </button>
-                );
-              })}
+              {COMPANION_ACTIONS.map((a) => (
+                <CompanionActionButton
+                  key={a.id}
+                  action={a.id}
+                  label={a.label}
+                  busy={interacting}
+                  isSleeping={isSleeping}
+                  onActivate={handleAction}
+                />
+              ))}
             </div>
             {feedback && (
               <p

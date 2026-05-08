@@ -3085,3 +3085,279 @@ a,
     opacity: 0.85;
   }
 }
+
+/* ============================================
+   Sanctuary v2 — Companion Action Interactables
+   (SWO_V2_COMPANION_INTERACTABLES_POLISH)
+   One language for the action grid. Variant classes are emitted by
+   `companionActionVariantClasses()` so the React tree only needs to drop
+   the resolved class onto the button.
+   ============================================ */
+
+.companion-action-button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 10px 8px 8px;
+  background-color: #14102a;
+  color: #ffd29c;
+  cursor: pointer;
+  /* Tactile: layered inset highlight + drop shadow gives buttons a real
+     "rest" depth before they're pressed. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.55);
+  transform: translateY(0);
+  transition:
+    transform 90ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 90ms cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.companion-action-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.companion-action-button__label {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: #d8c8ff;
+  text-transform: uppercase;
+}
+
+.companion-action-button__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  padding: 1px 4px;
+  font-size: 7px;
+  background: #2a1f4a;
+  color: #ffd700;
+  border: 1px solid #5a4a8e;
+  border-radius: 3px;
+  text-align: center;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Hover lift — kept subtle so the chrome border still reads as the hero. */
+.companion-action-button.companion-action--idle:hover,
+.companion-action-button.companion-action--selected:hover {
+  background-color: #1c1640;
+  color: #ffe2b2;
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 3px 0 rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(187, 136, 255, 0.25);
+}
+
+/* Tactile press — both :active for pointer and the resolved `pressed`
+   state for in-flight requests. */
+.companion-action-button.companion-action--idle:active,
+.companion-action-button.companion-action--selected:active,
+.companion-action-button.companion-action--pressed {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.55),
+    inset 0 -1px 0 rgba(255, 215, 152, 0.05),
+    0 0 0 rgba(0, 0, 0, 0);
+  background-color: #2a1f55;
+  color: #ffd700;
+}
+
+.companion-action-button.companion-action--pressed {
+  /* Working state pulse — gentle so it reads as in-progress, not error. */
+  animation: companion-action-pulse 1100ms ease-in-out infinite;
+}
+
+@keyframes companion-action-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.55),
+      0 0 8px rgba(255, 215, 0, 0.25);
+  }
+  50% {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.55),
+      0 0 14px rgba(255, 215, 0, 0.45);
+  }
+}
+
+/* Selected — caller-driven highlight (not used by interact today, but
+   reserved so future "active action" affordances share the language). */
+.companion-action-button.companion-action--selected {
+  background-color: #1f173d;
+  color: #ffe2b2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.32),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(255, 215, 0, 0.45),
+    0 2px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Disabled (another action in flight) — preserve cozy palette so the
+   button doesn't read as broken; just clearly unactionable. */
+.companion-action-button.companion-action--disabled {
+  cursor: not-allowed;
+  background-color: #14102a;
+  color: #6f6896;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.06),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+  opacity: 0.65;
+}
+.companion-action-button.companion-action--disabled .companion-action-button__label {
+  color: #6f6896;
+}
+
+/* Sleeping — warm dusk tint so "wait" reads as cozy, not "broken". */
+.companion-action-button.companion-action--sleeping {
+  cursor: not-allowed;
+  background-color: #1a1830;
+  color: #5e7ba8;
+  box-shadow:
+    inset 0 1px 0 rgba(102, 204, 255, 0.12),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+  opacity: 0.78;
+}
+.companion-action-button.companion-action--sleeping .companion-action-button__label {
+  color: #5e7ba8;
+}
+.companion-action-button.companion-action--sleeping .companion-action-button__badge {
+  background: #14182c;
+  color: #88ccff;
+  border-color: #3a4a7e;
+}
+
+/* Cooldown — same shape as sleeping, but warm rather than cool. */
+.companion-action-button.companion-action--cooldown {
+  cursor: not-allowed;
+  background-color: #1c1428;
+  color: #c79a72;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 153, 68, 0.16),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 1px 0 rgba(0, 0, 0, 0.55);
+  opacity: 0.82;
+}
+.companion-action-button.companion-action--cooldown .companion-action-button__label {
+  color: #c79a72;
+}
+.companion-action-button.companion-action--cooldown .companion-action-button__badge {
+  background: #2a1812;
+  color: #ff9944;
+  border-color: #6a3a1e;
+}
+
+/* Focus ring — relies on the existing chrome-button focus image, plus a
+   warm glow halo so keyboard nav stays visible on dark backgrounds. */
+.companion-action-button:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 0 0 2px rgba(255, 215, 0, 0.65),
+    0 0 16px rgba(255, 215, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .companion-action-button {
+    transition: none !important;
+  }
+  .companion-action-button.companion-action--pressed {
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   Companion micro-badges / chips — one outline language for level,
+   training, bond, mood, and other inline pills on the companion surface.
+   ============================================ */
+
+.companion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 3px;
+  background: #14102a;
+  color: #d8c8ff;
+  border-color: #3a2f5e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 215, 152, 0.08),
+    0 1px 0 rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
+.companion-chip--compact {
+  padding: 2px 4px;
+  font-size: 7px;
+  gap: 3px;
+}
+
+.companion-chip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.companion-chip__label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.companion-chip--neutral {
+  color: #d8c8ff;
+  border-color: #3a2f5e;
+  background: #14102a;
+}
+
+.companion-chip--gold {
+  color: #ffd700;
+  border-color: #6a5a1e;
+  background: #1c1610;
+}
+
+.companion-chip--pink {
+  color: #ff99cc;
+  border-color: #6a2a4a;
+  background: #1c0f1c;
+}
+
+.companion-chip--cyan {
+  color: #88ccff;
+  border-color: #2a4a7e;
+  background: #0f1c2a;
+}
+
+.companion-chip--purple {
+  color: #bb88ff;
+  border-color: #4a2a8e;
+  background: #1a0f2c;
+}
+
+.companion-chip--warm {
+  color: #ff9944;
+  border-color: #6a3a1e;
+  background: #1c1410;
+}
