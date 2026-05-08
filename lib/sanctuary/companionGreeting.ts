@@ -2,12 +2,15 @@
  * Cozy/tamagotchi-voice helpers for the dedicated Companion screen
  * (`[SWO_V2_COMPANION_COZY_POLISH]`).
  *
- * Three pure helpers, no DB / Phaser / React imports so they can be
- * unit-tested in isolation and reused by CompanionView, db.ts journal
- * messages, and any future cozy surface (mobile widget, push copy, etc.):
+ * Pure helpers, no DB / Phaser / React imports so they can be unit-tested
+ * in isolation and reused by CompanionView, db.ts journal messages, and
+ * any future cozy surface (mobile widget, push copy, etc.):
  *
  *   - greetingForMood(name, mood, isSleeping) → cozy one-liner the
  *     companion says back at you on screen-mount or mood-change.
+ *   - timeOfDayPrefix(hour) → short "Good morning." / "Evening, friend." /
+ *     "Up late?" framing line that the Companion header stacks above the
+ *     mood line. Operator-local hour from `Date#getHours()`.
  *   - lastVisitedPhrase(stats_updated_at, now) → soft, non-punishing
  *     time-since-last-tend phrase ("you just popped in" / "they missed
  *     you"). Always reassuring; never scolding.
@@ -96,6 +99,30 @@ export function greetingForMood(
   const pool = GREETINGS_BY_MOOD[effectiveMood] ?? GREETINGS_BY_MOOD.idle;
   const line = pool[Math.abs(hashString(name) + dayKey) % pool.length];
   return (line ?? GREETINGS_BY_MOOD.idle[0]).replace(/\{name\}/g, name);
+}
+
+/**
+ * Short time-of-day framing phrase the Companion header stacks ABOVE the
+ * mood greeting (it never replaces it). Operator-local: pass
+ * `new Date().getHours()` from a client component.
+ *
+ * Bands:
+ *   -   5 ≤ h < 12  → "Good morning."
+ *   -  12 ≤ h < 17  → "Good afternoon."
+ *   -  17 ≤ h < 22  → "Evening, friend."
+ *   -  22 ≤ h or h < 5 → "Up late?"
+ *
+ * Out-of-range or non-finite `hour` normalizes via `((h % 24) + 24) % 24`,
+ * matching journalLineForAction's wrap so callers can pass any number
+ * without throwing. Returns a non-empty string for every input.
+ */
+export function timeOfDayPrefix(hour: number): string {
+  const safe = Number.isFinite(hour) ? hour : 0;
+  const h = (((Math.trunc(safe) % 24) + 24) % 24);
+  if (h >= 5 && h < 12) return 'Good morning.';
+  if (h >= 12 && h < 17) return 'Good afternoon.';
+  if (h >= 17 && h < 22) return 'Evening, friend.';
+  return 'Up late?';
 }
 
 /**

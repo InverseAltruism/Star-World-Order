@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!--
+    Action button outline (9-slice). Slice=4, width=4.
+    Cozy purple hairline with chamfered corners.
+  -->
+  <rect width="16" height="16" fill="none"/>
+  <!-- chamfered corners -->
+  <rect x="1" y="0" width="14" height="1" fill="#5a4a8e"/>
+  <rect x="1" y="15" width="14" height="1" fill="#5a4a8e"/>
+  <rect x="0" y="1" width="1" height="14" fill="#5a4a8e"/>
+  <rect x="15" y="1" width="1" height="14" fill="#5a4a8e"/>
+  <!-- inner soft shadow -->
+  <rect x="1" y="1" width="14" height="1" fill="#7e6ab8"/>
+  <rect x="1" y="14" width="14" height="1" fill="#2a1f4a"/>
+  <rect x="1" y="2" width="1" height="12" fill="#7e6ab8"/>
+  <rect x="14" y="2" width="1" height="12" fill="#2a1f4a"/>
+  <!-- corner accents -->
+  <rect x="1" y="1" width="1" height="1" fill="#bb88ff"/>
+  <rect x="14" y="14" width="1" height="1" fill="#bb88ff"/>
+  <!-- transparent core -->
+  <rect x="2" y="2" width="12" height="12" fill="none"/>
+</svg>
