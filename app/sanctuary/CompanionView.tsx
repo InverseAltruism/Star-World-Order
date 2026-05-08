@@ -28,6 +28,14 @@ import {
   readLastVisit,
   writeLastVisit,
 } from '@/lib/sanctuary/lastVisitStore';
+import {
+  actionAriaDisabled,
+  actionStateClass,
+  bondHint,
+  bondProgress,
+  resolveActionState,
+  type ActionId,
+} from '@/lib/sanctuary/companionShell';
 
 const SanctuaryContent = dynamic(() => import('./SanctuaryContent'), { ssr: false });
 
@@ -53,7 +61,7 @@ interface CompanionData {
 
 interface SpriteReaction {
   id: number;
-  kind: QuickAction;
+  kind: ActionId;
 }
 
 interface StatDelta {
@@ -62,7 +70,7 @@ interface StatDelta {
   delta: number;
 }
 
-const ACTION_REACTION_EMOJI: Record<QuickAction, string[]> = {
+const ACTION_REACTION_EMOJI: Record<ActionId, string[]> = {
   feed: ['🍎', '✨'],
   pet: ['💗', '💗', '✨'],
   talk: ['💬', '💕'],
@@ -83,9 +91,7 @@ interface ChatLine {
   content: string;
 }
 
-type QuickAction = 'feed' | 'pet' | 'talk' | 'sleep' | 'play';
-
-const ACTIONS: { id: QuickAction; icon: string; label: string }[] = [
+const ACTIONS: { id: ActionId; icon: string; label: string }[] = [
   { id: 'feed', icon: '🍎', label: 'Feed' },
   { id: 'pet', icon: '🐾', label: 'Pet' },
   { id: 'talk', icon: '💬', label: 'Talk' },
@@ -116,6 +122,8 @@ const MOOD_LABEL: Record<string, string> = {
   lonely: 'Lonely',
   idle: 'Idle',
 };
+
+const BOND_NOTCHES: readonly number[] = [25, 50, 75, 100];
 
 function StatBar({
   label,
@@ -164,6 +172,36 @@ function StatBar({
   );
 }
 
+function BondBar({ score }: { score: number }) {
+  const progress = bondProgress(score);
+  return (
+    <div
+      className="companion-bond-bar"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress.score)}
+      aria-label="Bond progress"
+    >
+      <div
+        className="companion-bond-bar__fill"
+        style={{ width: `${progress.pct}%` }}
+      />
+      <div className="companion-bond-bar__notches" aria-hidden="true">
+        {BOND_NOTCHES.map((m) => (
+          <span
+            key={m}
+            className={`companion-bond-bar__notch ${
+              progress.score >= m ? 'companion-bond-bar__notch--reached' : ''
+            }`}
+            style={{ left: `${m}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function navigateToWorld() {
   if (typeof window === 'undefined') return;
   const params = new URLSearchParams(window.location.search);
@@ -178,7 +216,7 @@ export default function CompanionView() {
   const { address, isConnected } = useAccount();
   const [companion, setCompanion] = useState<CompanionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [interacting, setInteracting] = useState<QuickAction | null>(null);
+  const [interacting, setInteracting] = useState<ActionId | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -290,7 +328,7 @@ export default function CompanionView() {
     feedbackTimer.current = setTimeout(() => setFeedback(null), 1800);
   }, []);
 
-  const triggerSpriteReaction = useCallback((kind: QuickAction) => {
+  const triggerSpriteReaction = useCallback((kind: ActionId) => {
     const id = ++reactionIdRef.current;
     setSpriteReactions((prev) => [...prev, { id, kind }]);
     setTimeout(() => {
@@ -303,10 +341,6 @@ export default function CompanionView() {
       const id = ++celebrationIdRef.current;
       const message = bondMilestoneBanner(milestone, name);
       setBondCelebration({ id, milestone, message });
-      // Emit a `heart` VFX through the shared contract so the V2 world
-      // CompanionMenu (and any other listener) renders a matching burst.
-      // Coordinates are best-effort screen-center for the screen surface;
-      // the V2 world listener resolves its own anchoring per scene.
       if (typeof window !== 'undefined') {
         emitCompanionVfx(EventBus, {
           kind: 'heart',
@@ -348,11 +382,8 @@ export default function CompanionView() {
   );
 
   const handleAction = useCallback(
-    async (action: QuickAction) => {
+    async (action: ActionId) => {
       if (!address || !companion || interacting) return;
-      // Pre-emptively block sleep-action attempts with a warm message rather
-      // than firing a request that the API will reject with HTTP 409. The
-      // server still enforces this — this is just kinder UX.
       if (companion.is_sleeping === 1 && action !== 'sleep') {
         const name = companion.nickname || `Skrumpey #${companion.token_id}`;
         flashFeedback(`shhh — ${name} is sleeping`);
@@ -407,10 +438,6 @@ export default function CompanionView() {
                 }
               : prev,
           );
-          // Detect upward crossings of [25, 50, 75, 100] and fire one
-          // celebration moment per threshold per companion. lastCelebrated
-          // is persisted in localStorage so a refresh or a wobble around the
-          // threshold cannot retrigger a banner that was already shown.
           const lastCelebrated = readLastCelebratedMilestone(companion.token_id);
           const crossings = crossedBondMilestones(
             prevBond,
@@ -425,9 +452,6 @@ export default function CompanionView() {
             );
             writeLastCelebratedMilestone(companion.token_id, top);
           }
-          // Floating "+N" near each stat bar that moved (uses the projected
-          // post-decay delta from server-side, so tiny rounding deltas don't
-          // create noisy +1s).
           for (const k of ['hunger', 'happiness', 'energy'] as const) {
             const a = prevSnapshot[k];
             const b = next[k];
@@ -438,7 +462,6 @@ export default function CompanionView() {
           }
           triggerSpriteReaction(action);
           flashFeedback(`${action.toUpperCase()} ✓`);
-          // Refresh journal so the latest entry from the action shows up
           fetchJournal(companion.token_id);
         } else {
           flashFeedback(data.error ?? 'Action failed');
@@ -515,8 +538,6 @@ export default function CompanionView() {
     );
   }
 
-  // Connected wallet, no active companion → reuse existing pick-a-Skrumpey UX.
-  // Disconnected wallets also fall through (SanctuaryContent renders the gate).
   if (!isConnected || !companion) {
     return <SanctuaryContent />;
   }
@@ -567,172 +588,188 @@ export default function CompanionView() {
     freshestVisitIso(localVisitMs, companion.stats_updated_at),
   );
 
+  const bond = bondProgress(companion.bond_score);
+  const bondNudge = bondHint(bond, displayName);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-1">
-        <h1
-          className="text-lg text-[#ffd700] tracking-widest font-['Press_Start_2P']"
-          style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
+    <div className="companion-shell" data-testid="companion-shell">
+      <div className="companion-shell-grid">
+        {/* Zone: header + bond */}
+        <section
+          data-zone="header"
+          data-testid="companion-zone-header"
+          className="companion-zone companion-zone--header"
+          aria-label="Companion header"
         >
-          {displayName.toUpperCase()}
-        </h1>
-        <p className="text-[#88ccff] text-[10px] italic px-4 leading-snug">
-          {timePrefix}
-        </p>
-        <p className="text-[#bb88ff] text-[10px] italic px-4 leading-snug">
-          {greeting}
-        </p>
-        <p className="text-gray-400 text-[10px]">
-          Lv.{companion.level} · Training {companion.companion_level} · Bond{' '}
-          {Math.round(companion.bond_score)}
-        </p>
-        {lastVisit && (
-          <p className="text-gray-500 text-[8px]">
-            {lastVisit}
-          </p>
-        )}
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Sprite + needs */}
-        <div className="chrome-panel p-6 space-y-4 relative">
-          {/* Cozy pixel-art corner flourishes (decorative). See
-              public/sanctuary/ui/chrome/manifest.json. */}
-          <span className="chrome-flourish-a" aria-hidden="true" />
-          <span className="chrome-flourish-b" aria-hidden="true" />
-          <div className="flex justify-center">
-            <div className="relative">
-              {/* Cozy ambient: a few twinkling stars behind the sprite. Pure
-                  decoration; pointer-events disabled so it never intercepts
-                  clicks on the sprite or the mood badge. */}
-              <div
-                className="absolute inset-0 pointer-events-none companion-cozy-stars"
-                aria-hidden="true"
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0 space-y-2">
+              <h1
+                className="text-lg text-[#ffd700] tracking-widest font-['Press_Start_2P'] truncate"
+                style={{ textShadow: '0 0 20px rgba(255, 215, 0, 0.3)' }}
               >
-                <span className="cozy-star" style={{ left: '12%', top: '18%' }} />
-                <span className="cozy-star" style={{ left: '78%', top: '14%' }} />
-                <span className="cozy-star" style={{ left: '22%', top: '82%' }} />
-                <span className="cozy-star" style={{ left: '88%', top: '70%' }} />
-                <span className="cozy-star" style={{ left: '50%', top: '4%' }} />
+                {displayName.toUpperCase()}
+              </h1>
+              <p className="text-[#88ccff] text-[9px] italic leading-snug">{timePrefix}</p>
+              <p className="text-[#bb88ff] text-[10px] italic leading-snug">
+                {greeting}
+              </p>
+              <BondBar score={bond.score} />
+              <div className="flex items-center justify-between text-[8px] text-gray-400 font-['Press_Start_2P'] tracking-wider">
+                <span>Lv.{companion.level}</span>
+                <span>Train {companion.companion_level}</span>
+                <span>Bond {Math.round(bond.score)}</span>
               </div>
+              {bondNudge && (
+                <p className="text-[8px] text-[#ffd700]/80 italic">{bondNudge}</p>
+              )}
+              {lastVisit && (
+                <p className="text-gray-500 text-[8px]">{lastVisit}</p>
+              )}
+            </div>
+          </div>
+        </section>
 
-              <div
-                className={`relative ${moodAnimClass}`}
-                data-testid="companion-sprite"
-              >
-                <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)]">
-                  {companion.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={companion.image_url}
-                      alt={displayName}
-                      className="w-full h-full object-cover image-rendering-pixelated"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-7xl">
-                      🐸
-                    </div>
-                  )}
-                </div>
-                <span
-                  className="absolute -top-2 -right-2 bg-black/90 border border-[#9966ff]/60 rounded-full px-2 py-1 text-lg shadow-[0_0_10px_rgba(153,102,255,0.4)]"
-                  aria-label={`Mood: ${moodLabel}`}
-                  title={`Mood: ${moodLabel}`}
-                >
-                  {moodEmoji}
-                </span>
-
-                {/* Bond-milestone celebration: brief banner above the sprite
-                    plus heart confetti drifting outward. Auto-clears after
-                    ≤2.5s via celebrationTimer. */}
-                {bondCelebration && (
-                  <>
-                    <div
-                      key={`banner-${bondCelebration.id}`}
-                      className="companion-bond-banner absolute left-1/2 -top-10 z-20 pointer-events-none whitespace-nowrap rounded border border-[#ff66aa]/70 bg-black/85 px-3 py-1 text-[8px] font-['Press_Start_2P'] tracking-wider text-[#ff99cc] shadow-[0_0_12px_rgba(255,102,170,0.45)]"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {bondCelebration.message}
-                    </div>
-                    <div
-                      key={`hearts-${bondCelebration.id}`}
-                      className="absolute inset-0 pointer-events-none z-10"
-                      aria-hidden="true"
-                    >
-                      {Array.from({ length: 10 }).map((_, i) => {
-                        // Deterministic spread around the sprite — angles
-                        // evenly distributed so the burst always feels full,
-                        // with a small per-particle delay so they don't all
-                        // fire on exactly the same frame.
-                        const angle = (i / 10) * Math.PI * 2;
-                        const distance = 60 + (i % 3) * 12;
-                        const dx = Math.cos(angle) * distance;
-                        const dy = Math.sin(angle) * distance - 20;
-                        const rot = (i % 2 === 0 ? 1 : -1) * (15 + (i % 4) * 5);
-                        return (
-                          <span
-                            key={i}
-                            className="heart-particle"
-                            style={
-                              {
-                                '--dx': `${dx.toFixed(0)}px`,
-                                '--dy': `${dy.toFixed(0)}px`,
-                                '--rot': `${rot}deg`,
-                                '--delay': `${i * 35}ms`,
-                              } as React.CSSProperties
-                            }
-                          >
-                            {i % 3 === 0 ? '💖' : i % 3 === 1 ? '💗' : '✨'}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {/* Floating reaction emojis layered above the sprite. Each
-                    reaction is short-lived (≤1.1s) and absolutely positioned
-                    so it never relayouts the card. Multiple emoji per
-                    reaction gives a small flourish per action. */}
-                {spriteReactions.length > 0 && (
-                  <div
-                    className="absolute inset-0 pointer-events-none flex items-center justify-center"
-                    aria-hidden="true"
-                  >
-                    {spriteReactions.map((r) => {
-                      const glyphs = ACTION_REACTION_EMOJI[r.kind];
-                      return (
-                        <div key={r.id} className="absolute inset-0">
-                          {glyphs.map((g, i) => {
-                            const angle = (i / glyphs.length) * Math.PI * 2;
-                            const radius = 36;
-                            const dx = Math.cos(angle) * radius;
-                            const dy = Math.sin(angle) * radius - 12;
-                            return (
-                              <span
-                                key={i}
-                                className="absolute text-2xl companion-floating-text"
-                                style={{
-                                  left: `calc(50% + ${dx}px)`,
-                                  top: `calc(50% + ${dy}px)`,
-                                  animationDelay: `${i * 60}ms`,
-                                }}
-                              >
-                                {g}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+        {/* Zone: viewport (creature) */}
+        <section
+          data-zone="viewport"
+          data-testid="companion-zone-viewport"
+          className="companion-zone companion-zone--viewport flex flex-col items-center justify-center"
+          aria-label="Companion viewport"
+        >
+          <div className="relative">
+            <div
+              className="absolute inset-0 pointer-events-none companion-cozy-stars"
+              aria-hidden="true"
+            >
+              <span className="cozy-star" style={{ left: '12%', top: '18%' }} />
+              <span className="cozy-star" style={{ left: '78%', top: '14%' }} />
+              <span className="cozy-star" style={{ left: '22%', top: '82%' }} />
+              <span className="cozy-star" style={{ left: '88%', top: '70%' }} />
+              <span className="cozy-star" style={{ left: '50%', top: '4%' }} />
+            </div>
+            <div
+              className={`relative ${moodAnimClass}`}
+              data-testid="companion-sprite"
+            >
+              <div className="w-44 h-44 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-4 border-[#2a2a4e] bg-[#0a0a15] shadow-[0_0_24px_rgba(0,247,255,0.18)]">
+                {companion.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={companion.image_url}
+                    alt={displayName}
+                    className="w-full h-full object-cover image-rendering-pixelated"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-7xl">
+                    🐸
                   </div>
                 )}
               </div>
+              <span
+                className="absolute -top-2 -right-2 bg-black/90 border border-[#9966ff]/60 rounded-full px-2 py-1 text-lg shadow-[0_0_10px_rgba(153,102,255,0.4)]"
+                aria-label={`Mood: ${moodLabel}`}
+                title={`Mood: ${moodLabel}`}
+              >
+                {moodEmoji}
+              </span>
+
+              {bondCelebration && (
+                <>
+                  <div
+                    key={`banner-${bondCelebration.id}`}
+                    className="companion-bond-banner absolute left-1/2 -top-10 z-20 pointer-events-none whitespace-nowrap rounded border border-[#ff66aa]/70 bg-black/85 px-3 py-1 text-[8px] font-['Press_Start_2P'] tracking-wider text-[#ff99cc] shadow-[0_0_12px_rgba(255,102,170,0.45)]"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {bondCelebration.message}
+                  </div>
+                  <div
+                    key={`hearts-${bondCelebration.id}`}
+                    className="absolute inset-0 pointer-events-none z-10"
+                    aria-hidden="true"
+                  >
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const angle = (i / 10) * Math.PI * 2;
+                      const distance = 60 + (i % 3) * 12;
+                      const dx = Math.cos(angle) * distance;
+                      const dy = Math.sin(angle) * distance - 20;
+                      const rot = (i % 2 === 0 ? 1 : -1) * (15 + (i % 4) * 5);
+                      return (
+                        <span
+                          key={i}
+                          className="heart-particle"
+                          style={
+                            {
+                              '--dx': `${dx.toFixed(0)}px`,
+                              '--dy': `${dy.toFixed(0)}px`,
+                              '--rot': `${rot}deg`,
+                              '--delay': `${i * 35}ms`,
+                            } as React.CSSProperties
+                          }
+                        >
+                          {i % 3 === 0 ? '💖' : i % 3 === 1 ? '💗' : '✨'}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {spriteReactions.length > 0 && (
+                <div
+                  className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  {spriteReactions.map((r) => {
+                    const glyphs = ACTION_REACTION_EMOJI[r.kind];
+                    return (
+                      <div key={r.id} className="absolute inset-0">
+                        {glyphs.map((g, i) => {
+                          const angle = (i / glyphs.length) * Math.PI * 2;
+                          const radius = 36;
+                          const dx = Math.cos(angle) * radius;
+                          const dy = Math.sin(angle) * radius - 12;
+                          return (
+                            <span
+                              key={i}
+                              className="absolute text-2xl companion-floating-text"
+                              style={{
+                                left: `calc(50% + ${dx}px)`,
+                                top: `calc(50% + ${dy}px)`,
+                                animationDelay: `${i * 60}ms`,
+                              }}
+                            >
+                              {g}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
+          {isSleeping && (
+            <p
+              className="mt-3 text-center text-[8px] text-[#66ccff] font-['Press_Start_2P'] tracking-wider"
+              role="status"
+            >
+              💤 Shhh — they&apos;re dreaming.
+            </p>
+          )}
+        </section>
 
+        {/* Zone: needs panel */}
+        <section
+          data-zone="needs"
+          data-testid="companion-zone-needs"
+          className="companion-zone space-y-3"
+          aria-label="Companion needs"
+        >
+          <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
+            NEEDS
+          </h2>
           {acuteNeed && (
             <div
               className="border border-[#ff6644]/60 bg-[#3a1410]/60 rounded px-3 py-2 text-center"
@@ -748,7 +785,6 @@ export default function CompanionView() {
               )}
             </div>
           )}
-
           <div className="space-y-3">
             <StatBar
               label="Hunger"
@@ -772,66 +808,78 @@ export default function CompanionView() {
               delta={statDeltas.find((d) => d.stat === 'energy')?.delta}
             />
           </div>
+        </section>
 
-          {isSleeping && (
-            <p
-              className="text-center text-[8px] text-[#66ccff] font-['Press_Start_2P'] tracking-wider"
-              role="status"
-            >
-              💤 Shhh — they&apos;re dreaming.
-            </p>
-          )}
-        </div>
-
-        {/* Actions + Journal */}
-        <div className="space-y-4">
-          <div className="pixel-card p-4 space-y-3">
-            <span className="chrome-dust" aria-hidden="true" />
+        {/* Zone: action dock */}
+        <section
+          data-zone="actions"
+          data-testid="companion-zone-actions"
+          className="companion-zone space-y-3"
+          aria-label="Companion actions"
+        >
+          <div className="flex items-center justify-between">
             <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
-              QUICK ACTIONS
+              ACTION DOCK
             </h2>
-            <div className="grid grid-cols-3 gap-2">
-              {ACTIONS.map((a) => {
-                const muted = isSleeping && a.id !== 'sleep';
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => handleAction(a.id)}
-                    disabled={interacting !== null}
-                    aria-label={muted ? `${a.label} (sleeping)` : a.label}
-                    title={muted ? 'Companion is sleeping — wait until they wake' : a.label}
-                    className={`chrome-button flex flex-col items-center justify-center gap-1 py-3 transition-all
-                      ${
-                        interacting === a.id
-                          ? 'bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
-                          : muted
-                            ? 'bg-[#0a0a15]/40 opacity-50'
-                            : 'bg-[#0a0a15] hover:bg-[#1a0f3a]/40'
-                      }
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                    `}
-                  >
-                    <span className="text-xl leading-none">
-                      {interacting === a.id ? '⏳' : a.icon}
-                    </span>
-                    <span className="text-[7px] text-gray-300 font-['Press_Start_2P']">
-                      {a.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
             {feedback && (
-              <p
-                className="text-[8px] text-[#ffd700] text-center font-['Press_Start_2P']"
+              <span
+                className="text-[8px] text-[#ffd700] font-['Press_Start_2P']"
                 role="status"
               >
                 {feedback}
-              </p>
+              </span>
             )}
           </div>
+          <div className="grid grid-cols-5 gap-2">
+            {ACTIONS.map((a) => {
+              const state = resolveActionState({
+                id: a.id,
+                interacting,
+                isSleeping,
+              });
+              const muted = state === 'sleep-locked';
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => handleAction(a.id)}
+                  disabled={
+                    state === 'disabled' ||
+                    state === 'busy' ||
+                    state === 'sleep-locked'
+                  }
+                  aria-label={muted ? `${a.label} (sleeping)` : a.label}
+                  aria-disabled={actionAriaDisabled(state)}
+                  data-state={state}
+                  title={muted ? 'Companion is sleeping — wait until they wake' : a.label}
+                  className={`companion-action-btn ${actionStateClass(state)}`}
+                >
+                  <span className="companion-action-btn__icon">
+                    {state === 'busy' ? '⏳' : a.icon}
+                  </span>
+                  <span className="companion-action-btn__label">{a.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={navigateToWorld}
+            className="w-full px-4 py-2 bg-[#00f7ff]/15 border-2 border-[#00f7ff]/60 rounded-lg text-[#00f7ff] text-[9px] font-['Press_Start_2P'] tracking-widest uppercase hover:bg-[#00f7ff]/25 hover:border-[#00f7ff] transition-colors shadow-[0_0_12px_rgba(0,247,255,0.25)]"
+            aria-label="Enter the Sanctuary world"
+          >
+            ✦ Enter Sanctuary ✦
+          </button>
+        </section>
 
-          <div className="pixel-card p-4 space-y-2">
+        {/* Zone: journal teaser + chat */}
+        <section
+          data-zone="journal"
+          data-testid="companion-zone-journal"
+          className="companion-zone space-y-3"
+          aria-label="Companion journal and chat"
+        >
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
                 JOURNAL
@@ -855,13 +903,13 @@ export default function CompanionView() {
               </ul>
             )}
           </div>
-
-          <div className="pixel-card p-4 space-y-3">
+          <div className="border-t border-[#2a2a4e]/50 pt-3 space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
                 CHAT
               </h2>
               <button
+                type="button"
                 onClick={() => setChatOpen((v) => !v)}
                 className="text-[8px] text-[#9966ff] hover:text-[#bb88ff] font-['Press_Start_2P']"
               >
@@ -909,6 +957,7 @@ export default function CompanionView() {
                     className="flex-1 bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[9px] text-white placeholder-gray-600 focus:border-[#9966ff]/60 focus:outline-none"
                   />
                   <button
+                    type="button"
                     onClick={() => void handleSendChat()}
                     disabled={!chatDraft.trim() || chatBusy}
                     className="px-3 py-1 bg-[#9966ff]/20 border border-[#9966ff]/50 rounded text-[#9966ff] text-[8px] font-['Press_Start_2P'] hover:bg-[#9966ff]/30 disabled:opacity-40"
@@ -919,17 +968,7 @@ export default function CompanionView() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="flex justify-center">
-        <button
-          onClick={navigateToWorld}
-          className="px-6 py-3 bg-[#00f7ff]/15 border-2 border-[#00f7ff]/60 rounded-lg text-[#00f7ff] text-[10px] font-['Press_Start_2P'] tracking-widest uppercase hover:bg-[#00f7ff]/25 hover:border-[#00f7ff] transition-colors shadow-[0_0_12px_rgba(0,247,255,0.25)]"
-          aria-label="Enter the Sanctuary world"
-        >
-          ✦ Enter Sanctuary ✦
-        </button>
+        </section>
       </div>
     </div>
   );
