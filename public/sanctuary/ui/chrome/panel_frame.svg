@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!--
+    Sanctuary cozy panel frame (base, 9-slice).
+    Designed for CSS border-image with slice=8 width=8.
+    Corners (8x8) are fixed; edges (8x4 strips) tile.
+    Palette: pixel doctrine (warm purple, gold spark, soft inner shade).
+  -->
+  <!-- transparent middle so content shows through -->
+  <rect width="24" height="24" fill="none"/>
+
+  <!-- outer dark rim -->
+  <rect x="0" y="1" width="24" height="22" fill="#1a1430"/>
+  <rect x="1" y="0" width="22" height="24" fill="#1a1430"/>
+
+  <!-- main frame body -->
+  <rect x="1" y="1" width="22" height="22" fill="#2a1f4a"/>
+  <rect x="2" y="2" width="20" height="20" fill="#3a2a6a"/>
+  <rect x="3" y="3" width="18" height="18" fill="#4a3a7e"/>
+
+  <!-- inner shadow line -->
+  <rect x="4" y="4" width="16" height="16" fill="#2a1f4a"/>
+  <!-- inner content cutout (so border-image edges remain hollow) -->
+  <rect x="5" y="5" width="14" height="14" fill="#0d0a1c"/>
+
+  <!-- gold corner studs (cozy lantern feel) -->
+  <rect x="2" y="2" width="2" height="2" fill="#ffd070"/>
+  <rect x="20" y="2" width="2" height="2" fill="#ffd070"/>
+  <rect x="2" y="20" width="2" height="2" fill="#ffd070"/>
+  <rect x="20" y="20" width="2" height="2" fill="#ffd070"/>
+
+  <!-- subtle highlight pixels on top/left for hand-painted lift -->
+  <rect x="3" y="2" width="1" height="1" fill="#7e6ab8"/>
+  <rect x="2" y="3" width="1" height="1" fill="#7e6ab8"/>
+  <rect x="20" y="2" width="1" height="1" fill="#fff2c0"/>
+  <rect x="2" y="20" width="1" height="1" fill="#fff2c0"/>
+</svg>

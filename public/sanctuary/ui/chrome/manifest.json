@@ -1,0 +1,124 @@
+{
+  "$schema": "./manifest.schema.json",
+  "version": 1,
+  "scope": "sanctuary-v2",
+  "task": "SWO_V2_RD_COMPANION_CHROME_BATCH_2",
+  "generated_at": "2026-05-08",
+  "notes": [
+    "Cozy pixel-art interface chrome for the Sanctuary companion shell.",
+    "Assets are hand-authored SVGs (palette- and grid-compliant) so the chrome ships without an RD_API_KEY in CI.",
+    "Each entry below preserves the prompt + seed intent so future RD regenerations can produce a matching PNG/Aseprite drop-in without code changes — swap the file path on the same logical name and retain dimensions.",
+    "Palette anchors: deep #0d0a1c / #1a1430 backgrounds; warm #4a3a7e / #ffd070 frames; pink #ff99cc + cyan #88e0ff dust accents. Matches docs/SANCTUARY_STYLE_DOCTRINE.md."
+  ],
+  "rd_style": {
+    "model": "RD_FAST",
+    "prompt_style": "retro",
+    "size": 256,
+    "n": 1,
+    "negative_prompt": "blurry, photorealistic, smooth gradient, banding, text, watermark"
+  },
+  "assets": [
+    {
+      "name": "panel_frame",
+      "path": "panel_frame.svg",
+      "kind": "9-slice",
+      "dimensions": { "w": 24, "h": 24 },
+      "border_image_slice": 8,
+      "border_image_width": 8,
+      "intent": "Base panel frame — neutral cozy purple with gold corner studs.",
+      "prompt": "A cozy pixel-art ornate panel frame, warm purple stone with tiny gold corner gemstones, soft inner shadow, transparent center, dungeon-fantasy UI, Stardew/Tamagotchi aesthetic, perfectly tileable edges.",
+      "seed": 4711201,
+      "palette": ["#0d0a1c", "#1a1430", "#2a1f4a", "#3a2a6a", "#4a3a7e", "#7e6ab8", "#ffd070", "#fff2c0"]
+    },
+    {
+      "name": "panel_frame_active",
+      "path": "panel_frame_active.svg",
+      "kind": "9-slice",
+      "dimensions": { "w": 24, "h": 24 },
+      "border_image_slice": 8,
+      "border_image_width": 8,
+      "intent": "Active/selected panel — warm gold tones, used when a panel is the player's focus.",
+      "prompt": "Same cozy pixel-art panel frame as panel_frame, but glowing brighter gold-amber, like lantern-lit oak; transparent center; tileable.",
+      "seed": 4711202,
+      "palette": ["#0d0a1c", "#2a1d10", "#4a3018", "#7a5a2a", "#b88940", "#ffd070", "#fff2a0", "#ffe080"]
+    },
+    {
+      "name": "panel_frame_muted",
+      "path": "panel_frame_muted.svg",
+      "kind": "9-slice",
+      "dimensions": { "w": 24, "h": 24 },
+      "border_image_slice": 8,
+      "border_image_width": 8,
+      "intent": "Muted/disabled panel — desaturated indigo, low contrast.",
+      "prompt": "Same panel geometry as panel_frame but desaturated cool indigo, dim corner studs, soft and quiet, transparent center, tileable.",
+      "seed": 4711203,
+      "palette": ["#0d0a1c", "#10131e", "#1a1d2e", "#252a3e", "#3a4060", "#5a6080"]
+    },
+    {
+      "name": "button_outline",
+      "path": "button_outline.svg",
+      "kind": "9-slice",
+      "dimensions": { "w": 16, "h": 16 },
+      "border_image_slice": 4,
+      "border_image_width": 4,
+      "intent": "Outline for action buttons (feed/pet/talk/sleep/play). Replaces flat 2px border.",
+      "prompt": "A cozy pixel-art button outline, chamfered corners, faint highlight on top-left and shadow on bottom-right, lavender accent pixels in opposite corners, tileable, transparent center.",
+      "seed": 4711204,
+      "palette": ["#2a1f4a", "#5a4a8e", "#7e6ab8", "#bb88ff"]
+    },
+    {
+      "name": "focus_ring",
+      "path": "focus_ring.svg",
+      "kind": "9-slice",
+      "dimensions": { "w": 20, "h": 20 },
+      "border_image_slice": 6,
+      "border_image_width": 6,
+      "intent": ":focus-visible ornament for buttons — gold rim with 4-pixel corner stars.",
+      "prompt": "A cozy pixel-art focus ring, slim warm-gold rim, four 4-pixel cross stars at the corners, tileable, transparent center.",
+      "seed": 4711205,
+      "palette": ["#ffd070", "#fff2c0"]
+    },
+    {
+      "name": "corner_flourish_a",
+      "path": "corner_flourish_a.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 16, "h": 16 },
+      "intent": "Top-left flourish: small gold star with a purple curl tail and dust pixels.",
+      "prompt": "Tiny pixel-art ornament, golden 4-point star with a soft lavender ribbon curling inward, faint dust sparkles, transparent background, sized for a 16x16 corner accent.",
+      "seed": 4711206,
+      "palette": ["#9966ff", "#bb88ff", "#ffd070", "#fff2c0"]
+    },
+    {
+      "name": "corner_flourish_b",
+      "path": "corner_flourish_b.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 16, "h": 16 },
+      "intent": "Bottom-right flourish: lavender crescent with gold sparkle and cyan dust. Pairs with corner_flourish_a.",
+      "prompt": "Tiny pixel-art ornament, lavender crescent moon with a single gold sparkle and faint cyan dust pixels, transparent, sized for a 16x16 corner accent.",
+      "seed": 4711207,
+      "palette": ["#88e0ff", "#bb88ff", "#ffd070"]
+    },
+    {
+      "name": "dust_motif",
+      "path": "dust_motif.svg",
+      "kind": "decoration",
+      "dimensions": { "w": 32, "h": 8 },
+      "intent": "Tileable horizontal dust strip — used as a divider above panel headings.",
+      "prompt": "A horizontal pixel-art dust strip with five tiny stars in gold, lavender, white, cyan, and pink, evenly spaced, repeats seamlessly, transparent background.",
+      "seed": 4711208,
+      "palette": ["#88e0ff", "#bb88ff", "#ffd070", "#fff2c0", "#ff99cc"]
+    }
+  ],
+  "integration": {
+    "css_classes": [
+      ".chrome-panel — applies panel_frame.svg via border-image",
+      ".chrome-panel--active — applies panel_frame_active.svg",
+      ".chrome-panel--muted — applies panel_frame_muted.svg",
+      ".chrome-button — applies button_outline.svg via border-image; focus_ring.svg shown on :focus-visible",
+      ".chrome-flourish-a / .chrome-flourish-b — corner ornaments",
+      ".chrome-dust — repeating horizontal dust divider"
+    ],
+    "consumed_by": ["app/sanctuary/CompanionView.tsx"],
+    "reduced_motion": "Decorative ornaments are static; no chrome class introduces motion. The existing prefers-reduced-motion rule in app/globals.css already neutralizes residual animation. Frames remain readable when motion is disabled."
+  }
+}

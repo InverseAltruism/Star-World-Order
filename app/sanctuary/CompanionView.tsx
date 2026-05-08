@@ -591,7 +591,11 @@ export default function CompanionView() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Sprite + needs */}
-        <div className="pixel-card p-6 space-y-4">
+        <div className="chrome-panel p-6 space-y-4 relative">
+          {/* Cozy pixel-art corner flourishes (decorative). See
+              public/sanctuary/ui/chrome/manifest.json. */}
+          <span className="chrome-flourish-a" aria-hidden="true" />
+          <span className="chrome-flourish-b" aria-hidden="true" />
           <div className="flex justify-center">
             <div className="relative">
               {/* Cozy ambient: a few twinkling stars behind the sprite. Pure
@@ -777,6 +781,7 @@ export default function CompanionView() {
         {/* Actions + Journal */}
         <div className="space-y-4">
           <div className="pixel-card p-4 space-y-3">
+            <span className="chrome-dust" aria-hidden="true" />
             <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
               QUICK ACTIONS
             </h2>
@@ -790,13 +795,13 @@ export default function CompanionView() {
                     disabled={interacting !== null}
                     aria-label={muted ? `${a.label} (sleeping)` : a.label}
                     title={muted ? 'Companion is sleeping — wait until they wake' : a.label}
-                    className={`flex flex-col items-center justify-center gap-1 py-3 rounded-lg border-2 transition-all
+                    className={`chrome-button flex flex-col items-center justify-center gap-1 py-3 transition-all
                       ${
                         interacting === a.id
-                          ? 'border-[#ffd700] bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
+                          ? 'bg-[#ffd700]/10 shadow-[0_0_10px_rgba(255,215,0,0.3)]'
                           : muted
-                            ? 'border-[#2a2a4e]/40 bg-[#0a0a15]/40 opacity-50'
-                            : 'border-[#2a2a4e] bg-[#0a0a15] hover:border-[#9966ff]/60 hover:bg-[#1a0f3a]/40'
+                            ? 'bg-[#0a0a15]/40 opacity-50'
+                            : 'bg-[#0a0a15] hover:bg-[#1a0f3a]/40'
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
