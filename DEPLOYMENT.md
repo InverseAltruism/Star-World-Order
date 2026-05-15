@@ -174,6 +174,29 @@ Consider adding:
 - Never commit private keys or sensitive data
 - Regular security audits
 
+### Cron / internal-endpoint auth — production checklist
+
+The cron and internal STAR endpoints (`/api/cron/*`,
+`/api/sanctuary/star/earn`) authenticate via `CRON_SECRET` and
+`STAR_INTERNAL_SECRET`. A local-dev escape hatch exists behind the
+explicit flag `SANCTUARY_ALLOW_CRON_BYPASS=1`.
+
+**Production deploys must NOT set `SANCTUARY_ALLOW_CRON_BYPASS`.**
+
+- Vercel / Netlify / hosted: do not add the variable to the project's
+  environment settings. If it appears, delete it or set it to `0`.
+- Self-hosted (NUC / systemd): the systemd unit and `deploy-prod.sh`
+  must not export `SANCTUARY_ALLOW_CRON_BYPASS`. Verify with
+  `systemctl show star-world -p Environment` after deploy.
+- Docker: do not pass `-e SANCTUARY_ALLOW_CRON_BYPASS=1`. If a
+  `docker-compose.yml` or `Dockerfile` references it, remove the line.
+
+The flag is intentionally decoupled from `NODE_ENV` — relying on
+`NODE_ENV !== "production"` was brittle because some build/runtime
+environments leave `NODE_ENV` unset, which silently disabled cron
+auth. Only the literal string `1` activates the bypass; any other
+value (including `true` or empty) is treated as disabled.
+
 ## Troubleshooting
 
 ### Build Failures
