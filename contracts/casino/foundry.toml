@@ -1,0 +1,43 @@
+# Cosmic Casino — Foundry config (Monad testnet/mainnet).
+#
+# Ported from the (now-archived) BunnyBagz Foundry suite on MegaETH. The
+# contract bodies are unchanged; only the chain target moved from MegaETH
+# (4326/6343) to Monad (143/10143). See contracts/casino/README.md for a
+# rationale and the migration trail.
+
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+fuzz = { runs = 256 }
+invariant = { runs = 64, depth = 64 }
+# Allow `script/Deploy.s.sol` to write `{bankroll, coinflip, ...}` JSON
+# artifacts under `deployments/<chainId>.json`.
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+[profile.ci]
+fuzz = { runs = 1024 }
+invariant = { runs = 256, depth = 128 }
+
+[rpc_endpoints]
+# Monad targets. Mainnet chain id 143, testnet chain id 10143.
+monad_mainnet = "https://rpc.monad.xyz"
+monad_testnet = "https://testnet-rpc.monad.xyz"
+
+# Etherscan-compatible explorer (Monadscan). Verification flow uses the
+# `cosmic-casino` alias.
+[etherscan]
+monad_mainnet = { key = "${MONAD_ETHERSCAN_KEY}", url = "https://api.monadscan.com/api", chain = 143 }
+monad_testnet = { key = "${MONAD_ETHERSCAN_KEY}", url = "https://testnet-api.monadscan.com/api", chain = 10143 }
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
