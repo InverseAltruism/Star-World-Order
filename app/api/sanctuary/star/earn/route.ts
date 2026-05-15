@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { earnStar, type StarEarnSource } from '@/lib/db';
 import { ethAddress, parseBody, formatZodError } from '@/lib/sanctuary/validation';
 import { logger } from '@/lib/logger';
+import { isCronBypassAllowed } from '@/lib/cronAuth';
 
 const bodySchema = z.object({
   address: ethAddress,
@@ -25,7 +26,8 @@ const bodySchema = z.object({
 });
 
 function validateInternalSecret(request: Request): { valid: boolean; error?: string } {
-  if (process.env.NODE_ENV === 'development' && !process.env.STAR_INTERNAL_SECRET) {
+  if (isCronBypassAllowed() && !process.env.STAR_INTERNAL_SECRET) {
+    logger.warn('star/earn: internal-secret check bypassed via SANCTUARY_ALLOW_CRON_BYPASS=1');
     return { valid: true };
   }
   const secret = process.env.STAR_INTERNAL_SECRET ?? process.env.CRON_SECRET;
