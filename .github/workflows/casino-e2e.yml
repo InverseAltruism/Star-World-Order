@@ -1,0 +1,223 @@
+name: Casino E2E
+
+# End-to-end gate for the Cosmic Casino UI. Spins up an anvil fork of Monad
+# testnet, boots `next dev`, and runs the `casino-connected` Playwright
+# project against the wallet-connected flows. Pairs with casino-forge.yml
+# (on-chain layer) and web.yml (vitest unit layer) to give us a full pyramid
+# for the casino slice.
+#
+# Pre-flight: the Playwright suite + `casino-connected` project lands with
+# D8/D9/D10/F3. Until those merge, the job no-ops (workflow exists, doesn't
+# gate). Once the config is committed the job becomes mandatory.
+
+on:
+  pull_request:
+    paths:
+      - 'app/casino/**'
+      - 'components/casino/**'
+      - 'lib/casino/**'
+      - 'contracts/casino/deployments/**'
+      - 'e2e/**'
+      - 'tests/e2e/**'
+      - 'playwright.config.ts'
+      - 'playwright.config.js'
+      - 'playwright.config.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/casino-e2e.yml'
+  workflow_dispatch:
+    inputs:
+      fork_block:
+        description: 'Monad testnet fork block number (override)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # Pinned for reproducibility. Bumping this is deliberate: the anvil RPC
+  # cache below is keyed on this number, so changing it forces exactly one
+  # round-trip to the public RPC before subsequent runs replay from cache.
+  FORK_BLOCK: '5000000'
+  MONAD_CHAIN_ID: '10143'
+  CASINO_PROJECT: 'casino-connected'
+  ANVIL_PORT: '8545'
+  NEXT_PORT: '3000'
+
+jobs:
+  e2e:
+    name: playwright (casino-connected)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pre-flight — Playwright config present?
+        id: preflight
+        # The Playwright config + `casino-connected` project land with the
+        # UI batch (D8/D9/D10/F3). Until then we want the workflow to exist
+        # (so it shows up in branch protection wiring) but stay green by
+        # short-circuiting before any setup. Subsequent steps gate on this
+        # output rather than re-checking the filesystem.
+        run: |
+          if [ -f playwright.config.ts ] || \
+             [ -f playwright.config.js ] || \
+             [ -f playwright.config.mjs ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No playwright config found — skipping E2E until UI lands."
+          fi
+
+      - name: Resolve fork block
+        id: fork
+        if: steps.preflight.outputs.ready == 'true'
+        run: |
+          BLOCK="${{ github.event.inputs.fork_block }}"
+          if [ -z "$BLOCK" ]; then BLOCK="${FORK_BLOCK}"; fi
+          echo "block=${BLOCK}" >> "$GITHUB_OUTPUT"
+          echo "Forking Monad testnet at block ${BLOCK}"
+
+      - name: Setup Node
+        if: steps.preflight.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Foundry
+        if: steps.preflight.outputs.ready == 'true'
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Restore anvil fork cache
+        if: steps.preflight.outputs.ready == 'true'
+        uses: actions/cache@v4
+        with:
+          # Anvil persists per-block fork state under
+          # ~/.foundry/cache/rpc/<chain>/<block>. Keying the cache on the
+          # pinned block is what keeps CI from hammering the public Monad
+          # RPC — once warm, the entire fork replays from disk.
+          path: ~/.foundry/cache/rpc/${{ env.MONAD_CHAIN_ID }}/${{ steps.fork.outputs.block }}
+          key: anvil-fork-${{ env.MONAD_CHAIN_ID }}-${{ steps.fork.outputs.block }}
+          restore-keys: |
+            anvil-fork-${{ env.MONAD_CHAIN_ID }}-
+
+      - name: Install npm deps
+        if: steps.preflight.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.preflight.outputs.ready == 'true'
+        # --with-deps pulls in the system libs Chromium needs on ubuntu-latest.
+        # We pin to chromium only; the casino-connected project is
+        # single-engine and dragging in webkit/firefox would triple install
+        # time for no extra coverage.
+        run: npx playwright install --with-deps chromium
+
+      - name: Start anvil (Monad fork)
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          MONAD_TESTNET_RPC: ${{ secrets.MONAD_TESTNET_RPC }}
+        run: |
+          if [ -z "${MONAD_TESTNET_RPC}" ]; then
+            echo "::error::MONAD_TESTNET_RPC secret is not configured for this repo."
+            exit 1
+          fi
+          nohup anvil \
+            --fork-url "${MONAD_TESTNET_RPC}" \
+            --fork-block-number "${{ steps.fork.outputs.block }}" \
+            --host 127.0.0.1 \
+            --port "${ANVIL_PORT}" \
+            > anvil.log 2>&1 &
+          echo $! > anvil.pid
+          # Wait for the JSON-RPC port to answer eth_blockNumber. A warm
+          # cache typically responds in under a second; a cold fetch from
+          # the upstream Monad RPC can take 15-20s, so we give it 60s total.
+          for i in $(seq 1 60); do
+            if curl -fsS \
+                 -H 'content-type: application/json' \
+                 --data '{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}' \
+                 "http://127.0.0.1:${ANVIL_PORT}" > /dev/null 2>&1; then
+              echo "anvil up on port ${ANVIL_PORT}"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::anvil did not become ready within 60s"
+          tail -n 200 anvil.log || true
+          exit 1
+
+      - name: Start next dev server
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          # Point the dapp at the local anvil fork so wallet-connected
+          # flows execute against the deterministic snapshot rather than
+          # the upstream Monad RPC.
+          NEXT_PUBLIC_CHAIN_ID: ${{ env.MONAD_CHAIN_ID }}
+          NEXT_PUBLIC_MONAD_TESTNET_RPC: http://127.0.0.1:8545
+          ANVIL_RPC: http://127.0.0.1:8545
+        run: |
+          nohup npm run dev -- --port "${NEXT_PORT}" > next.log 2>&1 &
+          echo $! > next.pid
+          # Next on a cold start can take 30-45s to compile the casino
+          # route the first time. Poll for up to 120s.
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${NEXT_PORT}" || echo 000)
+            case "${code}" in
+              200|301|302|303|307|308)
+                echo "next dev responding (HTTP ${code})"
+                exit 0
+                ;;
+            esac
+            sleep 2
+          done
+          echo "::error::next dev did not become ready within 120s"
+          tail -n 200 next.log || true
+          exit 1
+
+      - name: Run Playwright (${{ env.CASINO_PROJECT }})
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          ANVIL_RPC: http://127.0.0.1:8545
+          MONAD_CHAIN_ID: ${{ env.MONAD_CHAIN_ID }}
+        run: npx playwright test --project "${CASINO_PROJECT}"
+
+      - name: Upload Playwright report
+        if: always() && steps.preflight.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Dump anvil/next logs on failure
+        if: failure() && steps.preflight.outputs.ready == 'true'
+        run: |
+          echo '----- anvil.log -----'
+          tail -n 400 anvil.log || true
+          echo '----- next.log -----'
+          tail -n 400 next.log || true
+
+      - name: Tear down background processes
+        if: always() && steps.preflight.outputs.ready == 'true'
+        # Best-effort cleanup. GH Actions reaps the runner anyway, but
+        # killing explicitly keeps the job log tidy and avoids spurious
+        # "process still running" warnings.
+        run: |
+          if [ -f next.pid ]; then kill "$(cat next.pid)" 2>/dev/null || true; fi
+          if [ -f anvil.pid ]; then kill "$(cat anvil.pid)" 2>/dev/null || true; fi
+
+      - name: Skip notice (no Playwright config yet)
+        if: steps.preflight.outputs.ready != 'true'
+        run: |
+          echo "Skipping casino E2E — Playwright config not present yet."
+          echo "This job becomes active once playwright.config.* lands."
