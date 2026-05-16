@@ -66,6 +66,29 @@ The deploy script uses CREATE3 via the CreateX singleton at
 testnet. Same `(deployer, salt)` ⇒ same address on mainnet, so the testnet
 addresses are the predicted mainnet addresses for the same deployer.
 
+### Predicting addresses (cast-based dry-run)
+
+`scripts/casino/predict_addresses.sh <chainId>` prints the CREATE3 addresses
+that `Deploy.s.sol` will produce on a target chain, without sending any tx.
+It calls `computeCreate3Address` on the live CreateX singleton via `cast` and
+also sanity-checks that CreateX actually has code on that chain.
+
+```bash
+bash scripts/casino/predict_addresses.sh 10143    # Monad testnet
+bash scripts/casino/predict_addresses.sh 143      # Monad mainnet
+bash scripts/casino/predict_addresses.sh 31337    # local anvil
+```
+
+Defaults match the production deployer (`0xb29e…fD7B`) and the salts in
+`Deploy.s.sol`. Override via `CASINO_DEPLOYER`, `CASINO_BANKROLL_SALT`,
+`CASINO_FLIP_SALT`, `CASINO_DICE_SALT`, `CASINO_CLIMB_SALT`, or per-chain
+RPCs (`MONAD_TESTNET_RPC`, `MONAD_MAINNET_RPC`, `ANVIL_RPC`,
+`CASINO_RPC_<chainId>`). For chain `10143` the output should match
+`contracts/casino/deployments/10143.json` byte-for-byte; the Foundry test
+`DeployDeterministic.t.sol::test_predictionsMatchDeployments10143Json` pins
+the same invariant so the prediction can never silently drift away from the
+deployed address book.
+
 ## Heritage
 
 The 8-contract BunnyBagz suite (Foundry, Halmos, Medusa, OpenZeppelin Defender
