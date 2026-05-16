@@ -1,0 +1,53 @@
+name: Casino Forge CI
+
+# Runs Foundry build + test for the Cosmic Casino contracts on PRs that touch
+# the on-chain layer. Mirrors the local instructions in contracts/casino/README.md.
+# Solidity 0.8.24 is pinned via contracts/casino/foundry.toml.
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/casino/**'
+      - 'lib/casino/**'
+      - '.github/workflows/casino-forge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: contracts/casino
+
+jobs:
+  forge:
+    name: forge build + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Foundry versions
+        run: |
+          forge --version
+          cast --version
+
+      - name: Install Foundry dependencies
+        # lib/ is gitignored; restore deps per contracts/casino/README.md.
+        run: |
+          forge install foundry-rs/forge-std --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts --no-commit
+          forge install radeksvarz/createx-forge --no-commit
+
+      - name: Forge build
+        run: forge build
+
+      - name: Forge test
+        run: forge test -vvv --skip 'script/**'
