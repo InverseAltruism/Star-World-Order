@@ -1,0 +1,80 @@
+name: Web CI
+
+# Vitest gates for the Next.js / TS layer. Splits into named projects so the
+# casino lane only runs when casino sources change, mirroring how the Forge
+# workflow scopes itself to contracts/casino/**.
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'game/**'
+      - 'server/**'
+      - 'vitest.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/web.yml'
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  default:
+    name: vitest (default project)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx vitest run --project default
+
+  casino:
+    name: vitest (casino project)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Path filter inside the job — keeps the casino lane red only when its
+    # own sources or the vitest config it depends on change.
+    if: |
+      github.event_name != 'pull_request' ||
+      contains(toJSON(github.event.pull_request.labels.*.name), 'casino') ||
+      true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Detect casino changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            casino:
+              - 'lib/casino/**'
+              - 'components/casino/**'
+              - 'app/casino/**'
+              - 'contracts/casino/deployments/**'
+              - 'vitest.config.ts'
+              - '.github/workflows/web.yml'
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.casino == 'true'
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install deps
+        if: steps.changes.outputs.casino == 'true'
+        run: npm ci
+      - name: Run casino vitest project
+        if: steps.changes.outputs.casino == 'true'
+        run: npx vitest run --project casino
+      - name: Skip notice
+        if: steps.changes.outputs.casino != 'true'
+        run: echo "No casino paths changed; skipping casino vitest project."
