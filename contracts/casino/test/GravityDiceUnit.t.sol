@@ -20,9 +20,9 @@ contract GravityDiceUnitTest is Test {
     CasinoBankroll bankroll;
     GravityDice game;
 
-    address owner   = address(0xB055);
-    address player  = address(0xCAFE);
-    address keeper  = address(0xBEEF);
+    address owner = address(0xB055);
+    address player = address(0xCAFE);
+    address keeper = address(0xBEEF);
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
@@ -64,14 +64,11 @@ contract GravityDiceUnitTest is Test {
         uint256 betId = _placeBet(50, 0.01 ether);
         (
             address p,
-            uint96 stake,
-            ,
-            bytes32 commit,
-            ,
+            uint96 stake,,
+            bytes32 commit,,
             uint8 ru,
             GravityDice.Status status,
-            uint8 roll,
-            ,
+            uint8 roll,,
         ) = game.bets(betId);
         assertEq(p, player);
         assertEq(stake, uint96(0.01 ether));
@@ -95,13 +92,13 @@ contract GravityDiceUnitTest is Test {
 
     function test_placeBet_acceptsBoundary_min() public {
         uint256 betId = _placeBet(2, 0.01 ether);
-        (, , , , , uint8 ru, , , ,) = game.bets(betId);
+        (,,,,, uint8 ru,,,,) = game.bets(betId);
         assertEq(ru, 2);
     }
 
     function test_placeBet_acceptsBoundary_max() public {
         uint256 betId = _placeBet(98, 0.01 ether);
-        (, , , , , uint8 ru, , , ,) = game.bets(betId);
+        (,,,,, uint8 ru,,,,) = game.bets(betId);
         assertEq(ru, 98);
     }
 
@@ -139,7 +136,7 @@ contract GravityDiceUnitTest is Test {
         uint256 expectedPayout = (stake * 99) / (uint256(ru) - 1);
         assertEq(player.balance, playerBefore + expectedPayout, "winner payout = stake * 99/(R-1)");
 
-        (, , , , , , GravityDice.Status status, uint8 storedRoll, ,) = game.bets(betId);
+        (,,,,,, GravityDice.Status status, uint8 storedRoll,,) = game.bets(betId);
         assertEq(uint8(status), uint8(GravityDice.Status.Won));
         assertEq(storedRoll, roll);
     }
@@ -164,7 +161,7 @@ contract GravityDiceUnitTest is Test {
         game.settleBet(betId, SERVER_SEED);
 
         assertEq(player.balance, playerBefore, "loser receives nothing");
-        (, , , , , , GravityDice.Status status, uint8 storedRoll, ,) = game.bets(betId);
+        (,,,,,, GravityDice.Status status, uint8 storedRoll,,) = game.bets(betId);
         assertEq(uint8(status), uint8(GravityDice.Status.Lost));
         assertEq(storedRoll, roll);
     }
@@ -202,7 +199,7 @@ contract GravityDiceUnitTest is Test {
         game.refundBet(betId);
         assertEq(player.balance, playerBefore + stake, "refund returns full stake");
 
-        (, , , , , , GravityDice.Status status, , ,) = game.bets(betId);
+        (,,,,,, GravityDice.Status status,,,) = game.bets(betId);
         assertEq(uint8(status), uint8(GravityDice.Status.Refunded));
     }
 
@@ -268,8 +265,10 @@ contract GravityDiceUnitTest is Test {
     // ---- Cross-layer parity (mirrors packages/verify diceRoll vectors) ----
 
     function test_parityDice_v1() public pure {
-        bytes32 server = bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
-        bytes32 client = bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
+        bytes32 server =
+            bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
+        bytes32 client =
+            bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
         uint256 nonce = 0;
         uint256 expectedDice = 5;
 
@@ -278,8 +277,10 @@ contract GravityDiceUnitTest is Test {
     }
 
     function test_parityDice_v2() public pure {
-        bytes32 server = bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
-        bytes32 client = bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
+        bytes32 server =
+            bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
+        bytes32 client =
+            bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
         uint256 nonce = 42;
         uint256 expectedDice = 13;
 
@@ -289,7 +290,8 @@ contract GravityDiceUnitTest is Test {
 
     function test_parityDice_v3() public pure {
         bytes32 server = bytes32(uint256(0));
-        bytes32 client = bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
+        bytes32 client =
+            bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
         uint256 nonce = 999;
         uint256 expectedDice = 62;
 
@@ -361,7 +363,7 @@ contract GravityDiceUnitTest is Test {
             vm.prank(keeper);
             game.settleBet(betId, servers[i]);
 
-            (, , , , , , GravityDice.Status status, uint8 storedRoll, ,) = game.bets(betId);
+            (,,,,,, GravityDice.Status status, uint8 storedRoll,,) = game.bets(betId);
             assertEq(storedRoll, roll, "stored roll mismatch");
 
             if (roll < ru) {
@@ -413,7 +415,7 @@ contract GravityDiceUnitTest is Test {
         vm.prank(keeper);
         game.settleBet(betId, fSeed);
 
-        (, , , , , , GravityDice.Status status, uint8 storedRoll, ,) = game.bets(betId);
+        (,,,,,, GravityDice.Status status, uint8 storedRoll,,) = game.bets(betId);
         assertEq(storedRoll, expectedRoll, "stored roll mismatch");
 
         if (expectedRoll < ru) {
@@ -427,7 +429,10 @@ contract GravityDiceUnitTest is Test {
     }
 
     /// @notice Fuzz: roll is always in [1, 100] regardless of inputs.
-    function testFuzz_rollAlwaysInRange(bytes32 fSeed, bytes32 fClient, uint256 fNonce) public view {
+    function testFuzz_rollAlwaysInRange(bytes32 fSeed, bytes32 fClient, uint256 fNonce)
+        public
+        view
+    {
         uint8 r = game.previewRoll(fSeed, fClient, fNonce);
         assertGe(r, 1);
         assertLe(r, 100);
@@ -438,7 +443,10 @@ contract GravityDiceUnitTest is Test {
     ///         per-bet `payout * P(win) = stake * 99/(R-1) * (R-1)/100 = stake * 99/100`.
     ///         The cleanest invariant to assert is `payout < stake * 100 / (R-1)`
     ///         (strictly below the fair payout) for any stake ≥ 1.
-    function testFuzz_payoutBelowFairForEveryRollUnder(uint8 fRollUnder, uint96 fStake) public view {
+    function testFuzz_payoutBelowFairForEveryRollUnder(uint8 fRollUnder, uint96 fStake)
+        public
+        view
+    {
         uint8 ru = uint8(bound(uint256(fRollUnder), 2, 98));
         uint256 stake = bound(uint256(fStake), 1 ether, 100 ether);
 

@@ -29,16 +29,15 @@ contract DeployDeterministicTest is Test, CreateXScript {
 
     /// @dev Salt entropy values must match `Deploy.s.sol`'s defaults.
     uint88 internal constant BANKROLL_ENTROPY = 0xBB01;
-    uint88 internal constant FLIP_ENTROPY     = 0xBBC1;
-    uint88 internal constant DICE_ENTROPY     = 0xBBD1;
-    uint88 internal constant CLIMB_ENTROPY    = 0xBBA1;
+    uint88 internal constant FLIP_ENTROPY = 0xBBC1;
+    uint88 internal constant DICE_ENTROPY = 0xBBD1;
+    uint88 internal constant CLIMB_ENTROPY = 0xBBA1;
 
     /// @dev The live production deployer for `deployments/10143.json`. The
     ///      address book test below pins CREATE3 predictions for this deployer
     ///      against the Monad-testnet artifact so we notice the moment salt
     ///      encoding or default entropy drifts.
-    address internal constant PROD_DEPLOYER =
-        0xb29e6735629539cEd64F0d6f0c476Fe92539fD7B;
+    address internal constant PROD_DEPLOYER = 0xb29e6735629539cEd64F0d6f0c476Fe92539fD7B;
 
     function setUp() public withCreateX {
         vm.deal(deployer, 100 ether);
@@ -58,47 +57,47 @@ contract DeployDeterministicTest is Test, CreateXScript {
     ///         chain X" footgun for any of the games.
     function test_sameSaltYieldsSameAddressAcrossChains() public {
         bytes32 bankrollSalt = _packSalt(deployer, BANKROLL_ENTROPY);
-        bytes32 flipSalt     = _packSalt(deployer, FLIP_ENTROPY);
-        bytes32 diceSalt     = _packSalt(deployer, DICE_ENTROPY);
-        bytes32 climbSalt    = _packSalt(deployer, CLIMB_ENTROPY);
+        bytes32 flipSalt = _packSalt(deployer, FLIP_ENTROPY);
+        bytes32 diceSalt = _packSalt(deployer, DICE_ENTROPY);
+        bytes32 climbSalt = _packSalt(deployer, CLIMB_ENTROPY);
 
         // anvil
         vm.chainId(31337);
         address bankrollOnAnvil = computeCreate3Address(bankrollSalt, deployer);
-        address flipOnAnvil     = computeCreate3Address(flipSalt,     deployer);
-        address diceOnAnvil     = computeCreate3Address(diceSalt,     deployer);
-        address climbOnAnvil    = computeCreate3Address(climbSalt,    deployer);
+        address flipOnAnvil = computeCreate3Address(flipSalt, deployer);
+        address diceOnAnvil = computeCreate3Address(diceSalt, deployer);
+        address climbOnAnvil = computeCreate3Address(climbSalt, deployer);
 
         // Monad testnet
         vm.chainId(10143);
         address bankrollOnTestnet = computeCreate3Address(bankrollSalt, deployer);
-        address flipOnTestnet     = computeCreate3Address(flipSalt,     deployer);
-        address diceOnTestnet     = computeCreate3Address(diceSalt,     deployer);
-        address climbOnTestnet    = computeCreate3Address(climbSalt,    deployer);
+        address flipOnTestnet = computeCreate3Address(flipSalt, deployer);
+        address diceOnTestnet = computeCreate3Address(diceSalt, deployer);
+        address climbOnTestnet = computeCreate3Address(climbSalt, deployer);
 
         // Monad mainnet
         vm.chainId(143);
         address bankrollOnMainnet = computeCreate3Address(bankrollSalt, deployer);
-        address flipOnMainnet     = computeCreate3Address(flipSalt,     deployer);
-        address diceOnMainnet     = computeCreate3Address(diceSalt,     deployer);
-        address climbOnMainnet    = computeCreate3Address(climbSalt,    deployer);
+        address flipOnMainnet = computeCreate3Address(flipSalt, deployer);
+        address diceOnMainnet = computeCreate3Address(diceSalt, deployer);
+        address climbOnMainnet = computeCreate3Address(climbSalt, deployer);
 
         assertEq(bankrollOnAnvil, bankrollOnTestnet, "bankroll drifts anvil->testnet");
         assertEq(bankrollOnAnvil, bankrollOnMainnet, "bankroll drifts anvil->mainnet");
-        assertEq(flipOnAnvil,     flipOnTestnet,     "flip drifts anvil->testnet");
-        assertEq(flipOnAnvil,     flipOnMainnet,     "flip drifts anvil->mainnet");
-        assertEq(diceOnAnvil,     diceOnTestnet,     "dice drifts anvil->testnet");
-        assertEq(diceOnAnvil,     diceOnMainnet,     "dice drifts anvil->mainnet");
-        assertEq(climbOnAnvil,    climbOnTestnet,    "climb drifts anvil->testnet");
-        assertEq(climbOnAnvil,    climbOnMainnet,    "climb drifts anvil->mainnet");
+        assertEq(flipOnAnvil, flipOnTestnet, "flip drifts anvil->testnet");
+        assertEq(flipOnAnvil, flipOnMainnet, "flip drifts anvil->mainnet");
+        assertEq(diceOnAnvil, diceOnTestnet, "dice drifts anvil->testnet");
+        assertEq(diceOnAnvil, diceOnMainnet, "dice drifts anvil->mainnet");
+        assertEq(climbOnAnvil, climbOnTestnet, "climb drifts anvil->testnet");
+        assertEq(climbOnAnvil, climbOnMainnet, "climb drifts anvil->mainnet");
 
         // Distinct entropy => distinct addresses for every contract pair.
-        assertTrue(bankrollOnAnvil != flipOnAnvil,  "bankroll/flip share addr");
-        assertTrue(bankrollOnAnvil != diceOnAnvil,  "bankroll/dice share addr");
+        assertTrue(bankrollOnAnvil != flipOnAnvil, "bankroll/flip share addr");
+        assertTrue(bankrollOnAnvil != diceOnAnvil, "bankroll/dice share addr");
         assertTrue(bankrollOnAnvil != climbOnAnvil, "bankroll/climb share addr");
-        assertTrue(flipOnAnvil     != diceOnAnvil,  "flip/dice share addr");
-        assertTrue(flipOnAnvil     != climbOnAnvil, "flip/climb share addr");
-        assertTrue(diceOnAnvil     != climbOnAnvil, "dice/climb share addr");
+        assertTrue(flipOnAnvil != diceOnAnvil, "flip/dice share addr");
+        assertTrue(flipOnAnvil != climbOnAnvil, "flip/climb share addr");
+        assertTrue(diceOnAnvil != climbOnAnvil, "dice/climb share addr");
     }
 
     /// @notice Different deployers -> different addresses for the same salt.
@@ -106,8 +105,9 @@ contract DeployDeterministicTest is Test, CreateXScript {
     ///         bytes of the salt are the deployer's address).
     function test_differentDeployerYieldsDifferentAddress() public view {
         uint88 entropy = BANKROLL_ENTROPY;
-        address addrA = computeCreate3Address(_packSalt(address(0xA11CE), entropy), address(0xA11CE));
-        address addrB = computeCreate3Address(_packSalt(address(0xB0B),   entropy), address(0xB0B));
+        address addrA =
+            computeCreate3Address(_packSalt(address(0xA11CE), entropy), address(0xA11CE));
+        address addrB = computeCreate3Address(_packSalt(address(0xB0B), entropy), address(0xB0B));
         assertTrue(addrA != addrB, "permissioned-deploy guard broken");
     }
 
@@ -120,13 +120,13 @@ contract DeployDeterministicTest is Test, CreateXScript {
     ///         registered.
     function test_deployScriptYieldsPredictedAddresses() public {
         bytes32 bankrollSalt = _packSalt(deployer, BANKROLL_ENTROPY);
-        bytes32 flipSalt     = _packSalt(deployer, FLIP_ENTROPY);
-        bytes32 diceSalt     = _packSalt(deployer, DICE_ENTROPY);
-        bytes32 climbSalt    = _packSalt(deployer, CLIMB_ENTROPY);
+        bytes32 flipSalt = _packSalt(deployer, FLIP_ENTROPY);
+        bytes32 diceSalt = _packSalt(deployer, DICE_ENTROPY);
+        bytes32 climbSalt = _packSalt(deployer, CLIMB_ENTROPY);
         address expectedBankroll = computeCreate3Address(bankrollSalt, deployer);
-        address expectedFlip     = computeCreate3Address(flipSalt,     deployer);
-        address expectedDice     = computeCreate3Address(diceSalt,     deployer);
-        address expectedClimb    = computeCreate3Address(climbSalt,    deployer);
+        address expectedFlip = computeCreate3Address(flipSalt, deployer);
+        address expectedDice = computeCreate3Address(diceSalt, deployer);
+        address expectedClimb = computeCreate3Address(climbSalt, deployer);
 
         // Use a unique chainId so the script's `deployments/<chainId>.json`
         // writeup lands in a test-only artifact instead of clobbering the
@@ -143,24 +143,23 @@ contract DeployDeterministicTest is Test, CreateXScript {
         // and doesn't fight a vm.prank like the implicit-broadcaster branch
         // would.
         vm.setEnv("PRIVATE_KEY", vm.toString(bytes32(DEPLOYER_PK)));
-        (address bankrollAddr, address flipAddr, address diceAddr, address climbAddr) =
-            script.run();
+        (address bankrollAddr, address flipAddr, address diceAddr, address climbAddr) = script.run();
 
         assertEq(bankrollAddr, expectedBankroll, "deploy bankroll != predicted");
-        assertEq(flipAddr,     expectedFlip,     "deploy flip != predicted");
-        assertEq(diceAddr,     expectedDice,     "deploy dice != predicted");
-        assertEq(climbAddr,    expectedClimb,    "deploy climb != predicted");
+        assertEq(flipAddr, expectedFlip, "deploy flip != predicted");
+        assertEq(diceAddr, expectedDice, "deploy dice != predicted");
+        assertEq(climbAddr, expectedClimb, "deploy climb != predicted");
 
         // Sanity: deployed bytecode is non-empty.
         assertGt(bankrollAddr.code.length, 0, "bankroll has no code");
-        assertGt(flipAddr.code.length,     0, "flip has no code");
-        assertGt(diceAddr.code.length,     0, "dice has no code");
-        assertGt(climbAddr.code.length,    0, "climb has no code");
+        assertGt(flipAddr.code.length, 0, "flip has no code");
+        assertGt(diceAddr.code.length, 0, "dice has no code");
+        assertGt(climbAddr.code.length, 0, "climb has no code");
 
         // Wiring sanity: every game is registered against the bankroll.
         CasinoBankroll bankroll = CasinoBankroll(payable(bankrollAddr));
-        assertTrue(bankroll.isGame(flipAddr),  "flip not registered as game");
-        assertTrue(bankroll.isGame(diceAddr),  "dice not registered as game");
+        assertTrue(bankroll.isGame(flipAddr), "flip not registered as game");
+        assertTrue(bankroll.isGame(diceAddr), "dice not registered as game");
         assertTrue(bankroll.isGame(climbAddr), "climb not registered as game");
 
         _cleanupTestDeploymentJson();
@@ -174,14 +173,14 @@ contract DeployDeterministicTest is Test, CreateXScript {
     ///         address book.
     function test_predictionsMatchDeployments10143Json() public view {
         bytes32 bankrollSalt = _packSalt(PROD_DEPLOYER, BANKROLL_ENTROPY);
-        bytes32 flipSalt     = _packSalt(PROD_DEPLOYER, FLIP_ENTROPY);
-        bytes32 diceSalt     = _packSalt(PROD_DEPLOYER, DICE_ENTROPY);
-        bytes32 climbSalt    = _packSalt(PROD_DEPLOYER, CLIMB_ENTROPY);
+        bytes32 flipSalt = _packSalt(PROD_DEPLOYER, FLIP_ENTROPY);
+        bytes32 diceSalt = _packSalt(PROD_DEPLOYER, DICE_ENTROPY);
+        bytes32 climbSalt = _packSalt(PROD_DEPLOYER, CLIMB_ENTROPY);
 
         address predictedBankroll = computeCreate3Address(bankrollSalt, PROD_DEPLOYER);
-        address predictedFlip     = computeCreate3Address(flipSalt,     PROD_DEPLOYER);
-        address predictedDice     = computeCreate3Address(diceSalt,     PROD_DEPLOYER);
-        address predictedClimb    = computeCreate3Address(climbSalt,    PROD_DEPLOYER);
+        address predictedFlip = computeCreate3Address(flipSalt, PROD_DEPLOYER);
+        address predictedDice = computeCreate3Address(diceSalt, PROD_DEPLOYER);
+        address predictedClimb = computeCreate3Address(climbSalt, PROD_DEPLOYER);
 
         // Pinned from contracts/casino/deployments/10143.json (Monad testnet).
         // Update this test in lock-step if the deployer or default entropy

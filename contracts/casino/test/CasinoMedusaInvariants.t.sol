@@ -107,11 +107,12 @@ contract CasinoMedusaTester {
     // Coinflip handlers
     // ---------------------------------------------------------------------
 
-    function placeCoinflip(uint256 playerIdx, uint256 sideIdx, uint256 stakeSeed, uint256 seedSeed) public {
+    function placeCoinflip(uint256 playerIdx, uint256 sideIdx, uint256 stakeSeed, uint256 seedSeed)
+        public
+    {
         if (players.length == 0) return;
         address p = players[playerIdx % players.length];
-        CosmicFlip.Side side =
-            (sideIdx % 2) == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
+        CosmicFlip.Side side = (sideIdx % 2) == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
         uint256 stake = _bound(stakeSeed, MIN_BET, MAX_BET);
         bytes32 server = keccak256(abi.encodePacked(seedSeed, "cf-server"));
         bytes32 client = keccak256(abi.encodePacked(seedSeed, "cf-client"));
@@ -129,13 +130,13 @@ contract CasinoMedusaTester {
         if (openCoinflipBets.length == 0) return;
         uint256 i = idx % openCoinflipBets.length;
         uint256 betId = openCoinflipBets[i];
-        ( , uint96 stake, , , , , CosmicFlip.Status status, , ) = coinflip.bets(betId);
+        (, uint96 stake,,,,, CosmicFlip.Status status,,) = coinflip.bets(betId);
         if (status != CosmicFlip.Status.Pending) {
             _swapPopCF(i);
             return;
         }
         try coinflip.settleBet(betId, coinflipSeed[betId]) {
-            ( , , , , , , CosmicFlip.Status newStatus, , ) = coinflip.bets(betId);
+            (,,,,,, CosmicFlip.Status newStatus,,) = coinflip.bets(betId);
             if (newStatus == CosmicFlip.Status.Won) {
                 totalPaid += (uint256(stake) * 198) / 100;
             }
@@ -147,7 +148,8 @@ contract CasinoMedusaTester {
         if (openCoinflipBets.length == 0) return;
         uint256 i = idx % openCoinflipBets.length;
         uint256 betId = openCoinflipBets[i];
-        ( address player, uint96 stake, , , uint64 placed, , CosmicFlip.Status status, , ) = coinflip.bets(betId);
+        (address player, uint96 stake,,, uint64 placed,, CosmicFlip.Status status,,) =
+            coinflip.bets(betId);
         if (status != CosmicFlip.Status.Pending) {
             _swapPopCF(i);
             return;
@@ -175,7 +177,12 @@ contract CasinoMedusaTester {
     // Dice handlers
     // ---------------------------------------------------------------------
 
-    function placeDice(uint256 playerIdx, uint256 rollUnderSeed, uint256 stakeSeed, uint256 seedSeed) public {
+    function placeDice(
+        uint256 playerIdx,
+        uint256 rollUnderSeed,
+        uint256 stakeSeed,
+        uint256 seedSeed
+    ) public {
         if (players.length == 0) return;
         address p = players[playerIdx % players.length];
         uint8 rollUnder = uint8(_bound(rollUnderSeed, 2, 98));
@@ -196,13 +203,13 @@ contract CasinoMedusaTester {
         if (openDiceBets.length == 0) return;
         uint256 i = idx % openDiceBets.length;
         uint256 betId = openDiceBets[i];
-        ( , uint96 stake, , , , , GravityDice.Status status, , , ) = dice.bets(betId);
+        (, uint96 stake,,,,, GravityDice.Status status,,,) = dice.bets(betId);
         if (status != GravityDice.Status.Pending) {
             _swapPopDice(i);
             return;
         }
         try dice.settleBet(betId, diceSeed[betId]) {
-            ( , , , , , uint8 rollUnder, GravityDice.Status newStatus, , , ) = dice.bets(betId);
+            (,,,,, uint8 rollUnder, GravityDice.Status newStatus,,,) = dice.bets(betId);
             if (newStatus == GravityDice.Status.Won) {
                 // Payout = stake * 99 / (rollUnder - 1).
                 uint256 payoutAmt = (uint256(stake) * 99) / (uint256(rollUnder) - 1);
@@ -216,7 +223,8 @@ contract CasinoMedusaTester {
         if (openDiceBets.length == 0) return;
         uint256 i = idx % openDiceBets.length;
         uint256 betId = openDiceBets[i];
-        ( address player, uint96 stake, , , uint64 placed, , GravityDice.Status status, , , ) = dice.bets(betId);
+        (address player, uint96 stake,,, uint64 placed,, GravityDice.Status status,,,) =
+            dice.bets(betId);
         if (status != GravityDice.Status.Pending) {
             _swapPopDice(i);
             return;
@@ -265,7 +273,7 @@ contract CasinoMedusaTester {
         if (openHiLoSessions.length == 0) return;
         uint256 i = idx % openHiLoSessions.length;
         uint256 sid = openHiLoSessions[i];
-        ( address player, uint96 bet, , , , , ConstellationClimb.Status status, , , ) = hilo.sessions(sid);
+        (address player, uint96 bet,,,,, ConstellationClimb.Status status,,,) = hilo.sessions(sid);
         if (status != ConstellationClimb.Status.Open) {
             _swapPopHL(i);
             return;
@@ -284,7 +292,8 @@ contract CasinoMedusaTester {
         if (openHiLoSessions.length == 0) return;
         uint256 i = idx % openHiLoSessions.length;
         uint256 sid = openHiLoSessions[i];
-        ( address player, uint96 bet, , , uint64 lastBlock, , ConstellationClimb.Status status, , , ) = hilo.sessions(sid);
+        (address player, uint96 bet,,, uint64 lastBlock,, ConstellationClimb.Status status,,,) =
+            hilo.sessions(sid);
         if (status != ConstellationClimb.Status.Open) {
             _swapPopHL(i);
             return;
@@ -317,28 +326,25 @@ contract CasinoMedusaTester {
     ///         True for every reachable state under any sequence of the
     ///         handlers above.
     function property_systemNeverInsolvent() public view returns (bool) {
-        uint256 ethHeld =
-            address(bankroll).balance +
-            address(coinflip).balance +
-            address(dice).balance +
-            address(hilo).balance;
+        uint256 ethHeld = address(bankroll).balance + address(coinflip).balance
+            + address(dice).balance + address(hilo).balance;
         return ethHeld >= _sumPendingStakes();
     }
 
     function _sumPendingStakes() internal view returns (uint256 total) {
         uint256 cfNext = coinflip.nextBetId();
         for (uint256 i = 0; i < cfNext; i++) {
-            ( , uint96 stake, , , , , CosmicFlip.Status status, , ) = coinflip.bets(i);
+            (, uint96 stake,,,,, CosmicFlip.Status status,,) = coinflip.bets(i);
             if (status == CosmicFlip.Status.Pending) total += stake;
         }
         uint256 dNext = dice.nextBetId();
         for (uint256 i = 0; i < dNext; i++) {
-            ( , uint96 stake, , , , , GravityDice.Status status, , , ) = dice.bets(i);
+            (, uint96 stake,,,,, GravityDice.Status status,,,) = dice.bets(i);
             if (status == GravityDice.Status.Pending) total += stake;
         }
         uint256 hNext = hilo.nextSessionId();
         for (uint256 i = 0; i < hNext; i++) {
-            ( , uint96 bet, , , , , ConstellationClimb.Status status, , , ) = hilo.sessions(i);
+            (, uint96 bet,,,,, ConstellationClimb.Status status,,,) = hilo.sessions(i);
             if (status == ConstellationClimb.Status.Open) total += bet;
         }
     }

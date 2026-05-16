@@ -73,8 +73,9 @@ contract CommitRevealRandomnessUnitTest is Test {
         uint256 modSeed
     ) public pure {
         uint256 mod = bound(modSeed, 1, type(uint128).max);
-        uint256 viaPipeline =
-            CommitRevealRandomness.outcomeFromHash(CommitRevealRandomness.outcomeHash(server, client, nonce), mod);
+        uint256 viaPipeline = CommitRevealRandomness.outcomeFromHash(
+            CommitRevealRandomness.outcomeHash(server, client, nonce), mod
+        );
         uint256 viaHelper = CommitRevealRandomness.rollOutcome(server, client, nonce, mod);
         assertEq(viaPipeline, viaHelper);
     }
@@ -98,11 +99,12 @@ contract CommitRevealRandomnessUnitTest is Test {
     // ────────────────────────────────────────────────────────────────────────
 
     function test_parityVector1_coinflip() public pure {
-        bytes32 server = bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
-        bytes32 client = bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
+        bytes32 server =
+            bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
+        bytes32 client =
+            bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
         uint256 nonce = 0;
-        bytes32 expectedCommit =
-            0x20ee8f1366f06926e9e8771d8fb9007a8537c8dfdb6a3f8c2cfd64db19d2ec90;
+        bytes32 expectedCommit = 0x20ee8f1366f06926e9e8771d8fb9007a8537c8dfdb6a3f8c2cfd64db19d2ec90;
         bytes32 expectedOutcomeHash =
             0x4bcf8d6c0234f488ad0c0be6d04c4dab44d1dad9c162020f8d1f1bb91e6f3314;
         uint256 expectedCoinflip = 0;
@@ -118,15 +120,18 @@ contract CommitRevealRandomnessUnitTest is Test {
             expectedCoinflip,
             "v1: coinflip drift"
         );
-        assertTrue(CommitRevealRandomness.verifyCommit(server, expectedCommit), "v1: verifyCommit drift");
+        assertTrue(
+            CommitRevealRandomness.verifyCommit(server, expectedCommit), "v1: verifyCommit drift"
+        );
     }
 
     function test_parityVector2_coinflip() public pure {
-        bytes32 server = bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
-        bytes32 client = bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
+        bytes32 server =
+            bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
+        bytes32 client =
+            bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
         uint256 nonce = 42;
-        bytes32 expectedCommit =
-            0x1ade9f553ac636b4081983b175c3bbe991dd726b1cdbdb2588588cf5442bf50b;
+        bytes32 expectedCommit = 0x1ade9f553ac636b4081983b175c3bbe991dd726b1cdbdb2588588cf5442bf50b;
         bytes32 expectedOutcomeHash =
             0x93aa6cb4454b7a54b69f5718f5317374d38fac4713e58f048e70d92d20ae3b0c;
         uint256 expectedCoinflip = 0;
@@ -142,15 +147,17 @@ contract CommitRevealRandomnessUnitTest is Test {
             expectedCoinflip,
             "v2: coinflip drift"
         );
-        assertTrue(CommitRevealRandomness.verifyCommit(server, expectedCommit), "v2: verifyCommit drift");
+        assertTrue(
+            CommitRevealRandomness.verifyCommit(server, expectedCommit), "v2: verifyCommit drift"
+        );
     }
 
     function test_parityVector3_coinflip() public pure {
         bytes32 server = bytes32(uint256(0));
-        bytes32 client = bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
+        bytes32 client =
+            bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
         uint256 nonce = 999;
-        bytes32 expectedCommit =
-            0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563;
+        bytes32 expectedCommit = 0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563;
         bytes32 expectedOutcomeHash =
             0x728e65425523a8aba2498c23edc5b81dcccf9e2bba654e5b97fb88f6a9442e61;
         uint256 expectedCoinflip = 1;
@@ -166,7 +173,9 @@ contract CommitRevealRandomnessUnitTest is Test {
             expectedCoinflip,
             "v3: coinflip drift"
         );
-        assertTrue(CommitRevealRandomness.verifyCommit(server, expectedCommit), "v3: verifyCommit drift");
+        assertTrue(
+            CommitRevealRandomness.verifyCommit(server, expectedCommit), "v3: verifyCommit drift"
+        );
     }
 
     /// @notice Vector 4 — small integer seeds, dice (`mod=6`) and roll-under
@@ -176,8 +185,7 @@ contract CommitRevealRandomnessUnitTest is Test {
         bytes32 server = bytes32(uint256(1));
         bytes32 client = bytes32(uint256(2));
         uint256 nonce = 100;
-        bytes32 expectedCommit =
-            0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6;
+        bytes32 expectedCommit = 0xb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6;
         bytes32 expectedOutcomeHash =
             0x53fcaf77478d19cc564165ef5e0f22cbf2a347d03fce0828441d0f87ed5fde27;
         uint256 expectedMod6 = 1;
@@ -199,7 +207,9 @@ contract CommitRevealRandomnessUnitTest is Test {
             expectedMod100,
             "v4: roll-under drift"
         );
-        assertTrue(CommitRevealRandomness.verifyCommit(server, expectedCommit), "v4: verifyCommit drift");
+        assertTrue(
+            CommitRevealRandomness.verifyCommit(server, expectedCommit), "v4: verifyCommit drift"
+        );
     }
 
     /// @notice Vector 5 — keccak-derived seeds (typical production shape) with
@@ -211,8 +221,7 @@ contract CommitRevealRandomnessUnitTest is Test {
         // client = keccak256("client-v5")
         bytes32 client = 0x0a2a52793f8b0227b319e751a2079c406dddfcaac539ee4fc77326da39a8893b;
         uint256 nonce = 7;
-        bytes32 expectedCommit =
-            0x0d3bca55222e713c1577d7ad235266f7eabd6f14bfe2fa0497ee3b5ace87826a;
+        bytes32 expectedCommit = 0x0d3bca55222e713c1577d7ad235266f7eabd6f14bfe2fa0497ee3b5ace87826a;
         bytes32 expectedOutcomeHash =
             0x614dc4e9f30f5499a27fb7db75442b12fda175d363f6364afe9301a31851e8fd;
         uint256 expectedCoinflip = 1;
@@ -244,7 +253,9 @@ contract CommitRevealRandomnessUnitTest is Test {
             expectedRollUnder,
             "v5: roll-under drift"
         );
-        assertTrue(CommitRevealRandomness.verifyCommit(server, expectedCommit), "v5: verifyCommit drift");
+        assertTrue(
+            CommitRevealRandomness.verifyCommit(server, expectedCommit), "v5: verifyCommit drift"
+        );
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -261,8 +272,8 @@ contract CommitRevealRandomnessUnitTest is Test {
         bytes32 client = keccak256("dist-test-client");
         uint256 totalRuns = 256;
         uint256 mod = 2;
-        uint256 expected = totalRuns / mod;       // 128
-        uint256 tolerance = expected / 10;        // 12 → ±10%
+        uint256 expected = totalRuns / mod; // 128
+        uint256 tolerance = expected / 10; // 12 → ±10%
 
         uint256[2] memory buckets;
         for (uint256 i = 0; i < totalRuns; i++) {

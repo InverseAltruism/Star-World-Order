@@ -58,7 +58,10 @@ contract CasinoBankroll is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Circuit-breaker tripped (manually or by drawdown threshold).
     event CircuitBreakerTripped(
-        uint256 windowStartBalance, uint256 currentBalance, uint256 maxDrawdown24hWei, uint256 timestamp
+        uint256 windowStartBalance,
+        uint256 currentBalance,
+        uint256 maxDrawdown24hWei,
+        uint256 timestamp
     );
     /// @notice Circuit-breaker reset (cooldown elapsed or owner-driven).
     event CircuitBreakerReset(uint256 currentBalance, uint256 timestamp);

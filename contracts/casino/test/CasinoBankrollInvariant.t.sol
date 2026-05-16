@@ -43,10 +43,11 @@ contract CoinflipHandler is Test {
         }
     }
 
-    function place(uint256 playerIdx, uint256 sideIdx, uint256 stakeSeed, uint256 seedSeed) external {
+    function place(uint256 playerIdx, uint256 sideIdx, uint256 stakeSeed, uint256 seedSeed)
+        external
+    {
         address p = players[playerIdx % players.length];
-        CosmicFlip.Side side =
-            (sideIdx % 2) == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
+        CosmicFlip.Side side = (sideIdx % 2) == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
         uint256 stake = bound(stakeSeed, MIN_BET, MAX_BET);
         bytes32 server = keccak256(abi.encodePacked(seedSeed, "server"));
         bytes32 client = keccak256(abi.encodePacked(seedSeed, "client"));
@@ -68,7 +69,7 @@ contract CoinflipHandler is Test {
         if (openBets.length == 0) return;
         uint256 i = idx % openBets.length;
         uint256 betId = openBets[i];
-        ( , uint96 stake, , , , , CosmicFlip.Status status, , ) = game.bets(betId);
+        (, uint96 stake,,,,, CosmicFlip.Status status,,) = game.bets(betId);
         if (status != CosmicFlip.Status.Pending) {
             _swapPop(i);
             return;
@@ -76,7 +77,7 @@ contract CoinflipHandler is Test {
         bytes32 server = seedOf[betId];
         try game.settleBet(betId, server) {
             // Re-read post-state to score outcome.
-            ( address player, , , , , , CosmicFlip.Status newStatus, , ) = game.bets(betId);
+            (address player,,,,,, CosmicFlip.Status newStatus,,) = game.bets(betId);
             if (newStatus == CosmicFlip.Status.Won) {
                 totalPaid += (uint256(stake) * 198) / 100;
                 _trackPlayer(player);
@@ -91,7 +92,7 @@ contract CoinflipHandler is Test {
         if (openBets.length == 0) return;
         uint256 i = idx % openBets.length;
         uint256 betId = openBets[i];
-        ( address p, uint96 stake, , , uint64 placed, , CosmicFlip.Status status, , ) = game.bets(betId);
+        (address p, uint96 stake,,, uint64 placed,, CosmicFlip.Status status,,) = game.bets(betId);
         if (status != CosmicFlip.Status.Pending) {
             _swapPop(i);
             return;
@@ -130,7 +131,7 @@ contract CoinflipHandler is Test {
 contract CasinoBankrollInvariant is StdInvariant, Test {
     CasinoBankroll bankroll;
     CosmicFlip game;
-    CoinflipHandler  handler;
+    CoinflipHandler handler;
     address owner = address(0xB055);
 
     uint256 constant SEED = 50 ether;
@@ -181,7 +182,7 @@ contract CasinoBankrollInvariant is StdInvariant, Test {
     function _sumPendingStakes() internal view returns (uint256 total) {
         uint256 next = game.nextBetId();
         for (uint256 i = 0; i < next; i++) {
-            ( , uint96 stake, , , , , CosmicFlip.Status status, , ) = game.bets(i);
+            (, uint96 stake,,,,, CosmicFlip.Status status,,) = game.bets(i);
             if (status == CosmicFlip.Status.Pending) total += stake;
         }
     }

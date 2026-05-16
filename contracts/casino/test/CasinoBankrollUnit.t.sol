@@ -13,9 +13,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract CasinoBankrollUnitTest is Test {
     CasinoBankroll bankroll;
 
-    address owner    = address(0xB055);
-    address game     = address(0xCAFE);
-    address other    = address(0xBEEF);
+    address owner = address(0xB055);
+    address game = address(0xCAFE);
+    address other = address(0xBEEF);
     address recipient = address(0xD00D);
 
     function setUp() public {

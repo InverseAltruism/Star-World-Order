@@ -25,20 +25,20 @@ contract ConstellationClimbUnitTest is Test {
     CasinoBankroll bankroll;
     ConstellationClimb game;
 
-    address owner   = address(0xB055);
-    address player  = address(0xCAFE);
-    address keeper  = address(0xBEEF);
+    address owner = address(0xB055);
+    address player = address(0xCAFE);
+    address keeper = address(0xBEEF);
 
-    bytes32 constant SERVER_SEED  = bytes32(uint256(0xA11CE));
+    bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant SERVER_SEED2 = bytes32(uint256(0xA11CE2));
-    bytes32 constant CLIENT_SEED  = bytes32(uint256(0xC11ABC));
+    bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
 
-    uint256 constant MIN_BET    = 0.001 ether;
-    uint256 constant MAX_BET    = 0.1 ether;
+    uint256 constant MIN_BET = 0.001 ether;
+    uint256 constant MAX_BET = 0.1 ether;
     uint256 constant MAX_PAYOUT = 5 ether;
-    uint256 constant SEED_AMT   = 200 ether; // generous to absorb compounded payouts
+    uint256 constant SEED_AMT = 200 ether; // generous to absorb compounded payouts
 
-    uint256 constant WAD      = 1e18;
+    uint256 constant WAD = 1e18;
     uint256 constant STEP_NUM = 12 * 99;
     uint256 constant STEP_DEN = 100;
 
@@ -70,7 +70,9 @@ contract ConstellationClimbUnitTest is Test {
     }
 
     function _initialCardFor(bytes32 client) internal pure returns (uint8) {
-        return uint8(uint256(keccak256(abi.encodePacked(client, bytes32(uint256(0xC0DECAFE))))) % 13) + 1;
+        return
+            uint8(uint256(keccak256(abi.encodePacked(client, bytes32(uint256(0xC0DECAFE))))) % 13)
+                + 1;
     }
 
     function _expectedHigherMult(uint256 oldMult, uint8 cur) internal pure returns (uint256) {
@@ -82,32 +84,32 @@ contract ConstellationClimbUnitTest is Test {
     }
 
     function _readCard(uint256 sessionId) internal view returns (uint8) {
-        ( , , , , , uint8 c, , , , ) = game.sessions(sessionId);
+        (,,,,, uint8 c,,,,) = game.sessions(sessionId);
         return c;
     }
 
     function _readMult(uint256 sessionId) internal view returns (uint256) {
-        ( , , , , , , , , uint256 m, ) = game.sessions(sessionId);
+        (,,,,,,,, uint256 m,) = game.sessions(sessionId);
         return m;
     }
 
     function _readStatus(uint256 sessionId) internal view returns (ConstellationClimb.Status) {
-        ( , , , , , , ConstellationClimb.Status st, , , ) = game.sessions(sessionId);
+        (,,,,,, ConstellationClimb.Status st,,,) = game.sessions(sessionId);
         return st;
     }
 
     function _readBet(uint256 sessionId) internal view returns (uint96) {
-        ( , uint96 b, , , , , , , , ) = game.sessions(sessionId);
+        (, uint96 b,,,,,,,,) = game.sessions(sessionId);
         return b;
     }
 
     function _readStepCount(uint256 sessionId) internal view returns (uint8) {
-        ( , , , , , , , uint8 sc, , ) = game.sessions(sessionId);
+        (,,,,,,, uint8 sc,,) = game.sessions(sessionId);
         return sc;
     }
 
     function _readNonce(uint256 sessionId) internal view returns (uint256) {
-        ( , , , , , , , , , uint256 n) = game.sessions(sessionId);
+        (,,,,,,,,, uint256 n) = game.sessions(sessionId);
         return n;
     }
 
@@ -180,14 +182,22 @@ contract ConstellationClimbUnitTest is Test {
     function test_quoteStepMultiplier_higherFormula() public view {
         for (uint8 c = 1; c <= 12; c++) {
             uint256 expected = (WAD * STEP_NUM) / ((13 - uint256(c)) * STEP_DEN);
-            assertEq(game.quoteStepMultiplier(c, ConstellationClimb.Direction.Higher), expected, "higher quote drift");
+            assertEq(
+                game.quoteStepMultiplier(c, ConstellationClimb.Direction.Higher),
+                expected,
+                "higher quote drift"
+            );
         }
     }
 
     function test_quoteStepMultiplier_lowerFormula() public view {
         for (uint8 c = 2; c <= 13; c++) {
             uint256 expected = (WAD * STEP_NUM) / ((uint256(c) - 1) * STEP_DEN);
-            assertEq(game.quoteStepMultiplier(c, ConstellationClimb.Direction.Lower), expected, "lower quote drift");
+            assertEq(
+                game.quoteStepMultiplier(c, ConstellationClimb.Direction.Lower),
+                expected,
+                "lower quote drift"
+            );
         }
     }
 
@@ -242,7 +252,9 @@ contract ConstellationClimbUnitTest is Test {
         uint256 expected = _expectedHigherMult(oldMult, cur);
         assertEq(_readMult(sid), expected, "higher compounding mismatch");
         assertEq(_readCard(sid), newCard, "currentCard advance");
-        assertEq(uint8(_readStatus(sid)), uint8(ConstellationClimb.Status.Open), "stays open after win");
+        assertEq(
+            uint8(_readStatus(sid)), uint8(ConstellationClimb.Status.Open), "stays open after win"
+        );
         assertEq(_readStepCount(sid), 1);
     }
 
@@ -317,7 +329,12 @@ contract ConstellationClimbUnitTest is Test {
         uint256 sid = _open(0.01 ether, CLIENT_SEED, _commit(SERVER_SEED));
         vm.prank(keeper);
         vm.expectRevert(ConstellationClimb.InvalidReveal.selector);
-        game.playStep(sid, ConstellationClimb.Direction.Higher, bytes32(uint256(0xDEAD)), _commit(SERVER_SEED2));
+        game.playStep(
+            sid,
+            ConstellationClimb.Direction.Higher,
+            bytes32(uint256(0xDEAD)),
+            _commit(SERVER_SEED2)
+        );
     }
 
     function test_playStep_revertsHigherAt13() public {
@@ -482,7 +499,9 @@ contract ConstellationClimbUnitTest is Test {
             uint8 cur = _readCard(sid);
             vm.prank(keeper);
             game.playStep(sid, ConstellationClimb.Direction.Higher, server, _commit(SERVER_SEED2));
-            assertEq(uint8(_readStatus(sid)), uint8(ConstellationClimb.Status.Open), "WIN stays Open");
+            assertEq(
+                uint8(_readStatus(sid)), uint8(ConstellationClimb.Status.Open), "WIN stays Open"
+            );
             assertEq(_readMult(sid), _expectedHigherMult(oldMult, cur));
         }
 
@@ -594,16 +613,20 @@ contract ConstellationClimbUnitTest is Test {
     // ---- Cross-layer parity (mirrors verify package hiloCard vectors) ----
 
     function test_parityHilo_v1() public pure {
-        bytes32 server = bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
-        bytes32 client = bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
+        bytes32 server =
+            bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
+        bytes32 client =
+            bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
         uint256 nonce = 0;
         uint256 raw = CommitRevealRandomness.rollOutcome(server, client, nonce, 13);
         assertEq(raw + 1, _expectedHiloV1(), "v1 hilo drift");
     }
 
     function test_parityHilo_v2() public pure {
-        bytes32 server = bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
-        bytes32 client = bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
+        bytes32 server =
+            bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
+        bytes32 client =
+            bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
         uint256 nonce = 42;
         uint256 raw = CommitRevealRandomness.rollOutcome(server, client, nonce, 13);
         assertEq(raw + 1, _expectedHiloV2(), "v2 hilo drift");
@@ -611,27 +634,33 @@ contract ConstellationClimbUnitTest is Test {
 
     function test_parityHilo_v3() public pure {
         bytes32 server = bytes32(uint256(0));
-        bytes32 client = bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
+        bytes32 client =
+            bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
         uint256 nonce = 999;
         uint256 raw = CommitRevealRandomness.rollOutcome(server, client, nonce, 13);
         assertEq(raw + 1, _expectedHiloV3(), "v3 hilo drift");
     }
 
     function _expectedHiloV1() internal pure returns (uint256) {
-        bytes32 server = bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
-        bytes32 client = bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
+        bytes32 server =
+            bytes32(uint256(0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa));
+        bytes32 client =
+            bytes32(uint256(0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb));
         return (uint256(keccak256(abi.encodePacked(server, client, uint256(0)))) % 13) + 1;
     }
 
     function _expectedHiloV2() internal pure returns (uint256) {
-        bytes32 server = bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
-        bytes32 client = bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
+        bytes32 server =
+            bytes32(uint256(0x1212121212121212121212121212121212121212121212121212121212121212));
+        bytes32 client =
+            bytes32(uint256(0xfefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefe));
         return (uint256(keccak256(abi.encodePacked(server, client, uint256(42)))) % 13) + 1;
     }
 
     function _expectedHiloV3() internal pure returns (uint256) {
         bytes32 server = bytes32(uint256(0));
-        bytes32 client = bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
+        bytes32 client =
+            bytes32(uint256(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff));
         return (uint256(keccak256(abi.encodePacked(server, client, uint256(999)))) % 13) + 1;
     }
 
@@ -655,9 +684,8 @@ contract ConstellationClimbUnitTest is Test {
         vm.assume(!game.commitUsed(openCommit));
 
         vm.prank(player);
-        uint256 sid = game.openSession{value: bound(uint256(fStake), MIN_BET, MAX_BET)}(
-            fClient, openCommit
-        );
+        uint256 sid =
+            game.openSession{value: bound(uint256(fStake), MIN_BET, MAX_BET)}(fClient, openCommit);
 
         _runFuzzStep(sid, dir, fSeed, fClient);
     }
@@ -692,7 +720,9 @@ contract ConstellationClimbUnitTest is Test {
         }
     }
 
-    function testFuzz_sessionLength_compoundsCorrectly(uint8 fK, bytes32 fClient, bytes32 fSeed0) public {
+    function testFuzz_sessionLength_compoundsCorrectly(uint8 fK, bytes32 fClient, bytes32 fSeed0)
+        public
+    {
         uint256 K = bound(uint256(fK), 1, 6);
         uint8 initial = _initialCardFor(fClient);
         if (initial == 13 || initial == 1) return;
@@ -712,9 +742,8 @@ contract ConstellationClimbUnitTest is Test {
             if (st != ConstellationClimb.Status.Open) break;
 
             uint8 cur = _readCard(sid);
-            ConstellationClimb.Direction dir = cur < 13
-                ? ConstellationClimb.Direction.Higher
-                : ConstellationClimb.Direction.Lower;
+            ConstellationClimb.Direction dir =
+                cur < 13 ? ConstellationClimb.Direction.Higher : ConstellationClimb.Direction.Lower;
 
             uint256 stepNonceVal = _stepNonce(sid, uint8(i));
             uint8 newCard = _cardFor(seeds[i], fClient, stepNonceVal);
@@ -802,22 +831,28 @@ contract ClimbHandler is Test {
         if (openSessions.length == 0) return;
         uint256 i = idx % openSessions.length;
         uint256 sid = openSessions[i];
-        ( , uint96 stk, , , , uint8 cur, ConstellationClimb.Status status, , , ) = game.sessions(sid);
+        (, uint96 stk,,,, uint8 cur, ConstellationClimb.Status status,,,) = game.sessions(sid);
         if (status != ConstellationClimb.Status.Open) {
             _swapPop(i);
             return;
         }
 
         ConstellationClimb.Direction dir;
-        if (cur >= 13) dir = ConstellationClimb.Direction.Lower;
-        else if (cur <= 1) dir = ConstellationClimb.Direction.Higher;
-        else dir = (dirSeed % 2) == 0 ? ConstellationClimb.Direction.Higher : ConstellationClimb.Direction.Lower;
+        if (cur >= 13) {
+            dir = ConstellationClimb.Direction.Lower;
+        } else if (cur <= 1) {
+            dir = ConstellationClimb.Direction.Higher;
+        } else {
+            dir = (dirSeed % 2) == 0
+                ? ConstellationClimb.Direction.Higher
+                : ConstellationClimb.Direction.Lower;
+        }
 
         bytes32 reveal = openSeedOf[sid];
         bytes32 nextCommit = keccak256(abi.encodePacked("climb-handler-step", sid, dirSeed));
 
         try game.playStep(sid, dir, reveal, nextCommit) {
-            ( , , , , , , ConstellationClimb.Status nst, , , ) = game.sessions(sid);
+            (,,,,,, ConstellationClimb.Status nst,,,) = game.sessions(sid);
             if (nst == ConstellationClimb.Status.Lost) {
                 _swapPop(i);
             } else if (nst == ConstellationClimb.Status.Pushed) {
@@ -838,7 +873,8 @@ contract ClimbHandler is Test {
         if (_pendingCashOuts.length == 0) return;
         uint256 i = idx % _pendingCashOuts.length;
         uint256 sid = _pendingCashOuts[i];
-        ( address p, uint96 stake, , , , , ConstellationClimb.Status status, , uint256 mult, ) = game.sessions(sid);
+        (address p, uint96 stake,,,,, ConstellationClimb.Status status,, uint256 mult,) =
+            game.sessions(sid);
         if (status != ConstellationClimb.Status.Open) {
             _swapPopPending(i);
             return;
@@ -857,7 +893,8 @@ contract ClimbHandler is Test {
         if (openSessions.length == 0) return;
         uint256 i = idx % openSessions.length;
         uint256 sid = openSessions[i];
-        ( address p, uint96 stake, , , uint64 last, , ConstellationClimb.Status status, , , ) = game.sessions(sid);
+        (address p, uint96 stake,,, uint64 last,, ConstellationClimb.Status status,,,) =
+            game.sessions(sid);
         if (status != ConstellationClimb.Status.Open) {
             _swapPop(i);
             return;
@@ -931,7 +968,7 @@ contract ConstellationClimbInvariant is StdInvariant, Test {
     function _sumPendingStakes() internal view returns (uint256 total) {
         uint256 next = game.nextSessionId();
         for (uint256 i = 0; i < next; i++) {
-            ( , uint96 stake, , , , , ConstellationClimb.Status status, , , ) = game.sessions(i);
+            (, uint96 stake,,,,, ConstellationClimb.Status status,,,) = game.sessions(i);
             if (status == ConstellationClimb.Status.Open) total += stake;
         }
     }

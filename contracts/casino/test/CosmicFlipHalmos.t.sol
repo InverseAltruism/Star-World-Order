@@ -28,8 +28,8 @@ contract CosmicFlipHalmosTest is Test {
 
     address constant OWNER = address(0xB055);
 
-    uint256 constant MIN_BET  = 0.001 ether;
-    uint256 constant MAX_BET  = 0.1 ether;
+    uint256 constant MIN_BET = 0.001 ether;
+    uint256 constant MAX_BET = 0.1 ether;
     uint256 constant SEED_AMT = 10 ether;
 
     function setUp() public {
@@ -49,8 +49,8 @@ contract CosmicFlipHalmosTest is Test {
     function check_commitReplay_directReverts(
         address player1,
         address player2,
-        uint8   side1Raw,
-        uint8   side2Raw,
+        uint8 side1Raw,
+        uint8 side2Raw,
         bytes32 clientSeed1,
         bytes32 clientSeed2,
         bytes32 commit,
@@ -113,8 +113,8 @@ contract CosmicFlipHalmosTest is Test {
         address player1,
         address player2,
         address keeper,
-        uint8   side1Raw,
-        uint8   side2Raw,
+        uint8 side1Raw,
+        uint8 side2Raw,
         bytes32 clientSeed1,
         bytes32 clientSeed2,
         bytes32 commit,
@@ -124,10 +124,10 @@ contract CosmicFlipHalmosTest is Test {
     ) public {
         vm.assume(player1 != address(0));
         vm.assume(player2 != address(0));
-        vm.assume(keeper  != address(0));
+        vm.assume(keeper != address(0));
         vm.assume(player1 != address(game) && player1 != address(bankroll));
         vm.assume(player2 != address(game) && player2 != address(bankroll));
-        vm.assume(keeper  != address(game) && keeper  != address(bankroll));
+        vm.assume(keeper != address(game) && keeper != address(bankroll));
         vm.assume(commit != bytes32(0));
         vm.assume(stake1 >= MIN_BET && stake1 <= MAX_BET);
         vm.assume(stake2 >= MIN_BET && stake2 <= MAX_BET);
@@ -185,8 +185,8 @@ contract CosmicFlipHalmosTest is Test {
     function check_commit_reveal_one_to_one(
         address player1,
         address player2,
-        uint8   side1Raw,
-        uint8   side2Raw,
+        uint8 side1Raw,
+        uint8 side2Raw,
         bytes32 clientSeed1,
         bytes32 clientSeed2,
         bytes32 commit,
@@ -194,11 +194,7 @@ contract CosmicFlipHalmosTest is Test {
         uint256 stake2
     ) public {
         check_commitReplay_directReverts(
-            player1, player2,
-            side1Raw, side2Raw,
-            clientSeed1, clientSeed2,
-            commit,
-            stake1, stake2
+            player1, player2, side1Raw, side2Raw, clientSeed1, clientSeed2, commit, stake1, stake2
         );
     }
 
@@ -231,7 +227,7 @@ contract CosmicFlipHalmosTest is Test {
     ///         reason the two checks above hold.
     function check_commitUsed_isMonotone(
         address player,
-        uint8   sideRaw,
+        uint8 sideRaw,
         bytes32 clientSeed,
         bytes32 commit,
         bytes32 reveal,
@@ -246,8 +242,7 @@ contract CosmicFlipHalmosTest is Test {
         vm.deal(player, stake);
 
         vm.prank(player);
-        uint256 betId =
-            game.placeBet{value: stake}(CosmicFlip.Side(sideRaw), clientSeed, commit);
+        uint256 betId = game.placeBet{value: stake}(CosmicFlip.Side(sideRaw), clientSeed, commit);
 
         assertTrue(game.commitUsed(commit), "commit should be marked used");
 

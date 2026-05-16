@@ -15,9 +15,9 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 contract CasinoBankrollBreakerTest is Test {
     CasinoBankroll bankroll;
 
-    address owner     = address(0xB055);
-    address game      = address(0xCAFE);
-    address other     = address(0xBEEF);
+    address owner = address(0xB055);
+    address game = address(0xCAFE);
+    address other = address(0xBEEF);
     address recipient = address(0xD00D);
 
     uint256 constant SEED = 10 ether;

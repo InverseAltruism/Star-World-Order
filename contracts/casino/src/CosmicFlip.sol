@@ -32,26 +32,29 @@ interface ICasinoAllowlist {
 contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
     using CommitRevealRandomness for bytes32;
 
-    enum Side { Heads, Tails }
+    enum Side {
+        Heads,
+        Tails
+    }
 
     enum Status {
-        None,    // 0 — slot empty
+        None, // 0 — slot empty
         Pending, // 1 — placed, not yet settled
-        Won,     // 2 — settled, player won
-        Lost,    // 3 — settled, house won
+        Won, // 2 — settled, player won
+        Lost, // 3 — settled, house won
         Refunded // 4 — expired, player refunded
     }
 
     struct Bet {
         address player;
-        uint96  stake;        // wei, fits 79+ bn tokens; plenty
+        uint96 stake; // wei, fits 79+ bn tokens; plenty
         bytes32 clientSeed;
         bytes32 serverCommit;
-        uint64  blockPlaced;
-        Side    side;
-        Status  status;
+        uint64 blockPlaced;
+        Side side;
+        Status status;
         bytes32 serverReveal; // populated on settle
-        uint256 nonce;        // matches per-bet nonce in randomness scheme
+        uint256 nonce; // matches per-bet nonce in randomness scheme
     }
 
     /// @notice Number of blocks after which an unsettled bet can be refunded.
@@ -95,18 +98,18 @@ contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
     event BetPlaced(
         uint256 indexed betId,
         address indexed player,
-        Side    side,
+        Side side,
         uint256 stake,
         bytes32 clientSeed,
         bytes32 serverCommit,
         uint256 nonce,
-        uint64  blockPlaced
+        uint64 blockPlaced
     );
     event BetSettled(
         uint256 indexed betId,
         address indexed player,
-        Side    outcome,
-        bool    won,
+        Side outcome,
+        bool won,
         uint256 payout,
         bytes32 serverReveal
     );
@@ -158,8 +161,13 @@ contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
         maxBet = newMax;
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     /// @notice Owner-set the soft-launch allowlist contract. Pass address(0)
     ///         to fully detach (open house). Mainnet ships with this set; the
@@ -181,7 +189,8 @@ contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
     {
         ICasinoAllowlist al = allowlist;
         if (address(al) != address(0)) {
-            try al.enforceAccess(msg.sender) {} catch {
+            try al.enforceAccess(msg.sender) {}
+            catch {
                 revert NotAllowed();
             }
         }
@@ -194,19 +203,26 @@ contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
         uint256 nonce = playerNonce[msg.sender]++;
 
         bets[betId] = Bet({
-            player:       msg.sender,
-            stake:        uint96(msg.value),
-            clientSeed:   clientSeed,
+            player: msg.sender,
+            stake: uint96(msg.value),
+            clientSeed: clientSeed,
             serverCommit: serverCommit,
-            blockPlaced:  uint64(block.number),
-            side:         side,
-            status:       Status.Pending,
+            blockPlaced: uint64(block.number),
+            side: side,
+            status: Status.Pending,
             serverReveal: bytes32(0),
-            nonce:        nonce
+            nonce: nonce
         });
 
         emit BetPlaced(
-            betId, msg.sender, side, msg.value, clientSeed, serverCommit, nonce, uint64(block.number)
+            betId,
+            msg.sender,
+            side,
+            msg.value,
+            clientSeed,
+            serverCommit,
+            nonce,
+            uint64(block.number)
         );
     }
 
@@ -215,7 +231,9 @@ contract CosmicFlip is Ownable, Pausable, ReentrancyGuard {
         Bet storage b = bets[betId];
         if (b.status == Status.None) revert BetNotFound();
         if (b.status != Status.Pending) revert BetNotPending();
-        if (!CommitRevealRandomness.verifyCommit(serverReveal, b.serverCommit)) revert InvalidReveal();
+        if (!CommitRevealRandomness.verifyCommit(serverReveal, b.serverCommit)) {
+            revert InvalidReveal();
+        }
 
         uint256 outcome = CommitRevealRandomness.rollOutcome(serverReveal, b.clientSeed, b.nonce, 2);
         Side rolled = outcome == 0 ? Side.Heads : Side.Tails;
