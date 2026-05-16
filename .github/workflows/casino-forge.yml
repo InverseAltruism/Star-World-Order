@@ -20,6 +20,30 @@ defaults:
     working-directory: contracts/casino
 
 jobs:
+  fmt:
+    name: forge fmt --check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Style-only gate. Runs in parallel with build/test so a whitespace
+    # regression turns the PR red without waiting on the heavier suite.
+    # `[fmt]` block in contracts/casino/foundry.toml is the source of truth
+    # (line_length=100, tab_width=4, bracket_spacing=false, int_types=long).
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Foundry versions
+        run: forge --version
+
+      - name: Forge fmt (check)
+        run: forge fmt --check
+
   forge:
     name: forge build + test
     runs-on: ubuntu-latest
