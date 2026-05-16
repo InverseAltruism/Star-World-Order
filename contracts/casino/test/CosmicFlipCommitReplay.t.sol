@@ -15,15 +15,15 @@ contract CosmicFlipCommitReplayTest is Test {
     CasinoBankroll bankroll;
     CosmicFlip game;
 
-    address owner   = address(0xB055);
-    address player  = address(0xCAFE);
-    address keeper  = address(0xBEEF);
+    address owner = address(0xB055);
+    address player = address(0xCAFE);
+    address keeper = address(0xBEEF);
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
 
-    uint256 constant MIN_BET  = 0.001 ether;
-    uint256 constant MAX_BET  = 0.1 ether;
+    uint256 constant MIN_BET = 0.001 ether;
+    uint256 constant MAX_BET = 0.1 ether;
     uint256 constant SEED_AMT = 10 ether;
 
     function setUp() public {
@@ -59,10 +59,8 @@ contract CosmicFlipCommitReplayTest is Test {
         //    computes the deterministic outcome for their NEXT nonce and
         //    bets the winning side.
         uint256 nextNonce = game.playerNonce(player);
-        uint256 outcome =
-            CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nextNonce, 2);
-        CosmicFlip.Side guaranteedWin =
-            outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
+        uint256 outcome = CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nextNonce, 2);
+        CosmicFlip.Side guaranteedWin = outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
 
         // 3) The contract MUST reject the replay. The expected behaviour is a
         //    revert with the dedicated `CommitAlreadyUsed` selector once the

@@ -39,10 +39,10 @@ import {CasinoAllowlist} from "../src/CasinoAllowlist.sol";
 ///           CASINO_ALLOWLIST_SEED     CSV of addresses (default empty)
 ///           PRIVATE_KEY               deployer key (forge default if unset)
 contract Deploy is CreateXScript {
-    uint88 internal constant DEFAULT_BANKROLL_SALT  = 0xBB01;
-    uint88 internal constant DEFAULT_FLIP_SALT      = 0xBBC1;
-    uint88 internal constant DEFAULT_DICE_SALT      = 0xBBD1;
-    uint88 internal constant DEFAULT_CLIMB_SALT     = 0xBBA1;
+    uint88 internal constant DEFAULT_BANKROLL_SALT = 0xBB01;
+    uint88 internal constant DEFAULT_FLIP_SALT = 0xBBC1;
+    uint88 internal constant DEFAULT_DICE_SALT = 0xBBD1;
+    uint88 internal constant DEFAULT_CLIMB_SALT = 0xBBA1;
     uint88 internal constant DEFAULT_ALLOWLIST_SALT = 0xBBAA;
 
     function setUp() public withCreateX {}
@@ -60,8 +60,8 @@ contract Deploy is CreateXScript {
         bytes32 diceSalt;
         bytes32 climbSalt;
         bytes32 allowlistSalt;
-        bool    deployAllowlist;
-        bool    allowlistEnabled;
+        bool deployAllowlist;
+        bool allowlistEnabled;
     }
 
     struct DeployedAddresses {
@@ -86,9 +86,9 @@ contract Deploy is CreateXScript {
 
         DeployedAddresses memory a;
         a.bankroll = computeCreate3Address(p.bankrollSalt, p.deployer);
-        a.flip     = computeCreate3Address(p.flipSalt,     p.deployer);
-        a.dice     = computeCreate3Address(p.diceSalt,     p.deployer);
-        a.climb    = computeCreate3Address(p.climbSalt,    p.deployer);
+        a.flip = computeCreate3Address(p.flipSalt, p.deployer);
+        a.dice = computeCreate3Address(p.diceSalt, p.deployer);
+        a.climb = computeCreate3Address(p.climbSalt, p.deployer);
 
         _create3IfMissing(
             a.bankroll,
@@ -125,8 +125,8 @@ contract Deploy is CreateXScript {
         );
 
         CasinoBankroll bankroll = CasinoBankroll(payable(a.bankroll));
-        _registerIfMissing(bankroll, a.flip,  p.initialAllowance);
-        _registerIfMissing(bankroll, a.dice,  p.initialAllowance);
+        _registerIfMissing(bankroll, a.flip, p.initialAllowance);
+        _registerIfMissing(bankroll, a.dice, p.initialAllowance);
         _registerIfMissing(bankroll, a.climb, p.initialAllowance);
         if (p.initialDeposit > 0) {
             bankroll.deposit{value: p.initialDeposit}();
@@ -145,15 +145,14 @@ contract Deploy is CreateXScript {
                 a.allowlist,
                 p.allowlistSalt,
                 abi.encodePacked(
-                    type(CasinoAllowlist).creationCode,
-                    abi.encode(p.deployer, p.allowlistEnabled)
+                    type(CasinoAllowlist).creationCode, abi.encode(p.deployer, p.allowlistEnabled)
                 ),
                 "allowlist"
             );
 
-            CosmicFlip          cf = CosmicFlip(payable(a.flip));
-            GravityDice         dc = GravityDice(payable(a.dice));
-            ConstellationClimb  hl = ConstellationClimb(payable(a.climb));
+            CosmicFlip cf = CosmicFlip(payable(a.flip));
+            GravityDice dc = GravityDice(payable(a.dice));
+            ConstellationClimb hl = ConstellationClimb(payable(a.climb));
             if (address(cf.allowlist()) != a.allowlist && cf.owner() == p.deployer) {
                 cf.setAllowlist(a.allowlist);
             }
@@ -187,34 +186,34 @@ contract Deploy is CreateXScript {
         _writeDeploymentJson(a, p);
 
         bankrollAddr = a.bankroll;
-        flipAddr     = a.flip;
-        diceAddr     = a.dice;
-        climbAddr    = a.climb;
+        flipAddr = a.flip;
+        diceAddr = a.dice;
+        climbAddr = a.climb;
     }
 
     function _loadParams() internal view returns (DeployParams memory p) {
         p.initialAllowance = vm.envOr("CASINO_INITIAL_ALLOWANCE", uint256(10 ether));
-        p.initialDeposit   = vm.envOr("CASINO_INITIAL_DEPOSIT",   p.initialAllowance);
-        p.minBet           = vm.envOr("CASINO_MIN_BET",           uint256(0.001 ether));
-        p.maxBet           = vm.envOr("CASINO_MAX_BET",           uint256(0.1 ether));
-        p.climbMaxPayout   = vm.envOr("CASINO_CLIMB_MAX_PAYOUT",  uint256(1 ether));
+        p.initialDeposit = vm.envOr("CASINO_INITIAL_DEPOSIT", p.initialAllowance);
+        p.minBet = vm.envOr("CASINO_MIN_BET", uint256(0.001 ether));
+        p.maxBet = vm.envOr("CASINO_MAX_BET", uint256(0.1 ether));
+        p.climbMaxPayout = vm.envOr("CASINO_CLIMB_MAX_PAYOUT", uint256(1 ether));
         p.maxDrawdown24hWei = vm.envOr("CASINO_MAX_DRAWDOWN_24H", p.initialDeposit / 2);
 
         uint256 pk = vm.envOr("PRIVATE_KEY", uint256(0));
         p.deployer = pk != 0 ? vm.addr(pk) : msg.sender;
 
         uint88 bEntropy = uint88(vm.envOr("CASINO_BANKROLL_SALT", uint256(DEFAULT_BANKROLL_SALT)));
-        uint88 cEntropy = uint88(vm.envOr("CASINO_FLIP_SALT",     uint256(DEFAULT_FLIP_SALT)));
-        uint88 dEntropy = uint88(vm.envOr("CASINO_DICE_SALT",     uint256(DEFAULT_DICE_SALT)));
-        uint88 hEntropy = uint88(vm.envOr("CASINO_CLIMB_SALT",    uint256(DEFAULT_CLIMB_SALT)));
+        uint88 cEntropy = uint88(vm.envOr("CASINO_FLIP_SALT", uint256(DEFAULT_FLIP_SALT)));
+        uint88 dEntropy = uint88(vm.envOr("CASINO_DICE_SALT", uint256(DEFAULT_DICE_SALT)));
+        uint88 hEntropy = uint88(vm.envOr("CASINO_CLIMB_SALT", uint256(DEFAULT_CLIMB_SALT)));
         uint88 aEntropy = uint88(vm.envOr("CASINO_ALLOWLIST_SALT", uint256(DEFAULT_ALLOWLIST_SALT)));
-        p.bankrollSalt  = _packSalt(p.deployer, bEntropy);
-        p.flipSalt      = _packSalt(p.deployer, cEntropy);
-        p.diceSalt      = _packSalt(p.deployer, dEntropy);
-        p.climbSalt     = _packSalt(p.deployer, hEntropy);
+        p.bankrollSalt = _packSalt(p.deployer, bEntropy);
+        p.flipSalt = _packSalt(p.deployer, cEntropy);
+        p.diceSalt = _packSalt(p.deployer, dEntropy);
+        p.climbSalt = _packSalt(p.deployer, hEntropy);
         p.allowlistSalt = _packSalt(p.deployer, aEntropy);
 
-        p.deployAllowlist  = vm.envOr("CASINO_DEPLOY_ALLOWLIST", false);
+        p.deployAllowlist = vm.envOr("CASINO_DEPLOY_ALLOWLIST", false);
         p.allowlistEnabled = vm.envOr("CASINO_ALLOWLIST_ENABLED", true);
     }
 
@@ -266,13 +265,13 @@ contract Deploy is CreateXScript {
 
     function _writeDeploymentJson(DeployedAddresses memory a, DeployParams memory p) internal {
         string memory key = "casino_deployment";
-        vm.serializeAddress(key, "bankroll",      a.bankroll);
-        vm.serializeAddress(key, "cosmicFlip",    a.flip);
-        vm.serializeAddress(key, "gravityDice",   a.dice);
+        vm.serializeAddress(key, "bankroll", a.bankroll);
+        vm.serializeAddress(key, "cosmicFlip", a.flip);
+        vm.serializeAddress(key, "gravityDice", a.dice);
         vm.serializeAddress(key, "constellationClimb", a.climb);
-        vm.serializeAddress(key, "allowlist",     a.allowlist);
-        vm.serializeAddress(key, "deployer",      p.deployer);
-        vm.serializeBytes32(key, "bankrollSalt",  p.bankrollSalt);
+        vm.serializeAddress(key, "allowlist", a.allowlist);
+        vm.serializeAddress(key, "deployer", p.deployer);
+        vm.serializeBytes32(key, "bankrollSalt", p.bankrollSalt);
         vm.serializeBytes32(key, "cosmicFlipSalt", p.flipSalt);
         vm.serializeBytes32(key, "gravityDiceSalt", p.diceSalt);
         vm.serializeBytes32(key, "constellationClimbSalt", p.climbSalt);
@@ -281,11 +280,7 @@ contract Deploy is CreateXScript {
         vm.serializeUint(key, "maxDrawdown24hWei", p.maxDrawdown24hWei);
         string memory json = vm.serializeUint(key, "chainId", block.chainid);
 
-        string memory path = string.concat(
-            "deployments/",
-            vm.toString(block.chainid),
-            ".json"
-        );
+        string memory path = string.concat("deployments/", vm.toString(block.chainid), ".json");
         vm.writeJson(json, path);
         console2.log("Wrote deployment JSON to:", path);
     }

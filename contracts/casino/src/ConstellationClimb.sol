@@ -40,29 +40,29 @@ interface ICasinoAllowlist {
 contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
     enum Direction {
         Higher, // 0 — bet that next card > currentCard
-        Lower   // 1 — bet that next card < currentCard
+        Lower // 1 — bet that next card < currentCard
     }
 
     enum Status {
-        None,        // 0 — slot empty
-        Open,        // 1 — accepting playStep / cashOut
-        CashedOut,   // 2 — player cashed out for `bet * multiplier`
-        Lost,        // 3 — settled, player forfeited stake (lose path)
-        Refunded,    // 4 — expired without resolution; stake returned
-        Pushed       // 5 — tie on a playStep; stake returned, session ended
+        None, // 0 — slot empty
+        Open, // 1 — accepting playStep / cashOut
+        CashedOut, // 2 — player cashed out for `bet * multiplier`
+        Lost, // 3 — settled, player forfeited stake (lose path)
+        Refunded, // 4 — expired without resolution; stake returned
+        Pushed // 5 — tie on a playStep; stake returned, session ended
     }
 
     struct Session {
         address player;
-        uint96  bet;                // wei locked at open
+        uint96 bet; // wei locked at open
         bytes32 clientSeed;
-        bytes32 serverCommit;       // rotates per playStep — points at NEXT step's reveal
-        uint64  lastBlock;          // last action block (open or step) — basis for expiry
-        uint8   currentCard;        // 1..13
-        Status  status;
-        uint8   stepCount;          // # of completed playSteps
-        uint256 currentMultiplier;  // wad-scaled cumulative multiplier (1e18 = 1.0x)
-        uint256 nonce;              // per-session nonce mixed into rollOutcome
+        bytes32 serverCommit; // rotates per playStep — points at NEXT step's reveal
+        uint64 lastBlock; // last action block (open or step) — basis for expiry
+        uint8 currentCard; // 1..13
+        Status status;
+        uint8 stepCount; // # of completed playSteps
+        uint256 currentMultiplier; // wad-scaled cumulative multiplier (1e18 = 1.0x)
+        uint256 nonce; // per-session nonce mixed into rollOutcome
     }
 
     /// @notice Number of blocks after which an idle Open session can be refunded.
@@ -112,33 +112,30 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
         uint256 stake,
         bytes32 clientSeed,
         bytes32 serverCommit,
-        uint8   initialCard,
+        uint8 initialCard,
         uint256 nonce,
-        uint64  blockOpened
+        uint64 blockOpened
     );
     event StepPlayed(
         uint256 indexed sessionId,
         address indexed player,
         Direction direction,
-        uint8   prevCard,
-        uint8   newCard,
-        bool    won,
+        uint8 prevCard,
+        uint8 newCard,
+        bool won,
         uint256 newMultiplier,
         bytes32 serverReveal,
         bytes32 nextCommit
     );
     event SessionCashedOut(
-        uint256 indexed sessionId,
-        address indexed player,
-        uint256 payout,
-        uint256 finalMultiplier
+        uint256 indexed sessionId, address indexed player, uint256 payout, uint256 finalMultiplier
     );
     event SessionRefunded(uint256 indexed sessionId, address indexed player, uint256 stake);
     event SessionPushed(
         uint256 indexed sessionId,
         address indexed player,
         uint256 stake,
-        uint8   card,
+        uint8 card,
         uint256 multiplier
     );
 
@@ -191,8 +188,13 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
         maxPayout = newMax;
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     function setAllowlist(address newAllowlist) external onlyOwner {
         allowlist = ICasinoAllowlist(newAllowlist);
@@ -210,7 +212,8 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
     {
         ICasinoAllowlist al = allowlist;
         if (address(al) != address(0)) {
-            try al.enforceAccess(msg.sender) {} catch {
+            try al.enforceAccess(msg.sender) {}
+            catch {
                 revert NotAllowed();
             }
         }
@@ -227,21 +230,27 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
             uint8(uint256(keccak256(abi.encodePacked(clientSeed, INIT_TAG))) % CARD_MOD) + 1;
 
         sessions[sessionId] = Session({
-            player:             msg.sender,
-            bet:                uint96(msg.value),
-            clientSeed:         clientSeed,
-            serverCommit:       serverCommit,
-            lastBlock:          uint64(block.number),
-            currentCard:        initialCard,
-            status:             Status.Open,
-            stepCount:          0,
-            currentMultiplier:  WAD,
-            nonce:              nonce
+            player: msg.sender,
+            bet: uint96(msg.value),
+            clientSeed: clientSeed,
+            serverCommit: serverCommit,
+            lastBlock: uint64(block.number),
+            currentCard: initialCard,
+            status: Status.Open,
+            stepCount: 0,
+            currentMultiplier: WAD,
+            nonce: nonce
         });
 
         emit SessionOpened(
-            sessionId, msg.sender, msg.value, clientSeed, serverCommit,
-            initialCard, nonce, uint64(block.number)
+            sessionId,
+            msg.sender,
+            msg.value,
+            clientSeed,
+            serverCommit,
+            initialCard,
+            nonce,
+            uint64(block.number)
         );
     }
 
@@ -254,7 +263,9 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
         Session storage s = sessions[sessionId];
         if (s.status == Status.None) revert SessionNotFound();
         if (s.status != Status.Open) revert SessionNotOpen();
-        if (!CommitRevealRandomness.verifyCommit(serverReveal, s.serverCommit)) revert InvalidReveal();
+        if (!CommitRevealRandomness.verifyCommit(serverReveal, s.serverCommit)) {
+            revert InvalidReveal();
+        }
         if (nextCommit == bytes32(0)) revert ZeroCommit();
         if (commitUsed[nextCommit]) revert CommitAlreadyUsed();
         commitUsed[nextCommit] = true;
@@ -301,12 +312,7 @@ contract ConstellationClimb is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    function _settlePush(
-        Session storage s,
-        uint256 sessionId,
-        uint8 card,
-        uint256 mult
-    ) internal {
+    function _settlePush(Session storage s, uint256 sessionId, uint8 card, uint256 mult) internal {
         s.status = Status.Pushed;
         uint256 stake = uint256(s.bet);
         address payable player = payable(s.player);

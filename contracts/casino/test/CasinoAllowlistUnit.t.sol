@@ -31,10 +31,10 @@ contract CasinoAllowlistUnitTest is Test {
     GravityDice dice;
     ConstellationClimb hilo;
 
-    address owner   = address(0xB055);
+    address owner = address(0xB055);
     address allowed = address(0xA11);
     address blocked = address(0xB10C);
-    address other   = address(0xC0FFEE);
+    address other = address(0xC0FFEE);
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
@@ -47,17 +47,17 @@ contract CasinoAllowlistUnitTest is Test {
         vm.deal(owner, 100 ether);
         vm.deal(allowed, 10 ether);
         vm.deal(blocked, 10 ether);
-        vm.deal(other,   10 ether);
+        vm.deal(other, 10 ether);
 
         vm.startPrank(owner);
         allowlist = new CasinoAllowlist(owner, true);
         bankroll = new CasinoBankroll(owner);
         coinflip = new CosmicFlip(owner, address(bankroll), MIN_BET, MAX_BET);
-        dice     = new GravityDice(owner, address(bankroll), MIN_BET, MAX_BET);
-        hilo     = new ConstellationClimb(owner, address(bankroll), MIN_BET, MAX_BET, 1 ether);
+        dice = new GravityDice(owner, address(bankroll), MIN_BET, MAX_BET);
+        hilo = new ConstellationClimb(owner, address(bankroll), MIN_BET, MAX_BET, 1 ether);
         bankroll.registerGame(address(coinflip), SEED_AMT);
-        bankroll.registerGame(address(dice),     SEED_AMT);
-        bankroll.registerGame(address(hilo),     SEED_AMT);
+        bankroll.registerGame(address(dice), SEED_AMT);
+        bankroll.registerGame(address(hilo), SEED_AMT);
         bankroll.deposit{value: SEED_AMT}();
 
         coinflip.setAllowlist(address(allowlist));
@@ -131,7 +131,7 @@ contract CasinoAllowlistUnitTest is Test {
     }
 
     function test_allowlist_enforceAccessPasses() public view {
-        allowlist.enforceAccess(allowed);  // does not revert
+        allowlist.enforceAccess(allowed); // does not revert
     }
 
     // ---- Game wiring (the criterion-(b) tests) ----

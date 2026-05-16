@@ -10,9 +10,9 @@ contract CosmicFlipUnitTest is Test {
     CasinoBankroll bankroll;
     CosmicFlip game;
 
-    address owner   = address(0xB055);
-    address player  = address(0xCAFE);
-    address keeper  = address(0xBEEF); // backend that calls settleBet
+    address owner = address(0xB055);
+    address player = address(0xCAFE);
+    address keeper = address(0xBEEF); // backend that calls settleBet
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
@@ -50,13 +50,10 @@ contract CosmicFlipUnitTest is Test {
         uint256 betId = _placeBet(CosmicFlip.Side.Heads, 0.01 ether);
         (
             address p,
-            uint96 stake,
-            ,
-            bytes32 commit,
-            ,
+            uint96 stake,,
+            bytes32 commit,,
             CosmicFlip.Side side,
-            CosmicFlip.Status status,
-            ,
+            CosmicFlip.Status status,,
         ) = game.bets(betId);
         assertEq(p, player);
         assertEq(stake, uint96(0.01 ether));
@@ -68,27 +65,21 @@ contract CosmicFlipUnitTest is Test {
     function test_placeBet_revertsBelowMin() public {
         vm.prank(player);
         vm.expectRevert(CosmicFlip.StakeOutOfBounds.selector);
-        game.placeBet{value: MIN_BET - 1}(
-            CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED)
-        );
+        game.placeBet{value: MIN_BET - 1}(CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED));
     }
 
     function test_placeBet_revertsAboveMax() public {
         vm.prank(player);
         vm.expectRevert(CosmicFlip.StakeOutOfBounds.selector);
-        game.placeBet{value: MAX_BET + 1}(
-            CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED)
-        );
+        game.placeBet{value: MAX_BET + 1}(CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED));
     }
 
     function test_settleBet_winnerPaysOut198x() public {
         uint256 stake = 0.01 ether;
         // Compute the rolled side off-chain (mirrors the on-chain math).
         uint256 nonceUsed = game.playerNonce(player);
-        uint256 outcome =
-            CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nonceUsed, 2);
-        CosmicFlip.Side rolled =
-            outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
+        uint256 outcome = CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nonceUsed, 2);
+        CosmicFlip.Side rolled = outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
 
         uint256 betId = _placeBet(rolled, stake);
 
@@ -99,7 +90,7 @@ contract CosmicFlipUnitTest is Test {
         uint256 expectedPayout = (stake * 198) / 100;
         assertEq(player.balance, playerBefore + expectedPayout, "winner payout = 1.98x stake");
 
-        (, , , , , , CosmicFlip.Status status, ,) = game.bets(betId);
+        (,,,,,, CosmicFlip.Status status,,) = game.bets(betId);
         assertEq(uint8(status), uint8(CosmicFlip.Status.Won));
     }
 
@@ -107,10 +98,8 @@ contract CosmicFlipUnitTest is Test {
         uint256 stake = 0.01 ether;
         // Pick the *opposite* of what would have rolled.
         uint256 nonceUsed = game.playerNonce(player);
-        uint256 outcome =
-            CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nonceUsed, 2);
-        CosmicFlip.Side losing =
-            outcome == 0 ? CosmicFlip.Side.Tails : CosmicFlip.Side.Heads;
+        uint256 outcome = CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, nonceUsed, 2);
+        CosmicFlip.Side losing = outcome == 0 ? CosmicFlip.Side.Tails : CosmicFlip.Side.Heads;
 
         uint256 betId = _placeBet(losing, stake);
 
@@ -119,7 +108,7 @@ contract CosmicFlipUnitTest is Test {
         game.settleBet(betId, SERVER_SEED);
 
         assertEq(player.balance, playerBefore, "loser receives nothing");
-        (, , , , , , CosmicFlip.Status status, ,) = game.bets(betId);
+        (,,,,,, CosmicFlip.Status status,,) = game.bets(betId);
         assertEq(uint8(status), uint8(CosmicFlip.Status.Lost));
     }
 
@@ -156,7 +145,7 @@ contract CosmicFlipUnitTest is Test {
         game.refundBet(betId);
         assertEq(player.balance, playerBefore + stake, "refund returns full stake");
 
-        (, , , , , , CosmicFlip.Status status, ,) = game.bets(betId);
+        (,,,,,, CosmicFlip.Status status,,) = game.bets(betId);
         assertEq(uint8(status), uint8(CosmicFlip.Status.Refunded));
     }
 
@@ -212,9 +201,7 @@ contract CosmicFlipUnitTest is Test {
         game.pause();
         vm.prank(player);
         vm.expectRevert();
-        game.placeBet{value: 0.01 ether}(
-            CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED)
-        );
+        game.placeBet{value: 0.01 ether}(CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED));
     }
 
     // ---- Fuzz: settlement math holds for arbitrary (server, client, nonce) ----
@@ -225,8 +212,7 @@ contract CosmicFlipUnitTest is Test {
 
         uint256 nonceUsed = game.playerNonce(player);
         uint256 outcome = CommitRevealRandomness.rollOutcome(fSeed, fClient, nonceUsed, 2);
-        CosmicFlip.Side rolled =
-            outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
+        CosmicFlip.Side rolled = outcome == 0 ? CosmicFlip.Side.Heads : CosmicFlip.Side.Tails;
 
         vm.prank(player);
         uint256 betId = game.placeBet{value: stake}(rolled, fClient, commit);

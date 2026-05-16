@@ -34,12 +34,12 @@ contract CasinoIntegrationTest is Test {
 
         vm.startPrank(owner);
         bankroll = new CasinoBankroll(owner);
-        flip     = new CosmicFlip(owner, address(bankroll), 0.001 ether, 0.1 ether);
-        dice     = new GravityDice(owner, address(bankroll), 0.001 ether, 0.1 ether);
-        climb    = new ConstellationClimb(owner, address(bankroll), 0.001 ether, 0.1 ether, 1 ether);
+        flip = new CosmicFlip(owner, address(bankroll), 0.001 ether, 0.1 ether);
+        dice = new GravityDice(owner, address(bankroll), 0.001 ether, 0.1 ether);
+        climb = new ConstellationClimb(owner, address(bankroll), 0.001 ether, 0.1 ether, 1 ether);
 
-        bankroll.registerGame(address(flip),  1 ether);
-        bankroll.registerGame(address(dice),  1 ether);
+        bankroll.registerGame(address(flip), 1 ether);
+        bankroll.registerGame(address(dice), 1 ether);
         bankroll.registerGame(address(climb), 1 ether);
         vm.stopPrank();
 
@@ -65,7 +65,9 @@ contract CasinoIntegrationTest is Test {
         flip.settleBet(betId, serverSeed);
 
         // Won → +0.98× = +0.0098 ether net (received 0.0198 ether on a 0.01 stake).
-        assertEq(player.balance, playerBalBefore + 0.0198 ether, "player should receive 1.98x stake");
+        assertEq(
+            player.balance, playerBalBefore + 0.0198 ether, "player should receive 1.98x stake"
+        );
     }
 
     function test_CosmicFlip_loseRoute() public {
@@ -81,7 +83,9 @@ contract CasinoIntegrationTest is Test {
         flip.settleBet(betId, serverSeed);
 
         assertEq(player.balance, playerBalBefore - 0.01 ether, "player loses full stake");
-        assertEq(address(bankroll).balance, bankrollBalBefore + 0.01 ether, "bankroll grows by stake");
+        assertEq(
+            address(bankroll).balance, bankrollBalBefore + 0.01 ether, "bankroll grows by stake"
+        );
     }
 
     function test_GravityDice_winRoute() public {
@@ -126,7 +130,11 @@ contract CasinoIntegrationTest is Test {
         // Stake was already inside the contract; cashOut routes stake → bankroll
         // then bankroll → player at 1x.
         assertEq(player.balance, playerBalBefore + 0.01 ether, "player gets stake back at 1.0x");
-        assertEq(address(bankroll).balance, bankrollBalBefore, "bankroll net-zero (settle + payout cancel)");
+        assertEq(
+            address(bankroll).balance,
+            bankrollBalBefore,
+            "bankroll net-zero (settle + payout cancel)"
+        );
     }
 
     function test_CasinoAllowlist_gating() public {
