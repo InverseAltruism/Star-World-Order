@@ -1,0 +1,109 @@
+name: Casino Forge CI
+
+# Runs Foundry build + test for the Cosmic Casino contracts on PRs that touch
+# the on-chain layer. Mirrors the local instructions in contracts/casino/README.md.
+# Solidity 0.8.24 is pinned via contracts/casino/foundry.toml.
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/casino/**'
+      - 'lib/casino/**'
+      - '.github/workflows/casino-forge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: contracts/casino
+
+jobs:
+  forge:
+    name: forge build + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Foundry versions
+        run: |
+          forge --version
+          cast --version
+
+      - name: Install Foundry dependencies
+        # lib/ is gitignored; restore deps per contracts/casino/README.md.
+        run: |
+          forge install foundry-rs/forge-std --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts --no-commit
+          forge install radeksvarz/createx-forge --no-commit
+
+      - name: Forge build
+        run: forge build
+
+      - name: Forge test
+        run: forge test -vvv --skip 'script/**'
+
+  coverage:
+    name: forge coverage (lcov + gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Run in parallel with the build/test job. The gate is the source of truth
+    # for PR-blocking — `forge coverage` re-runs the suite under instrumentation,
+    # so a green here implies a green build + test too.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Foundry versions
+        run: |
+          forge --version
+          cast --version
+
+      - name: Install Foundry dependencies
+        run: |
+          forge install foundry-rs/forge-std --no-commit
+          forge install OpenZeppelin/openzeppelin-contracts --no-commit
+          forge install radeksvarz/createx-forge --no-commit
+
+      - name: Forge coverage (LCOV)
+        # --ir-minimum keeps source maps accurate without "stack too deep"
+        # failures. The summary report streams to the job log for humans.
+        run: |
+          forge coverage \
+            --report lcov \
+            --report-file lcov.info \
+            --report summary \
+            --ir-minimum
+
+      - name: Upload LCOV artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: casino-forge-lcov
+          path: contracts/casino/lcov.info
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce per-contract coverage thresholds
+        # PR-blocking gate: 90% line / 80% branch per src/ contract.
+        # Tests, scripts, and libraries are excluded — only production sources
+        # under src/ are gated. Configurable via --line / --branch / --include.
+        run: |
+          python3 script/check_coverage.py lcov.info \
+            --line 90 \
+            --branch 80 \
+            --include src/
