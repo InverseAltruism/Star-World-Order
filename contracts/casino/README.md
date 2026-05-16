@@ -77,3 +77,30 @@ compatible; only chain config + names changed.
 
 Pinned upstream commit / version: `solc 0.8.24`, OpenZeppelin v5.x,
 forge-std + createx-forge as vendored in the BB monorepo as of 2026-05-15.
+
+### Medusa coverage-guided fuzzing (not wired to CI)
+
+The cross-game solvency harness ported from BunnyBagz lives at
+`test/CasinoMedusaInvariants.t.sol`, with the matching engine config at
+`medusa.json` (target contract: `CasinoMedusaTester`). It exercises the full
+game lattice (CosmicFlip + GravityDice + ConstellationClimb) against a single
+`CasinoBankroll` and asserts `property_systemNeverInsolvent` — total ETH held
+by (bankroll + every game) must always cover every still-pending stake.
+
+Foundry runs the same handler surface via the `CasinoMedusaInvariant` shim
+contract (Foundry `invariant_systemNeverInsolvent`), so day-to-day CI keeps a
+fast cross-game solvency check. Medusa is **not** wired to CI because
+coverage-guided campaigns are long-running (≥10 min for meaningful coverage).
+
+Trigger Medusa locally:
+
+```bash
+cd contracts/casino
+# Requires medusa (https://github.com/crytic/medusa) on PATH.
+medusa fuzz --config medusa.json
+```
+
+Expected: campaign runs for at least 10 minutes without finding a violation
+on bankroll solvency / payout invariants. If a counter-example is found,
+Medusa writes the shrunken call sequence into `medusa-corpus/` and prints
+the failing property name (`property_systemNeverInsolvent`).
