@@ -3527,3 +3527,19 @@ a,
   }
   .vfx-sleepy-z { opacity: 0.7 !important; }
 }
+
+/* [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR] (carried forward from BB
+   `bb-hit-target-44`): every interactive element inside the Casino's
+   <BetPanel> must clear the 44px mobile touch-target floor. The class
+   is added directly to the stake input, stake chips, token-toggle
+   wrapper, and any other interactive child. */
+.swo-casino-hit-44 {
+  min-height: 44px;
+}
+
+/* Tabular numerics for stake/payout values inside the Casino bet panel.
+   Mirrors BB's `bb-tabular` utility so digits line up vertically. */
+.swo-casino-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
