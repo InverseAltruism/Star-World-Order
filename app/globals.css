@@ -3543,3 +3543,40 @@ a,
   font-variant-numeric: tabular-nums;
 }
 
+/* [SWO_CASINO_QA_TRUST_STRIP_MOBILE_HIT_TARGET_FIX] (carried forward from
+   BB `BB_QA_TRUST_STRIP_MOBILE_HIT_TARGET_FIX`):
+
+   The TrustStrip used to pin itself to `height: 28` on every viewport,
+   which clipped each link's 44px `.swo-casino-hit-44` tap target down
+   to a 13px painted box on phones. Mobile must flow at intrinsic
+   height (the 44px link min-height pushes the strip taller) and the
+   28px constraint only applies at the desktop breakpoint where the
+   numeric segments are visible and inline-laid-out.
+
+   The 600px breakpoint matches BB's spec ("@media (min-width: 600px)")
+   and keeps the mobile collapse-cluster ≤ 599px under intrinsic flow. */
+.swo-trust-strip {
+  /* Mobile: intrinsic height so each .swo-casino-hit-44 link can grow
+     its bounding box to the 44px touch-target floor. */
+}
+@media (min-width: 600px) {
+  .swo-trust-strip {
+    height: 28px;
+  }
+}
+
+/* [SWO_CASINO_QA_TRUST_STRIP_RESPONSIVE_COLLAPSE]: hide the three
+   numeric pills on phone-class viewports so the strip cluster stays
+   visible without forcing a horizontal-scroll band on small screens.
+   The shield + Verify/Audit/Bug-bounty link trio remains reachable on
+   every viewport. */
+.swo-trust-strip-numbers {
+  display: inline-flex;
+}
+@media (max-width: 479px) {
+  .swo-trust-strip-numbers,
+  .swo-trust-strip-sep {
+    display: none !important;
+  }
+}
+
