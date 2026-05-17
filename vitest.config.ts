@@ -11,7 +11,10 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    exclude: ['node_modules', '.next', 'contracts'],
+    // `tests/e2e/**` is the Playwright surface (see
+    // `.github/workflows/casino-e2e.yml`); vitest must not try to load
+    // those specs because they import `@playwright/test`.
+    exclude: ['node_modules', '.next', 'contracts', 'tests/e2e/**'],
     testTimeout: 10000,
     reporters: ['verbose'],
 
@@ -38,6 +41,7 @@ export default defineConfig({
             'lib/casino/**',
             'components/casino/**',
             'app/casino/**',
+            'tests/e2e/**',
           ],
         },
       },
@@ -60,7 +64,7 @@ export default defineConfig({
             'app/casino/**/*.test.tsx',
             'app/casino/**/*.spec.tsx',
           ],
-          exclude: ['node_modules', '.next', 'contracts'],
+          exclude: ['node_modules', '.next', 'contracts', 'tests/e2e/**'],
         },
       },
     ],
