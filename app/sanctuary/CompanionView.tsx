@@ -522,8 +522,10 @@ export default function CompanionView() {
 
   // Connected wallet, no active companion → reuse existing pick-a-Skrumpey UX.
   // Disconnected wallets also fall through (SanctuaryContent renders the gate).
+  // Pass `embedded` so V1's "SANCTUARY HAS MOVED → ?v=2" banner doesn't show
+  // here — it would link straight back into CompanionView and loop.
   if (!isConnected || !companion) {
-    return <SanctuaryContent />;
+    return <SanctuaryContent embedded />;
   }
 
   const statsInput: MoodStatInput | null =

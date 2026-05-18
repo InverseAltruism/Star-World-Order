@@ -959,7 +959,7 @@ function StarBadge() {
   );
 }
 
-function HolderSanctuary() {
+function HolderSanctuary({ embedded = false }: { embedded?: boolean } = {}) {
   const { address } = useAccount();
   const { hasAccess: hasStar } = useDAOAccess();
   const [companion, setCompanion] = useState<Companion | null>(null);
@@ -1127,7 +1127,7 @@ function HolderSanctuary() {
 
   return (
     <div className="space-y-6">
-      <V1ArchiveBanner />
+      {!embedded && <V1ArchiveBanner />}
       <div className="text-center mb-6">
         <h1
           className="text-lg text-[#ffd700] tracking-widest mb-1"
@@ -1200,7 +1200,12 @@ function HolderSanctuary() {
   );
 }
 
-export default function SanctuaryContent() {
+// `embedded` is set when V2's CompanionView delegates the wallet-gate /
+// Skrumpey-picker UX back to V1 for users without an active companion.
+// In that case the "SANCTUARY HAS MOVED — open new" banner would link to
+// `?v=2`, which routes back into CompanionView and re-renders V1, creating
+// a visual loop. We suppress the banner when embedded.
+export default function SanctuaryContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [locations, setLocations] = useState<MapLocation[]>([]);
   const [companionsAtLocations, setCompanionsAtLocations] = useState<LocationCompanions[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -1230,7 +1235,7 @@ export default function SanctuaryContent() {
   if (!gated) {
     return (
       <div className="space-y-6">
-        <V1ArchiveBanner />
+        {!embedded && <V1ArchiveBanner />}
         <div className="text-center mb-6">
           <h1
             className="text-lg text-[#ffd700] tracking-widest mb-1"
@@ -1267,5 +1272,5 @@ export default function SanctuaryContent() {
     );
   }
 
-  return <HolderSanctuary />;
+  return <HolderSanctuary embedded={embedded} />;
 }
