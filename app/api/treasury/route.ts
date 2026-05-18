@@ -8,7 +8,8 @@ import { SKRUMPEY_CONTRACT_ADDRESS, isStarSkrumpeyId } from '@/lib/starSkrumpey'
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { fetchAllAccountNFTs, fetchCollectionFloorPrice } from '@/lib/blockvision';
+import { fetchCollectionFloorPrice } from '@/lib/blockvision';
+import { fetchTrackedHoldings } from '@/lib/trackedCollections';
 import { getFloorPriceByContract } from '@/lib/floorPrices';
 import { getLocalApiFloorPrices } from '@/lib/floorPriceApi';
 
@@ -88,57 +89,50 @@ async function fetchTreasuryBalance(): Promise<bigint> {
 }
 
 /**
- * Fetch the treasury's NFT holdings via BlockVision and aggregate per-collection.
+ * Fetch the treasury's NFT holdings via on-chain `ownerOf` multicalls against
+ * the curated list in lib/trackedCollections.ts.
  *
- * Previously hit Magic Eden's /v4/evm-public/collections/user-collections, which
- * Magic Eden stopped supporting for Monad (and EVM in general). BlockVision is
- * the only working Monad NFT indexer at the moment.
- *
- * BV returns per-token rows; we aggregate to one row per contract to match the
- * shape the treasury page expects. As a side-effect we can compute the
- * Star-Skrumpey count properly (the ME version couldn't — it only returned
- * collection-level counts, never individual token IDs).
+ * Why this approach: no Monad NFT indexer is currently viable — Magic Eden
+ * dropped EVM, OpenSea has no Monad API, BlockVision's free tier is
+ * rate-limited (Pro plan required). So we go direct to chain for each known
+ * contract. Slow (~7s for a 3333-token contract) but free, deterministic,
+ * and not dependent on any third-party. To track a new collection on the
+ * treasury page, add it to TRACKED_COLLECTIONS in lib/trackedCollections.ts.
  */
 async function fetchTreasuryNFTs(): Promise<{ holdings: NFTHolding[]; starSkrumpeyCount: number }> {
   try {
-    logger.info('Fetching NFTs from BlockVision', { address: TREASURY_ADDRESS });
+    logger.info('Fetching treasury NFTs via tracked-collections RPC multicall', {
+      address: TREASURY_ADDRESS,
+    });
 
-    const collections = await fetchAllAccountNFTs(TREASURY_ADDRESS);
-    if (collections.length === 0) {
-      logger.warn('No collections returned from BlockVision', { address: TREASURY_ADDRESS });
+    const tracked = await fetchTrackedHoldings(TREASURY_ADDRESS);
+    if (tracked.length === 0) {
+      logger.info('Treasury holds no tokens from any tracked collection', {
+        address: TREASURY_ADDRESS,
+      });
       return { holdings: [], starSkrumpeyCount: 0 };
     }
 
     const skrumpeyContractLower = (SKRUMPEY_CONTRACT_ADDRESS || KNOWN_SKRUMPEY_ADDRESS).toLowerCase();
     let starSkrumpeyCount = 0;
 
-    const holdings: NFTHolding[] = collections.map((c) => {
-      const contractAddress = c.contractAddress || '';
-      const isSkrumpey = contractAddress.toLowerCase() === skrumpeyContractLower;
-      const quantity = c.items.reduce((sum, item) => sum + (parseInt(item.qty, 10) || 1), 0);
-
+    const holdings: NFTHolding[] = tracked.map((t) => {
+      const isSkrumpey = t.contractAddress.toLowerCase() === skrumpeyContractLower;
       if (isSkrumpey) {
-        for (const item of c.items) {
-          const idNum = parseInt(item.tokenId, 10);
-          if (!Number.isNaN(idNum) && isStarSkrumpeyId(idNum)) {
-            starSkrumpeyCount += parseInt(item.qty, 10) || 1;
-          }
+        for (const id of t.ownedTokenIds) {
+          if (isStarSkrumpeyId(id)) starSkrumpeyCount++;
         }
       }
 
-      // Use the first item's image as the collection thumbnail if BV didn't
-      // give us one at the collection level.
-      const imageUrl = c.image || c.items[0]?.image || '';
-
       return {
         tokenId: '0',
-        name: c.name || 'Unknown Collection',
-        collectionName: c.name || 'Unknown Collection',
-        contractAddress,
-        imageUrl,
-        quantity,
+        name: t.name,
+        collectionName: t.name,
+        contractAddress: t.contractAddress,
+        imageUrl: t.imageUrl,
+        quantity: t.ownedTokenIds.length,
         isStarSkrumpey: false,
-        isVerified: c.verified,
+        isVerified: t.isVerified,
         estimatedFloorPrice: 0,
       };
     });
@@ -152,7 +146,7 @@ async function fetchTreasuryNFTs(): Promise<{ holdings: NFTHolding[]; starSkrump
       return b.quantity - a.quantity;
     });
 
-    logger.info('Mapped NFT holdings', {
+    logger.info('Treasury tracked holdings resolved', {
       count: holdings.length,
       totalNFTs: holdings.reduce((sum, h) => sum + h.quantity, 0),
       starSkrumpeyCount,
