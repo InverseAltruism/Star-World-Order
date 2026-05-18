@@ -1,7 +1,7 @@
-// FairnessProof — commit/reveal/outcome receipt for the SWO Cosmic Casino,
-// ported from BunnyBagz `apps/web/src/components/FairnessProof.tsx`.
+// FairnessProof — commit/reveal/outcome receipt for the SWO Cosmic Casino.
 //
 // Anatomy:
+//   [Star Skrumpey dealer sprite] Provably fair receipt
 //   Commit   0xabc…123 [copy]
 //   Reveal   0xdef…456 [copy]
 //   Outcome  heads     [copy]
@@ -48,7 +48,15 @@ export interface FairnessProofProps {
    * Receives the raw text and should resolve when the copy completes.
    */
   copy?: (text: string) => Promise<void>;
+  /**
+   * Override the Star Skrumpey dealer sprite shown in the heading row.
+   * Defaults to `/casino/skrumpey-dealer-happy.png`. Pass `null` to suppress.
+   */
+  dealerArtSrc?: string | null;
 }
+
+export const DEFAULT_FAIRNESS_DEALER_ART_SRC =
+  '/casino/skrumpey-dealer-happy.png';
 
 const COPY_RESET_MS = 1500;
 
@@ -75,6 +83,7 @@ export function FairnessProof({
   game = 'coinflip',
   expectedCommit,
   copy = defaultCopy,
+  dealerArtSrc = DEFAULT_FAIRNESS_DEALER_ART_SRC,
 }: FairnessProofProps) {
   const triple: FairnessTriple = useMemo(
     () => deriveTriple({ reveal, salt, game }),
@@ -100,7 +109,20 @@ export function FairnessProof({
       aria-label="Provably fair receipt"
       style={containerStyle}
     >
-      <h3 style={headingStyle}>Provably fair receipt</h3>
+      <div style={headingRowStyle}>
+        {dealerArtSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={dealerArtSrc}
+            alt="Star Skrumpey fair-play dealer"
+            width={28}
+            height={28}
+            style={dealerArtStyle}
+            data-testid="swo-fairness-dealer-art"
+          />
+        ) : null}
+        <h3 style={headingStyle}>Provably fair receipt</h3>
+      </div>
 
       {matchesExpected !== null ? (
         <p
@@ -201,6 +223,19 @@ const containerStyle: CSSProperties = {
   border: '1px solid var(--swo-border, rgba(255,255,255,0.12))',
   borderRadius: 10,
   fontVariantNumeric: 'tabular-nums',
+};
+
+const headingRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+};
+
+const dealerArtStyle: CSSProperties = {
+  width: 28,
+  height: 28,
+  imageRendering: 'pixelated',
+  flexShrink: 0,
 };
 
 const headingStyle: CSSProperties = {

@@ -1,31 +1,22 @@
 // BetPanel — shared bet-panel primitive for SWO Cosmic Casino.
 //
-// Ported from BunnyBagz `apps/web/src/components/BetPanel.tsx` to live
-// inside the SWO repo under `components/casino/`. Each Casino game page
+// Lives in the SWO repo under `components/casino/`. Each Casino game page
 // (slots, dice, hilo, coinflip) consumes this primitive instead of
 // open-coding ~150 lines of inline panel styles + chrome.
 //
-// Anatomy:
-//
-//   ┌──────────────────────────────────────────┐
-//   │  [multiplier badge — gold, hero-sized]   │
-//   │  <sideSelector>  (game-specific slot)    │
-//   │  Stake input + chip cluster (½ 2× MAX …) │
-//   │  Profit on Win: 0.0198 MON  (tabular)    │
-//   │  TokenToggle                             │
-//   │  Primary CTA (full-width)                │
-//   │  {extras: tx hash, errors, refunds…}     │
-//   └──────────────────────────────────────────┘
-//
-// Carried forward from BB verbatim — two QA fixes the design org signed off:
+// Two QA fixes baked in:
 //   (1) Mobile touch-target floor: stake input + token-toggle wrapper
-//       both get `min-height: 44px` (class `swo-casino-hit-44`,
-//       renamed from BB's `bb-hit-target-44`).
+//       both get `min-height: 44px` (class `swo-casino-hit-44`).
 //   (2) CTA dwell ≥ 600ms: clicking the primary CTA flips an internal
 //       `signingOverlay` flag for 600ms regardless of how fast the
-//       caller's wagmi promise resolves. This guarantees users see the
+//       caller's wagmi promise resolves so users see the
 //       "Confirm in wallet…" label long enough to read it on a fast
 //       network where writeContract resolves before the next paint.
+//
+// Dealer art: a Star Skrumpey companion sprite renders above the
+// multiplier badge as the casino mascot. Default points at
+// `/casino/skrumpey-dealer-idle.png` (reused from sanctuary IP).
+// Callers can swap the sprite per game by passing `dealerArtSrc`.
 
 'use client';
 
@@ -81,10 +72,18 @@ export type BetPanelProps = {
   extras?: ReactNode;
   /** Dwell window for the post-click "Confirm in wallet…" overlay. */
   signingDwellMs?: number;
+  /**
+   * Override the Star Skrumpey dealer sprite. Defaults to
+   * `/casino/skrumpey-dealer-idle.png`. Pass `null` to suppress the art.
+   */
+  dealerArtSrc?: string | null;
+  /** Accessible label for the dealer sprite. */
+  dealerArtAlt?: string;
 };
 
 const SIGNING_LABEL = 'Confirm in wallet…';
 export const DEFAULT_SIGNING_DWELL_MS = 600;
+export const DEFAULT_DEALER_ART_SRC = '/casino/skrumpey-dealer-idle.png';
 
 export function BetPanel(props: BetPanelProps) {
   const {
@@ -109,12 +108,14 @@ export function BetPanel(props: BetPanelProps) {
     onPanelEnter,
     extras,
     signingDwellMs = DEFAULT_SIGNING_DWELL_MS,
+    dealerArtSrc = DEFAULT_DEALER_ART_SRC,
+    dealerArtAlt = 'Star Skrumpey dealer',
   } = props;
 
-  // [SWO_CASINO_QA_CTA_DWELL] carried forward from BB: flip the overlay
-  // synchronously on click so the "Confirm in wallet…" label is always
-  // visible for at least signingDwellMs, regardless of how fast the
-  // caller's writeContract promise resolves.
+  // [SWO_CASINO_QA_CTA_DWELL]: flip the overlay synchronously on click so
+  // the "Confirm in wallet…" label is always visible for at least
+  // signingDwellMs, regardless of how fast the caller's writeContract
+  // promise resolves.
   const [signingOverlay, setSigningOverlay] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -158,6 +159,18 @@ export function BetPanel(props: BetPanelProps) {
       >
         {liveMessage ?? ''}
       </div>
+
+      {dealerArtSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={dealerArtSrc}
+          alt={dealerArtAlt}
+          width={64}
+          height={64}
+          style={dealerArtStyle}
+          data-testid={`${testIdPrefix}-dealer-art`}
+        />
+      ) : null}
 
       <div
         style={multiplierBadgeStyle}
@@ -282,8 +295,16 @@ const stakeLabelTextStyle: CSSProperties = {
   color: 'var(--swo-casino-fg-muted, rgba(232,232,232,0.6))',
 };
 
+const dealerArtStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  width: 64,
+  height: 64,
+  imageRendering: 'pixelated',
+  marginBottom: '-0.25rem',
+};
+
 const stakeInputStyle: CSSProperties = {
-  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR] carried forward from BB.
+  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR].
   minHeight: 44,
   padding: '0.75rem',
   borderRadius: 10,
@@ -324,7 +345,7 @@ const profitValueStyle: CSSProperties = {
 };
 
 const tokenToggleWrapperStyle: CSSProperties = {
-  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR] carried forward from BB.
+  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR].
   minHeight: 44,
   display: 'flex',
   alignItems: 'stretch',

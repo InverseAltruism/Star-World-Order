@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// TrustStrip — proves the QA fixes carried forward from BunnyBagz to SWO:
+// TrustStrip — proves the QA fixes baked into the SWO trust band:
 //   (a) component exists & renders (smoke)
 //   (b) every link reports getBoundingClientRect().height ≥ 44 at
 //       viewport width 375 (mobile touch-target floor)

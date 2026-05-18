@@ -1,5 +1,4 @@
-// TrustStrip — live trust band for the SWO Cosmic Casino, ported from
-// BunnyBagz `apps/web/src/components/TrustStrip.tsx`.
+// TrustStrip — live trust band for the SWO Cosmic Casino.
 //
 // Anatomy:
 //   🛡 House liquidity: 1.42 MON · Edge realised: 1.04% · Last bet: 12s ago
@@ -9,10 +8,10 @@
 // the numbers stay live without a manual refresh. The three numeric
 // segments collapse on phone-class viewports (handled by the
 // `.swo-trust-strip-numbers` / `.swo-trust-strip-sep` collapse rule in
-// globals.css) while the migrated Verify / Audit / Bug-bounty link trio
-// stays visible on every viewport so the trust surface never disappears.
+// globals.css) while the Verify / Audit / Bug-bounty link trio stays
+// visible on every viewport so the trust surface never disappears.
 //
-// Two QA fixes carried forward from BunnyBagz:
+// Two QA fixes baked in:
 //
 //   (1) [SWO_CASINO_QA_TRUST_STRIP_MOBILE_HIT_TARGET_FIX] — formerly the
 //       strip pinned itself to `height: 28` on every viewport, which

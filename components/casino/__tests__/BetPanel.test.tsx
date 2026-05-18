@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// BetPanel — proves the two QA fixes carried forward from BunnyBagz:
+// BetPanel — proves the two QA contracts:
 //   (a) component exists & renders (smoke)
 //   (b) every interactive child reports getBoundingClientRect().height ≥ 44
 //       at viewport width 375 (mobile touch-target floor)
