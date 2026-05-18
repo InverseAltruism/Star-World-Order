@@ -1,17 +1,14 @@
 // @vitest-environment happy-dom
 //
-// RecentBets — covers the acceptance contract for
-// SWO_CASINO_COMPONENT_RECENT_BETS:
-//   (a) component exists & renders
-//   (b) renders empty-state copy with data-state="empty" when no bets
-//       (default, and when `bets={[]}` is passed explicitly)
-//   (c) renders one row per bet when fed mock indexer data
+// RecentBets — acceptance contract for SWO_CASINO_COMPONENT_RECENT_BETS:
+//   (a) component exists & renders the graceful empty-state pill
+//       (`data-state="empty"`, "No recent bets yet") until the indexer
+//       lands
+//   (b) when fed mock indexer rows it renders one row per bet with the
+//       game label, outcome chip, stake/payout, verify-link, and
+//       (optional) explorer link
 //
-// The component lives inside the casino vitest project (see
-// vitest.config.ts) and uses happy-dom + react-dom/client directly —
-// the SWO repo doesn't ship `@testing-library/react`, so we follow
-// the WalletSheet/BetPanel/TrustStrip pattern of driving renders
-// through `createRoot` and querying the container.
+// Pure parent-fed component for now — no fetcher to mock.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
@@ -21,10 +18,13 @@ import {
   RecentBets,
   formatWei,
   outcomeChipKind,
-  type RecentBet,
+  type WalletBet,
 } from '../RecentBets';
 
-(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+// React 19's act(...) checks for this flag and warns otherwise.
+(
+  globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
 
 let container: HTMLDivElement;
 let root: Root;
@@ -42,31 +42,31 @@ afterEach(() => {
   container.remove();
 });
 
-const COINFLIP_WIN: RecentBet = {
+const COINFLIP_WIN: WalletBet = {
   game: 'coinflip',
   betId: '1',
-  stakeWei: '10000000000000000', // 0.01 MON
-  payoutWei: '19800000000000000', // 0.0198 MON
+  stakeWei: '10000000000000000', // 0.01
+  payoutWei: '19800000000000000', // 0.0198
   outcome: 'won',
   blockNumber: '100',
   txHash: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 };
 
-const DICE_LOSS: RecentBet = {
+const DICE_LOSS: WalletBet = {
   game: 'dice',
   betId: '7',
-  stakeWei: '5000000000000000', // 0.005 MON
+  stakeWei: '5000000000000000', // 0.005
   payoutWei: null,
   outcome: 'lost',
   blockNumber: '200',
   txHash: null,
 };
 
-const HILO_CASHED: RecentBet = {
+const HILO_CASHED: WalletBet = {
   game: 'hilo',
   betId: '3',
-  stakeWei: '20000000000000000', // 0.02 MON
-  payoutWei: '33000000000000000', // 0.033 MON
+  stakeWei: '20000000000000000', // 0.02
+  payoutWei: '33000000000000000', // 0.033
   outcome: 'cashed',
   blockNumber: '300',
   txHash: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
@@ -90,103 +90,125 @@ describe('RecentBets — formatWei + outcomeChipKind helpers', () => {
 });
 
 describe('<RecentBets> (acceptance: SWO_CASINO_COMPONENT_RECENT_BETS)', () => {
-  // (a) Component exists & renders. With no props passed, the
-  // indexer-not-yet-wired branch is exercised — this is the day-1
-  // production surface until the indexer lands.
-  it('(a) renders the component under components/casino/', () => {
+  // (a) Component exists and renders the graceful empty state.
+  it('(a) renders "No recent bets yet" with data-state="empty" when no bets given', () => {
     act(() => {
       root.render(<RecentBets />);
     });
-    const section = container.querySelector('[data-testid="recent-bets"]');
+    const section = container.querySelector('[data-testid="swo-recent-bets"]');
     expect(section).not.toBeNull();
-  });
-
-  // (b) Empty-state with the exact `data-state="empty"` attribute called
-  // out by the acceptance contract, and the documented "No recent bets
-  // yet" copy. Asserted both with the default (no `bets` prop) and an
-  // explicit empty array so a future regression that crashes on `[]`
-  // surfaces here.
-  it('(b) renders "No recent bets yet" with data-state="empty" when no bets', () => {
-    act(() => {
-      root.render(<RecentBets />);
-    });
-    const section = container.querySelector('[data-testid="recent-bets"]');
-    expect(section).not.toBeNull();
-    expect(section?.getAttribute('data-state')).toBe('empty');
-    const status = container.querySelector('[data-testid="recent-bets-status"]');
-    expect(status?.textContent).toBe('No recent bets yet');
+    expect(section!.getAttribute('data-state')).toBe('empty');
+    expect(section!.getAttribute('aria-label')).toBe('Recent bets');
+    const status = container.querySelector(
+      '[data-testid="swo-recent-bets-status"]',
+    );
+    expect(status!.textContent).toBe('No recent bets yet');
+    // No rows in the empty surface.
     expect(
-      container.querySelectorAll('[data-testid="recent-bet-row"]').length,
-    ).toBe(0);
+      container.querySelectorAll('[data-testid="swo-recent-bet-row"]'),
+    ).toHaveLength(0);
   });
 
-  it('(b2) treats an explicit empty bets array as empty (same data-state + copy)', () => {
+  it('also renders the empty surface when bets=[] is explicitly passed', () => {
     act(() => {
       root.render(<RecentBets bets={[]} />);
     });
-    const section = container.querySelector('[data-testid="recent-bets"]');
-    expect(section?.getAttribute('data-state')).toBe('empty');
-    const status = container.querySelector('[data-testid="recent-bets-status"]');
-    expect(status?.textContent).toBe('No recent bets yet');
+    const section = container.querySelector('[data-testid="swo-recent-bets"]');
+    expect(section!.getAttribute('data-state')).toBe('empty');
   });
 
-  // (c) When mock indexer data is passed, renders one row per bet with
-  // the per-row data-game / data-outcome contract the wallet sheet will
-  // query against once the indexer lands.
-  it('(c) renders one row per bet across all 3 games when fed mock indexer data', () => {
+  // (b/c) Renders rows when fed mock indexer data.
+  it('(b) renders one row per bet across all three games (coinflip + dice + hilo)', () => {
     act(() => {
       root.render(
         <RecentBets bets={[HILO_CASHED, DICE_LOSS, COINFLIP_WIN]} />,
       );
     });
+    const section = container.querySelector('[data-testid="swo-recent-bets"]');
+    expect(section!.getAttribute('data-state')).toBe('populated');
 
-    const section = container.querySelector('[data-testid="recent-bets"]');
-    expect(section?.getAttribute('data-state')).toBe('populated');
-
-    const rows = container.querySelectorAll('[data-testid="recent-bet-row"]');
-    expect(rows.length).toBe(3);
-
+    const rows = container.querySelectorAll(
+      '[data-testid="swo-recent-bet-row"]',
+    );
+    expect(rows).toHaveLength(3);
     const games = Array.from(rows).map((r) => r.getAttribute('data-game'));
     expect(games).toEqual(['hilo', 'dice', 'coinflip']);
 
     const chipKinds = Array.from(
-      container.querySelectorAll('[data-testid="recent-bet-outcome-chip"]'),
+      container.querySelectorAll('[data-testid="swo-recent-bet-outcome-chip"]'),
     ).map((c) => c.getAttribute('data-outcome'));
     expect(chipKinds).toEqual(['won', 'lost', 'won']);
   });
 
-  it('(c2) formats stake → payout columns with the default MON symbol and 4dp', () => {
+  it('formats stake → payout columns with 4dp precision (mixed MON/USDm via symbolFor)', () => {
+    const symbolFor = (b: WalletBet) =>
+      b.game === 'dice' ? ('USDm' as const) : ('MON' as const);
+
     act(() => {
       root.render(
-        <RecentBets bets={[COINFLIP_WIN, HILO_CASHED, DICE_LOSS]} />,
+        <RecentBets
+          bets={[COINFLIP_WIN, HILO_CASHED, DICE_LOSS]}
+          symbolFor={symbolFor}
+        />,
       );
     });
 
     const stakes = Array.from(
-      container.querySelectorAll('[data-testid="recent-bet-stake"]'),
+      container.querySelectorAll('[data-testid="swo-recent-bet-stake"]'),
     ).map((el) => el.textContent);
     expect(stakes[0]).toBe('0.01 MON');
     expect(stakes[1]).toBe('0.02 MON');
-    expect(stakes[2]).toBe('0.005 MON');
+    expect(stakes[2]).toBe('0.005 USDm');
 
     const payouts = Array.from(
-      container.querySelectorAll('[data-testid="recent-bet-payout"]'),
+      container.querySelectorAll('[data-testid="swo-recent-bet-payout"]'),
     ).map((el) => el.textContent);
     expect(payouts[0]).toBe('0.0198 MON');
     expect(payouts[1]).toBe('0.033 MON');
-    expect(payouts[2]).toBe('0 MON');
+    // Null payoutWei renders the zero placeholder with the row's symbol.
+    expect(payouts[2]).toBe('0 USDm');
   });
 
-  it('(c3) links each row\'s betId to /verify/[betId]', () => {
+  it('links betId to /verify/[betId] and txHash to the supplied explorer base', () => {
     act(() => {
-      root.render(<RecentBets bets={[COINFLIP_WIN, DICE_LOSS]} />);
+      root.render(
+        <RecentBets
+          bets={[COINFLIP_WIN, DICE_LOSS]}
+          explorerBaseUrl="https://explorer.example"
+        />,
+      );
     });
 
-    const links = container.querySelectorAll<HTMLAnchorElement>(
-      '[data-testid="recent-bet-betid-link"]',
+    const verifyLinks = container.querySelectorAll(
+      '[data-testid="swo-recent-bet-betid-link"]',
     );
-    expect(links.length).toBe(2);
-    expect(links[0]?.getAttribute('href')).toBe('/verify/1');
-    expect(links[1]?.getAttribute('href')).toBe('/verify/7');
+    expect(verifyLinks[0].getAttribute('href')).toBe('/verify/1');
+    expect(verifyLinks[1].getAttribute('href')).toBe('/verify/7');
+
+    // Only the first bet has a txHash → exactly one explorer link.
+    const txLinks = container.querySelectorAll(
+      '[data-testid="swo-recent-bet-tx-link"]',
+    );
+    expect(txLinks).toHaveLength(1);
+    expect(txLinks[0].getAttribute('href')).toBe(
+      `https://explorer.example/tx/${COINFLIP_WIN.txHash}`,
+    );
+    expect(txLinks[0].getAttribute('target')).toBe('_blank');
+    expect(txLinks[0].getAttribute('rel')).toBe('noreferrer');
+    expect(txLinks[0].textContent).toMatch(/^0x[a-f]{4}…[a-f]{4}$/);
+  });
+
+  it('announces the populated row count once for screen readers', () => {
+    act(() => {
+      root.render(
+        <RecentBets bets={[COINFLIP_WIN, DICE_LOSS, HILO_CASHED]} />,
+      );
+    });
+    const announces = container.querySelectorAll(
+      '[data-testid="swo-recent-bets-status"]',
+    );
+    expect(announces).toHaveLength(1);
+    expect(announces[0].getAttribute('aria-live')).toBe('polite');
+    expect(announces[0].textContent).toMatch(/loaded 3 recent bets/i);
   });
 });
