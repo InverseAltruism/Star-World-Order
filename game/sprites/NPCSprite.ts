@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { npcSpriteTextureKey, type NPCDefinition } from '../config/npcDefinitions';
 

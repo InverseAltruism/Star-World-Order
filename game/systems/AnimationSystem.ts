@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import type { Direction } from '../sprites/PlayerSprite';
 
 export type CompanionMood = 'happy' | 'calm' | 'sleepy' | 'excited' | 'curious' | 'idle';

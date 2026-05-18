@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 // Slot taxonomy. Add new slots here when introducing new cosmetic categories.
 export const COSMETIC_SLOTS = ['hat', 'accessory'] as const;

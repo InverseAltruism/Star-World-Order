@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 import { PlayerSpriteV3 } from '../sprites/PlayerSpriteV3';
 import { NPCSpriteV3 } from '../sprites/NPCSpriteV3';

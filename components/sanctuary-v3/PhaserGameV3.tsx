@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useEffect, useLayoutEffect, useRef } from 'react';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { GAME_CONFIG_V3 } from '@/game/v3/config/GameConfigV3';
 import EventBus from '@/components/sanctuary/EventBus';
 

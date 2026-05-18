@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import type { Direction } from './PlayerSprite';
 import type { RemotePlayer } from '@/lib/colyseus/types';
 

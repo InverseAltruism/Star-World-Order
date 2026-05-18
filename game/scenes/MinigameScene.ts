@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import EventBus from '@/components/sanctuary/EventBus';
 
 // returnRoom is opaque to the minigame scene — it just echoes it back on

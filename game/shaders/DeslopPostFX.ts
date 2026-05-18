@@ -11,7 +11,7 @@
  * Phaser auto-installs the class on `Phaser.Game` boot.
  */
 
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 import {
   DESLOP_PALETTE_HEX,

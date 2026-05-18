@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { MinigameScene } from './MinigameScene';
 
 const METER_X = 600;

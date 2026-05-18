@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BootSceneV3 } from '../scenes/BootSceneV3';
 import { WorldSceneV3 } from '../scenes/WorldSceneV3';
 import { RoomSceneV3 } from '../scenes/RoomSceneV3';
