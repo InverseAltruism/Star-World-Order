@@ -19,7 +19,6 @@ import { applyRateLimit } from '@/lib/sanctuary/rateLimit';
 import {
   ethAddress,
   tokenId,
-  paginationLimit,
   parseSearchParams,
   parseBody,
   formatZodError,
@@ -42,7 +41,7 @@ import {
 const getSchema = z.object({
   address: ethAddress,
   token_id: tokenId,
-  limit: paginationLimit(100, 20),
+  limit: z.coerce.number().int().min(1).default(20).transform((n) => Math.min(n, 100)),
   offset: z.coerce.number().int().min(0).default(0),
 });
 
