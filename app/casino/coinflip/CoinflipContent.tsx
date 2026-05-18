@@ -27,6 +27,7 @@ import {
 import { parseEther, type Address, type Hex } from 'viem';
 
 import { getCasinoAddresses } from '@/lib/casino/addresses';
+import { useAllowlistGate } from '@/lib/casino/useAllowlistGate';
 
 import {
   CoinflipPanel,
@@ -111,6 +112,20 @@ export default function CoinflipContent() {
 
   const serverCommit = useMemo(() => resolveCommitFromEnv(), []);
 
+  // Pre-bet allowlist gate (see lib/casino/useAllowlistGate.ts). When the
+  // gate is `blocked` we render "Allowlist required" via `betError` and
+  // short-circuit `placeBet` so no signing prompt is triggered.
+  const gate = useAllowlistGate({
+    gameAddress: cosmicFlipAddress,
+    player: address,
+    chainId: activeChainId,
+    enabled: Boolean(cosmicFlipAddress && isConnected),
+  });
+  const allowlistBlocked = gate.status === 'blocked';
+  const effectiveBetError = allowlistBlocked
+    ? 'Allowlist required'
+    : betError;
+
   useWatchContractEvent({
     address: cosmicFlipAddress,
     abi: COSMIC_FLIP_ABI,
@@ -139,6 +154,10 @@ export default function CoinflipContent() {
 
   const placeBet = useCallback(() => {
     if (!cosmicFlipAddress) return;
+    // Allowlist gate: when the player is denied, do NOT call writeContract
+    // — the wallet must never surface a signing prompt for a bet that the
+    // contract will revert with `NotAllowed()`.
+    if (allowlistBlocked) return;
     setBetError(null);
     const commit = serverCommit ?? ZERO_BYTES32;
     if (commit === ZERO_BYTES32) {
@@ -162,6 +181,7 @@ export default function CoinflipContent() {
     });
   }, [
     cosmicFlipAddress,
+    allowlistBlocked,
     serverCommit,
     stake,
     side,
@@ -183,7 +203,7 @@ export default function CoinflipContent() {
       cosmicFlipAddress={cosmicFlipAddress}
       signing={signing}
       txHash={txHash ?? null}
-      betError={betError}
+      betError={effectiveBetError}
       writeError={writeError ?? null}
       onPlaceBet={placeBet}
       outcome={outcome}
