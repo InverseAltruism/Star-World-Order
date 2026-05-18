@@ -1,8 +1,7 @@
 // StakeChip — small primitive consumed by <BetPanel>'s chip cluster.
 //
-// Ported from BunnyBagz `apps/web/src/components/StakeChip.tsx` for the SWO
-// Cosmic Casino. Behaviour identical: each chip applies a transform to the
-// current numeric stake and emits the result. Canonical actions:
+// Each chip applies a transform to the current numeric stake and emits the
+// result. Canonical actions:
 //
 //   ½        — halve the current stake
 //   2×       — double the current stake
@@ -90,8 +89,7 @@ export function StakeChip(props: StakeChipProps) {
 
 const chipStyle: CSSProperties = {
   flex: 1,
-  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR] carried forward from BB:
-  // 44px ensures the chips clear the mobile touch-target floor.
+  // [SWO_CASINO_QA_MOBILE_TOUCH_TARGET_FLOOR]: 44px clears the mobile floor.
   minHeight: 44,
   padding: '0.4rem 0.5rem',
   borderRadius: 8,

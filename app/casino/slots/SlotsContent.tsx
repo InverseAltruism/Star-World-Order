@@ -821,7 +821,15 @@ export default function SlotsContent() {
       {/* Header */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-3xl animate-star-rotate">⭐</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/casino/skrumpey-dealer-excited.png"
+            alt="Star Skrumpey dealer"
+            width={48}
+            height={48}
+            style={{ imageRendering: 'pixelated' }}
+            data-testid="slots-dealer-art"
+          />
           <h1 className="text-xl sm:text-2xl text-[#ffd700] pixel-glow-gold tracking-wider">
             STAR FORGE
           </h1>

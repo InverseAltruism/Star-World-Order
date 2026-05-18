@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 //
 // WalletSheet — proves the focus-trap + Esc-returns-focus + hit-target
-// contracts carried forward from BunnyBagz (lesson D2 in
-// `bb_keyboard_nav_audit_2026-05-09.md` and the
+// contracts (lesson D2 in the SWO keyboard-nav audit and the
 // WALLETSHEET_ESCAPE_AND_FOCUS_TRAP refinement).
 //
 //   (a) Component exists & renders

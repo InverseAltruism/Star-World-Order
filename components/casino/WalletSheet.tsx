@@ -1,8 +1,6 @@
 // WalletSheet — modal-on-mobile / slide-over wallet surface for SWO Cosmic Casino.
 //
-// Ported from BunnyBagz `apps/web/src/components/WalletSheet.tsx`. Carried
-// forward intact (lesson D2 in `bb_keyboard_nav_audit_2026-05-09.md` and
-// the WALLETSHEET_ESCAPE_AND_FOCUS_TRAP refinement, mega-house 1a22b6a):
+// Keyboard / focus contracts:
 //
 //   • Esc closes the sheet (handler bound on `document` in the keydown
 //     phase so the press is observed even when focus is on the overlay
@@ -12,14 +10,12 @@
 //     focus returns to the opener element (the trigger button that
 //     opened the sheet) so keyboard users land where they started.
 //   • Close button + identity rows carry the `swo-casino-hit-44` class
-//     (the SWO-side rename of BB's `bb-hit-target-44`) so every
-//     interactive child clears the 44px mobile touch-target floor.
+//     so every interactive child clears the 44px mobile touch-target
+//     floor.
 //
-// The BB original ships a rich `WalletPanel` body (wagmi balances, theme
-// toggle, recent bets, …). Those depend on BB-only packages so the SWO
-// shell exposes the same surface contract via the `children` prop and
-// a simple default body that renders identity rows. Consumers wire in
-// their own balances/CTAs by passing children.
+// The sheet exposes a `children` slot so consumers can wire in their own
+// wagmi balances, theme toggles, and recent-bet lists. A simple default
+// body renders identity rows when `children` is omitted.
 
 'use client';
 
@@ -144,8 +140,7 @@ export function WalletSheet({
   }, [open, onClose]);
 
   // On open, move focus to the first focusable descendant so the Tab
-  // trap above starts inside the dialog (deep-QA D2 from
-  // bb_qa_deep_pass_2026-05-12.md).
+  // trap above starts inside the dialog (deep-QA D2).
   useEffect(() => {
     if (!open) return;
     const aside = asideRef.current;
@@ -242,8 +237,8 @@ function WalletSheetDefaultBody({
       {rows.map((row) => (
         <div
           key={row.label}
-          // Identity rows clear the 44-px floor too — per the BB QA
-          // contract and the task's acceptance (c).
+          // Identity rows clear the 44-px floor too — per the QA contract
+          // and the task's acceptance (c).
           className="swo-casino-hit-44"
           style={fieldRowStyle}
           data-testid={row.testId ?? `wallet-row-${row.label.toLowerCase()}`}

@@ -1,5 +1,4 @@
-// RecentBets — settled-bets list for the SWO Cosmic Casino wallet sheet,
-// ported from BunnyBagz `apps/web/src/components/RecentBetsList.tsx`.
+// RecentBets — settled-bets list for the SWO Cosmic Casino wallet sheet.
 //
 // Until the SWO indexer lands the component is a graceful empty surface:
 // callers that do not pass a `bets` prop see the "No recent bets yet"
@@ -13,7 +12,7 @@
 //   - Each row links the `betId` to `/verify/[betId]` and the optional
 //     `txHash` to the MegaETH Blockscout explorer.
 //   - `symbolFor` lets callers override the currency label per bet
-//     (defaults to "MON", SWO's native gas token on Monad — vs BB's ETH).
+//     (defaults to "MON", SWO's native gas token on Monad).
 
 'use client';
 
