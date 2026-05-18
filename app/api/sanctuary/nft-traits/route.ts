@@ -4,7 +4,7 @@ import { filterMetadataByTraits, getMetadataTraitDistribution } from '@/lib/db';
 import { nftTraitsAction, paginationLimit, parseSearchParams, formatZodError } from '@/lib/sanctuary/validation';
 
 const distributionSchema = z.object({
-  action: z.literal('distribution'),
+  action: z.literal('distribution').default('distribution'),
   trait_type: z.string().optional(),
 });
 

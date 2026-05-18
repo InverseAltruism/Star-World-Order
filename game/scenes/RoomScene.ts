@@ -11,7 +11,7 @@ import { getRoomNPCDefinitions } from '../config/npcDefinitions';
 
 const ROOM_W = 1448;
 const ROOM_H = 1086;
-const SOUTHERN_SPAWN_Y = ROOM_H - 110;
+const SOUTHERN_SPAWN_Y = ROOM_H - 60;
 const EXIT_ZONE_W = 120;
 const EXIT_ZONE_H = 30;
 // Ignore exit triggers (E, ESC, exit-zone overlap) for this many ms after entry,
