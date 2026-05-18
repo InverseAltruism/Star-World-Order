@@ -22,6 +22,8 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 
 import {
+  computeCommit,
+  computeOutcome,
   deriveTriple,
   verifyCommit,
   type CasinoGame,
