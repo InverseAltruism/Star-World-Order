@@ -29,7 +29,7 @@ export class OtherPlayerSprite {
     this.sprite.setVisible(false);
 
     this.nameTag = scene.add.text(0, 0, '', {
-      fontFamily: '"Pixelify Sans", monospace',
+      fontFamily: '"Press Start 2P", monospace',
       fontSize: '3px',
       color: '#00f7ff',
       stroke: '#000000',

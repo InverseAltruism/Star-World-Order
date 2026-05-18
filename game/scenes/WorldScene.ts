@@ -285,7 +285,7 @@ export class WorldScene extends Phaser.Scene {
   private setupDoorPrompt() {
     this.doorPrompt = this.add
       .text(0, 0, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '6px',
         color: '#ffd700',
         stroke: '#000000',
@@ -297,7 +297,7 @@ export class WorldScene extends Phaser.Scene {
     this.doorHighlightGfx = this.add.graphics().setDepth(29);
     this.doorHighlightArrow = this.add
       .text(0, 0, '▼', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '10px',
         color: '#00f7ff',
         stroke: '#000000',

@@ -119,7 +119,7 @@ export class CompanionSprite extends Phaser.GameObjects.Container {
       if (!this.zzzText && this.scene) {
         this.zzzText = this.scene.add
           .text(this.x, this.y - 12, 'Zzz', {
-            fontFamily: '"Pixelify Sans", monospace',
+            fontFamily: '"Press Start 2P", monospace',
             fontSize: '6px',
             color: '#9966ff',
             stroke: '#000000',

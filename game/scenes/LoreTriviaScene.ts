@@ -130,7 +130,7 @@ export class LoreTriviaScene extends MinigameScene {
   protected setup(): void {
     this.add
       .text(PROMPT_X, 110, 'COSMIC LORE TRIVIA', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#8866ff',
         stroke: '#000000',
@@ -141,7 +141,7 @@ export class LoreTriviaScene extends MinigameScene {
 
     this.add
       .text(PROMPT_X, 160, 'CLICK ANSWER · OR PRESS 1-4', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '10px',
         color: '#9966ff',
         stroke: '#000000',
@@ -152,7 +152,7 @@ export class LoreTriviaScene extends MinigameScene {
 
     this.promptText = this.add
       .text(PROMPT_X, PROMPT_Y, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '18px',
         color: '#ffd700',
         stroke: '#000000',
@@ -166,7 +166,7 @@ export class LoreTriviaScene extends MinigameScene {
     // Per-question timer: text + a thin progress bar under the prompt.
     this.questionTimerText = this.add
       .text(PROMPT_X, PROMPT_Y + 50, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '12px',
         color: '#00f7ff',
         stroke: '#000000',
@@ -178,7 +178,7 @@ export class LoreTriviaScene extends MinigameScene {
 
     this.feedbackText = this.add
       .text(PROMPT_X, 800, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#ffffff',
         stroke: '#000000',
@@ -321,7 +321,7 @@ export class LoreTriviaScene extends MinigameScene {
     container.add(bg);
     const label = this.add
       .text(0, 0, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#ffffff',
         stroke: '#000000',

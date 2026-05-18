@@ -46,7 +46,7 @@ export class StarConnectScene extends MinigameScene {
 
     this.hudText = this.add
       .text(600, 105, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '10px',
         color: '#ffd700',
         stroke: '#000000',

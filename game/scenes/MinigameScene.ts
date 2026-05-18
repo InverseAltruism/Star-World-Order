@@ -257,7 +257,7 @@ export abstract class MinigameScene extends Phaser.Scene {
   private setupHUD() {
     this.titleText = this.add
       .text(SCREEN_W / 2, 24, this.gameTitle, {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '16px',
         color: '#ffd700',
         stroke: '#000000',
@@ -271,7 +271,7 @@ export abstract class MinigameScene extends Phaser.Scene {
 
     this.scoreText = this.add
       .text(20, 56, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '18px',
         color: '#00f7ff',
         stroke: '#000000',
@@ -284,7 +284,7 @@ export abstract class MinigameScene extends Phaser.Scene {
 
     this.timerText = this.add
       .text(SCREEN_W - 20, 56, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '20px',
         color: '#ff66aa',
         stroke: '#000000',
@@ -346,7 +346,7 @@ export abstract class MinigameScene extends Phaser.Scene {
 
     const titleObj = this.add
       .text(0, -h / 2 + 28, opts.title, {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '18px',
         color: '#ffd700',
         stroke: '#000000',
@@ -358,7 +358,7 @@ export abstract class MinigameScene extends Phaser.Scene {
     opts.lines.forEach((line, i) => {
       const lineObj = this.add
         .text(0, -h / 2 + 80 + i * 26, line, {
-          fontFamily: '"Pixelify Sans", monospace',
+          fontFamily: '"Press Start 2P", monospace',
           fontSize: '10px',
           color: '#00f7ff',
           stroke: '#000000',
@@ -383,7 +383,7 @@ export abstract class MinigameScene extends Phaser.Scene {
       btnG.strokeRect(-90, -16, 180, 32);
       const label = this.add
         .text(0, 0, btn.label, {
-          fontFamily: '"Pixelify Sans", monospace',
+          fontFamily: '"Press Start 2P", monospace',
           fontSize: '10px',
           color: '#ffffff',
           stroke: '#000000',
@@ -419,7 +419,7 @@ export abstract class MinigameScene extends Phaser.Scene {
         // Replace the placeholder lines with named refs we can update later.
         const status = this.add
           .text(0, -20, 'STAR  +calculating...', {
-            fontFamily: '"Pixelify Sans", monospace',
+            fontFamily: '"Press Start 2P", monospace',
             fontSize: '12px',
             color: '#ffd700',
             stroke: '#000000',
@@ -428,7 +428,7 @@ export abstract class MinigameScene extends Phaser.Scene {
           .setOrigin(0.5);
         const detail = this.add
           .text(0, 14, 'Personal Best: ...', {
-            fontFamily: '"Pixelify Sans", monospace',
+            fontFamily: '"Press Start 2P", monospace',
             fontSize: '9px',
             color: '#9966ff',
             stroke: '#000000',

@@ -5945,15 +5945,19 @@ function seedSanctuaryMapLocations(database: Database.Database): void {
   const { count } = countStmt.get() as { count: number };
   if (count > 0) return;
 
+  // Progression pacing: 2 starter rooms unlock at L1, the rest spread across
+  // L3..L15 so newcomers aren't dropped into 8 rooms of content at once. The
+  // live DEV/PROD DBs already hold these values; this seed exists for fresh
+  // installs / `prod→test` syncs into empty databases.
   const locations = [
     { name: 'Hot Springs', description: 'A relaxing place for tired Skrumpeys to unwind.', position_x: 0.2, position_y: 0.3, unlock_level: 1 },
-    { name: 'Training Grounds', description: 'Practice arena where Skrumpeys sharpen their skills.', position_x: 0.7, position_y: 0.2, unlock_level: 1 },
-    { name: 'Star Garden', description: 'A mystical garden where constellations bloom.', position_x: 0.5, position_y: 0.5, unlock_level: 2 },
-    { name: 'Cosmic Library', description: 'Ancient texts and forgotten lore.', position_x: 0.8, position_y: 0.6, unlock_level: 3 },
-    { name: 'Nebula Kitchen', description: 'Cook up cosmic treats for your companion.', position_x: 0.3, position_y: 0.7, unlock_level: 2 },
     { name: 'Dream Hollow', description: 'Where Skrumpeys rest and dream of adventures.', position_x: 0.1, position_y: 0.8, unlock_level: 1 },
-    { name: 'Aura Forge', description: 'Channel aura energy into powerful bonds.', position_x: 0.9, position_y: 0.4, unlock_level: 5 },
-    { name: 'Observatory', description: 'Gaze at the stars and discover hidden constellations.', position_x: 0.5, position_y: 0.1, unlock_level: 4 },
+    { name: 'Training Grounds', description: 'Practice arena where Skrumpeys sharpen their skills.', position_x: 0.7, position_y: 0.2, unlock_level: 3 },
+    { name: 'Nebula Kitchen', description: 'Cook up cosmic treats for your companion.', position_x: 0.3, position_y: 0.7, unlock_level: 5 },
+    { name: 'Star Garden', description: 'A mystical garden where constellations bloom.', position_x: 0.5, position_y: 0.5, unlock_level: 7 },
+    { name: 'Cosmic Library', description: 'Ancient texts and forgotten lore.', position_x: 0.8, position_y: 0.6, unlock_level: 9 },
+    { name: 'Observatory', description: 'Gaze at the stars and discover hidden constellations.', position_x: 0.5, position_y: 0.1, unlock_level: 12 },
+    { name: 'Aura Forge', description: 'Channel aura energy into powerful bonds.', position_x: 0.9, position_y: 0.4, unlock_level: 15 },
   ];
 
   const insert = database.prepare(`

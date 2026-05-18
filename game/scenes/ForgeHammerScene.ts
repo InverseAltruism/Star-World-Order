@@ -52,7 +52,7 @@ export class ForgeHammerScene extends MinigameScene {
 
     this.feedbackText = this.add
       .text(METER_X, METER_Y - 110, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#ffd700',
         stroke: '#000000',
@@ -63,7 +63,7 @@ export class ForgeHammerScene extends MinigameScene {
 
     this.add
       .text(METER_X, METER_Y + 250, 'PRESS SPACE TO STRIKE', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '10px',
         color: '#ff66aa',
         stroke: '#000000',

@@ -69,7 +69,7 @@ export class CookingRhythmScene extends MinigameScene {
 
     this.add
       .text(600, 220, 'COOK THE RECIPE', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#ffaa44',
         stroke: '#000000',
@@ -80,7 +80,7 @@ export class CookingRhythmScene extends MinigameScene {
 
     this.add
       .text(600, 700, 'PRESS ARROW KEYS WHEN NOTES REACH THE PAN', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '10px',
         color: '#ff66aa',
         stroke: '#000000',
@@ -91,7 +91,7 @@ export class CookingRhythmScene extends MinigameScene {
 
     this.feedbackText = this.add
       .text(TARGET_X, TARGET_Y - 110, '', {
-        fontFamily: '"Pixelify Sans", monospace',
+        fontFamily: '"Press Start 2P", monospace',
         fontSize: '14px',
         color: '#ffd700',
         stroke: '#000000',
