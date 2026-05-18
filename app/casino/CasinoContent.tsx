@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import AccessGate from '@/components/AccessGate';
+import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
 
 // ============================================================================
 // Types
@@ -420,7 +420,7 @@ export default function CasinoContent() {
         {/* Jackpot Ticker */}
         <JackpotTicker jackpots={stats?.activeJackpots || []} />
 
-        <AccessGate
+        <CasinoAccessGate
           title="CASINO ACCESS RESTRICTED"
           message="Only Star Skrumpey holders may enter the Cosmic Casino."
         >
@@ -462,7 +462,7 @@ export default function CasinoContent() {
               </span>
             </div>
           </div>
-        </AccessGate>
+        </CasinoAccessGate>
       </div>
 
       {/* CSS Animations */}

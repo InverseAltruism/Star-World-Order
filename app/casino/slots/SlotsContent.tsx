@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import AccessGate from '@/components/AccessGate';
+import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // ============================================================================
@@ -835,7 +835,7 @@ export default function SlotsContent() {
         </p>
       </div>
       
-      <AccessGate
+      <CasinoAccessGate
         title="STAR FORGE LOCKED"
         message="Only Star Skrumpey holders may play Star Forge."
       >
@@ -987,7 +987,7 @@ export default function SlotsContent() {
             </span>
           </div>
         </div>
-      </AccessGate>
+      </CasinoAccessGate>
       
       {/* CSS for scan line animation */}
       <style jsx global>{`
