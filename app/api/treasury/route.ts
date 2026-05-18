@@ -4,19 +4,16 @@
  */
 
 import { NextResponse } from 'next/server';
-import { SKRUMPEY_CONTRACT_ADDRESS } from '@/lib/starSkrumpey';
+import { SKRUMPEY_CONTRACT_ADDRESS, isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { getResilientClient, retryWithBackoff } from '@/lib/rpcClient';
 import { logger } from '@/lib/logger';
 import { formatEther } from 'viem';
-import { fetchCollectionFloorPrice } from '@/lib/blockvision';
+import { fetchAllAccountNFTs, fetchCollectionFloorPrice } from '@/lib/blockvision';
 import { getFloorPriceByContract } from '@/lib/floorPrices';
 import { getLocalApiFloorPrices } from '@/lib/floorPriceApi';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af' as const;
-
-// Magic Eden API
-const MAGIC_EDEN_API = 'https://api-mainnet.magiceden.dev/v4/evm-public/collections/user-collections';
 
 // Known Skrumpeys contract address (fallback if env var not set)
 const KNOWN_SKRUMPEY_ADDRESS = '0xb0dad798c80e40dd6b8e8545074c6a5b7b97d2c0';
@@ -91,90 +88,81 @@ async function fetchTreasuryBalance(): Promise<bigint> {
 }
 
 /**
- * Fetch NFTs directly from Magic Eden API
+ * Fetch the treasury's NFT holdings via BlockVision and aggregate per-collection.
+ *
+ * Previously hit Magic Eden's /v4/evm-public/collections/user-collections, which
+ * Magic Eden stopped supporting for Monad (and EVM in general). BlockVision is
+ * the only working Monad NFT indexer at the moment.
+ *
+ * BV returns per-token rows; we aggregate to one row per contract to match the
+ * shape the treasury page expects. As a side-effect we can compute the
+ * Star-Skrumpey count properly (the ME version couldn't — it only returned
+ * collection-level counts, never individual token IDs).
  */
-async function fetchTreasuryNFTs(): Promise<NFTHolding[]> {
+async function fetchTreasuryNFTs(): Promise<{ holdings: NFTHolding[]; starSkrumpeyCount: number }> {
   try {
-    logger.info('Fetching NFTs from Magic Eden API', { address: TREASURY_ADDRESS });
-    
-    // Get API key from environment (optional - API works without it but may have higher rate limits)
-    const apiKey = process.env.MAGIC_EDEN_API_KEY;
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Add Authorization header if API key is available
-    if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
-    }
+    logger.info('Fetching NFTs from BlockVision', { address: TREASURY_ADDRESS });
 
-    const response = await fetch(MAGIC_EDEN_API, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        chain: 'monad',
-        walletAddresses: [TREASURY_ADDRESS],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('Magic Eden API error', { status: response.status, error: errorText });
-      return [];
-    }
-
-    const rawData = await response.json();
-    logger.info('Magic Eden raw response', { 
-      collectionCount: rawData?. collections?.length || 0 
-    });
-
-    if (!rawData?.collections || ! Array.isArray(rawData. collections)) {
-      logger.warn('No collections in response');
-      return [];
+    const collections = await fetchAllAccountNFTs(TREASURY_ADDRESS);
+    if (collections.length === 0) {
+      logger.warn('No collections returned from BlockVision', { address: TREASURY_ADDRESS });
+      return { holdings: [], starSkrumpeyCount: 0 };
     }
 
     const skrumpeyContractLower = (SKRUMPEY_CONTRACT_ADDRESS || KNOWN_SKRUMPEY_ADDRESS).toLowerCase();
+    let starSkrumpeyCount = 0;
 
-    // Map Magic Eden response to our NFTHolding format
-    const holdings:  NFTHolding[] = rawData.collections
-      .filter((c: any) => c && (c.chainData?.contract || c.id))
-      .map((c: any) => {
-        const contractAddress = c.chainData?.contract || c.id || '';
-        const isSkrumpey = contractAddress.toLowerCase() === skrumpeyContractLower;
-        
-        return {
-          tokenId: '0',
-          name: c.name || 'Unknown Collection',
-          collectionName: c.name || 'Unknown Collection',
-          contractAddress:  contractAddress,
-          imageUrl:  c.media?.url || '',
-          quantity: c. ownedCount || 0,
-          isStarSkrumpey: false,
-          isVerified: c.verification === 'VERIFIED',
-          estimatedFloorPrice: 0,
-        };
-      });
+    const holdings: NFTHolding[] = collections.map((c) => {
+      const contractAddress = c.contractAddress || '';
+      const isSkrumpey = contractAddress.toLowerCase() === skrumpeyContractLower;
+      const quantity = c.items.reduce((sum, item) => sum + (parseInt(item.qty, 10) || 1), 0);
 
-    // Sort:  Skrumpeys first, then by quantity
+      if (isSkrumpey) {
+        for (const item of c.items) {
+          const idNum = parseInt(item.tokenId, 10);
+          if (!Number.isNaN(idNum) && isStarSkrumpeyId(idNum)) {
+            starSkrumpeyCount += parseInt(item.qty, 10) || 1;
+          }
+        }
+      }
+
+      // Use the first item's image as the collection thumbnail if BV didn't
+      // give us one at the collection level.
+      const imageUrl = c.image || c.items[0]?.image || '';
+
+      return {
+        tokenId: '0',
+        name: c.name || 'Unknown Collection',
+        collectionName: c.name || 'Unknown Collection',
+        contractAddress,
+        imageUrl,
+        quantity,
+        isStarSkrumpey: false,
+        isVerified: c.verified,
+        estimatedFloorPrice: 0,
+      };
+    });
+
+    // Skrumpeys first, then by quantity desc.
     holdings.sort((a, b) => {
       const aIsSkrumpey = a.contractAddress.toLowerCase() === skrumpeyContractLower;
       const bIsSkrumpey = b.contractAddress.toLowerCase() === skrumpeyContractLower;
       if (aIsSkrumpey && !bIsSkrumpey) return -1;
-      if (! aIsSkrumpey && bIsSkrumpey) return 1;
+      if (!aIsSkrumpey && bIsSkrumpey) return 1;
       return b.quantity - a.quantity;
     });
 
-    logger.info('Mapped NFT holdings', { 
+    logger.info('Mapped NFT holdings', {
       count: holdings.length,
       totalNFTs: holdings.reduce((sum, h) => sum + h.quantity, 0),
-      collections: holdings.map(h => ({ name: h.name, count: h.quantity }))
+      starSkrumpeyCount,
+      collections: holdings.map((h) => ({ name: h.name, count: h.quantity })),
     });
 
-    return holdings;
+    return { holdings, starSkrumpeyCount };
   } catch (error) {
     logger.error('Failed to fetch treasury NFTs', { error: String(error) });
-    return [];
+    return { holdings: [], starSkrumpeyCount: 0 };
   }
 }
 
@@ -200,17 +188,16 @@ export async function GET(request: Request) {
     }
 
     // Fetch fresh data
-    const [balance, nfts] = await Promise.all([
+    const [balance, { holdings: nfts, starSkrumpeyCount }] = await Promise.all([
       fetchTreasuryBalance(),
       fetchTreasuryNFTs(),
     ]);
 
     const monBalanceFormatted = formatEther(balance);
     const monBalanceNum = parseFloat(monBalanceFormatted);
-    
+
     const nftCount = nfts.reduce((sum, nft) => sum + nft.quantity, 0);
-    const uniqueCollections = [... new Set(nfts.map(n => n.contractAddress. toLowerCase()))];
-    const starSkrumpeyCount = nfts.filter(n => n.isStarSkrumpey).reduce((sum, n) => sum + n.quantity, 0);
+    const uniqueCollections = [...new Set(nfts.map((n) => n.contractAddress.toLowerCase()))];
 
     // Calculate NFT values using floor prices
     // Priority: 1. Local Floor Price API, 2. BlockVision, 3. Database

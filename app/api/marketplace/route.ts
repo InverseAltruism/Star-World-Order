@@ -1,38 +1,24 @@
 /**
  * Marketplace API Route
- * 
- * GET /api/marketplace - Get marketplace analytics for Star Skrumpeys including:
+ *
+ * GET /api/marketplace - Get marketplace analytics for Star Skrumpeys:
  * - Constellation rarity distribution
  * - Trait analytics (aura, background, form)
  * - Holder distribution by tier
- * 
- * ============================================================================
- * TODO: RE-ENABLE MAGIC EDEN API WHEN MONAD SUPPORT IS ADDED
- * ============================================================================
- * 
- * As of December 2024, Magic Eden's public API does not support Monad chain.
- * The web UI works but uses internal/undocumented endpoints.
- * 
- * Tested endpoints that DO NOT work for Monad:
- * - /v3/monad/collections/{contract}/listings - 400 Bad Request
- * - /v3/rtp/monad/collections/{contract}/tokens/v1 - Not Found
- * - /v2/evm/monad/collections/{contract}/listings - Not Found
- * - /v2/collections/{symbol}/listings?chain=monad - Returns Solana data
- * 
- * When Magic Eden adds Monad API support, uncomment the fetchActiveListings() 
- * and fetchSalesHistory() functions and update the endpoint URLs.
- * 
- * Commented out sections are marked with: MAGIC EDEN API - DISABLED
- * ============================================================================
+ *
+ * Source: local SWO database only. No marketplace data is fetched live.
+ *
+ * Historical note: this route used to call Magic Eden's `/monad/collections/.../listings`
+ * and `/.../activities` endpoints for live floor/listings/sales data, with a
+ * "re-enable when Monad support is added" TODO. Magic Eden has since
+ * permanently dropped all EVM chains (Solana-only); OpenSea has no Monad
+ * API either. The fetchers + base URL constant were removed in May 2026.
  */
 
 import { NextResponse } from 'next/server';
 import { SKRUMPEY_CONTRACT_ADDRESS, STAR_SKRUMPEY_IDS, isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { getStarSkrumpeyMetadataBatch, getConstellationDistribution, getTraitDistribution } from '@/lib/db';
 import { logger } from '@/lib/logger';
-
-// Magic Eden API base URL for Monad
-const MAGIC_EDEN_API_BASE = 'https://api-mainnet.magiceden.dev/v3';
 
 // Cache for marketplace data (2 minute TTL for faster updates)
 let marketplaceCache: {
@@ -117,143 +103,6 @@ export interface MarketplaceData {
   };
 }
 
-/* MAGIC EDEN API - DISABLED - Comment out until Monad support is added
-/**
- * Fetch active listings from Magic Eden API
- */
-/*
-async function fetchActiveListings(): Promise<ActiveListing[]> {
-  if (!SKRUMPEY_CONTRACT_ADDRESS) {
-    return [];
-  }
-
-  try {
-    // Magic Eden Monad listings endpoint
-    const response = await fetch(
-      `${MAGIC_EDEN_API_BASE}/monad/collections/${SKRUMPEY_CONTRACT_ADDRESS}/listings?limit=500`,
-      {
-        headers: {
-          'Accept': 'application/json',
-        },
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-
-    if (!response.ok) {
-      logger.warn('Magic Eden listings API returned error', { 
-        status: response.status,
-        statusText: response.statusText 
-      });
-      return [];
-    }
-
-    const data = await response.json();
-    
-    // Get metadata for constellation info
-    const tokenIds = (data.listings || data || [])
-      .filter((l: { tokenId?: string | number }) => l.tokenId && isStarSkrumpeyId(Number(l.tokenId)))
-      .map((l: { tokenId: string | number }) => Number(l.tokenId));
-    const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
-    
-    return (data.listings || data || [])
-      .filter((l: { tokenId?: string | number }) => l.tokenId && isStarSkrumpeyId(Number(l.tokenId)))
-      .map((listing: { 
-        tokenId: string | number;
-        price?: number | string;
-        maker?: string;
-        seller?: string;
-        createdAt?: string | number;
-        timestamp?: number;
-      }) => ({
-        tokenId: Number(listing.tokenId),
-        price: Number(listing.price || 0) / 1e18, // Convert from wei to MON
-        seller: listing.maker || listing.seller || '',
-        timestamp: typeof listing.createdAt === 'string' 
-          ? new Date(listing.createdAt).getTime() 
-          : (listing.timestamp || Date.now()),
-        constellation: metadataMap.get(Number(listing.tokenId))?.constellation || undefined,
-      }));
-  } catch (error) {
-    logger.error('Failed to fetch listings from Magic Eden', { error: String(error) });
-    return [];
-  }
-}
-*/ /* END MAGIC EDEN API - DISABLED */
-
-/* MAGIC EDEN API - DISABLED - Comment out until Monad support is added
-/**
- * Fetch sales history from Magic Eden API
- */
-/*
-async function fetchSalesHistory(): Promise<SaleActivity[]> {
-  if (!SKRUMPEY_CONTRACT_ADDRESS) {
-    return [];
-  }
-
-  try {
-    // Magic Eden Monad activities endpoint
-    const response = await fetch(
-      `${MAGIC_EDEN_API_BASE}/monad/collections/${SKRUMPEY_CONTRACT_ADDRESS}/activities?type=sale&limit=200`,
-      {
-        headers: {
-          'Accept': 'application/json',
-        },
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-
-    if (!response.ok) {
-      logger.warn('Magic Eden activities API returned error', { 
-        status: response.status,
-        statusText: response.statusText 
-      });
-      return [];
-    }
-
-    const data = await response.json();
-    
-    // Get metadata for constellation info
-    const tokenIds = (data.activities || data || [])
-      .filter((a: { tokenId?: string | number }) => a.tokenId && isStarSkrumpeyId(Number(a.tokenId)))
-      .map((a: { tokenId: string | number }) => Number(a.tokenId));
-    const metadataMap = getStarSkrumpeyMetadataBatch(tokenIds);
-    
-    return (data.activities || data || [])
-      .filter((a: { tokenId?: string | number; type?: string }) => 
-        a.tokenId && 
-        isStarSkrumpeyId(Number(a.tokenId)) &&
-        (a.type === 'sale' || a.type === 'SALE')
-      )
-      .map((activity: {
-        tokenId: string | number;
-        price?: number | string;
-        fromAddress?: string;
-        seller?: string;
-        toAddress?: string;
-        buyer?: string;
-        timestamp?: string | number;
-        createdAt?: string | number;
-        transactionHash?: string;
-        txHash?: string;
-      }) => ({
-        tokenId: Number(activity.tokenId),
-        price: Number(activity.price || 0) / 1e18, // Convert from wei to MON
-        seller: activity.fromAddress || activity.seller || '',
-        buyer: activity.toAddress || activity.buyer || '',
-        timestamp: typeof activity.timestamp === 'string' 
-          ? new Date(activity.timestamp).getTime()
-          : (typeof activity.createdAt === 'string'
-            ? new Date(activity.createdAt).getTime()
-            : (activity.timestamp || Date.now())),
-        txHash: activity.transactionHash || activity.txHash || '',
-        constellation: metadataMap.get(Number(activity.tokenId))?.constellation || undefined,
-      }));
-  } catch (error) {
-    logger.error('Failed to fetch sales from Magic Eden', { error: String(error) });
-    return [];
-  }
-}
-*/ /* END MAGIC EDEN API - DISABLED */
 
 /**
  * Generate floor price chart data from sales
@@ -444,13 +293,6 @@ export async function GET(request: Request) {
       });
     }
 
-    /* MAGIC EDEN API - DISABLED
-    // Fetch fresh data in parallel
-    const [listings, sales] = await Promise.all([
-      fetchActiveListings(),
-      fetchSalesHistory(),
-    ]);
-    */
     
     // Database-powered analytics (no API calls needed)
     const constellationDist = getConstellationDistribution();
