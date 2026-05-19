@@ -1,0 +1,113 @@
+# SWO Cosmic Casino indexer GraphQL schema (Ponder).
+#
+# Three game tables (Bet/DiceBet/HiLoSession) + HiLoStep for the append-only
+# per-step records. Each game keeps its own table because the placement /
+# settlement payloads diverge enough (rollUnder + roll on dice; per-step +
+# multiplier on hilo) that a single union row would force half the columns
+# nullable. Cross-game aggregation is done at query time on
+# (player, blockPlaced / blockOpened) — see `src/recent-bets.ts`.
+#
+# bigints (stake, payout, nonce, blockPlaced, settledAt, multiplier) are
+# exposed as `BigInt` (decimal string in JSON). Hex fields are `Bytes`.
+# `player` is a 0x-lowercase address scalar. Card and rollUnder are u8 values.
+
+type Bet @entity {
+  # Primary key — coinflip betId, stringified (forward-compat with non-numeric).
+  id: String!
+
+  # Game discriminator — always "coinflip" on this entity. Kept for parity
+  # with cross-game aggregation queries that union over all three tables.
+  game: String!
+
+  player: String!         # 0x-lowercase address (filterable for /api/history)
+  side: String!           # "heads" | "tails" — picked side at placement
+  outcome: String         # "heads" | "tails" — rolled outcome (null until settle)
+  stake: BigInt!          # wei
+
+  clientSeed: Bytes!      # bytes32
+  serverCommit: Bytes!    # bytes32 — keccak(serverReveal)
+  nonce: BigInt!
+
+  status: String!         # "pending" | "won" | "lost" | "refunded"
+  payout: BigInt          # wei — null while pending
+  serverReveal: Bytes     # bytes32 — null until settle
+  blockPlaced: BigInt!
+  settledAt: BigInt       # block number of BetSettled / BetRefunded
+}
+
+# Dice mirrors `Bet` but stores the on-chain numeric inputs instead of
+# heads/tails strings: rollUnder is the threshold (player wins if roll <
+# rollUnder), and roll is the rolled face (1-100). game is always "dice".
+type DiceBet @entity {
+  id: String!             # dice betId, stringified
+
+  game: String!           # always "dice"
+  player: String!
+  rollUnder: Int!         # threshold u8
+  roll: Int               # rolled face u8 (null until settle)
+  stake: BigInt!
+
+  clientSeed: Bytes!
+  serverCommit: Bytes!
+  nonce: BigInt!
+
+  status: String!         # "pending" | "won" | "lost" | "refunded"
+  payout: BigInt
+  serverReveal: Bytes
+  blockPlaced: BigInt!
+  settledAt: BigInt
+}
+
+# HiLo persists one session row plus N step rows. The session row carries
+# the running state (currentCard, multiplier) and the resolution status; the
+# step rows are append-only event records used by /verify/[sessionId] to
+# reconstruct each playStep.
+type HiLoSession @entity {
+  id: String!             # hilo sessionId, stringified
+
+  game: String!           # always "hilo"
+  player: String!
+  stake: BigInt!
+
+  clientSeed: Bytes!
+  serverCommit: Bytes!    # bytes32 of the *initial* commit; nextCommit advances per step
+  initialCard: Int!       # u8 1-13
+  currentCard: Int!       # u8 1-13 — updated on every StepPlayed
+  nonce: BigInt!
+
+  # "open" | "cashed" | "refunded" | "pushed" | "lost"
+  # `lost` arrives implicitly when StepPlayed.won == false and the session
+  # is bust (stake forfeited; no further steps possible).
+  status: String!
+
+  # Running multiplier (1e18-scaled like the contract). Updated on each
+  # StepPlayed; finalMultiplier is set on cashOut/push/lost.
+  multiplier: BigInt!
+  finalMultiplier: BigInt
+  payout: BigInt          # wei — set on CashedOut/Pushed/Refunded; null on lost/open
+
+  blockOpened: BigInt!
+  settledAt: BigInt       # block of CashedOut / Refunded / Pushed / final lose Step
+
+  stepCount: Int!         # number of StepPlayed events for this session
+}
+
+# Append-only StepPlayed records. `id` is the composite "<sessionId>-<stepIdx>"
+# so the verifier can replay deterministically.
+type HiLoStep @entity {
+  id: String!             # "<sessionId>-<stepIdx>"
+
+  sessionId: String!      # parent HiLoSession.id
+  stepIdx: Int!           # 0-based index within the session
+  player: String!
+
+  direction: String!      # "higher" | "lower"
+  prevCard: Int!          # u8
+  newCard: Int!           # u8
+  won: Boolean!
+  newMultiplier: BigInt!
+  serverReveal: Bytes!
+  nextCommit: Bytes!
+
+  blockNumber: BigInt!
+}
