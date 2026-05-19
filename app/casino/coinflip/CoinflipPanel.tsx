@@ -51,6 +51,13 @@ export interface CoinflipPanelProps {
   /** Bet-flow error surfaces. */
   betError: string | null;
   writeError: Error | null;
+  /**
+   * Allowlist gate decision lifted from the container. When `true`, the
+   * primary CTA renders as disabled "Allowlist required" so the user
+   * cannot trigger a wallet signing prompt for a bet the contract would
+   * revert. See lib/casino/useAllowlistGate.ts.
+   */
+  allowlistBlocked?: boolean;
   /** placeBet handler — pure callback from the container. */
   onPlaceBet: () => void;
   /** Settled outcome state. */
@@ -87,6 +94,7 @@ export function CoinflipPanel(props: CoinflipPanelProps) {
     txHash,
     betError,
     writeError,
+    allowlistBlocked,
     onPlaceBet,
     outcome,
     serverReveal,
@@ -102,7 +110,11 @@ export function CoinflipPanel(props: CoinflipPanelProps) {
   const onWrongChain = isConnected && !onSupportedChain;
 
   const canFlip =
-    isConnected && !onWrongChain && Boolean(cosmicFlipAddress) && !signing;
+    isConnected &&
+    !onWrongChain &&
+    Boolean(cosmicFlipAddress) &&
+    !signing &&
+    !allowlistBlocked;
 
   let cta: BetPanelCta;
   if (!isConnected) {
@@ -121,6 +133,12 @@ export function CoinflipPanel(props: CoinflipPanelProps) {
     };
   } else if (signing) {
     cta = { label: 'Confirm in wallet…', onClick: () => {}, disabled: true };
+  } else if (allowlistBlocked) {
+    cta = {
+      label: 'Allowlist required',
+      onClick: () => {},
+      disabled: true,
+    };
   } else {
     cta = {
       label: `Flip for ${stake} MON`,
