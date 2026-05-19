@@ -171,6 +171,18 @@ describe('CoinflipPanel — synchronous contract', () => {
     expect(cta.textContent).toMatch(/Confirm in wallet/);
   });
 
+  it('disables CTA with "Allowlist required" label when allowlistBlocked', () => {
+    const onPlaceBet = vi.fn();
+    render({ allowlistBlocked: true, onPlaceBet });
+    const cta = get('coinflip-primary-cta') as HTMLButtonElement;
+    expect(cta.disabled).toBe(true);
+    expect(cta.textContent).toMatch(/Allowlist required/);
+    act(() => {
+      cta.click();
+    });
+    expect(onPlaceBet).not.toHaveBeenCalled();
+  });
+
   it('renders the Won banner when outcome is "won"', () => {
     render({ outcome: 'won', stake: '0.05', side: 'heads' });
     const won = get('coinflip-outcome-won');

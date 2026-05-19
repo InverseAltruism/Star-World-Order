@@ -205,6 +205,7 @@ export default function CoinflipContent() {
       txHash={txHash ?? null}
       betError={effectiveBetError}
       writeError={writeError ?? null}
+      allowlistBlocked={allowlistBlocked}
       onPlaceBet={placeBet}
       outcome={outcome}
       serverReveal={serverReveal}
