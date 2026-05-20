@@ -32,7 +32,24 @@ interface NPCClickPayload {
   screenY: number;
 }
 
+interface ExpeditionListing {
+  id: string;
+  title: string;
+  description: string;
+  npcSource: string;
+  star_cost: number;
+  tier: 'easy' | 'medium' | 'hard';
+  rewards: { xp: number; bond: number; trait?: string | null };
+  active_row_id: number | null;
+}
+
 type TabFilter = 'all' | 'room' | 'daily' | 'weekly';
+
+const TIER_COLOR: Record<ExpeditionListing['tier'], string> = {
+  easy: '#44ff88',
+  medium: '#ffd700',
+  hard: '#ff66aa',
+};
 
 const QUEST_TYPE_BADGE: Record<string, { label: string; color: string }> = {
   daily: { label: 'DAILY', color: '#44ff88' },
@@ -83,6 +100,7 @@ export default function QuestBoard({
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabFilter>('all');
   const [claiming, setClaiming] = useState<number | null>(null);
+  const [expeditions, setExpeditions] = useState<ExpeditionListing[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => setOpen(false), []);
@@ -103,23 +121,51 @@ export default function QuestBoard({
     }
   }, [walletAddress, tokenId]);
 
+  const loadExpeditions = useCallback(async () => {
+    if (!walletAddress || tokenId === null) return;
+    try {
+      const res = await fetch(
+        `/api/sanctuary/expeditions/list?address=${walletAddress}&token_id=${tokenId}`
+      );
+      const data = await res.json();
+      if (data.success) setExpeditions(data.expeditions ?? []);
+    } catch {
+      // Non-critical — expedition list is additive over the quest board.
+    }
+  }, [walletAddress, tokenId]);
+
+  const launchExpedition = useCallback((entry: ExpeditionListing) => {
+    EventBus.emit('expedition-open', {
+      expedition_id: entry.id,
+      row_id: entry.active_row_id,
+    });
+  }, []);
+
   useEffect(() => {
     const handleOpen = () => {
       setOpen(true);
       loadQuests();
+      loadExpeditions();
     };
     const handleNPCClick = (payload: NPCClickPayload) => {
       if (payload.npcId !== 'quest-board') return;
       setOpen(true);
       loadQuests();
+      loadExpeditions();
+    };
+    const handleExpeditionAbandoned = () => {
+      // Active-run badge clears on abandon — refresh listings.
+      loadExpeditions();
     };
     EventBus.on('quest-board-open', handleOpen);
     EventBus.on('npc-clicked', handleNPCClick);
+    EventBus.on('expedition-abandoned', handleExpeditionAbandoned);
     return () => {
       EventBus.off('quest-board-open', handleOpen);
       EventBus.off('npc-clicked', handleNPCClick);
+      EventBus.off('expedition-abandoned', handleExpeditionAbandoned);
     };
-  }, [loadQuests]);
+  }, [loadQuests, loadExpeditions]);
 
   useEffect(() => {
     if (!open) return;
@@ -363,6 +409,76 @@ export default function QuestBoard({
               })}
             </div>
           ))}
+
+          {expeditions.length > 0 && (
+            <div className="space-y-2" data-testid="expedition-section">
+              <p className="text-gray-500 text-[6px] font-['Press_Start_2P'] tracking-wider mt-2">
+                EXPEDITIONS
+              </p>
+              {expeditions.map((exp) => {
+                const color = TIER_COLOR[exp.tier];
+                const isActive = exp.active_row_id !== null;
+                return (
+                  <div
+                    key={exp.id}
+                    data-testid={`expedition-card-${exp.id}`}
+                    className="bg-[#0a0a15] rounded-lg border border-[#9966ff]/30 p-3"
+                  >
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="min-w-0">
+                        <span
+                          className="text-[6px] px-1.5 py-0.5 rounded mr-1.5 uppercase"
+                          style={{
+                            color,
+                            backgroundColor: color + '20',
+                            border: `1px solid ${color}40`,
+                          }}
+                        >
+                          {exp.tier}
+                        </span>
+                        <span className="text-white text-[8px]">{exp.title}</span>
+                      </div>
+                      <span className="text-[#ffd700] text-[7px] shrink-0 ml-2">
+                        ⭐ {exp.star_cost}
+                      </span>
+                    </div>
+                    <p className="text-gray-500 text-[7px] mb-1.5">
+                      {exp.description}
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {exp.rewards.xp > 0 && (
+                          <span className="text-[6px] text-[#ffd700]">
+                            +{exp.rewards.xp} XP
+                          </span>
+                        )}
+                        {exp.rewards.bond > 0 && (
+                          <span className="text-[6px] text-[#ff66aa]">
+                            +{exp.rewards.bond} Bond
+                          </span>
+                        )}
+                        {exp.rewards.trait && (
+                          <span className="text-[6px] text-[#9966ff]">
+                            🏷️ {exp.rewards.trait}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => launchExpedition(exp)}
+                        data-testid={`expedition-launch-${exp.id}`}
+                        className="px-2 py-1 rounded border border-[#9966ff]/40 bg-[#9966ff]/10
+                          hover:bg-[#9966ff]/20 text-[#9966ff] text-[6px] font-['Press_Start_2P']
+                          transition-colors shrink-0"
+                      >
+                        {isActive ? 'RESUME ▸' : 'BEGIN ▸'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {completed.length > 0 && (
             <div className="space-y-2">

@@ -61,6 +61,11 @@ const ShopDialog = dynamic(
   { ssr: false }
 );
 
+const ExpeditionDialog = dynamic(
+  () => import('@/components/sanctuary/overlays/ExpeditionDialog'),
+  { ssr: false }
+);
+
 const QuestTracker = dynamic(
   () => import('@/components/sanctuary/overlays/QuestTracker'),
   { ssr: false }
@@ -196,6 +201,7 @@ export default function SanctuaryV2() {
         <MinigameDialog walletAddress={address} tokenId={activeTokenId} />
         <QuestBoard walletAddress={address} tokenId={activeTokenId} />
         <ShopDialog walletAddress={address} tokenId={activeTokenId} />
+        <ExpeditionDialog walletAddress={address} tokenId={activeTokenId} />
         <QuestTracker walletAddress={address} tokenId={activeTokenId} />
         <JournalOverlay walletAddress={address} tokenId={activeTokenId} />
         <TraitsOverlay walletAddress={address} tokenId={activeTokenId} />
