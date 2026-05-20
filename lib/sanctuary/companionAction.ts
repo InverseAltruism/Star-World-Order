@@ -3,6 +3,12 @@
 // the React component so the variant matrix (idle / pressed / disabled /
 // sleeping / cooldown / selected) can be unit-tested in node without a DOM.
 
+import {
+  PREFERENCE_BOND_MULTIPLIER,
+  NEED_BOOST_MULTIPLIER,
+  type PreferenceLevel,
+} from './preferences';
+
 export type CompanionActionId = 'feed' | 'pet' | 'talk' | 'sleep' | 'play';
 
 export type CompanionActionState =
@@ -146,6 +152,51 @@ export function companionActionVariantClasses(
     default:
       return 'companion-action--idle';
   }
+}
+
+/**
+ * [SWO_V2_SANCTUARY_PREFERENCE_PROFILE]
+ *
+ * UI badge string for an action's revealed preference level. The journal
+ * reveals the preference after N matched interactions; before that the UI
+ * should pass `null` (or no preference at all) and this helper will hide the
+ * badge. Empty string means "no badge" so callers can render it directly.
+ */
+export function companionActionPreferenceBadge(
+  level: PreferenceLevel | null | undefined,
+): string {
+  switch (level) {
+    case 'loved':
+      return '\u{2665}\u{FE0F}'; // ♥️
+    case 'liked':
+      return '\u{1F44D}'; // 👍
+    case 'neutral':
+      return '';
+    case 'disliked':
+      return '\u{1F44E}'; // 👎
+    case 'hated':
+      return '\u{1F494}'; // 💔
+    default:
+      return '';
+  }
+}
+
+/**
+ * [SWO_V2_SANCTUARY_PREFERENCE_PROFILE]
+ *
+ * Compute the bond-delta preview the UI shows when hovering an action
+ * tile. Combines the action's baseline bond gain with the preference and
+ * need-state multipliers. Returns a number — formatting (sign, rounding) is
+ * left to the consuming component.
+ */
+export function previewBondDelta(input: {
+  baseline: number;
+  preference: PreferenceLevel;
+  needBoosted?: boolean;
+}): number {
+  const prefMult = PREFERENCE_BOND_MULTIPLIER[input.preference];
+  const needMult = input.needBoosted ? NEED_BOOST_MULTIPLIER : 1;
+  return input.baseline * prefMult * needMult;
 }
 
 /** Round a cooldown to a compact label like "12s" / "1m" / "1h". */

@@ -243,6 +243,46 @@ export function journalLineForAction(
   return pool[idx] ?? pool[0];
 }
 
+/**
+ * [SWO_V2_SANCTUARY_PREFERENCE_PROFILE]
+ *
+ * Cozy journal line revealing a Skrumpey's preference for an action. Only
+ * surfaces once the matched-interaction count has crossed
+ * `PREFERENCE_CLUE_REVEAL_N` (see `preferences.ts`) — before that the caller
+ * should pass null/undefined or skip rendering entirely.
+ *
+ * Returns null when the level is `neutral` (nothing interesting to reveal)
+ * or unknown, so the caller doesn't render an empty clue card.
+ */
+export function preferenceClueLine(
+  name: string,
+  action: CozyAction,
+  level: 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated' | null | undefined,
+): string | null {
+  if (!level || level === 'neutral') return null;
+  const verb = ACTION_VERB[action];
+  switch (level) {
+    case 'loved':
+      return `${name} positively glows whenever you ${verb}. It's clearly a favorite.`;
+    case 'liked':
+      return `${name} brightens up a little each time you ${verb}.`;
+    case 'disliked':
+      return `${name} just isn't into it when you ${verb}.`;
+    case 'hated':
+      return `${name} flinches whenever you ${verb}. Maybe try something else?`;
+    default:
+      return null;
+  }
+}
+
+const ACTION_VERB: Readonly<Record<CozyAction, string>> = Object.freeze({
+  feed: 'offer a snack',
+  pet: 'reach out for a scritch',
+  talk: 'sit down for a chat',
+  play: 'start a game',
+  sleep: 'tuck them in',
+});
+
 // ---------------------------------------------------------------------------
 // internal helpers (no exports below this line are part of the public API)
 // ---------------------------------------------------------------------------

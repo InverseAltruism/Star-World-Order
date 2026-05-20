@@ -5,6 +5,8 @@ import {
   resolveCompanionActionState,
   companionActionVariantClasses,
   formatCooldownBadge,
+  companionActionPreferenceBadge,
+  previewBondDelta,
   COMPANION_ACTIONS,
   type CompanionActionId,
   type CompanionActionState,
@@ -170,6 +172,43 @@ describe('formatCooldownBadge', () => {
     expect(formatCooldownBadge(3599)).toBe('59m');
     expect(formatCooldownBadge(3600)).toBe('1h');
     expect(formatCooldownBadge(7200)).toBe('2h');
+  });
+});
+
+describe('companionActionPreferenceBadge', () => {
+  it('returns a distinct glyph for loved/liked/disliked/hated', () => {
+    const loved = companionActionPreferenceBadge('loved');
+    const liked = companionActionPreferenceBadge('liked');
+    const disliked = companionActionPreferenceBadge('disliked');
+    const hated = companionActionPreferenceBadge('hated');
+    const set = new Set([loved, liked, disliked, hated]);
+    expect(set.size).toBe(4);
+    expect(loved.length).toBeGreaterThan(0);
+    expect(hated.length).toBeGreaterThan(0);
+  });
+
+  it('returns empty string for neutral / null / undefined', () => {
+    expect(companionActionPreferenceBadge('neutral')).toBe('');
+    expect(companionActionPreferenceBadge(null)).toBe('');
+    expect(companionActionPreferenceBadge(undefined)).toBe('');
+  });
+});
+
+describe('previewBondDelta', () => {
+  it('loved preview is 4× neutral preview at same baseline', () => {
+    const neutral = previewBondDelta({ baseline: 0.5, preference: 'neutral' });
+    const loved = previewBondDelta({ baseline: 0.5, preference: 'loved' });
+    expect(loved).toBeCloseTo(neutral * 4);
+  });
+
+  it('hated preview is negative', () => {
+    expect(previewBondDelta({ baseline: 0.5, preference: 'hated' })).toBeLessThan(0);
+  });
+
+  it('need-boost stacks multiplicatively', () => {
+    const flat = previewBondDelta({ baseline: 0.5, preference: 'loved' });
+    const boosted = previewBondDelta({ baseline: 0.5, preference: 'loved', needBoosted: true });
+    expect(boosted).toBeGreaterThan(flat);
   });
 });
 

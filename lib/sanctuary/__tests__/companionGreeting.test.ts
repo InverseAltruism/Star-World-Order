@@ -5,10 +5,12 @@ import {
   greetingForMood,
   journalLineForAction,
   lastVisitedPhrase,
+  preferenceClueLine,
   timeOfDayPrefix,
   type CozyAction,
   type CozyMood,
 } from '../companionGreeting';
+import { PREFERENCE_CLUE_REVEAL_N, preferenceClueRevealed } from '../preferences';
 
 describe('greetingForMood', () => {
   it('substitutes the companion name into the line', () => {
@@ -235,5 +237,42 @@ describe('journalLineForAction', () => {
     expect(() => journalLineForAction('pet', '', 99)).not.toThrow();
     const line = journalLineForAction('pet', '', -7);
     expect(line.length).toBeGreaterThan(0);
+  });
+});
+
+describe('preferenceClueLine — journal reveal copy', () => {
+  it('returns null for neutral / null / undefined preference', () => {
+    expect(preferenceClueLine('Pico', 'feed', 'neutral')).toBeNull();
+    expect(preferenceClueLine('Pico', 'feed', null)).toBeNull();
+    expect(preferenceClueLine('Pico', 'feed', undefined)).toBeNull();
+  });
+
+  it('writes the companion name into every revealed clue', () => {
+    for (const action of ['feed', 'pet', 'talk', 'play', 'sleep'] as CozyAction[]) {
+      for (const level of ['loved', 'liked', 'disliked', 'hated'] as const) {
+        const line = preferenceClueLine('Pico', action, level);
+        expect(line).not.toBeNull();
+        expect(line!).toContain('Pico');
+      }
+    }
+  });
+
+  it('hated clue reads negatively (acceptance c surface)', () => {
+    const line = preferenceClueLine('Pico', 'feed', 'hated');
+    expect(line).toMatch(/flinch|something else|don't|doesn't|not into/i);
+  });
+
+  it('loved clue reads positively', () => {
+    const line = preferenceClueLine('Pico', 'feed', 'loved');
+    expect(line).toMatch(/glow|favorite|love|positively/i);
+  });
+
+  it('integrates with preferenceClueRevealed gating (acceptance d)', () => {
+    // N-1 interactions: gate says "do not surface"; UI should pass null.
+    expect(preferenceClueRevealed(PREFERENCE_CLUE_REVEAL_N - 1)).toBe(false);
+    // N interactions: gate opens; clue renders.
+    expect(preferenceClueRevealed(PREFERENCE_CLUE_REVEAL_N)).toBe(true);
+    const revealedLine = preferenceClueLine('Pico', 'pet', 'loved');
+    expect(revealedLine).not.toBeNull();
   });
 });
