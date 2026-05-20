@@ -19,6 +19,9 @@ const LIMITS: Record<string, RateLimitConfig> = {
   'minigame/score': { maxRequests: 30, windowSeconds: 60 },
   'shop/buy': { maxRequests: 20, windowSeconds: 60 },
   'inventory/equip': { maxRequests: 30, windowSeconds: 60 },
+  'expeditions/start': { maxRequests: 10, windowSeconds: 60 },
+  'expeditions/choose': { maxRequests: 30, windowSeconds: 60 },
+  'expeditions/abandon': { maxRequests: 10, windowSeconds: 60 },
 };
 
 let cleanupCounter = 0;

@@ -23,6 +23,23 @@ import {
 } from './sanctuary/companionStats';
 import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
 import { journalLineForAction } from './sanctuary/companionGreeting';
+import {
+  abandonExpedition,
+  chooseExpeditionPath,
+  getExpeditionRewards,
+  startExpedition,
+  type ExpeditionDefinition,
+  type ExpeditionHistoryEntry,
+  type ExpeditionState,
+  type ExpeditionStatus,
+  type ExpeditionOutcome,
+} from './sanctuary/expeditions';
+import {
+  EXPEDITION_TIERS,
+  getExpeditionCatalog,
+  getExpeditionCatalogEntry,
+  type ExpeditionTier,
+} from './sanctuary/expeditionDefs';
 
 // Database path - stored in the repo's data directory
 const DB_PATH = process.env.DATABASE_URL?.replace('file:', '') || 
@@ -45,6 +62,15 @@ export function getDatabase(): Database.Database {
     initializeDatabase(db);
   }
   return db;
+}
+
+/**
+ * Test-only escape hatch: replace the singleton DB handle with an in-memory
+ * one. Lets unit tests exercise db-helper transactions against fresh schemas
+ * without touching the real swo.db on disk.
+ */
+export function __setTestDatabase(testDb: Database.Database | null): void {
+  db = testDb;
 }
 
 /**
@@ -5843,6 +5869,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v25Path, 'utf-8');
     database.exec(sql);
   }
+  const v26Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.6.sql');
+  if (fs.existsSync(v26Path)) {
+    const sql = fs.readFileSync(v26Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -7117,20 +7148,9 @@ export function getActiveExpeditionRun(_walletAddress: string) {
   return null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function getExpeditionHistory(_walletAddress: string) {
-  return [];
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function startExpedition(_walletAddress: string, _tokenId: number, _expeditionId: number): Record<string, unknown> {
-  throw new Error('Expeditions not yet implemented');
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function completeExpedition(_walletAddress: string, _tokenId: number): Record<string, unknown> | null {
-  return null;
-}
+// Legacy stubs removed in V2.6 — see startExpeditionRun / chooseExpeditionStep
+// below for the real expedition lifecycle. Old callers (none in tree at the
+// time of this PR) should migrate to the new helpers.
 
 export function getPublicActivityFeed(limit: number, before?: string) {
   const db = getDatabase();
@@ -8347,4 +8367,331 @@ export function equipCosmetic(
   ).run(JSON.stringify(equipped), companion.id);
 
   return { token_id: tokenId, equipped_cosmetics: equipped };
+}
+
+// ---------------------------------------------------------------------------
+// Expeditions (V2.6) — see [SWO_V2_SANCTUARY_EXPEDITIONS_DB_API]
+// ---------------------------------------------------------------------------
+
+export interface SanctuaryExpeditionRow {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  expedition_id: string;
+  star_cost: number;
+  started_at: string;
+  ended_at: string | null;
+  outcome: ExpeditionOutcome | null;
+  status: ExpeditionStatus;
+}
+
+export interface SanctuaryExpeditionProgressRow {
+  expedition_row_id: number;
+  current_step_id: string | null;
+  choices_jsonb: string;
+  updated_at: string;
+}
+
+export interface ExpeditionListing {
+  tier: ExpeditionTier;
+  star_cost: number;
+  id: string;
+  title: string;
+  description: string;
+  npcSource: string;
+  rewards: ExpeditionDefinition['rewards'];
+  /** True when the holder has an active run for this expedition. */
+  active_row_id: number | null;
+}
+
+export interface ExpeditionRunView {
+  row: SanctuaryExpeditionRow;
+  state: ExpeditionState;
+  definition: ExpeditionDefinition;
+}
+
+function parseHistory(json: string): ExpeditionHistoryEntry[] {
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) return parsed as ExpeditionHistoryEntry[];
+  } catch {
+    /* fall through */
+  }
+  return [];
+}
+
+function rowToState(
+  row: SanctuaryExpeditionRow,
+  progress: SanctuaryExpeditionProgressRow | undefined,
+): ExpeditionState {
+  return {
+    expeditionId: row.expedition_id,
+    currentStepId: progress?.current_step_id ?? null,
+    status: row.status,
+    history: progress ? parseHistory(progress.choices_jsonb) : [],
+    finalOutcome: row.outcome ?? undefined,
+  };
+}
+
+export function listExpeditions(walletAddress: string, tokenId: number): {
+  tiers: typeof EXPEDITION_TIERS;
+  expeditions: ExpeditionListing[];
+} {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const catalog = getExpeditionCatalog();
+
+  const active = db.prepare(
+    "SELECT id, expedition_id FROM sanctuary_expeditions WHERE wallet_address = ? AND token_id = ? AND status = 'active'"
+  ).all(addr, tokenId) as Array<{ id: number; expedition_id: string }>;
+  const activeById = new Map(active.map((a) => [a.expedition_id, a.id]));
+
+  return {
+    tiers: EXPEDITION_TIERS,
+    expeditions: catalog.map((entry) => ({
+      tier: entry.tier,
+      star_cost: entry.star_cost,
+      id: entry.definition.id,
+      title: entry.definition.title,
+      description: entry.definition.description,
+      npcSource: entry.definition.npcSource,
+      rewards: entry.definition.rewards,
+      active_row_id: activeById.get(entry.definition.id) ?? null,
+    })),
+  };
+}
+
+/**
+ * Start a new expedition run for (wallet, token). Deducts the seed-declared
+ * `star_cost` atomically; on insufficient balance the run is not created.
+ * Returns the new run plus the reducer state primed on the start step.
+ */
+export function startExpeditionRun(
+  walletAddress: string,
+  tokenId: number,
+  expeditionId: string,
+): ExpeditionRunView {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const entry = getExpeditionCatalogEntry(expeditionId);
+  if (!entry) throw new Error('EXPEDITION_NOT_FOUND');
+
+  const txn = db.transaction(() => {
+    const existing = db.prepare(
+      "SELECT id FROM sanctuary_expeditions WHERE wallet_address = ? AND token_id = ? AND expedition_id = ? AND status = 'active'"
+    ).get(addr, tokenId, expeditionId) as { id: number } | undefined;
+    if (existing) throw new Error('ALREADY_ACTIVE');
+
+    if (entry.star_cost > 0) {
+      // Inline spend to keep ledger consistent with run id.
+      const balRow = db.prepare(
+        'SELECT balance, lifetime_earned FROM sanctuary_star_balance WHERE wallet_address = ?'
+      ).get(addr) as { balance: number; lifetime_earned: number } | undefined;
+      const cur = balRow?.balance ?? 0;
+      if (cur < entry.star_cost) throw new Error('Insufficient STAR balance');
+      const newBal = cur - entry.star_cost;
+      if (balRow) {
+        db.prepare(
+          'UPDATE sanctuary_star_balance SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?'
+        ).run(newBal, addr);
+      } else {
+        db.prepare(
+          'INSERT INTO sanctuary_star_balance (wallet_address, balance, lifetime_earned) VALUES (?, ?, ?)'
+        ).run(addr, newBal, 0);
+      }
+      db.prepare(
+        'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
+      ).run(addr, -entry.star_cost, 'spend', `expedition:${expeditionId}`, newBal);
+    }
+
+    const state = startExpedition(entry.definition);
+    const result = db.prepare(
+      "INSERT INTO sanctuary_expeditions (wallet_address, token_id, expedition_id, star_cost, status) VALUES (?, ?, ?, ?, 'active')"
+    ).run(addr, tokenId, expeditionId, entry.star_cost);
+    const rowId = Number(result.lastInsertRowid);
+    db.prepare(
+      'INSERT INTO sanctuary_expedition_progress (expedition_row_id, current_step_id, choices_jsonb) VALUES (?, ?, ?)'
+    ).run(rowId, state.currentStepId, JSON.stringify(state.history));
+
+    const row = db.prepare('SELECT * FROM sanctuary_expeditions WHERE id = ?').get(rowId) as SanctuaryExpeditionRow;
+    return { row, state, definition: entry.definition };
+  });
+
+  return txn();
+}
+
+export function getExpeditionRun(
+  walletAddress: string,
+  tokenId: number,
+  rowId: number,
+): ExpeditionRunView | null {
+  const db = getDatabase();
+  const row = db.prepare(
+    'SELECT * FROM sanctuary_expeditions WHERE id = ? AND wallet_address = ? AND token_id = ?'
+  ).get(rowId, walletAddress.toLowerCase(), tokenId) as SanctuaryExpeditionRow | undefined;
+  if (!row) return null;
+
+  const entry = getExpeditionCatalogEntry(row.expedition_id);
+  if (!entry) return null;
+  const progress = db.prepare(
+    'SELECT * FROM sanctuary_expedition_progress WHERE expedition_row_id = ?'
+  ).get(rowId) as SanctuaryExpeditionProgressRow | undefined;
+
+  return { row, state: rowToState(row, progress), definition: entry.definition };
+}
+
+/**
+ * Apply a choice to the current step of a run. On a terminal step this also
+ * settles rewards: success grants STAR + bond + trait, partial/failure grant
+ * the scaled subset per {@link EXPEDITION_OUTCOME_REWARD_SCALE}.
+ */
+export function chooseExpeditionStep(
+  walletAddress: string,
+  tokenId: number,
+  rowId: number,
+  choiceId: string,
+): ExpeditionRunView & {
+  rewards: { xp: number; bond: number; trait: string | null; starGained: number };
+} {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const row = db.prepare(
+      'SELECT * FROM sanctuary_expeditions WHERE id = ? AND wallet_address = ? AND token_id = ?'
+    ).get(rowId, addr, tokenId) as SanctuaryExpeditionRow | undefined;
+    if (!row) throw new Error('NOT_FOUND');
+    if (row.status !== 'active') throw new Error('NOT_ACTIVE');
+
+    const entry = getExpeditionCatalogEntry(row.expedition_id);
+    if (!entry) throw new Error('EXPEDITION_NOT_FOUND');
+
+    const progress = db.prepare(
+      'SELECT * FROM sanctuary_expedition_progress WHERE expedition_row_id = ?'
+    ).get(rowId) as SanctuaryExpeditionProgressRow | undefined;
+    const state = rowToState(row, progress);
+    const nextState = chooseExpeditionPath(state, entry.definition, choiceId);
+
+    db.prepare(
+      'UPDATE sanctuary_expedition_progress SET current_step_id = ?, choices_jsonb = ?, updated_at = CURRENT_TIMESTAMP WHERE expedition_row_id = ?'
+    ).run(nextState.currentStepId, JSON.stringify(nextState.history), rowId);
+
+    let rewards = { xp: 0, bond: 0, trait: null as string | null, starGained: 0 };
+
+    if (nextState.status === 'completed' && nextState.finalOutcome) {
+      const def = entry.definition;
+      const computed = getExpeditionRewards(nextState, def);
+      const starGained = Math.max(0, Math.round(computed.xp / 4));
+      rewards = {
+        xp: computed.xp,
+        bond: computed.bond,
+        trait: computed.trait ?? null,
+        starGained,
+      };
+
+      db.prepare(
+        "UPDATE sanctuary_expeditions SET status = 'completed', ended_at = CURRENT_TIMESTAMP, outcome = ? WHERE id = ?"
+      ).run(nextState.finalOutcome, rowId);
+
+      if (computed.xp > 0) {
+        try { addUserXP(addr, computed.xp); } catch { /* user_xp may not be wired for tests */ }
+      }
+      if (computed.bond > 0) {
+        db.prepare(
+          'UPDATE sanctuary_companions SET bond_score = MIN(bond_score + ?, 100.0), updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND token_id = ?'
+        ).run(computed.bond, addr, tokenId);
+      }
+      if (computed.trait) {
+        const traitName = computed.trait;
+        const existing = db.prepare(
+          'SELECT id FROM sanctuary_traits WHERE wallet_address = ? AND token_id = ? AND trait_name = ?'
+        ).get(addr, tokenId, traitName) as { id: number } | undefined;
+        if (existing) {
+          db.prepare(
+            'UPDATE sanctuary_traits SET unlocked = 1, progress = 1, unlocked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+          ).run(existing.id);
+        } else {
+          db.prepare(
+            "INSERT INTO sanctuary_traits (wallet_address, token_id, trait_name, trait_category, progress, unlocked, unlocked_at) VALUES (?, ?, ?, 'special', 1, 1, CURRENT_TIMESTAMP)"
+          ).run(addr, tokenId, traitName);
+        }
+      }
+      if (starGained > 0) {
+        const balRow = db.prepare(
+          'SELECT balance, lifetime_earned FROM sanctuary_star_balance WHERE wallet_address = ?'
+        ).get(addr) as { balance: number; lifetime_earned: number } | undefined;
+        const newBalance = (balRow?.balance ?? 0) + starGained;
+        const newLifetime = (balRow?.lifetime_earned ?? 0) + starGained;
+        if (balRow) {
+          db.prepare(
+            'UPDATE sanctuary_star_balance SET balance = ?, lifetime_earned = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?'
+          ).run(newBalance, newLifetime, addr);
+        } else {
+          db.prepare(
+            'INSERT INTO sanctuary_star_balance (wallet_address, balance, lifetime_earned) VALUES (?, ?, ?)'
+          ).run(addr, newBalance, newLifetime);
+        }
+        db.prepare(
+          'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
+        ).run(addr, starGained, 'earn', `expedition:${row.expedition_id}:${nextState.finalOutcome}`, newBalance);
+      }
+
+      try {
+        addJournalEntry(
+          addr, tokenId, 'quest',
+          `Expedition "${def.title}" — ${nextState.finalOutcome}`,
+          JSON.stringify({ expedition_id: def.id, outcome: nextState.finalOutcome, ...rewards }),
+        );
+      } catch { /* journal optional in tests */ }
+    }
+
+    const updatedRow = db.prepare('SELECT * FROM sanctuary_expeditions WHERE id = ?').get(rowId) as SanctuaryExpeditionRow;
+    return { row: updatedRow, state: nextState, definition: entry.definition, rewards };
+  });
+
+  return txn();
+}
+
+/**
+ * Abandon an active run. Idempotent on already-ended rows: returns the
+ * existing state unchanged rather than re-stamping.
+ */
+export function abandonExpeditionRun(
+  walletAddress: string,
+  tokenId: number,
+  rowId: number,
+): ExpeditionRunView {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const txn = db.transaction(() => {
+    const row = db.prepare(
+      'SELECT * FROM sanctuary_expeditions WHERE id = ? AND wallet_address = ? AND token_id = ?'
+    ).get(rowId, addr, tokenId) as SanctuaryExpeditionRow | undefined;
+    if (!row) throw new Error('NOT_FOUND');
+
+    const entry = getExpeditionCatalogEntry(row.expedition_id);
+    if (!entry) throw new Error('EXPEDITION_NOT_FOUND');
+
+    const progress = db.prepare(
+      'SELECT * FROM sanctuary_expedition_progress WHERE expedition_row_id = ?'
+    ).get(rowId) as SanctuaryExpeditionProgressRow | undefined;
+    const state = rowToState(row, progress);
+    if (state.status !== 'active') {
+      return { row, state, definition: entry.definition };
+    }
+
+    const nextState = abandonExpedition(state);
+    db.prepare(
+      "UPDATE sanctuary_expeditions SET status = 'abandoned', ended_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).run(rowId);
+    db.prepare(
+      'UPDATE sanctuary_expedition_progress SET current_step_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE expedition_row_id = ?'
+    ).run(rowId);
+
+    const updatedRow = db.prepare('SELECT * FROM sanctuary_expeditions WHERE id = ?').get(rowId) as SanctuaryExpeditionRow;
+    return { row: updatedRow, state: nextState, definition: entry.definition };
+  });
+
+  return txn();
 }
