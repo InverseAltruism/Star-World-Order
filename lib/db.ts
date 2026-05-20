@@ -21,6 +21,13 @@ import {
   toSqlDate,
   type CompanionStatAction,
 } from './sanctuary/companionStats';
+import {
+  applyTiredBondMultiplier,
+  classifySleepTransition,
+  computeDreamReward,
+  computeEarlyWakeOutcome,
+  isCompanionTired,
+} from './sanctuary/sleepDynamics';
 import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
 import { journalLineForAction } from './sanctuary/companionGreeting';
 import {
@@ -5763,6 +5770,9 @@ export interface SanctuaryCompanion {
   // wall-clock decay. `decayStats(companion, now)` projects forward from
   // this timestamp; `tickStats` writes the projection back and bumps it.
   stats_updated_at: string | null;
+  // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — last full sleep cycle completion.
+  // 24h+ without a full cycle marks the companion `Tired` (half bond gains).
+  last_full_sleep_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -5902,6 +5912,13 @@ function initializeSanctuary(database: Database.Database): void {
   try {
     database.exec('ALTER TABLE sanctuary_companions ADD COLUMN stats_updated_at DATETIME');
     database.exec('UPDATE sanctuary_companions SET stats_updated_at = CURRENT_TIMESTAMP WHERE stats_updated_at IS NULL');
+  } catch { /* column already exists */ }
+  // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS]: track last full sleep cycle for Tired gate.
+  // Backfilled to created_at so existing companions are not retroactively Tired
+  // (they get their first 24h window from the moment we deploy this column).
+  try {
+    database.exec('ALTER TABLE sanctuary_companions ADD COLUMN last_full_sleep_at DATETIME');
+    database.exec('UPDATE sanctuary_companions SET last_full_sleep_at = COALESCE(created_at, CURRENT_TIMESTAMP) WHERE last_full_sleep_at IS NULL');
   } catch { /* column already exists */ }
   const rateLimitPath = path.join(process.cwd(), 'scripts', 'init-sanctuary-rate-limits.sql');
   if (fs.existsSync(rateLimitPath)) {
@@ -6195,12 +6212,34 @@ export function interactWithCompanion(
     );
 
     const starBonus = options?.isStar ?? false;
-    const bondGain = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+    const baseBond = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+    // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — Tired halves non-sleep bond gains.
+    const tired = isCompanionTired(comp.last_full_sleep_at, now);
+    let bondGain = applyTiredBondMultiplier(baseBond, action, tired);
     const xpGain = Math.round(INTERACTION_XP[action] * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
+
+    // Classify the sleep-state delta this action produced and apply the
+    // dream-reward / early-wake economy on top of the baseline bond gain.
+    const transition = classifySleepTransition({
+      wasSleeping: comp.is_sleeping === 1,
+      nowSleeping: stats.is_sleeping === 1,
+      action,
+    });
+    let dreamStarGained = 0;
+    let nextLastFullSleep: string | null = comp.last_full_sleep_at ?? null;
+    if (transition === 'full_cycle') {
+      const reward = computeDreamReward({ starBonus });
+      bondGain += reward.bond;
+      dreamStarGained = reward.star;
+      nextLastFullSleep = toSqlDate(now);
+    } else if (transition === 'early_wake') {
+      const outcome = computeEarlyWakeOutcome();
+      bondGain += outcome.bondDelta;
+    }
 
     db.prepare(`
       UPDATE sanctuary_companions
-      SET bond_score = MIN(bond_score + ?, 100.0),
+      SET bond_score = MAX(MIN(bond_score + ?, 100.0), 0.0),
           total_interactions = total_interactions + 1,
           hunger = ?,
           happiness = ?,
@@ -6208,6 +6247,7 @@ export function interactWithCompanion(
           is_sleeping = ?,
           sleep_started_at = ?,
           stats_updated_at = ?,
+          last_full_sleep_at = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
@@ -6218,10 +6258,18 @@ export function interactWithCompanion(
       stats.is_sleeping,
       stats.sleep_started_at,
       toSqlDate(now),
+      nextLastFullSleep,
       comp.id,
     );
 
     if (xpGain > 0) addUserXP(addr, xpGain);
+
+    // Dream reward STAR mints inside the same txn — the savepoint nesting in
+    // better-sqlite3 keeps the journal entry, bond bump, and STAR ledger row
+    // atomic with the interaction.
+    if (transition === 'full_cycle' && dreamStarGained > 0) {
+      earnStar(addr, 'dream', dreamStarGained, `token:${tokenId}`);
+    }
 
     const bonusTag = starBonus ? ' (Star Bonus!)' : '';
     // Seed the variety pool with the action itself — the live trait-mood is
@@ -6233,7 +6281,25 @@ export function interactWithCompanion(
         action, bond: bondGain, xp: xpGain, starBonus,
         hunger: stats.hunger, happiness: stats.happiness, energy: stats.energy,
         is_sleeping: stats.is_sleeping, woke_up: stats.woke_up,
+        tired, sleep_transition: transition,
       }));
+
+    // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — annotate the journal with a
+    // dedicated entry for dream rewards / early-wake penalties so the UI
+    // surface (and Acceptance #2/#3) can render them distinctly.
+    if (transition === 'full_cycle') {
+      addJournalEntry(
+        addr, tokenId, 'sleep_dynamics',
+        `Drifted through a full dream cycle — felt rested and recharged. +${dreamStarGained} STAR, +1 Bond.`,
+        JSON.stringify({ transition, star: dreamStarGained, bond: 1 }),
+      );
+    } else if (transition === 'early_wake') {
+      addJournalEntry(
+        addr, tokenId, 'sleep_dynamics',
+        'Roused mid-dream. They blinked, a little wobbly, and the bond felt thinner. −2 Bond.',
+        JSON.stringify({ transition, bondDelta: -2 }),
+      );
+    }
 
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
@@ -7945,7 +8011,8 @@ export type StarEarnSource =
   | 'minigame_first'
   | 'daily_login'
   | 'activity'
-  | 'levelup';
+  | 'levelup'
+  | 'dream';
 
 // Earn-rate guardrails. Earn endpoint clamps the requested amount into the
 // `[min, max]` band for its source so a single misbehaving caller cannot
@@ -7956,6 +8023,9 @@ export const STAR_EARN_RATES: Record<StarEarnSource, { min: number; max: number 
   daily_login: { min: 5, max: 5 },
   activity: { min: 5, max: 20 },
   levelup: { min: 50, max: 50 },
+  // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — non-zero floor for the dream reward.
+  // Baseline 1 STAR; Star-holder boost may request up to 3.
+  dream: { min: 1, max: 3 },
 };
 
 export function getStarBalance(walletAddress: string): SanctuaryStarBalance {

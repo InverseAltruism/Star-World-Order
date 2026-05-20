@@ -8,6 +8,7 @@ import {
   NEED_BOOST_MULTIPLIER,
   type PreferenceLevel,
 } from './preferences';
+import { TIRED_BOND_MULTIPLIER } from './sleepDynamics';
 
 export type CompanionActionId = 'feed' | 'pet' | 'talk' | 'sleep' | 'play';
 
@@ -182,21 +183,28 @@ export function companionActionPreferenceBadge(
 }
 
 /**
- * [SWO_V2_SANCTUARY_PREFERENCE_PROFILE]
+ * [SWO_V2_SANCTUARY_PREFERENCE_PROFILE] + [SWO_V2_SANCTUARY_SLEEP_DYNAMICS]
  *
  * Compute the bond-delta preview the UI shows when hovering an action
- * tile. Combines the action's baseline bond gain with the preference and
- * need-state multipliers. Returns a number — formatting (sign, rounding) is
- * left to the consuming component.
+ * tile. Combines the action's baseline bond gain with the preference,
+ * need-state, and Tired multipliers. The Tired multiplier matches the
+ * server-side bond computation in `interactWithCompanion` so the previewed
+ * number tracks what the user will actually receive. Returns a number —
+ * formatting (sign, rounding) is left to the consuming component.
  */
 export function previewBondDelta(input: {
   baseline: number;
   preference: PreferenceLevel;
   needBoosted?: boolean;
+  isTired?: boolean;
+  action?: CompanionActionId;
 }): number {
   const prefMult = PREFERENCE_BOND_MULTIPLIER[input.preference];
   const needMult = input.needBoosted ? NEED_BOOST_MULTIPLIER : 1;
-  return input.baseline * prefMult * needMult;
+  // Sleep action is never penalised by Tired (mirrors sleepDynamics.ts).
+  const tiredMult =
+    input.isTired && input.action !== 'sleep' ? TIRED_BOND_MULTIPLIER : 1;
+  return input.baseline * prefMult * needMult * tiredMult;
 }
 
 /** Round a cooldown to a compact label like "12s" / "1m" / "1h". */

@@ -210,6 +210,28 @@ describe('previewBondDelta', () => {
     const boosted = previewBondDelta({ baseline: 0.5, preference: 'loved', needBoosted: true });
     expect(boosted).toBeGreaterThan(flat);
   });
+
+  it('Tired halves non-sleep bond preview (matches server-side gate)', () => {
+    const fresh = previewBondDelta({ baseline: 0.5, preference: 'neutral', action: 'feed' });
+    const tired = previewBondDelta({
+      baseline: 0.5,
+      preference: 'neutral',
+      action: 'feed',
+      isTired: true,
+    });
+    expect(tired).toBeCloseTo(fresh * 0.5);
+  });
+
+  it('Tired does NOT halve the sleep action (matches sleepDynamics gate)', () => {
+    const fresh = previewBondDelta({ baseline: 0.5, preference: 'neutral', action: 'sleep' });
+    const tired = previewBondDelta({
+      baseline: 0.5,
+      preference: 'neutral',
+      action: 'sleep',
+      isTired: true,
+    });
+    expect(tired).toBe(fresh);
+  });
 });
 
 describe('resolveCompanionActionState — error path', () => {
