@@ -1,0 +1,64 @@
+{
+  "$comment": "Sanctuary expedition seed — medium tier. Heavier choices, partial-failure paths reachable, modest STAR cost.",
+  "tier": "medium",
+  "expeditions": [
+    {
+      "id": "exp-medium-observatory-eclipse",
+      "title": "Eclipse Watch",
+      "description": "Astris needs help logging an eclipse. Two readings have to be taken at the right moment or the data is lost.",
+      "npcSource": "observatory",
+      "startStepId": "eclipse-arrive",
+      "star_cost": 15,
+      "rewards": {
+        "xp": 60,
+        "bond": 4.0,
+        "trait": "Eclipse Scribe"
+      },
+      "steps": [
+        {
+          "id": "eclipse-arrive",
+          "narrative": "Astris hands you a logbook. \"Stand by the smaller scope. When I call totality, write what you see.\"",
+          "choices": [
+            {
+              "id": "ready-pen",
+              "label": "Ready your pen and watch the sky.",
+              "nextStepId": "eclipse-totality",
+              "tone": "diligent"
+            },
+            {
+              "id": "ready-stopwatch",
+              "label": "Pull out a stopwatch first.",
+              "nextStepId": "eclipse-totality",
+              "tone": "methodical"
+            }
+          ]
+        },
+        {
+          "id": "eclipse-totality",
+          "narrative": "The disc darkens. Astris's voice cracks — \"Now!\" — and the corona blooms.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "write-fast",
+              "label": "Capture the corona description in full sentences.",
+              "outcome": "success",
+              "tone": "skilled"
+            },
+            {
+              "id": "write-bullets",
+              "label": "Scribble bullet points — speed over detail.",
+              "outcome": "partial",
+              "tone": "pragmatic"
+            },
+            {
+              "id": "freeze",
+              "label": "Stare at the corona, forgetting to write.",
+              "outcome": "failure",
+              "tone": "rattled"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
