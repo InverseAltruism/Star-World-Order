@@ -33,7 +33,15 @@ export default defineConfig({
         test: {
           name: 'default',
           environment: 'node',
-          include: ['**/*.test.ts', '**/*.spec.ts'],
+          include: [
+            '**/*.test.ts',
+            '**/*.spec.ts',
+            // `.tsx` is opt-in per-suite via the `@vitest-environment` header
+            // (happy-dom for component tests). The default project still
+            // defaults to `node` — only the suites that need DOM ask for it.
+            'components/sanctuary/**/*.test.tsx',
+            'components/sanctuary/**/*.spec.tsx',
+          ],
           exclude: [
             'node_modules',
             '.next',
