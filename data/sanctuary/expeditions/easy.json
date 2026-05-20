@@ -1,0 +1,58 @@
+{
+  "$comment": "Sanctuary expedition seed — easy tier. Loaded by app/api/sanctuary/expeditions/start/route.ts. Each entry conforms to ExpeditionDefinition in lib/sanctuary/expeditions.ts with an extra `star_cost` field for the persistence layer.",
+  "tier": "easy",
+  "expeditions": [
+    {
+      "id": "exp-easy-meadow-walk",
+      "title": "Meadow Walk",
+      "description": "A short stroll through the Stellar Meadow with your Skrumpey. Nothing dangerous, just good company.",
+      "npcSource": "meadow",
+      "startStepId": "meadow-start",
+      "star_cost": 5,
+      "rewards": {
+        "xp": 20,
+        "bond": 2.0,
+        "trait": "Wanderer"
+      },
+      "steps": [
+        {
+          "id": "meadow-start",
+          "narrative": "The Stellar Meadow is in full bloom. Your Skrumpey tugs your sleeve and points down two trails.",
+          "choices": [
+            {
+              "id": "trail-flowers",
+              "label": "Follow the flower trail.",
+              "nextStepId": "meadow-final",
+              "tone": "gentle"
+            },
+            {
+              "id": "trail-stream",
+              "label": "Follow the stream trail.",
+              "nextStepId": "meadow-final",
+              "tone": "curious"
+            }
+          ]
+        },
+        {
+          "id": "meadow-final",
+          "narrative": "The trail loops back and the sun is warm. Your companion is humming.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "rest-share",
+              "label": "Sit and share the snack you brought.",
+              "outcome": "success",
+              "tone": "warm"
+            },
+            {
+              "id": "rest-quick",
+              "label": "Head home — there's still time for chores.",
+              "outcome": "partial",
+              "tone": "brisk"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

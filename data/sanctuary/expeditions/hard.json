@@ -1,0 +1,113 @@
+{
+  "$comment": "Sanctuary expedition seed — hard tier. Branching with at least one risky/failure path; pays a Legendary trait on success.",
+  "tier": "hard",
+  "expeditions": [
+    {
+      "id": "exp-hard-forge-emberheart",
+      "title": "Emberheart Trial",
+      "description": "Pyrix is attempting a once-a-season Emberheart pour. One mistake collapses the forge for the night.",
+      "npcSource": "forge",
+      "startStepId": "ember-arrive",
+      "star_cost": 30,
+      "rewards": {
+        "xp": 150,
+        "bond": 8.0,
+        "trait": "Emberheart"
+      },
+      "steps": [
+        {
+          "id": "ember-arrive",
+          "narrative": "The forge is a furnace. Pyrix gestures: \"Bellows, hammer, or quench. Pick fast — the alloy is ready.\"",
+          "choices": [
+            {
+              "id": "take-bellows",
+              "label": "\"Bellows. I can keep the rhythm.\"",
+              "nextStepId": "ember-bellows",
+              "tone": "rhythm"
+            },
+            {
+              "id": "take-hammer",
+              "label": "\"Hammer. I'll strike where you point.\"",
+              "nextStepId": "ember-hammer",
+              "tone": "brave"
+            },
+            {
+              "id": "take-quench",
+              "label": "\"Quench. I'll dunk on your call.\"",
+              "nextStepId": "ember-risky",
+              "tone": "risky"
+            }
+          ]
+        },
+        {
+          "id": "ember-bellows",
+          "narrative": "You pump steady, hard. The metal sings.",
+          "choices": [
+            {
+              "id": "bellows-pour",
+              "label": "Hold the rhythm to the final pour.",
+              "nextStepId": "ember-final",
+              "tone": "patient"
+            }
+          ]
+        },
+        {
+          "id": "ember-hammer",
+          "narrative": "Three measured strikes. The alloy responds — you hear the note.",
+          "choices": [
+            {
+              "id": "hammer-pour",
+              "label": "Step back and let Pyrix pour.",
+              "nextStepId": "ember-final",
+              "tone": "trusting"
+            }
+          ]
+        },
+        {
+          "id": "ember-risky",
+          "narrative": "The quench bucket is heavy. Pyrix shouts the timing — you have one beat.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "risky-dunk-perfect",
+              "label": "Dunk on the exact beat.",
+              "outcome": "success",
+              "tone": "decisive"
+            },
+            {
+              "id": "risky-dunk-late",
+              "label": "Hesitate — make sure of the angle.",
+              "outcome": "partial",
+              "tone": "cautious"
+            },
+            {
+              "id": "risky-dunk-early",
+              "label": "Dunk early — the alloy looked ready.",
+              "outcome": "failure",
+              "tone": "rattled"
+            }
+          ]
+        },
+        {
+          "id": "ember-final",
+          "narrative": "The Emberheart cools dark and even. Pyrix exhales.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "credit-pyrix",
+              "label": "\"All you, master.\"",
+              "outcome": "success",
+              "tone": "humble"
+            },
+            {
+              "id": "credit-self",
+              "label": "\"We make a good pair.\"",
+              "outcome": "partial",
+              "tone": "boastful"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
