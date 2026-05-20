@@ -3,9 +3,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { GACHA_PULL_COST } from '@/lib/sanctuary/gacha';
 
 type Category = 'hat' | 'accessory' | 'background' | 'animation';
 type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+
+interface GachaPullResponse {
+  success: true;
+  item: ShopItem;
+  isRare: boolean;
+  fellBackToOtherTier: boolean;
+  balance: number;
+}
+
+interface GachaResult {
+  item: ShopItem;
+  isRare: boolean;
+  pulledAt: number;
+}
 
 interface ShopItem {
   id: number;
@@ -77,6 +92,8 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const [lastPull, setLastPull] = useState<GachaResult | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
   // Snapshot of the companion loadout when the dialog opened, so previews can
@@ -318,6 +335,54 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
     [walletAddress, fetchItems, fetchInventory, category],
   );
 
+  const pullGacha = useCallback(async () => {
+    if (!walletAddress) {
+      setFeedback('Connect a wallet to pull.');
+      return;
+    }
+    if (balance !== null && balance < GACHA_PULL_COST) {
+      setFeedback(`Need ${GACHA_PULL_COST} ★ to pull.`);
+      return;
+    }
+    setPulling(true);
+    setFeedback(null);
+    try {
+      const header = await getWalletAuthHeader(walletAddress);
+      if (!header) {
+        setPulling(false);
+        setFeedback('Wallet signature required.');
+        return;
+      }
+      const res = await fetch('/api/sanctuary/shop/pull', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': header,
+        },
+        body: JSON.stringify({ address: walletAddress }),
+      });
+      const data = (await res.json()) as GachaPullResponse | { success: false; error: string };
+      if (data.success) {
+        const pulled = data as GachaPullResponse;
+        if (typeof pulled.balance === 'number') setBalance(pulled.balance);
+        EventBus.emit('star-balance-changed', { balance: pulled.balance });
+        setLastPull({ item: pulled.item, isRare: pulled.isRare, pulledAt: Date.now() });
+        setFeedback(
+          pulled.isRare
+            ? `✨ RARE PULL: ${pulled.item.name}!`
+            : `Pulled ${pulled.item.name}.`,
+        );
+        await Promise.all([fetchItems(category), fetchInventory()]);
+      } else {
+        setFeedback(data.error ?? 'Pull failed.');
+      }
+    } catch {
+      setFeedback('Pull failed.');
+    } finally {
+      setPulling(false);
+    }
+  }, [walletAddress, balance, fetchItems, fetchInventory, category]);
+
   const equipItem = useCallback(
     async (item: ShopItem, unequip: boolean) => {
       if (!walletAddress || tokenId === null) {
@@ -423,6 +488,63 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
             </button>
           ))}
         </div>
+
+        {/* Gacha pull strip (shop only) */}
+        {tab === 'shop' && (
+          <div
+            data-testid="gacha-pull-strip"
+            className="px-2 py-2 bg-[#0a0a15] border-b border-[#9966ff]/30 flex items-center justify-between gap-2"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[#9966ff] font-['Press_Start_2P'] text-[7px]">
+                🎰 STAR PULL
+              </p>
+              {lastPull ? (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[6px] text-gray-400 truncate">
+                    Last: {lastPull.item.name}
+                  </span>
+                  {lastPull.isRare && (
+                    <span
+                      data-testid="gacha-rare-badge"
+                      className="text-[6px] px-1 py-0.5 rounded font-['Press_Start_2P'] animate-pulse"
+                      style={{
+                        color: RARITY_COLOR[lastPull.item.rarity],
+                        backgroundColor: RARITY_COLOR[lastPull.item.rarity] + '22',
+                        border: `1px solid ${RARITY_COLOR[lastPull.item.rarity]}66`,
+                      }}
+                    >
+                      ✨ RARE!
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[6px] text-gray-500">
+                  Guaranteed cosmetic · {GACHA_PULL_COST}★
+                </span>
+              )}
+            </div>
+            <button
+              data-testid="gacha-pull-button"
+              onClick={pullGacha}
+              disabled={
+                pulling ||
+                !walletAddress ||
+                (balance !== null && balance < GACHA_PULL_COST)
+              }
+              className="px-3 py-1 text-[8px] font-['Press_Start_2P'] rounded bg-[#9966ff]/20 border border-[#9966ff]/60 text-[#9966ff] hover:bg-[#9966ff]/30 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              title={
+                !walletAddress
+                  ? 'Connect a wallet to pull.'
+                  : balance !== null && balance < GACHA_PULL_COST
+                    ? `Need ${GACHA_PULL_COST} STAR`
+                    : `Pull for ${GACHA_PULL_COST} STAR`
+              }
+            >
+              {pulling ? '...' : `PULL ${GACHA_PULL_COST}★`}
+            </button>
+          </div>
+        )}
 
         {/* Category tabs (shop only) */}
         {tab === 'shop' && (

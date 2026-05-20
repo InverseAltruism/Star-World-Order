@@ -28,6 +28,12 @@ import {
   computeEarlyWakeOutcome,
   isCompanionTired,
 } from './sanctuary/sleepDynamics';
+import {
+  GACHA_PULL_COST,
+  pickGachaItem,
+  type GachaCandidate,
+  type GachaPickResult,
+} from './sanctuary/gacha';
 import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
 import { journalLineForAction } from './sanctuary/companionGreeting';
 import {
@@ -8359,6 +8365,93 @@ export function buyShopItem(
 
   return {
     item,
+    balance: spendResult.balance,
+    lifetime_earned: spendResult.lifetime_earned,
+    spent: spendResult.spent,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Cosmetic gacha pull (V2 §3.3 / §3.4) — see [SWO_V2_SANCTUARY_STAR_SINKS]
+// ---------------------------------------------------------------------------
+
+export interface GachaPullPersistedResult {
+  item: SanctuaryCosmeticItem;
+  isRare: boolean;
+  fellBackToOtherTier: boolean;
+  balance: number;
+  lifetime_earned: number;
+  spent: number;
+}
+
+/**
+ * Run a single gacha pull for `walletAddress`. Loads the catalog, filters out
+ * already-owned items, picks via {@link pickGachaItem} (RNG injectable for
+ * tests), debits STAR, and writes the inventory row. Throws on empty pool or
+ * insufficient balance.
+ */
+export function gachaPullForWallet(
+  walletAddress: string,
+  rng: () => number = Math.random,
+): GachaPullPersistedResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+
+  const ownedKeys = new Set<string>();
+  for (const r of db.prepare(
+    'SELECT item_key FROM sanctuary_companion_inventory WHERE wallet_address = ?',
+  ).all(addr) as Array<{ item_key: string }>) {
+    ownedKeys.add(r.item_key);
+  }
+
+  const allItems = db.prepare(
+    'SELECT * FROM sanctuary_cosmetic_items ORDER BY id ASC',
+  ).all() as SanctuaryCosmeticItem[];
+
+  const eligible: GachaCandidate[] = allItems
+    .filter((i) => !ownedKeys.has(i.item_key))
+    .map((i) => ({
+      item_key: i.item_key,
+      rarity: i.rarity,
+      level_required: i.level_required,
+    }));
+
+  if (eligible.length === 0) throw new Error('GACHA_POOL_EMPTY');
+
+  const level = getWalletLevel(db, addr);
+  const pick: GachaPickResult | null = pickGachaItem(eligible, level, rng);
+  if (!pick) throw new Error('GACHA_NO_ELIGIBLE_ITEMS');
+
+  const item = allItems.find((i) => i.item_key === pick.itemKey)!;
+
+  const spendResult = spendStar(addr, GACHA_PULL_COST, `gacha:${pick.itemKey}`);
+  try {
+    db.prepare(
+      "INSERT INTO sanctuary_companion_inventory (wallet_address, item_key, source) VALUES (?, ?, 'gift')",
+    ).run(addr, pick.itemKey);
+  } catch (e) {
+    // Compensate the spend if the inventory insert fails (race with a
+    // concurrent buyShopItem on the same key, etc.).
+    const txn = db.transaction(() => {
+      const cur = db.prepare(
+        'SELECT balance FROM sanctuary_star_balance WHERE wallet_address = ?',
+      ).get(addr) as { balance: number } | undefined;
+      const restored = (cur?.balance ?? 0) + GACHA_PULL_COST;
+      db.prepare(
+        'UPDATE sanctuary_star_balance SET balance = ?, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ?',
+      ).run(restored, addr);
+      db.prepare(
+        'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)',
+      ).run(addr, GACHA_PULL_COST, 'earn', `refund:gacha:${pick.itemKey}`, restored);
+    });
+    txn();
+    throw e;
+  }
+
+  return {
+    item,
+    isRare: pick.isRare,
+    fellBackToOtherTier: pick.fellBackToOtherTier,
     balance: spendResult.balance,
     lifetime_earned: spendResult.lifetime_earned,
     spent: spendResult.spent,
