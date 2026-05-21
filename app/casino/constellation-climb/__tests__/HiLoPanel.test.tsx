@@ -336,6 +336,37 @@ describe('HiLoPanel — allowlist gate states', () => {
   });
 });
 
+describe('HiLoPanel — fairness + trust chrome', () => {
+  it('does NOT render FairnessProof when no serverReveal has been seen', () => {
+    render({ serverReveal: null });
+    expect(get('hilo-fairness-proof-wrap')).toBeNull();
+  });
+
+  it('renders FairnessProof once a serverReveal lands on the session', () => {
+    const reveal =
+      '0x0000000000000000000000000000000000000000000000000000000000000001' as const;
+    const seed =
+      '0x000000000000000000000000000000000000000000000000000000000000beef' as const;
+    render({
+      sessionStatus: 'open',
+      currentCard: 7,
+      serverReveal: reveal,
+      clientSeed: seed,
+    });
+    expect(get('hilo-fairness-proof-wrap')).not.toBeNull();
+  });
+
+  it('renders TrustStrip with the live trust band', () => {
+    render();
+    // TrustStrip ships with `data-testid="swo-trust-strip"` per
+    // components/casino/TrustStrip.tsx. Assert it mounts inside the
+    // panel so the trust band never disappears from the surface.
+    expect(
+      container.querySelector('[data-testid="swo-trust-strip"]'),
+    ).not.toBeNull();
+  });
+});
+
 describe('HiLoPanel — error + tx surfacing', () => {
   it('surfaces bet + write errors verbatim', () => {
     render({
