@@ -16,6 +16,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { Address, Hex } from 'viem';
 
 import { BetPanel, type BetPanelCta } from '@/components/casino/BetPanel';
+import { FairnessProof } from '@/components/casino/FairnessProof';
+import { TrustStrip } from '@/components/casino/TrustStrip';
 
 export type Direction = 'higher' | 'lower';
 export type SessionStatus =
@@ -86,6 +88,10 @@ export interface HiLoPanelProps {
   onCashOut: () => void;
   /** Optional override for the CTA (e.g. RainbowKit's connect modal). */
   ctaOverride?: ReactNode;
+  /** Latest revealed server seed from StepPlayed events. Drives FairnessProof. */
+  serverReveal?: Hex | null;
+  /** Client seed sent into the openSession call. Salts FairnessProof. */
+  clientSeed?: Hex | null;
 }
 
 export function HiLoPanel(props: HiLoPanelProps) {
@@ -112,6 +118,8 @@ export function HiLoPanel(props: HiLoPanelProps) {
     onStep,
     onCashOut,
     ctaOverride,
+    serverReveal,
+    clientSeed,
   } = props;
 
   const onSupportedChain =
@@ -281,6 +289,21 @@ export function HiLoPanel(props: HiLoPanelProps) {
         </div>
       ) : null}
 
+      <TrustStrip
+        initialData={{
+          houseLiquidityEth: 0,
+          edgeRealisedPct: 0,
+          lastBetSecondsAgo: null,
+          generatedAt: new Date(0).toISOString(),
+        }}
+        fetcher={async () => ({
+          houseLiquidityEth: 0,
+          edgeRealisedPct: 0,
+          lastBetSecondsAgo: null,
+          generatedAt: new Date(0).toISOString(),
+        })}
+      />
+
       <div style={cardRowStyle} data-testid="hilo-card-row">
         <span style={cardLabelStyle}>Current card</span>
         <span
@@ -307,6 +330,16 @@ export function HiLoPanel(props: HiLoPanelProps) {
         ctaOverride={ctaOverride}
         extras={extras}
       />
+
+      {serverReveal ? (
+        <div data-testid="hilo-fairness-proof-wrap">
+          <FairnessProof
+            reveal={serverReveal}
+            salt={clientSeed ?? undefined}
+            game="hilo"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

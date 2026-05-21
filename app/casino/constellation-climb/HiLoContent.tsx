@@ -139,6 +139,8 @@ export default function HiLoContent() {
   const [multiplierWad, setMultiplierWad] = useState<bigint>(WAD);
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>('idle');
   const [betError, setBetError] = useState<string | null>(null);
+  const [serverReveal, setServerReveal] = useState<Hex | null>(null);
+  const [clientSeed, setClientSeed] = useState<Hex | null>(null);
 
   const { address, isConnected } = useAccount();
   const activeChainId = useChainId();
@@ -197,6 +199,10 @@ export default function HiLoContent() {
         if (typeof args.initialCard === 'number') {
           setCurrentCard(args.initialCard);
         }
+        if (typeof args.clientSeed === 'string') {
+          setClientSeed(args.clientSeed as Hex);
+        }
+        setServerReveal(null);
         setMultiplierWad(WAD);
         setSessionStatus('open');
       }
@@ -225,6 +231,9 @@ export default function HiLoContent() {
         }
         if (typeof args.newMultiplier === 'bigint') {
           setMultiplierWad(args.newMultiplier);
+        }
+        if (typeof args.serverReveal === 'string') {
+          setServerReveal(args.serverReveal as Hex);
         }
         if (args.won === false) {
           setSessionStatus('lost');
@@ -355,6 +364,8 @@ export default function HiLoContent() {
       onOpenSession={openSession}
       onStep={step}
       onCashOut={cashOut}
+      serverReveal={serverReveal}
+      clientSeed={clientSeed}
     />
   );
 }
