@@ -1,0 +1,30 @@
+{
+  "name": "SWO Casino — 24h PnL drawdown early warning (50% of circuit-breaker)",
+  "type": "STAT",
+  "network": "monad-testnet",
+  "addresses": ["0x33C5B6a95e71611F5dC821A74DDAD0F746fF2dFf"],
+  "paused": false,
+  "schedule": { "cron": "*/15 * * * *" },
+  "_notes": "Stat-style scheduled monitor — NOT a Defender Block Monitor. Defender 2.0 Block Monitors only fire on tx/event matches; the 24h PnL early-warning needs a periodic poll. `scripts/deploy-monitors.ts` provisions this entry as a scheduled Defender Action (`swo-casino-pnl-watcher`, cron */15 * * * *) that imports the same `telegram-forwarder.ts` source. Every 15 min the action calls `bankroll.circuitBreakerState()` via the monad-testnet Relayer and computes the 24h drawdown delta = `windowStartBalance - currentBalance`. If the delta is positive (i.e. balance is *below* the 24h window-start) AND exceeds 50% of `maxDrawdown24hWei`, a Telegram alert fires. The contract auto-rolls the 24h window after CIRCUIT_BREAKER_COOLDOWN seconds (24h) so this matches the on-chain trip semantics. Default maxDrawdown24hWei = 1e16 wei per deployments/10143.json.",
+  "view": {
+    "function": "circuitBreakerState()",
+    "_selectorNote": "Computed at action runtime via ethers Interface — not hardcoded here, since the contract may evolve.",
+    "returns": [
+      "uint256 maxDrawdown24hWei",
+      "uint256 windowStartBalance",
+      "uint256 windowStartedAt",
+      "uint256 drawdownStartedAt",
+      "bool halted",
+      "uint256 currentBalance"
+    ]
+  },
+  "alertCondition": {
+    "expression": "windowStartBalance > currentBalance && (windowStartBalance - currentBalance) > (maxDrawdown24hWei / 2)",
+    "_human": "drawdown > 50% of maxDrawdown24hWei (early warning at half the auto-trip threshold)"
+  },
+  "earlyWarningRatio": 0.5,
+  "notificationChannels": ["swo-casino-telegram-webhook"],
+  "alertMessageSubject": "SWO Casino: 24h PnL drawdown crossed 50% of circuit-breaker",
+  "alertMessageBody": "24h drawdown has exceeded 50% of `maxDrawdown24hWei`. The on-chain breaker auto-trips at 100% — investigate now and consider manual `pause()` or `tripCircuitBreaker()` if the drawdown is anomalous.",
+  "actionName": "swo-casino-pnl-watcher"
+}
