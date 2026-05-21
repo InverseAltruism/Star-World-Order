@@ -1,0 +1,5 @@
+# The log and state files are produced at runtime by the keeper health
+# monitor (scripts/casino/keeperHealthMonitor.ts) and uploaded as workflow
+# artifacts. Keeping them out of git avoids merge noise on every cron tick.
+casino_keeper_health.log
+.keeper-state.json
