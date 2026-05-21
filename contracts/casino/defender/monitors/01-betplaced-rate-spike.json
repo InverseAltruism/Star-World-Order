@@ -1,0 +1,23 @@
+{
+  "name": "SWO Casino — BetPlaced rate spike (>10/min from one address)",
+  "type": "BLOCK",
+  "network": "monad-testnet",
+  "addresses": [
+    "0x064b8bfc03b23D2b525deD9d3969090347A21983",
+    "0xAC023542A8168465EE4A1b3e8Ae0f58F36A6d84B"
+  ],
+  "abi": "[{\"type\":\"event\",\"name\":\"BetPlaced\",\"inputs\":[{\"name\":\"betId\",\"type\":\"uint256\",\"indexed\":true},{\"name\":\"player\",\"type\":\"address\",\"indexed\":true},{\"name\":\"side\",\"type\":\"uint8\",\"indexed\":false},{\"name\":\"stake\",\"type\":\"uint256\",\"indexed\":false},{\"name\":\"clientSeed\",\"type\":\"bytes32\",\"indexed\":false},{\"name\":\"serverCommit\",\"type\":\"bytes32\",\"indexed\":false},{\"name\":\"nonce\",\"type\":\"uint256\",\"indexed\":false},{\"name\":\"blockPlaced\",\"type\":\"uint64\",\"indexed\":false}]}]",
+  "paused": false,
+  "eventConditions": [
+    { "eventSignature": "BetPlaced(uint256,address,uint8,uint256,bytes32,bytes32,uint256,uint64)" }
+  ],
+  "alertThreshold": {
+    "amount": 10,
+    "windowSeconds": 60
+  },
+  "alertGroupBy": ["player"],
+  "notificationChannels": ["swo-casino-telegram-webhook"],
+  "alertMessageSubject": "SWO Casino: BetPlaced rate spike",
+  "alertMessageBody": "More than 10 BetPlaced events from a single player address within 60s. Investigate: possible bot, exploit attempt, or stuck keeper.",
+  "_notes": "Defender's Block Monitor doesn't natively group-by-indexed-arg. The autotask 'rate-aggregator-and-telegram' below maintains a sliding 60s window per player address and only forwards to Telegram once threshold is breached. The Monitor itself fires on every BetPlaced; aggregation happens in the action. Both CosmicFlip and GravityDice emit identical BetPlaced(uint256,address,uint8,uint256,bytes32,bytes32,uint256,uint64) signatures."
+}
