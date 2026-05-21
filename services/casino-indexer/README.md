@@ -72,3 +72,9 @@ The `RecentBets` component in `components/casino/RecentBets.tsx` is the
 canonical consumer for the per-wallet ticker; the client adapter in
 `lib/casino/recentBetsIndexer.ts` queries the Ponder GraphQL endpoint and
 maps `RecentBet` rows into the `WalletBet` shape `RecentBets` accepts.
+
+For React callers, `lib/casino/useRecentBets.ts` is the canonical hook —
+pass `{ endpoint, player }` and feed the returned `bets` into
+`<RecentBets bets={...} />`. The hook short-circuits to an empty list
+when the endpoint or player is missing so the wallet sheet still renders
+the empty-state pill during the pre-indexer window.
