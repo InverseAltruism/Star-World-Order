@@ -5,12 +5,15 @@
 // CI gate for the casino UI surfaces.
 //
 // Scope: the `casino-connected` project covers wallet-mocked flows for
-// /casino/coinflip and /casino/dice. The Constellation Climb (HiLo) spec
-// is a `test.skip` stub pending [SWO_CASINO_HILO_UI].
+// /casino/coinflip, /casino/dice, and /casino/constellation-climb.
 //
 // Wallet mock: `tests/e2e/casino/fixtures/wallet-mock.ts` injects an
 // EIP-1193 provider via `page.addInitScript` and announces it through
 // EIP-6963 so wagmi's `injected()` connector picks it up before hydration.
+// The mock pins `game.allowlist()` to the zero address so
+// `useAllowlistGate` short-circuits to `passthrough` and the bet CTA is
+// clickable; spec-level bet flows can then click through to the
+// `eth_sendTransaction` mock and assert `*-tx-receipt` renders.
 
 import { defineConfig, devices } from '@playwright/test';
 
@@ -66,6 +69,20 @@ export default defineConfig({
         env: {
           NEXT_PUBLIC_MONAD_CHAIN_ID: MONAD_TESTNET_CHAIN_ID,
           NODE_ENV: 'development',
+          // Deterministic non-zero commits so the {Coinflip,Dice,HiLo}
+          // Content components advance past the "Server commit not
+          // configured" early-return inside `placeBet`/`openSession`. The
+          // value is opaque to the page — it's only required to be a
+          // 32-byte hex string other than the zero hash.
+          NEXT_PUBLIC_COSMIC_FLIP_COMMIT:
+            process.env.NEXT_PUBLIC_COSMIC_FLIP_COMMIT ??
+            '0x' + 'a1'.repeat(32),
+          NEXT_PUBLIC_GRAVITY_DICE_COMMIT:
+            process.env.NEXT_PUBLIC_GRAVITY_DICE_COMMIT ??
+            '0x' + 'b2'.repeat(32),
+          NEXT_PUBLIC_CONSTELLATION_CLIMB_COMMIT:
+            process.env.NEXT_PUBLIC_CONSTELLATION_CLIMB_COMMIT ??
+            '0x' + 'c3'.repeat(32),
         },
       },
 });
