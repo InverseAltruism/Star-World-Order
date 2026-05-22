@@ -1,38 +1,57 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Defender Monitor
+   payloads are untyped at the SDK boundary; the action defensively reads
+   arbitrary shapes (`sentinel.name`, `events`, `matches`, `match`, …) from
+   `event.request.body`. */
 /**
  * SWO Casino Defender Action: telegram-forwarder
  *
- * Single autotask wired to all four monitors. Routes by `monitorName` because
- * a Defender Action receives the entire Monitor payload in `event.request.body`.
+ * Single autotask wired to all four monitors. Routes by `monitorName`
+ * (substring match) because a Defender Action receives the whole Monitor
+ * payload in `event.request.body`.
+ *
+ * Compatibility notes:
+ *   - Accepts both current `SWO_CASINO_TELEGRAM_*` and legacy/
+ *     branch-local `SWO_OPS_TELEGRAM_*` secret names so operator wiring
+ *     doesn't silently break during migration.
+ *   - Accepts both `Bankroll MON balance` and legacy `Bankroll ETH balance`
+ *     monitor-name variants.
  *
  * Routes:
- *   1. "SWO Casino — BetPlaced rate spike ..."     → 60s sliding-window per `player`,
- *                                                    alert when count > 10
- *   2. "SWO Casino — Owner-key actions ..."        → forward immediately (every event)
- *   3. "SWO Casino — Bankroll MON balance ..."     → live-check `bankroll.balance()` via
- *                                                    Defender Relayer; alert iff < 2e15 wei
- *   4. "SWO Casino — 24h PnL drawdown ..."         → scheduled every 15 min via cron;
- *                                                    calls `bankroll.circuitBreakerState()`
- *                                                    via Relayer; alerts if drawdown > 50%
- *                                                    of maxDrawdown24hWei (early warning at
- *                                                    half the auto-trip threshold).
+ *   1. "BetPlaced rate spike ..."     → 60s sliding-window per `player`,
+ *                                       alert when count > 10
+ *   2. "Owner-key actions ..."        → forward immediately (every event)
+ *   3. "Bankroll MON balance ..."     → live-check `bankroll.balance()` via
+ *                                       Defender Relayer; alert iff < 2e15 wei
+ *   4. "24h PnL drawdown ..."         → scheduled every 15 min via cron;
+ *                                       calls `bankroll.circuitBreakerState()`
+ *                                       via Relayer; alerts if drawdown > 50%
+ *                                       of maxDrawdown24hWei (early warning at
+ *                                       half the auto-trip threshold).
  *
  * Secrets (set in Defender → Manage → Secrets):
  *   - SWO_CASINO_TELEGRAM_BOT_TOKEN
  *   - SWO_CASINO_TELEGRAM_CHAT_ID
  *
- * Relayer: a "monad-testnet" Relayer must be attached to this Action so we can
- * call `bankroll.balance()` and `bankroll.circuitBreakerState()` for the drawdown
- * monitors.
+ * Optional compatibility aliases (accepted as fallback):
+ *   - SWO_OPS_TELEGRAM_BOT_TOKEN
+ *   - SWO_OPS_TELEGRAM_CHAT_ID
+ *
+ * Relayer: a "monad-testnet" Relayer must be attached to this Action so we
+ * can call `bankroll.balance()` and `bankroll.circuitBreakerState()` for the
+ * drawdown monitors.
  *
  * Local test: `defender/scripts/test-webhook.sh` posts a synthetic payload to
- * Telegram directly (bypassing Defender) to verify the bot token + chat work.
+ * Telegram directly (bypassing Defender) to verify the bot token + chat id.
  */
 
-// Defender's Action runtime injects these as the global handler signature.
-// Type intentionally loose to keep this file copy-pasteable into the Defender editor.
 type ActionEvent = {
   request?: { body?: any };
-  secrets?: { SWO_CASINO_TELEGRAM_BOT_TOKEN?: string; SWO_CASINO_TELEGRAM_CHAT_ID?: string };
+  secrets?: {
+    SWO_CASINO_TELEGRAM_BOT_TOKEN?: string;
+    SWO_CASINO_TELEGRAM_CHAT_ID?: string;
+    SWO_OPS_TELEGRAM_BOT_TOKEN?: string;
+    SWO_OPS_TELEGRAM_CHAT_ID?: string;
+  };
   apiKey?: string;
   apiSecret?: string;
   credentials?: string;
@@ -43,16 +62,9 @@ const BANKROLL_ADDR = "0x33C5B6a95e71611F5dC821A74DDAD0F746fF2dFf";
 const BALANCE_THRESHOLD_WEI = 2000000000000000n; // 2e15 = 10% of 2e16 INITIAL_DEPOSIT
 const RATE_SPIKE_WINDOW_SEC = 60;
 const RATE_SPIKE_COUNT = 10;
-// Early-warning ratio: alert when 24h drawdown reaches 50% of the on-chain
-// auto-trip threshold (`maxDrawdown24hWei`). Keep this in sync with
-// monitors/04-pnl-monitor-24h.json `earlyWarningRatio`.
 const PNL_EARLY_WARNING_NUM = 1n;
 const PNL_EARLY_WARNING_DEN = 2n;
 
-// In-memory sliding window. Defender Actions are warm between invocations
-// for ~5min, which is enough to track a 60s window. State that survives a
-// cold start is not required — the worst case is a missed alert during
-// container recycling, which the operator can catch from the indexer.
 const recentBets: Record<string, number[]> = Object.create(null);
 
 function pruneAndCount(player: string, nowSec: number): number {
@@ -84,20 +96,18 @@ async function sendTelegram(token: string, chatId: string, text: string): Promis
 }
 
 function fmtWei(wei: bigint): string {
-  // Render as "X.XX MON" with 6 decimals.
   const mon = Number(wei) / 1e18;
   return `${mon.toFixed(6)} MON (${wei.toString()} wei)`;
 }
 
 async function fetchBankrollBalance(event: ActionEvent): Promise<bigint> {
-  // Lazy import so this file lints cleanly even without Defender SDK present locally.
+  // @ts-expect-error -- runtime-only dep, not installed locally
   const { Defender } = await import("@openzeppelin/defender-sdk");
   const client = new Defender({
     relayerApiKey: event.apiKey!,
     relayerApiSecret: event.apiSecret!,
   });
   const provider = client.relaySigner.getProvider();
-  // ABI-encoded call to balance() — selector 0xb69ef8a8.
   const result = await provider.request({
     method: "eth_call",
     params: [{ to: BANKROLL_ADDR, data: "0xb69ef8a8" }, "latest"],
@@ -115,6 +125,7 @@ type CircuitBreakerState = {
 };
 
 async function fetchCircuitBreakerState(event: ActionEvent): Promise<CircuitBreakerState> {
+  // @ts-expect-error -- runtime-only dep, not installed locally
   const { Defender } = await import("@openzeppelin/defender-sdk");
   const ethers = await import("ethers");
   const client = new Defender({
@@ -157,14 +168,9 @@ async function handlePnlCheck(
     );
     return { ok: false, routed: "pnl_rpc_error" };
   }
-  // If the breaker has no threshold configured, the auto-trip path is disabled
-  // and the early-warning ratio has nothing to compare against. Skip silently
-  // rather than spam — the operator opted out.
   if (s.maxDrawdown24hWei === 0n) {
     return { ok: true, routed: "pnl_disabled" };
   }
-  // Drawdown is positive only when the balance has *fallen* relative to the
-  // 24h window-start. A rise (deposits, wins-against-house) leaves it 0.
   const drawdown =
     s.windowStartBalance > s.currentBalance
       ? s.windowStartBalance - s.currentBalance
@@ -208,10 +214,16 @@ function formatMatch(m: any): string {
 }
 
 export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed?: string }> {
-  const token = event.secrets?.SWO_CASINO_TELEGRAM_BOT_TOKEN;
-  const chatId = event.secrets?.SWO_CASINO_TELEGRAM_CHAT_ID;
+  const token =
+    event.secrets?.SWO_CASINO_TELEGRAM_BOT_TOKEN ??
+    event.secrets?.SWO_OPS_TELEGRAM_BOT_TOKEN;
+  const chatId =
+    event.secrets?.SWO_CASINO_TELEGRAM_CHAT_ID ??
+    event.secrets?.SWO_OPS_TELEGRAM_CHAT_ID;
   if (!token || !chatId) {
-    throw new Error("Missing SWO_CASINO_TELEGRAM_BOT_TOKEN or SWO_CASINO_TELEGRAM_CHAT_ID secret");
+    throw new Error(
+      "Missing SWO_CASINO_TELEGRAM_BOT_TOKEN/SWO_CASINO_TELEGRAM_CHAT_ID (or legacy SWO_OPS_TELEGRAM_*) secret",
+    );
   }
 
   const body = event.request?.body ?? {};
@@ -219,11 +231,6 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
   const matches: any[] = body.events ?? body.matches ?? [body.match].filter(Boolean);
 
   const nowSec = Math.floor(Date.now() / 1000);
-
-  // ── Route 0: scheduled 24h PnL check ─────────────────────────────────────
-  // Scheduled invocations come with no monitor payload (`event.request.body`
-  // is empty for cron triggers). We also accept an explicit `pnlCheck: true`
-  // flag for synthetic / forced runs.
   const isScheduledPnlCheck =
     body?.pnlCheck === true ||
     monitorName.includes("24h PnL") ||
@@ -232,7 +239,6 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
     return handlePnlCheck(event, token, chatId);
   }
 
-  // ── Route 1: BetPlaced rate spike ────────────────────────────────────────
   if (monitorName.includes("BetPlaced rate spike")) {
     const triggered: { player: string; count: number; tx: string }[] = [];
     for (const m of matches) {
@@ -240,8 +246,7 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
         m.matchReasons?.[0]?.params ?? m.match?.matchReasons?.[0]?.params ?? {};
       const player: string =
         params.player ?? params["1"] ?? "0x0000000000000000000000000000000000000000";
-      const tx: string =
-        m.transaction?.transactionHash ?? m.hash ?? "(no-hash)";
+      const tx: string = m.transaction?.transactionHash ?? m.hash ?? "(no-hash)";
       const count = pruneAndCount(player.toLowerCase(), nowSec);
       if (count > RATE_SPIKE_COUNT) {
         triggered.push({ player, count, tx });
@@ -258,14 +263,13 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
           `count in last ${RATE_SPIKE_WINDOW_SEC}s: *${t.count}*  (threshold: ${RATE_SPIKE_COUNT})`,
           `latest tx: \`${t.tx}\``,
           "",
-          "Possible bot, exploit attempt, or stuck keeper. Check `apps/casino-indexer/api/history.ts` and consider `pause()` on the affected game.",
+          "Possible bot, exploit attempt, or stuck keeper. Inspect the indexer history and consider `pause()` on the affected game.",
         ].join("\n"),
       );
     }
-    return { ok: true, routed: "rate_spike" };
+    return { ok: true, routed: "rate_spike_alert" };
   }
 
-  // ── Route 2: Owner-key actions ───────────────────────────────────────────
   if (monitorName.includes("Owner-key actions")) {
     for (const m of matches) {
       await sendTelegram(
@@ -276,23 +280,21 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
           `monitor: ${monitorName}`,
           formatMatch(m),
           "",
-          "If this was NOT initiated by the operator, the deployer key may be compromised. Treat as P0:",
-          "1. `pause()` bankroll + every game (deployer key)",
-          "2. `revokeGame()` everything",
-          "3. Rotate to a new deployer; redeploy.",
+          "Review whether this action was planned. If not, pause affected games / revoke allowances immediately.",
         ].join("\n"),
       );
     }
-    return { ok: true, routed: "owner_action" };
+    return { ok: true, routed: "owner_key_action" };
   }
 
-  // ── Route 3: Bankroll drawdown ───────────────────────────────────────────
-  if (monitorName.includes("Bankroll MON balance")) {
+  if (
+    monitorName.includes("Bankroll MON balance") ||
+    monitorName.includes("Bankroll ETH balance")
+  ) {
     let balance: bigint;
     try {
       balance = await fetchBankrollBalance(event);
     } catch (e: any) {
-      // If we can't read the balance, alert defensively rather than miss it.
       await sendTelegram(
         token,
         chatId,
@@ -303,7 +305,7 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
     if (balance >= BALANCE_THRESHOLD_WEI) {
       return { ok: true, routed: "drawdown_above_threshold" };
     }
-    const tx = matches[0]?.transaction?.transactionHash ?? "(no tx)";
+    const tx = matches[0]?.transaction?.transactionHash ?? "(no triggering tx)";
     await sendTelegram(
       token,
       chatId,
@@ -317,10 +319,9 @@ export async function handler(event: ActionEvent): Promise<{ ok: boolean; routed
         "Top up via `bankroll.deposit()` or `pause()` if drawdown is anomalous.",
       ].join("\n"),
     );
-    return { ok: true, routed: "drawdown" };
+    return { ok: true, routed: "drawdown_alert" };
   }
 
-  // ── Fallback: unknown monitor (don't drop silently) ──────────────────────
   await sendTelegram(
     token,
     chatId,

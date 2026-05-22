@@ -66,9 +66,9 @@ jobs:
       - name: Install Foundry dependencies
         # lib/ is gitignored; restore deps per contracts/casino/README.md.
         run: |
-          forge install foundry-rs/forge-std --no-commit
-          forge install OpenZeppelin/openzeppelin-contracts --no-commit
-          forge install radeksvarz/createx-forge --no-commit
+          forge install foundry-rs/forge-std
+          forge install OpenZeppelin/openzeppelin-contracts
+          forge install radeksvarz/createx-forge
 
       - name: Forge build
         run: forge build
@@ -100,9 +100,9 @@ jobs:
 
       - name: Install Foundry dependencies
         run: |
-          forge install foundry-rs/forge-std --no-commit
-          forge install OpenZeppelin/openzeppelin-contracts --no-commit
-          forge install radeksvarz/createx-forge --no-commit
+          forge install foundry-rs/forge-std
+          forge install OpenZeppelin/openzeppelin-contracts
+          forge install radeksvarz/createx-forge
 
       - name: Forge coverage (LCOV)
         # --ir-minimum keeps source maps accurate without "stack too deep"

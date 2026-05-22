@@ -43,9 +43,9 @@ forge test
 `lib/` is gitignored. On first checkout, restore deps with:
 
 ```bash
-forge install foundry-rs/forge-std --no-commit
-forge install OpenZeppelin/openzeppelin-contracts --no-commit
-forge install radeksvarz/createx-forge --no-commit
+forge install foundry-rs/forge-std
+forge install OpenZeppelin/openzeppelin-contracts
+forge install radeksvarz/createx-forge
 ```
 
 Or copy from a sibling project that already has them.
