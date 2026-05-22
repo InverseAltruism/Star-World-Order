@@ -1,11 +1,20 @@
-// Playwright config for [SWO_CASINO_PLAYWRIGHT_CONNECTED].
+// Playwright config for [SWO_CASINO_PLAYWRIGHT_CONNECTED] +
+// [SWO_CASINO_PLAYWRIGHT_VISUAL_BASELINE].
 //
 // Pairs with `.github/workflows/casino-e2e.yml`, which currently no-ops
 // when no `playwright.config.*` is present. Landing this file activates the
 // CI gate for the casino UI surfaces.
 //
-// Scope: the `casino-connected` project covers wallet-mocked flows for
-// /casino/coinflip, /casino/dice, and /casino/constellation-climb.
+// Projects:
+//   • casino-connected — wallet-mocked behavioural flows for /casino/coinflip
+//     and /casino/dice. The Constellation Climb (HiLo) spec is a `test.skip`
+//     stub pending [SWO_CASINO_HILO_UI].
+//   • casino-visual    — pixel-baseline snapshots for all 3 game pages at
+//     375×812 (mobile) and 1280×800 (desktop), each captured in dark and
+//     light color schemes. Baselines live under `e2e/casino/__snapshots__/`
+//     (redirected via `snapshotPathTemplate`). Diff threshold is 0.5%
+//     (`maxDiffPixelRatio: 0.005`) — enough to absorb anti-aliasing jitter
+//     between Chromium minor versions without hiding real regressions.
 //
 // Wallet mock: `tests/e2e/casino/fixtures/wallet-mock.ts` injects an
 // EIP-1193 provider via `page.addInitScript` and announces it through
@@ -18,10 +27,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const NEXT_PORT = process.env.NEXT_PORT ?? '3000';
-// PLAYWRIGHT_BASE_URL is what `.github/workflows/casino-e2e.yml` sets;
-// E2E_BASE_URL is the local-dev override. Either one short-circuits the
-// `webServer` boot so you can point the suite at an already-running dev
-// server.
 const BASE_URL =
   process.env.PLAYWRIGHT_BASE_URL ??
   process.env.E2E_BASE_URL ??
@@ -40,7 +45,6 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   timeout: 60_000,
-  expect: { timeout: 10_000 },
 
   use: {
     baseURL: BASE_URL,
@@ -49,12 +53,31 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
+  snapshotPathTemplate: 'e2e/casino/__snapshots__/{arg}{ext}',
+
+  expect: {
+    timeout: 10_000,
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.005,
+      animations: 'disabled',
+      caret: 'hide',
+    },
+  },
+
   projects: [
     {
       name: 'casino-connected',
       testMatch: /casino\/.*\.connected\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'casino-visual',
+      testMatch: /casino\/visual\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        colorScheme: 'dark',
       },
     },
   ],
@@ -69,11 +92,6 @@ export default defineConfig({
         env: {
           NEXT_PUBLIC_MONAD_CHAIN_ID: MONAD_TESTNET_CHAIN_ID,
           NODE_ENV: 'development',
-          // Deterministic non-zero commits so the {Coinflip,Dice,HiLo}
-          // Content components advance past the "Server commit not
-          // configured" early-return inside `placeBet`/`openSession`. The
-          // value is opaque to the page — it's only required to be a
-          // 32-byte hex string other than the zero hash.
           NEXT_PUBLIC_COSMIC_FLIP_COMMIT:
             process.env.NEXT_PUBLIC_COSMIC_FLIP_COMMIT ??
             '0x' + 'a1'.repeat(32),
