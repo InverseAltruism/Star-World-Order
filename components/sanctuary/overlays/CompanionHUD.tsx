@@ -11,6 +11,7 @@ import {
   newlyCrossed,
   type NeedStats,
 } from '@/lib/sanctuary/needs';
+import { streakChipLabel, type StreakStatus } from '@/lib/sanctuary/streaks';
 
 interface CompanionData {
   nickname: string | null;
@@ -32,6 +33,10 @@ interface CompanionData {
   happiness: number | null;
   energy: number | null;
   is_sleeping: number | null;
+  // [SWO_V2_SANCTUARY_STREAKS] Daily-visit streak (null when the companion
+  // endpoint pre-dates the v2.7 migration — chip simply hides).
+  streak_current: number | null;
+  streak_status: StreakStatus | null;
 }
 
 interface CompanionHUDProps {
@@ -148,6 +153,8 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           happiness: data.companion.happiness ?? null,
           energy: data.companion.energy ?? null,
           is_sleeping: data.companion.is_sleeping ?? null,
+          streak_current: data.companion.streak_current ?? null,
+          streak_status: (data.companion.streak_status ?? null) as StreakStatus | null,
         });
         // Push the loadout into the Phaser scene so cosmetic layers render.
         EventBus.emit('companion-cosmetics', equipped);
@@ -327,6 +334,15 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   // touch tick so linter treats it as used for countdown re-render
   void tick;
 
+  const streakLabel =
+    companion.streak_current !== null && companion.streak_current > 0
+      ? streakChipLabel(
+          companion.streak_current,
+          companion.streak_status ?? 'active',
+        )
+      : null;
+  const streakPaused = companion.streak_status === 'paused';
+
   return (
     <>
       {/* STAR currency badge */}
@@ -339,6 +355,34 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
           <span className="text-[10px] leading-none">⭐</span>
           <span className="text-[8px] text-[#ffd700] font-['Press_Start_2P'] tabular-nums">
             {starBalance.toLocaleString()}
+          </span>
+        </div>
+      )}
+
+      {/* [SWO_V2_SANCTUARY_STREAKS] Compassionate streak chip — identity, not
+          power. Shows current day count + a "paused" indicator after a single
+          missed day. Renders nothing until the companion endpoint emits a
+          streak field (post v2.7 migration). */}
+      {streakLabel && (
+        <div
+          className={`absolute top-2 right-24 z-20 flex items-center gap-1.5 bg-black/80 rounded px-2.5 py-1 pointer-events-none select-none border ${
+            streakPaused
+              ? 'border-[#9966ff]/50 shadow-[0_0_8px_rgba(153,102,255,0.2)]'
+              : 'border-[#ff8855]/50 shadow-[0_0_8px_rgba(255,136,85,0.2)]'
+          }`}
+          aria-label={`Visit streak: ${streakLabel}`}
+          title={
+            streakPaused
+              ? 'Streak paused — you missed a day. Visit again tomorrow to resume.'
+              : `Visit streak: ${streakLabel}`
+          }
+        >
+          <span
+            className={`text-[8px] font-['Press_Start_2P'] tabular-nums ${
+              streakPaused ? 'text-[#b099ff]' : 'text-[#ffaa66]'
+            }`}
+          >
+            {streakLabel}
           </span>
         </div>
       )}
