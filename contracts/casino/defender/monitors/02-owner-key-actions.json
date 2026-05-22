@@ -1,0 +1,31 @@
+{
+  "name": "SWO Casino — Owner-key actions (Pause/Unpause/Game lifecycle/Allowance)",
+  "type": "BLOCK",
+  "network": "monad-testnet",
+  "addresses": [
+    "0x33C5B6a95e71611F5dC821A74DDAD0F746fF2dFf",
+    "0x064b8bfc03b23D2b525deD9d3969090347A21983",
+    "0xAC023542A8168465EE4A1b3e8Ae0f58F36A6d84B",
+    "0xd9B9b6c37ad4f3D5b07ae76dE261c5C865600d6e"
+  ],
+  "paused": false,
+  "abi": "[{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false}]},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false}]},{\"type\":\"event\",\"name\":\"GameRegistered\",\"inputs\":[{\"name\":\"game\",\"type\":\"address\",\"indexed\":true},{\"name\":\"allowance\",\"type\":\"uint256\",\"indexed\":false}]},{\"type\":\"event\",\"name\":\"GameRevoked\",\"inputs\":[{\"name\":\"game\",\"type\":\"address\",\"indexed\":true}]},{\"type\":\"event\",\"name\":\"GameAllowanceSet\",\"inputs\":[{\"name\":\"game\",\"type\":\"address\",\"indexed\":true},{\"name\":\"allowance\",\"type\":\"uint256\",\"indexed\":false}]},{\"type\":\"function\",\"name\":\"setGameAllowance\",\"inputs\":[{\"name\":\"game\",\"type\":\"address\"},{\"name\":\"newAllowance\",\"type\":\"uint256\"}]}]",
+  "eventConditions": [
+    { "eventSignature": "Paused(address)" },
+    { "eventSignature": "Unpaused(address)" },
+    { "eventSignature": "GameRegistered(address,uint256)" },
+    { "eventSignature": "GameRevoked(address)" },
+    { "eventSignature": "GameAllowanceSet(address,uint256)" }
+  ],
+  "functionConditions": [
+    { "functionSignature": "setGameAllowance(address,uint256)" }
+  ],
+  "alertThreshold": {
+    "amount": 1,
+    "windowSeconds": 60
+  },
+  "notificationChannels": ["swo-casino-telegram-webhook"],
+  "alertMessageSubject": "SWO Casino: owner-key action",
+  "alertMessageBody": "Owner-only action observed on bankroll or one of the games. If this was not initiated by the operator, the deployer key may be compromised — pause everything and rotate.",
+  "_notes": "Fires on EVERY occurrence (alertThreshold=1). The autotask 'rate-aggregator-and-telegram' bypasses rate-aggregation when category=owner_action. Addresses cover the CasinoBankroll, CosmicFlip, GravityDice, and ConstellationClimb — all four are Pausable and owner-controlled."
+}

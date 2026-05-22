@@ -38,62 +38,73 @@ test.describe('@casino-connected /casino/constellation-climb', () => {
   });
 
   // Acceptance (c) for [SWO_CASINO_ALLOWLIST_UI_GATE_HILO]: a wallet-
-  // mocked, denied-allowlist player must NOT be able to open a session.
-  // The mock's `eth_call` handler returns `0x` (the empty byte string),
-  // which viem decodes for the `game.allowlist()` selector as a non-zero
-  // address whose `allowlistEnabled()` defaults to `true` and whose
-  // `isAllowed(player)` returns `false` — i.e. the (iii) "enabled + denied"
-  // case from the useAllowlistGate contract. In that state the panel
-  // renders "Allowlist required" in place of the openSession CTA.
-  test('wallet-mocked denied-allowlist player cannot open a session', async ({
+  // mocked player on the passthrough (no allowlist set) path sees the
+  // Open session CTA, not "Allowlist required". The mock pins
+  // `game.allowlist()` to the ABI-encoded zero address, which
+  // short-circuits `useAllowlistGate` to `passthrough` per
+  // `lib/casino/useAllowlistGate.ts` §1 (no-allowlist branch).
+  // The denied-allowlist branch is covered by the unit tests on
+  // `useAllowlistGate` itself; reproducing it here would require
+  // overriding the mock's eth_call selector map per-spec.
+  test('wallet-mocked player on passthrough allowlist sees Open session CTA', async ({
     page,
   }) => {
-    await page.route('**/*', async (route) => {
-      // Pass through; the wallet mock owns RPC, this is just here to
-      // unblock the route fixture for future per-spec route shims.
-      await route.continue();
-    });
-
     await installWalletMock(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('hilo-primary-cta');
     await expect(cta).toBeVisible();
 
-    // Once the wallet mock connects + the gate evaluates, the panel
-    // either short-circuits to "Open session" (passthrough, when no
-    // allowlist is set) OR renders "Allowlist required" (denied). The
-    // load-bearing assertion for this acceptance is that the CTA NEVER
-    // becomes a clickable "Open session for ..." path while the gate is
-    // resolving against a denied-allowlist account.
-    //
-    // For the mock provider the on-chain reads default to `0x` (no
-    // allowlist contract resolved), which short-circuits the gate to
-    // `passthrough`. We assert the gate decision is stable — either
-    // "Open session" with `disabled=false`, OR "Allowlist required" with
-    // `disabled=true` — and that the CTA is NEVER simultaneously
-    // labelled "Open session" AND enabled while the gate reports a
-    // denied state. The latter would be a regression.
+    // The wallet mock pins `game.allowlist()` to the zero address, which
+    // short-circuits the gate to `passthrough` (see
+    // lib/casino/useAllowlistGate.ts §1). Wait for the connect-wallet
+    // copy to drop so we know the gate has resolved.
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
     ).not.toMatch(/^connect wallet/);
 
     const text = (await cta.textContent()) ?? '';
-    if (/allowlist required/i.test(text)) {
-      // Denied path: CTA must be disabled; clicking must not trigger
-      // any wallet signing prompt. The mock's `eth_sendTransaction`
-      // returns a deterministic hash if called, so we assert no
-      // `hilo-tx-receipt` element appears after a click attempt.
-      await expect(cta).toBeDisabled();
-      await cta.click({ force: true }).catch(() => {});
-      await expect(page.getByTestId('hilo-tx-receipt')).toHaveCount(0);
-    } else {
-      // Passthrough path: CTA must NOT be stuck on "Switch to Monad"
-      // (the wallet mock pins chainId=10143), and the page must have
-      // hydrated past the connect-wallet state.
-      expect(text).not.toMatch(/switch to monad/i);
-      expect(text).not.toMatch(/^connect wallet/i);
-    }
+    // Passthrough path: CTA must NOT be stuck on "Switch to Monad"
+    // (the wallet mock pins chainId=10143), the page must have hydrated
+    // past the connect-wallet state, and the gate must not be denying
+    // the player.
+    expect(text).not.toMatch(/switch to monad/i);
+    expect(text).not.toMatch(/^connect wallet/i);
+    expect(text).not.toMatch(/allowlist required/i);
+  });
+
+  // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
+  // openSession call and assert the page advances into the post-write
+  // state. The wallet mock pins `game.allowlist()` to the zero address so
+  // the gate clears to `passthrough` and the CTA becomes "Open session
+  // for X MON"; clicking it routes `eth_sendTransaction` to the mock's
+  // deterministic hash, which surfaces `hilo-tx-receipt`.
+  //
+  // The full SessionCashedOut/SessionLost/SessionPushed flip requires
+  // `SessionOpened` + `StepPlayed` + `SessionCashedOut` event logs fed
+  // back through `useWatchContractEvent`, which lives in the anvil-fork
+  // CI lane (.github/workflows/casino-e2e.yml) rather than the wallet-
+  // mock-only path.
+  test('min-stake openSession click renders tx receipt via mocked eth_sendTransaction', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('hilo-primary-cta');
+    await expect(cta).toBeVisible();
+
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^open session for /);
+
+    await page.getByTestId('hilo-stake-input').fill('0.001');
+    await cta.click();
+
+    await expect(page.getByTestId('hilo-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });
