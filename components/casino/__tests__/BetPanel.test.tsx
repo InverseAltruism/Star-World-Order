@@ -239,4 +239,49 @@ describe('<BetPanel> (acceptance: SWO_CASINO_VITEST_BET_PANEL)', () => {
     expect(cta.textContent).toBe('Flip for 0.01 MON');
     expect(cta.disabled).toBe(false);
   });
+
+  // (c-regression) The dwell is driven by the `signingDwellMs` prop, not a
+  // hardcoded 600. If the timer ever gets pinned to a literal it would still
+  // pass the default-dwell test above, so this case proves the prop is
+  // actually wired into the setTimeout.
+  it('(c) honours custom signingDwellMs prop override (regression)', () => {
+    vi.useFakeTimers();
+    const CUSTOM_DWELL = 1200;
+    act(() => {
+      root.render(
+        <BetPanel
+          testIdPrefix="t"
+          multiplier="2.00×"
+          stakeUnit="MON"
+          stake="0.01"
+          onStakeChange={() => {}}
+          signingDwellMs={CUSTOM_DWELL}
+          cta={{ label: 'Bet', onClick: () => {}, disabled: false }}
+        />,
+      );
+    });
+    const cta = container.querySelector(
+      '[data-testid="t-primary-cta"]',
+    ) as HTMLButtonElement;
+
+    act(() => {
+      cta.click();
+    });
+    expect(cta.textContent).toBe('Confirm in wallet…');
+
+    // Default-dwell boundary must NOT release the overlay when the prop is
+    // longer than the default.
+    act(() => {
+      vi.advanceTimersByTime(DEFAULT_SIGNING_DWELL_MS + 50);
+    });
+    expect(cta.textContent).toBe('Confirm in wallet…');
+    expect(cta.disabled).toBe(true);
+
+    // Cross the custom boundary — overlay releases.
+    act(() => {
+      vi.advanceTimersByTime(CUSTOM_DWELL - DEFAULT_SIGNING_DWELL_MS - 49);
+    });
+    expect(cta.textContent).toBe('Bet');
+    expect(cta.disabled).toBe(false);
+  });
 });
