@@ -15,6 +15,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:casino": "playwright test --project=casino-connected",
+    "test:e2e:casino-visual": "playwright test --project=casino-visual",
+    "test:e2e:casino-visual:update": "playwright test --project=casino-visual --update-snapshots",
     "test:e2e:install": "playwright install --with-deps chromium",
     "compile": "node scripts/compile-contracts.js",
     "test:network": "node scripts/test-connection.js",
