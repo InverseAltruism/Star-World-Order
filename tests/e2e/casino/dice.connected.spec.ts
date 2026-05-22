@@ -74,4 +74,32 @@ test.describe('@casino-connected /casino/dice', () => {
       { timeout: 15_000 },
     ).not.toMatch(/switch to monad/i);
   });
+
+  // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
+  // bet on the Dice surface and assert the post-write state. Same shape as
+  // the coinflip equivalent — the deterministic `eth_sendTransaction` hash
+  // from the wallet mock flows into `useWriteContract.data` and renders the
+  // `dice-tx-receipt` element. Full Won/Lost requires BetSettled event
+  // playback (anvil-fork CI lane).
+  test('min-stake bet click renders tx receipt via mocked eth_sendTransaction', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('dice-primary-cta');
+    await expect(cta).toBeVisible();
+
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^roll for /);
+
+    await page.getByTestId('dice-stake-input').fill('0.001');
+    await cta.click();
+
+    await expect(page.getByTestId('dice-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
+  });
 });

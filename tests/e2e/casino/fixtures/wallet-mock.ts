@@ -5,12 +5,18 @@
 // `injected()` connector (see `lib/wagmi.ts`) discovers it on mount.
 //
 // Scope: the mock answers enough JSON-RPC for wagmi to enter the
-// "connected to chain X with account Y" state. It deliberately does NOT
-// attempt to back the full bet flow (eth_estimateGas, eth_sendTransaction,
-// eth_getTransactionReceipt, allowlist `eth_call`, BetSettled subscription)
-// — those require either an anvil fork (see `.github/workflows/casino-e2e.yml`)
-// or per-spec route shims, and live outside the scope of this initial
-// Playwright surface.
+// "connected to chain X with account Y" state AND to clear the pre-bet
+// `useAllowlistGate` check by pinning `game.allowlist()` to the zero
+// address (gate short-circuits to `passthrough`). With that gate cleared,
+// the bet CTA becomes clickable and `eth_sendTransaction` returns a
+// deterministic tx hash, so a wallet-mocked spec can drive the surface
+// up to the "tx submitted" state and assert `*-tx-receipt`.
+//
+// What the mock still does NOT do: forge `BetSettled` / `SessionOpened` /
+// `StepPlayed` / `SessionCashedOut` event logs back through wagmi's
+// `useWatchContractEvent` subscription. The full Won/Lost / SessionCashed
+// flip requires either an anvil fork (see `.github/workflows/casino-e2e.yml`)
+// or per-spec log-injection plumbing, both outside this fixture's scope.
 
 import type { Page } from '@playwright/test';
 
@@ -53,6 +59,28 @@ export async function installWalletMock(
 
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
 
+      // Selector → eth_call response map. Pre-seeded with the
+      // `game.allowlist()` selector (`0x2b47da52`,
+      // = keccak256("allowlist()")[:4]) returning the ABI-encoded zero
+      // address. That short-circuits `useAllowlistGate` to `passthrough`
+      // (see lib/casino/useAllowlistGate.ts §1) so the bet CTA becomes
+      // clickable rather than getting stuck in the gate's loading or
+      // denied branches. Other selectors fall through to `0x`.
+      const ALLOWLIST_SELECTOR = '0x2b47da52';
+      const ABI_ENCODED_ZERO_ADDRESS =
+        '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+      function ethCallResponse(params: unknown[] | undefined): string {
+        const call = params?.[0] as
+          | { data?: string; input?: string }
+          | undefined;
+        const calldata = (call?.data ?? call?.input ?? '').toLowerCase();
+        if (calldata.startsWith(ALLOWLIST_SELECTOR)) {
+          return ABI_ENCODED_ZERO_ADDRESS;
+        }
+        return '0x';
+      }
+
       const handlers: Record<string, RpcHandler> = {
         eth_chainId: () => chainIdHex,
         net_version: () => String(chainId),
@@ -66,7 +94,7 @@ export async function installWalletMock(
         eth_gasPrice: () => '0x3b9aca00',
         eth_estimateGas: () => '0x5208',
         eth_getBalance: () => '0xde0b6b3a7640000', // 1 ETH/MON
-        eth_call: () => '0x',
+        eth_call: (params) => ethCallResponse(params),
         eth_getTransactionByHash: () => null,
         eth_getTransactionReceipt: () => null,
         eth_getBlockByNumber: () => null,
