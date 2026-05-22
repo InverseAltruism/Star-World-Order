@@ -19,14 +19,14 @@
 // Wallet mock: `tests/e2e/casino/fixtures/wallet-mock.ts` injects an
 // EIP-1193 provider via `page.addInitScript` and announces it through
 // EIP-6963 so wagmi's `injected()` connector picks it up before hydration.
+// The mock pins `game.allowlist()` to the zero address so
+// `useAllowlistGate` short-circuits to `passthrough` and the bet CTA is
+// clickable; spec-level bet flows can then click through to the
+// `eth_sendTransaction` mock and assert `*-tx-receipt` renders.
 
 import { defineConfig, devices } from '@playwright/test';
 
 const NEXT_PORT = process.env.NEXT_PORT ?? '3000';
-// PLAYWRIGHT_BASE_URL is what `.github/workflows/casino-e2e.yml` sets;
-// E2E_BASE_URL is the local-dev override. Either one short-circuits the
-// `webServer` boot so you can point the suite at an already-running dev
-// server.
 const BASE_URL =
   process.env.PLAYWRIGHT_BASE_URL ??
   process.env.E2E_BASE_URL ??
@@ -53,17 +53,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  // The `casino-visual` project writes baselines to `e2e/casino/__snapshots__/`
-  // (acceptance criterion for [SWO_CASINO_PLAYWRIGHT_VISUAL_BASELINE])
-  // instead of the default `<spec>-snapshots/` sibling directory. `{arg}` is
-  // the screenshot name passed to `toHaveScreenshot('<name>.png', ...)`; we
-  // do NOT include `{-projectName}` because every visual snapshot already
-  // encodes its viewport+scheme in the screenshot name itself.
   snapshotPathTemplate: 'e2e/casino/__snapshots__/{arg}{ext}',
 
-  // 0.5% pixel-ratio budget keeps anti-aliasing noise from flaking the suite
-  // while still catching layout/colour regressions. Tuned to the acceptance
-  // criterion for [SWO_CASINO_PLAYWRIGHT_VISUAL_BASELINE].
   expect: {
     timeout: 10_000,
     toHaveScreenshot: {
@@ -85,9 +76,6 @@ export default defineConfig({
       name: 'casino-visual',
       testMatch: /casino\/visual\.spec\.ts/,
       use: {
-        // Viewport + colorScheme are overridden per-test via `test.use(...)`
-        // inside the spec — the project-level defaults below are just
-        // sensible fallbacks for `--ui` / `--headed` ad-hoc runs.
         ...devices['Desktop Chrome'],
         colorScheme: 'dark',
       },
@@ -104,6 +92,15 @@ export default defineConfig({
         env: {
           NEXT_PUBLIC_MONAD_CHAIN_ID: MONAD_TESTNET_CHAIN_ID,
           NODE_ENV: 'development',
+          NEXT_PUBLIC_COSMIC_FLIP_COMMIT:
+            process.env.NEXT_PUBLIC_COSMIC_FLIP_COMMIT ??
+            '0x' + 'a1'.repeat(32),
+          NEXT_PUBLIC_GRAVITY_DICE_COMMIT:
+            process.env.NEXT_PUBLIC_GRAVITY_DICE_COMMIT ??
+            '0x' + 'b2'.repeat(32),
+          NEXT_PUBLIC_CONSTELLATION_CLIMB_COMMIT:
+            process.env.NEXT_PUBLIC_CONSTELLATION_CLIMB_COMMIT ??
+            '0x' + 'c3'.repeat(32),
         },
       },
 });

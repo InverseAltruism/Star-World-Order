@@ -4,7 +4,7 @@ import nextTypeScript from 'eslint-config-next/typescript';
 
 export default defineConfig([
   {
-    ignores: ['.next/**', 'node_modules/**', 'out/**'],
+    ignores: ['.next/**', 'node_modules/**', 'out/**', 'contracts/casino/defender/**'],
   },
   ...nextCoreWebVitals,
   ...nextTypeScript,

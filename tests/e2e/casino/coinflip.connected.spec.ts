@@ -110,4 +110,39 @@ test.describe('@casino-connected /casino/coinflip', () => {
       { timeout: 15_000 },
     ).not.toMatch(/switch to monad/i);
   });
+
+  // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
+  // bet and assert the surface advances into the post-write state. The
+  // wallet mock's `eth_sendTransaction` returns a deterministic tx hash
+  // (see fixtures/wallet-mock.ts), so once the gate clears + the CTA
+  // becomes "Flip for X MON", clicking it surfaces `coinflip-tx-receipt`.
+  // The final Won/Lost flip requires a `BetSettled` log fed back through
+  // `useWatchContractEvent`, which is the anvil-fork CI lane in
+  // .github/workflows/casino-e2e.yml — outside the wallet-mock-only scope.
+  test('min-stake bet click renders tx receipt via mocked eth_sendTransaction', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('coinflip-primary-cta');
+    await expect(cta).toBeVisible();
+
+    // Wait for the gate to clear so the CTA reads "Flip for ..."; if it
+    // ever lands on "Allowlist required" the mock is mis-wired.
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^flip for /);
+
+    // Min-stake bet.
+    await page.getByTestId('coinflip-stake-input').fill('0.001');
+    await cta.click();
+
+    // Deterministic tx hash from the wallet mock — viem will surface it
+    // back through useWriteContract.data, which drives the receipt copy.
+    await expect(page.getByTestId('coinflip-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
+  });
 });
