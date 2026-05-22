@@ -36,6 +36,13 @@ same PR that deploys a contract.
 > before broadcasting.
 >
 > Full predicted artifact: `contracts/casino/deployments/143.predicted.json`.
+>
+> **Mainnet broadcast script:** `contracts/casino/script/deploy-mainnet.sh`.
+> Gated on G1–G4 (audit pick, kickoff, fixes, re-review) and F8 (ops sign-off);
+> the script refuses to broadcast without `--yes` and enforces chain-id 143,
+> CreateX presence at `0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed`, and parity
+> between the live CREATE3 predictions and `143.predicted.json` before sending.
+> Run `bash contracts/casino/script/deploy-mainnet.sh --dry-run` to rehearse.
 
 ## Monad Testnet (chain id 10143)
 
