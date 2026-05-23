@@ -105,14 +105,19 @@ jobs:
           forge install radeksvarz/createx-forge
 
       - name: Forge coverage (LCOV)
-        # --ir-minimum keeps source maps accurate without "stack too deep"
-        # failures. The summary report streams to the job log for humans.
+        # Do NOT add --ir-minimum here. It forces viaIR compilation, which
+        # inlines internal function calls and breaks per-line / per-branch
+        # attribution in the lcov output (single-statement function bodies
+        # and library require()s show 0 hits even though they execute). The
+        # suite compiles without stack-too-deep under plain coverage, so we
+        # use that for accurate source maps. If a future change does hit
+        # stack-too-deep, restructure the offending function rather than
+        # re-enabling --ir-minimum.
         run: |
           forge coverage \
             --report lcov \
             --report-file lcov.info \
-            --report summary \
-            --ir-minimum
+            --report summary
 
       - name: Upload LCOV artifact
         uses: actions/upload-artifact@v4

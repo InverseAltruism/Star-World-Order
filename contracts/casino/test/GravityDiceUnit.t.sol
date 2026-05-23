@@ -6,6 +6,18 @@ import {CasinoBankroll} from "../src/CasinoBankroll.sol";
 import {GravityDice} from "../src/GravityDice.sol";
 import {CommitRevealRandomness} from "../src/CommitRevealRandomness.sol";
 
+contract GravityDiceAllowlistMock {
+    bool public allow = true;
+
+    function setAllow(bool v) external {
+        allow = v;
+    }
+
+    function enforceAccess(address) external view {
+        require(allow, "blocked");
+    }
+}
+
 /// @title GravityDiceUnit
 /// @notice Port of `BunnyBagzDice.t.sol` (Mega House) → SWO's Cosmic Casino
 ///         Roll-Under dice (`GravityDice`). Mechanical rename:
@@ -23,6 +35,7 @@ contract GravityDiceUnitTest is Test {
     address owner = address(0xB055);
     address player = address(0xCAFE);
     address keeper = address(0xBEEF);
+    GravityDiceAllowlistMock allowlist;
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
@@ -40,6 +53,7 @@ contract GravityDiceUnitTest is Test {
         game = new GravityDice(owner, address(bankroll), MIN_BET, MAX_BET);
         bankroll.registerGame(address(game), SEED_AMT);
         bankroll.deposit{value: SEED_AMT}();
+        allowlist = new GravityDiceAllowlistMock();
         vm.stopPrank();
     }
 
@@ -454,5 +468,57 @@ contract GravityDiceUnitTest is Test {
         // fair = stake * 100 / (R-1); house edge ≥ 1% ⇒ quoted < fair.
         uint256 fair = (stake * 100) / (uint256(ru) - 1);
         assertLt(quoted, fair, "house must keep at least the 1% edge");
+    }
+
+    function test_constructor_rejectsZeroBankroll() public {
+        vm.expectRevert(GravityDice.ZeroAddress.selector);
+        new GravityDice(owner, address(0), MIN_BET, MAX_BET);
+    }
+
+    function test_placeBet_revertsZeroCommit() public {
+        vm.prank(player);
+        vm.expectRevert(GravityDice.ZeroCommit.selector);
+        game.placeBet{value: 0.01 ether}(50, CLIENT_SEED, bytes32(0));
+    }
+
+    function test_placeBet_revertsDuplicateCommit() public {
+        _placeBet(50, 0.01 ether);
+        vm.prank(player);
+        vm.expectRevert(GravityDice.CommitAlreadyUsed.selector);
+        game.placeBet{value: 0.02 ether}(51, bytes32(uint256(2)), _commit(SERVER_SEED));
+    }
+
+    function test_placeBet_revertsWhenAllowlistBlocks() public {
+        vm.prank(owner);
+        game.setAllowlist(address(allowlist));
+        allowlist.setAllow(false);
+        vm.prank(player);
+        vm.expectRevert(GravityDice.NotAllowed.selector);
+        game.placeBet{value: 0.01 ether}(50, CLIENT_SEED, _commit(SERVER_SEED));
+    }
+
+    function test_settleBet_revertsForMissingBet() public {
+        vm.prank(keeper);
+        vm.expectRevert(GravityDice.BetNotFound.selector);
+        game.settleBet(999, SERVER_SEED);
+    }
+
+    function test_refundBet_revertsForMissingBet() public {
+        vm.prank(player);
+        vm.expectRevert(GravityDice.BetNotFound.selector);
+        game.refundBet(999);
+    }
+
+    function test_isExpired_falseForMissingAndSettledBet() public {
+        assertFalse(game.isExpired(777));
+        uint256 betId = _placeBet(50, 0.01 ether);
+        vm.prank(keeper);
+        game.settleBet(betId, SERVER_SEED);
+        assertFalse(game.isExpired(betId));
+    }
+
+    function test_receive_revertsDirectEth() public {
+        vm.expectRevert(bytes("GravityDice: use placeBet"));
+        payable(address(game)).transfer(1 wei);
     }
 }
