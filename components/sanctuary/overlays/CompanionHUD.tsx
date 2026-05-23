@@ -108,6 +108,11 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
   const [tick, setTick] = useState(0);
   const [claiming, setClaiming] = useState(false);
   const [claimFeedback, setClaimFeedback] = useState<string | null>(null);
+  // [SWO_V2_SANCTUARY_VARIABLE_REWARDS] (PR7/7) — ephemeral bonus badge
+  // surfaced when an interaction rolls a variable reward (bonus STAR or rare
+  // trinket). The floor is always paid; this badge announces only the
+  // bonus, and self-clears after BONUS_BADGE_TTL_MS so it doesn't pile up.
+  const [bonusBadge, setBonusBadge] = useState<string | null>(null);
   const prevAwayRef = useRef<boolean>(false);
   // Tracks the last observed vitality snapshot so we can detect downward
   // crossings of the alert threshold. The visible alert state is derived
@@ -177,15 +182,32 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
       fetchStarBalance();
     };
     const onStarChanged = () => fetchStarBalance();
+    // [SWO_V2_SANCTUARY_VARIABLE_REWARDS] — the interaction layer emits this
+    // event with a short label string ("+2 ✨STAR", "Rare trinket!", etc.).
+    // The HUD just renders the label; payload parsing lives upstream.
+    const onVariableReward = (payload: { label: string | null }) => {
+      if (!payload || !payload.label) return;
+      setBonusBadge(payload.label);
+    };
     EventBus.on('companion-quest-started', onQuestStarted);
     EventBus.on('companion-quest-claimed', onQuestClaimed);
     EventBus.on('star-balance-changed', onStarChanged);
+    EventBus.on('companion-variable-reward', onVariableReward);
     return () => {
       EventBus.off('companion-quest-started', onQuestStarted);
       EventBus.off('companion-quest-claimed', onQuestClaimed);
       EventBus.off('star-balance-changed', onStarChanged);
+      EventBus.off('companion-variable-reward', onVariableReward);
     };
   }, [fetchCompanion, fetchStarBalance]);
+
+  // Auto-clear the bonus badge after a short window so the HUD slot stays
+  // tidy. Re-armed on every new bonus emission via the setter above.
+  useEffect(() => {
+    if (!bonusBadge) return;
+    const id = setTimeout(() => setBonusBadge(null), 2500);
+    return () => clearTimeout(id);
+  }, [bonusBadge]);
 
   const onQuest = isOnQuest(companion?.current_activity, companion?.activity_ends_at);
 
@@ -383,6 +405,27 @@ export default function CompanionHUD({ walletAddress }: CompanionHUDProps) {
             }`}
           >
             {streakLabel}
+          </span>
+        </div>
+      )}
+
+      {/* [SWO_V2_SANCTUARY_VARIABLE_REWARDS] (PR7/7) — bonus reward badge.
+          Visible only while a recent interaction's variable-reward roll is
+          live; auto-clears after a short fade. The floor reward is always
+          paid via the standard interaction journal entry, so this badge
+          surfaces only the surprise bonus. Marked data-testid so the
+          Playwright E2E can assert "at least one bonus over 50 interactions". */}
+      {bonusBadge && (
+        <div
+          data-testid="companion-variable-reward-badge"
+          className="absolute top-12 left-2 z-30 flex items-center gap-1.5 bg-black/85 border border-[#ffd700]/70 rounded px-2.5 py-1 pointer-events-none select-none shadow-[0_0_10px_rgba(255,215,0,0.35)] animate-pulse"
+          aria-live="polite"
+          aria-label={`Bonus reward: ${bonusBadge}`}
+          title={`Bonus reward: ${bonusBadge}`}
+        >
+          <span className="text-[10px] leading-none">✨</span>
+          <span className="text-[8px] text-[#ffd700] font-['Press_Start_2P'] tabular-nums">
+            {bonusBadge}
           </span>
         </div>
       )}

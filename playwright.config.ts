@@ -80,6 +80,17 @@ export default defineConfig({
         colorScheme: 'dark',
       },
     },
+    {
+      // Sanctuary V2 gacha + cosmetic-shop flows. Drives the isolated
+      // `app/__e2e__/sanctuary-shop` harness so we don't have to boot the
+      // full Phaser scene in headless Chromium. Pairs with the unit-level
+      // gacha spec in `lib/sanctuary/__tests__/gacha.test.ts`.
+      name: 'sanctuary-connected',
+      testMatch: /sanctuary\/.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
   ],
 
   webServer: USE_EXTERNAL_SERVER

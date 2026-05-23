@@ -9,6 +9,10 @@ import {
   type PreferenceLevel,
 } from './preferences';
 import { TIRED_BOND_MULTIPLIER } from './sleepDynamics';
+import {
+  rollVariableReward,
+  type VariableRewardOutcome,
+} from './variableRewards';
 
 export type CompanionActionId = 'feed' | 'pet' | 'talk' | 'sleep' | 'play';
 
@@ -205,6 +209,46 @@ export function previewBondDelta(input: {
   const tiredMult =
     input.isTired && input.action !== 'sleep' ? TIRED_BOND_MULTIPLIER : 1;
   return input.baseline * prefMult * needMult * tiredMult;
+}
+
+/**
+ * [SWO_V2_SANCTUARY_VARIABLE_REWARDS] (PR7/7)
+ *
+ * Preview the full action reward: compute the floor (preference + need-state +
+ * tired multipliers applied to the baseline bond delta) and then roll the
+ * variable-reward layer on top. The floor is always returned exactly as
+ * `previewBondDelta` would compute it — the variable layer never mutates the
+ * floor bond. This is the single source of truth for "what does this action
+ * pay the player right now", and is the function both the UI and the
+ * persistence path call so the preview matches the persisted outcome.
+ *
+ * RNG injection: when omitted, falls back to `Math.random`. Tests and the
+ * Playwright E2E pass `makeSeededRng(seed)` so a 50-step run is reproducible.
+ */
+export function previewActionReward(input: {
+  baseline: number;
+  preference: PreferenceLevel;
+  needBoosted?: boolean;
+  isTired?: boolean;
+  action: CompanionActionId;
+  rng?: () => number;
+}): {
+  floorBond: number;
+  variableReward: VariableRewardOutcome;
+} {
+  const floorBond = previewBondDelta({
+    baseline: input.baseline,
+    preference: input.preference,
+    needBoosted: input.needBoosted,
+    isTired: input.isTired,
+    action: input.action,
+  });
+  const variableReward = rollVariableReward({
+    action: input.action,
+    floorBond,
+    rng: input.rng,
+  });
+  return { floorBond, variableReward };
 }
 
 /** Round a cooldown to a compact label like "12s" / "1m" / "1h". */

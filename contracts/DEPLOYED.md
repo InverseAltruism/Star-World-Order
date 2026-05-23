@@ -44,6 +44,15 @@ same PR that deploys a contract.
 > between the live CREATE3 predictions and `143.predicted.json` before sending.
 > Run `bash contracts/casino/script/deploy-mainnet.sh --dry-run` to rehearse.
 >
+> **Mainnet seed script (G6):** `contracts/casino/script/seed-mainnet.sh`.
+> Deposits operator-sized native MON into the bankroll post-deploy. Suggested
+> sizing is 10–50 MON; the script enforces a `[CASINO_SEED_MIN_WEI,
+> CASINO_SEED_MAX_WEI]` band (defaults 0.1–50 MON) to block fat-finger amounts,
+> asserts chain-id 143, refuses if `143.json` is missing (G5 not broadcast),
+> verifies the bankroll has on-chain code, and gates broadcast behind `--yes`.
+> Rehearse with `bash contracts/casino/script/seed-mainnet.sh --dry-run` and
+> set `CASINO_SEED_AMOUNT_WEI` to the operator-chosen seed.
+>
 > **Ownership handover (G7):** the four casino contracts ship with the deployer
 > EOA as `Ownable.owner()`. Phase 3 migrates that owner role to the SWO
 > governance multisig via `contracts/casino/script/handover-ownership.sh` (wraps
