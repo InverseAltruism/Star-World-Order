@@ -92,6 +92,32 @@ type HiLoSession @entity {
   stepCount: Int!         # number of StepPlayed events for this session
 }
 
+# Append-only bankroll event log. Each on-chain event (deposit, withdraw,
+# game payout, game settle, circuit-breaker trip/reset) becomes one row,
+# keyed on the composite "<txHash>-<logIndex>" so reorgs are idempotent.
+# Consumers (treasury view, /api/casino/health) roll up at query time.
+type BankrollEvent @entity {
+  id: String!             # "<txHash>-<logIndex>"
+
+  # One of: "deposit" | "withdraw" | "gamePayout" | "gameSettled"
+  #         | "circuitBreakerTripped" | "circuitBreakerReset"
+  kind: String!
+
+  # Depositor / withdrawer / game address; null for circuit-breaker rows.
+  counterparty: String
+
+  # GamePayout recipient (the winning player). Null on all other kinds.
+  recipient: String
+
+  # Wei delta for cash-flow kinds; window-drawdown delta for `circuitBreakerTripped`;
+  # currentBalance snapshot for `circuitBreakerReset`.
+  amount: BigInt!
+
+  blockNumber: BigInt!
+  timestamp: BigInt!      # block timestamp (or event-payload timestamp for breaker rows)
+  txHash: Bytes!          # 0x transaction hash for explorer cross-reference
+}
+
 # Append-only StepPlayed records. `id` is the composite "<sessionId>-<stepIdx>"
 # so the verifier can replay deterministically.
 type HiLoStep @entity {

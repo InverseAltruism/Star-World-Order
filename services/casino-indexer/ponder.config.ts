@@ -13,6 +13,7 @@
 
 import type { Address } from 'viem';
 
+import { BANKROLL_EVENT_ABI } from './abis/CasinoBankroll';
 import { COINFLIP_EVENT_ABI } from './abis/CasinoCoinflip';
 import { DICE_EVENT_ABI } from './abis/CasinoDice';
 import { HILO_EVENT_ABI } from './abis/CasinoHiLo';
@@ -71,6 +72,12 @@ export function resolveHiLoAddress(env: EnvBag = process.env): Address {
     PLACEHOLDER) as Address;
 }
 
+export function resolveBankrollAddress(env: EnvBag = process.env): Address {
+  return (env.SWO_BANKROLL_ADDRESS ??
+    env.BUNNYBAGZ_BANKROLL_ADDRESS ??
+    PLACEHOLDER) as Address;
+}
+
 // Plain config object — keeps the file consumable without a Ponder install.
 // When Ponder is added, `ponder.schema.ts` + `createConfig` can wrap this
 // directly: `export default createConfig(indexerConfig)`.
@@ -115,6 +122,20 @@ export const indexerConfig = {
         { event: 'SessionCashedOut' },
         { event: 'SessionRefunded' },
         { event: 'SessionPushed' },
+      ],
+    },
+    CasinoBankroll: {
+      network: 'monadTestnet' as const,
+      abi: BANKROLL_EVENT_ABI,
+      address: resolveBankrollAddress(),
+      startBlock: resolveStartBlock(),
+      filter: [
+        { event: 'Deposited' },
+        { event: 'Withdrawn' },
+        { event: 'GamePayout' },
+        { event: 'GameSettled' },
+        { event: 'CircuitBreakerTripped' },
+        { event: 'CircuitBreakerReset' },
       ],
     },
   },

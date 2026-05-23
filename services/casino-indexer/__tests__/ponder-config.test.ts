@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 import indexerConfig, {
   MONAD_TESTNET_CHAIN_ID,
   MONAD_TESTNET_DEFAULT_RPC,
+  resolveBankrollAddress,
   resolveChainId,
   resolveRpcUrl,
   resolveStartBlock,
@@ -52,6 +53,7 @@ describe('ponder.config (Monad testnet retarget)', () => {
     expect(Object.keys(indexerConfig.networks)).toEqual(['monadTestnet']);
     expect(indexerConfig.networks.monadTestnet.chainId).toBe(10143);
     expect(Object.keys(indexerConfig.contracts).sort()).toEqual([
+      'CasinoBankroll',
       'CasinoCoinflip',
       'CasinoDice',
       'CasinoHiLo',
@@ -59,5 +61,20 @@ describe('ponder.config (Monad testnet retarget)', () => {
     for (const c of Object.values(indexerConfig.contracts)) {
       expect(c.network).toBe('monadTestnet');
     }
+  });
+
+  test('bankroll address falls through to placeholder and accepts overrides', () => {
+    expect(resolveBankrollAddress({})).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    expect(
+      resolveBankrollAddress({
+        SWO_BANKROLL_ADDRESS: '0x000000000000000000000000000000000000bA17',
+      }),
+    ).toBe('0x000000000000000000000000000000000000bA17');
+    expect(
+      resolveBankrollAddress({
+        BUNNYBAGZ_BANKROLL_ADDRESS:
+          '0x000000000000000000000000000000000000bB18',
+      }),
+    ).toBe('0x000000000000000000000000000000000000bB18');
   });
 });
