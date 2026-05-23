@@ -7,10 +7,12 @@ import {
   formatCooldownBadge,
   companionActionPreferenceBadge,
   previewBondDelta,
+  previewActionReward,
   COMPANION_ACTIONS,
   type CompanionActionId,
   type CompanionActionState,
 } from '../companionAction';
+import { makeSeededRng } from '../variableRewards';
 
 const baseInput = (override: Partial<Parameters<typeof resolveCompanionActionState>[0]> = {}) => ({
   action: 'feed' as CompanionActionId,
@@ -231,6 +233,69 @@ describe('previewBondDelta', () => {
       isTired: true,
     });
     expect(tired).toBe(fresh);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [SWO_V2_SANCTUARY_VARIABLE_REWARDS] — previewActionReward layers the
+// variable-reward roll on top of the preference + need-state + tired-mult
+// floor. The floor must always survive untouched.
+// ---------------------------------------------------------------------------
+
+describe('previewActionReward — variable reward layered on floor', () => {
+  it('returns the same floor bond as previewBondDelta', () => {
+    const floor = previewBondDelta({
+      baseline: 0.5,
+      preference: 'loved',
+      needBoosted: true,
+      action: 'feed',
+    });
+    // Drive the RNG so neither bonus fires — we want to assert the floor
+    // path returns the unmodified preference + need-state result.
+    const rng = () => 0.99;
+    const out = previewActionReward({
+      baseline: 0.5,
+      preference: 'loved',
+      needBoosted: true,
+      action: 'feed',
+      rng,
+    });
+    expect(out.floorBond).toBe(floor);
+    expect(out.variableReward.tier).toBe('floor');
+    expect(out.variableReward.bond).toBe(floor);
+  });
+
+  it('preserves floor even when a bonus rolls', () => {
+    const floor = previewBondDelta({
+      baseline: 0.5,
+      preference: 'neutral',
+      action: 'pet',
+    });
+    // Force bonus_star: trinket roll fails, star roll succeeds.
+    const rolls = [0.99, 0.001, 0.5];
+    let i = 0;
+    const out = previewActionReward({
+      baseline: 0.5,
+      preference: 'neutral',
+      action: 'pet',
+      rng: () => rolls[i++ % rolls.length],
+    });
+    expect(out.floorBond).toBe(floor);
+    expect(out.variableReward.tier).toBe('bonus_star');
+    expect(out.variableReward.bond).toBe(floor); // variable layer never touches floor
+    expect(out.variableReward.bonusStar).toBeGreaterThanOrEqual(1);
+  });
+
+  it('is deterministic with a seeded RNG', () => {
+    const seedA = makeSeededRng(99);
+    const seedB = makeSeededRng(99);
+    const a = previewActionReward({
+      baseline: 0.4, preference: 'liked', action: 'play', rng: seedA,
+    });
+    const b = previewActionReward({
+      baseline: 0.4, preference: 'liked', action: 'play', rng: seedB,
+    });
+    expect(a).toEqual(b);
   });
 });
 
