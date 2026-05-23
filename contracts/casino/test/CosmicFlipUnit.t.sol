@@ -6,6 +6,18 @@ import {CasinoBankroll} from "../src/CasinoBankroll.sol";
 import {CosmicFlip} from "../src/CosmicFlip.sol";
 import {CommitRevealRandomness} from "../src/CommitRevealRandomness.sol";
 
+contract CosmicFlipAllowlistMock {
+    bool public allow = true;
+
+    function setAllow(bool v) external {
+        allow = v;
+    }
+
+    function enforceAccess(address) external view {
+        require(allow, "blocked");
+    }
+}
+
 contract CosmicFlipUnitTest is Test {
     CasinoBankroll bankroll;
     CosmicFlip game;
@@ -13,6 +25,7 @@ contract CosmicFlipUnitTest is Test {
     address owner = address(0xB055);
     address player = address(0xCAFE);
     address keeper = address(0xBEEF); // backend that calls settleBet
+    CosmicFlipAllowlistMock allowlist;
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant CLIENT_SEED = bytes32(uint256(0xC11ABC));
@@ -30,6 +43,7 @@ contract CosmicFlipUnitTest is Test {
         game = new CosmicFlip(owner, address(bankroll), MIN_BET, MAX_BET);
         bankroll.registerGame(address(game), SEED_AMT);
         bankroll.deposit{value: SEED_AMT}();
+        allowlist = new CosmicFlipAllowlistMock();
         vm.stopPrank();
     }
 
@@ -223,5 +237,64 @@ contract CosmicFlipUnitTest is Test {
 
         uint256 expected = (stake * 198) / 100;
         assertEq(player.balance, playerBefore + expected);
+    }
+
+    function test_constructor_rejectsZeroBankroll() public {
+        vm.expectRevert(CosmicFlip.ZeroAddress.selector);
+        new CosmicFlip(owner, address(0), MIN_BET, MAX_BET);
+    }
+
+    function test_placeBet_revertsZeroCommit() public {
+        vm.prank(player);
+        vm.expectRevert(CosmicFlip.ZeroCommit.selector);
+        game.placeBet{value: 0.01 ether}(CosmicFlip.Side.Heads, CLIENT_SEED, bytes32(0));
+    }
+
+    function test_placeBet_revertsDuplicateCommit() public {
+        _placeBet(CosmicFlip.Side.Heads, 0.01 ether);
+        vm.prank(player);
+        vm.expectRevert(CosmicFlip.CommitAlreadyUsed.selector);
+        game.placeBet{value: 0.02 ether}(CosmicFlip.Side.Tails, bytes32(uint256(2)), _commit(SERVER_SEED));
+    }
+
+    function test_placeBet_revertsWhenAllowlistBlocks() public {
+        vm.prank(owner);
+        game.setAllowlist(address(allowlist));
+        allowlist.setAllow(false);
+        vm.prank(player);
+        vm.expectRevert(CosmicFlip.NotAllowed.selector);
+        game.placeBet{value: 0.01 ether}(CosmicFlip.Side.Heads, CLIENT_SEED, _commit(SERVER_SEED));
+    }
+
+    function test_settleBet_revertsForMissingBet() public {
+        vm.prank(keeper);
+        vm.expectRevert(CosmicFlip.BetNotFound.selector);
+        game.settleBet(999, SERVER_SEED);
+    }
+
+    function test_refundBet_revertsForMissingBet() public {
+        vm.prank(player);
+        vm.expectRevert(CosmicFlip.BetNotFound.selector);
+        game.refundBet(999);
+    }
+
+    function test_previewOutcome_matchesMath() public view {
+        CosmicFlip.Side expected = CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, 7, 2) == 0
+            ? CosmicFlip.Side.Heads
+            : CosmicFlip.Side.Tails;
+        assertEq(uint8(game.previewOutcome(SERVER_SEED, CLIENT_SEED, 7)), uint8(expected));
+    }
+
+    function test_isExpired_falseForMissingAndSettledBet() public {
+        assertFalse(game.isExpired(777));
+        uint256 betId = _placeBet(CosmicFlip.Side.Heads, 0.01 ether);
+        vm.prank(keeper);
+        game.settleBet(betId, SERVER_SEED);
+        assertFalse(game.isExpired(betId));
+    }
+
+    function test_receive_revertsDirectEth() public {
+        vm.expectRevert(bytes("CosmicFlip: use placeBet"));
+        payable(address(game)).transfer(1 wei);
     }
 }

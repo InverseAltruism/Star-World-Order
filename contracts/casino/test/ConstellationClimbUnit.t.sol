@@ -7,6 +7,18 @@ import {CasinoBankroll} from "../src/CasinoBankroll.sol";
 import {ConstellationClimb} from "../src/ConstellationClimb.sol";
 import {CommitRevealRandomness} from "../src/CommitRevealRandomness.sol";
 
+contract ClimbAllowlistMock {
+    bool public allow = true;
+
+    function setAllow(bool v) external {
+        allow = v;
+    }
+
+    function enforceAccess(address) external view {
+        require(allow, "blocked");
+    }
+}
+
 /// @title ConstellationClimbUnit
 /// @notice Port of `BunnyBagzHiLo.t.sol` (Mega House) → SWO's Cosmic Casino
 ///         Hi-Lo (`ConstellationClimb`). Mechanical rename:
@@ -28,6 +40,7 @@ contract ConstellationClimbUnitTest is Test {
     address owner = address(0xB055);
     address player = address(0xCAFE);
     address keeper = address(0xBEEF);
+    ClimbAllowlistMock allowlist;
 
     bytes32 constant SERVER_SEED = bytes32(uint256(0xA11CE));
     bytes32 constant SERVER_SEED2 = bytes32(uint256(0xA11CE2));
@@ -51,6 +64,7 @@ contract ConstellationClimbUnitTest is Test {
         game = new ConstellationClimb(owner, address(bankroll), MIN_BET, MAX_BET, MAX_PAYOUT);
         bankroll.registerGame(address(game), SEED_AMT);
         bankroll.deposit{value: SEED_AMT}();
+        allowlist = new ClimbAllowlistMock();
         vm.stopPrank();
     }
 
@@ -777,6 +791,65 @@ contract ConstellationClimbUnitTest is Test {
                 break;
             }
         }
+    }
+
+    function test_constructor_rejectsZeroBankroll() public {
+        vm.expectRevert(ConstellationClimb.ZeroAddress.selector);
+        new ConstellationClimb(owner, address(0), MIN_BET, MAX_BET, MAX_PAYOUT);
+    }
+
+    function test_open_revertsZeroCommit() public {
+        vm.prank(player);
+        vm.expectRevert(ConstellationClimb.ZeroCommit.selector);
+        game.openSession{value: 0.01 ether}(CLIENT_SEED, bytes32(0));
+    }
+
+    function test_open_revertsDuplicateCommit() public {
+        _open(0.01 ether, CLIENT_SEED, _commit(SERVER_SEED));
+        vm.prank(player);
+        vm.expectRevert(ConstellationClimb.CommitAlreadyUsed.selector);
+        game.openSession{value: 0.01 ether}(bytes32(uint256(2)), _commit(SERVER_SEED));
+    }
+
+    function test_open_revertsWhenAllowlistBlocks() public {
+        vm.prank(owner);
+        game.setAllowlist(address(allowlist));
+        allowlist.setAllow(false);
+        vm.prank(player);
+        vm.expectRevert(ConstellationClimb.NotAllowed.selector);
+        game.openSession{value: 0.01 ether}(CLIENT_SEED, _commit(SERVER_SEED));
+    }
+
+    function test_playStep_revertsZeroNextCommit() public {
+        uint256 sid = _open(0.01 ether, CLIENT_SEED, _commit(SERVER_SEED));
+        vm.prank(keeper);
+        vm.expectRevert(ConstellationClimb.ZeroCommit.selector);
+        game.playStep(sid, ConstellationClimb.Direction.Higher, SERVER_SEED, bytes32(0));
+    }
+
+    function test_cashOut_revertsForMissingSession() public {
+        vm.prank(player);
+        vm.expectRevert(ConstellationClimb.SessionNotFound.selector);
+        game.cashOut(999);
+    }
+
+    function test_refundSession_revertsForMissingSession() public {
+        vm.prank(player);
+        vm.expectRevert(ConstellationClimb.SessionNotFound.selector);
+        game.refundSession(999);
+    }
+
+    function test_isExpired_falseForMissingAndClosedSession() public {
+        assertFalse(game.isExpired(888));
+        uint256 sid = _open(0.01 ether, CLIENT_SEED, _commit(SERVER_SEED));
+        vm.prank(player);
+        game.cashOut(sid);
+        assertFalse(game.isExpired(sid));
+    }
+
+    function test_receive_revertsDirectEth() public {
+        vm.expectRevert(bytes("ConstellationClimb: use openSession"));
+        payable(address(game)).transfer(1 wei);
     }
 }
 
