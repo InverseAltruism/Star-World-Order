@@ -23,9 +23,13 @@ TypeScript so vitest can drive them without a live RPC or Ponder install.
 - **CasinoDice** — `BetPlaced`, `BetSettled`, `BetRefunded`
 - **CasinoHiLo** — `SessionOpened`, `StepPlayed`, `SessionCashedOut`,
   `SessionRefunded`, `SessionPushed`
+- **CasinoBankroll** — `Deposited`, `Withdrawn`, `GamePayout`, `GameSettled`,
+  `CircuitBreakerTripped`, `CircuitBreakerReset` (append-only event log;
+  consumers roll up at query time for the treasury view and
+  `/api/casino/health`).
 
-A fourth contract (slots) is a planned follow-up — slots placement is still
-out-of-protocol, so its handler set will land alongside the on-chain slots
+Slots is intentionally out of scope — slots placement is still off-chain
+in Phase 1, so its handler set will land alongside the on-chain slots
 contract.
 
 ## Environment
@@ -39,6 +43,7 @@ SWO_CHAIN_ID=10143                                     # default; override for a
 SWO_COINFLIP_ADDRESS=0x...
 SWO_DICE_ADDRESS=0x...
 SWO_HILO_ADDRESS=0x...
+SWO_BANKROLL_ADDRESS=0x...
 
 # Optional — speed up reindex on a fresh DB.
 SWO_INDEXER_FROM_BLOCK=0
