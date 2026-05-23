@@ -1,24 +1,30 @@
 // /casino/coinflip Playwright spec for [SWO_CASINO_PLAYWRIGHT_CONNECTED].
 //
-// Asserts the wallet-mocked path through the page reaches the
-// "connected on Monad testnet (10143), ready to flip" state:
+// Two layers of coverage:
 //
-//   1. Page renders with the documented metadata title.
-//   2. CoinflipPanel mounts (`coinflip-side-selector` is present).
-//   3. Pre-connect baseline shows the disabled "Connect wallet" CTA.
-//   4. With the wallet mock installed, the CTA advances past "Connect
-//      wallet" and never sticks on "Switch to Monad" (chain gate green).
-//   5. Side toggle + stake input remain interactive.
+//   1. Pre-connect baseline: page metadata, side selector, stake input,
+//      "Connect wallet" disabled CTA. Catches dumb regressions in the
+//      pure presentational shell without needing the wallet mock.
 //
-// What this spec deliberately does NOT do: it never submits a bet. That
-// path requires backing `eth_call` for the allowlist read and forging a
-// `BetSettled` log, which is the anvil-fork lane covered by
-// `.github/workflows/casino-e2e.yml`.
+//   2. Wallet-mocked happy path: install EIP-1193 mock + HTTP JSON-RPC
+//      interceptor, place a min-stake bet, inject a synthetic `BetSettled`
+//      log into the next `useWatchContractEvent` poll, then assert the
+//      surface flips into the Won banner (`coinflip-outcome-won`). The
+//      Lost variant is exercised by `outcome=false` injected against the
+//      same surface in a paired spec.
 
 import { expect, test } from '@playwright/test';
-import { installWalletMock, isMockInstalled } from './fixtures/wallet-mock';
+import {
+  installRpcRoute,
+  installWalletMock,
+  isMockInstalled,
+  makeBetSettledLog,
+} from './fixtures/wallet-mock';
 
 const ROUTE = '/casino/coinflip';
+const PLAYER: `0x${string}` = '0x1111111111111111111111111111111111111111';
+const COSMIC_FLIP_ADDRESS: `0x${string}` =
+  '0x064b8bfc03b23D2b525deD9d3969090347A21983';
 
 test.describe('@casino-connected /casino/coinflip', () => {
   test('renders Cosmic Flip page metadata + side selector pre-connect', async ({
@@ -73,6 +79,7 @@ test.describe('@casino-connected /casino/coinflip', () => {
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     expect(await isMockInstalled(page)).toBe(true);
@@ -83,10 +90,6 @@ test.describe('@casino-connected /casino/coinflip', () => {
     // wagmi's injected connector calls eth_accounts on mount; the mock
     // returns a non-empty array so the connector treats the wallet as
     // authorized and the CTA leaves the "Connect wallet" copy behind.
-    // We assert on absence of that string rather than a specific advance
-    // state because the next stop depends on contract-read timing (the
-    // page may show "Switch to Monad", "Flip for X MON", or briefly the
-    // allowlist-loading state — all of which are valid "past connect").
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
@@ -97,14 +100,12 @@ test.describe('@casino-connected /casino/coinflip', () => {
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('coinflip-primary-cta');
     await expect(cta).toBeVisible();
 
-    // The CTA should never settle on the Switch-to-Monad copy when the
-    // mock already reports chain 10143 (a supported chain in
-    // CoinflipPanel.SUPPORTED_CHAIN_IDS).
     await expect.poll(
       async () => (await cta.textContent()) ?? '',
       { timeout: 15_000 },
@@ -112,24 +113,21 @@ test.describe('@casino-connected /casino/coinflip', () => {
   });
 
   // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
-  // bet and assert the surface advances into the post-write state. The
-  // wallet mock's `eth_sendTransaction` returns a deterministic tx hash
-  // (see fixtures/wallet-mock.ts), so once the gate clears + the CTA
-  // becomes "Flip for X MON", clicking it surfaces `coinflip-tx-receipt`.
-  // The final Won/Lost flip requires a `BetSettled` log fed back through
-  // `useWatchContractEvent`, which is the anvil-fork CI lane in
-  // .github/workflows/casino-e2e.yml — outside the wallet-mock-only scope.
-  test('min-stake bet click renders tx receipt via mocked eth_sendTransaction', async ({
+  // bet, inject a synthetic BetSettled log into the RPC poll, and assert
+  // the UI flips to Won. The deterministic tx hash from the wallet mock
+  // drives the receipt; the queued log drives `useWatchContractEvent`'s
+  // onLogs callback, which calls setOutcome('won').
+  test('min-stake bet → injected BetSettled log → UI flips to Won', async ({
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('coinflip-primary-cta');
     await expect(cta).toBeVisible();
 
-    // Wait for the gate to clear so the CTA reads "Flip for ..."; if it
-    // ever lands on "Allowlist required" the mock is mis-wired.
+    // Wait for the gate to clear so the CTA reads "Flip for ...".
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
@@ -139,10 +137,60 @@ test.describe('@casino-connected /casino/coinflip', () => {
     await page.getByTestId('coinflip-stake-input').fill('0.001');
     await cta.click();
 
-    // Deterministic tx hash from the wallet mock — viem will surface it
-    // back through useWriteContract.data, which drives the receipt copy.
+    // Receipt surfaces from the deterministic tx hash.
     await expect(page.getByTestId('coinflip-tx-receipt')).toBeVisible({
       timeout: 15_000,
+    });
+
+    // Inject the won log. The first time `useWatchContractEvent` polls
+    // after this queue mutation, the log is served and the surface flips
+    // to the Won banner.
+    rpc.pushLog(
+      makeBetSettledLog({
+        contractAddress: COSMIC_FLIP_ADDRESS,
+        player: PLAYER,
+        betId: 1n,
+        outcome: 0,
+        won: true,
+      }),
+    );
+
+    await expect(page.getByTestId('coinflip-outcome-won')).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('min-stake bet → injected losing BetSettled log → UI flips to Lost', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('coinflip-primary-cta');
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^flip for /);
+
+    await page.getByTestId('coinflip-stake-input').fill('0.001');
+    await cta.click();
+    await expect(page.getByTestId('coinflip-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    rpc.pushLog(
+      makeBetSettledLog({
+        contractAddress: COSMIC_FLIP_ADDRESS,
+        player: PLAYER,
+        betId: 2n,
+        outcome: 1,
+        won: false,
+      }),
+    );
+
+    await expect(page.getByTestId('coinflip-outcome-lost')).toBeVisible({
+      timeout: 30_000,
     });
   });
 });

@@ -1,14 +1,22 @@
 // /casino/dice Playwright spec for [SWO_CASINO_PLAYWRIGHT_CONNECTED].
 //
 // Mirrors `coinflip.connected.spec.ts` over the Gravity Dice surface:
-// pre-connect baseline, rollUnder slider interaction, stake input, and a
-// wallet-mocked path that asserts the CTA advances past "Connect wallet"
-// without sticking on the wrong-chain banner.
+// pre-connect baseline, rollUnder slider interaction, stake input, and
+// the wallet-mocked happy path that places a min-stake bet, injects a
+// synthetic `BetSettled` log via the HTTP JSON-RPC interceptor, and
+// asserts the UI flips to Won / Lost.
 
 import { expect, test } from '@playwright/test';
-import { installWalletMock } from './fixtures/wallet-mock';
+import {
+  installRpcRoute,
+  installWalletMock,
+  makeBetSettledLog,
+} from './fixtures/wallet-mock';
 
 const ROUTE = '/casino/dice';
+const PLAYER: `0x${string}` = '0x1111111111111111111111111111111111111111';
+const GRAVITY_DICE_ADDRESS: `0x${string}` =
+  '0xAC023542A8168465EE4A1b3e8Ae0f58F36A6d84B';
 
 test.describe('@casino-connected /casino/dice', () => {
   test('renders Gravity Dice page metadata + rollUnder slider', async ({
@@ -38,8 +46,6 @@ test.describe('@casino-connected /casino/dice', () => {
     await expect(slider).toHaveAttribute('min', '2');
     await expect(slider).toHaveAttribute('max', '98');
 
-    // The slider is a controlled input. Set via `fill` (Playwright maps
-    // this to a value change event the React onChange handler picks up).
     await slider.fill('50');
     await expect(page.getByTestId('dice-rollunder-value')).toHaveText('50');
 
@@ -59,6 +65,7 @@ test.describe('@casino-connected /casino/dice', () => {
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('dice-primary-cta');
@@ -76,20 +83,15 @@ test.describe('@casino-connected /casino/dice', () => {
   });
 
   // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
-  // bet on the Dice surface and assert the post-write state. Same shape as
-  // the coinflip equivalent — the deterministic `eth_sendTransaction` hash
-  // from the wallet mock flows into `useWriteContract.data` and renders the
-  // `dice-tx-receipt` element. Full Won/Lost requires BetSettled event
-  // playback (anvil-fork CI lane).
-  test('min-stake bet click renders tx receipt via mocked eth_sendTransaction', async ({
+  // bet, inject a winning `BetSettled` log, and assert the UI flips to Won.
+  test('min-stake bet → injected BetSettled log → UI flips to Won', async ({
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('dice-primary-cta');
-    await expect(cta).toBeVisible();
-
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
@@ -100,6 +102,54 @@ test.describe('@casino-connected /casino/dice', () => {
 
     await expect(page.getByTestId('dice-tx-receipt')).toBeVisible({
       timeout: 15_000,
+    });
+
+    rpc.pushLog(
+      makeBetSettledLog({
+        contractAddress: GRAVITY_DICE_ADDRESS,
+        player: PLAYER,
+        betId: 1n,
+        outcome: 17, // roll value — < rollUnder=50 default → won
+        won: true,
+      }),
+    );
+
+    await expect(page.getByTestId('dice-outcome-won')).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('min-stake bet → injected losing BetSettled log → UI flips to Lost', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('dice-primary-cta');
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^roll for /);
+
+    await page.getByTestId('dice-stake-input').fill('0.001');
+    await cta.click();
+    await expect(page.getByTestId('dice-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    rpc.pushLog(
+      makeBetSettledLog({
+        contractAddress: GRAVITY_DICE_ADDRESS,
+        player: PLAYER,
+        betId: 2n,
+        outcome: 80, // roll value above rollUnder=50 default
+        won: false,
+      }),
+    );
+
+    await expect(page.getByTestId('dice-outcome-lost')).toBeVisible({
+      timeout: 30_000,
     });
   });
 });
