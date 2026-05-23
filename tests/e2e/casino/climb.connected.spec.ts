@@ -2,19 +2,25 @@
 //
 // Coverage:
 //   - Pre-connect baseline: page metadata + "Connect wallet" CTA.
-//   - Wallet-mocked, denied-allowlist player: the openSession CTA must
-//     render as disabled "Allowlist required" so the player cannot trigger
-//     a wallet signing prompt for a flow the contract would revert.
-//
-// The full openSession → step → cashOut happy-path is deferred to
-// [SWO_CASINO_HILO_UI] (D10); it requires either an anvil fork or per-
-// spec route shims to back the `placeBet` lifecycle, both of which are
-// out of scope here.
+//   - Wallet-mocked passthrough allowlist: openSession CTA reachable.
+//   - Wallet-mocked happy path: place a min-stake openSession, inject a
+//     synthetic `SessionCashedOut` log via the HTTP JSON-RPC interceptor,
+//     assert the UI flips to `hilo-status-cashedOut`.
+//   - Wallet-mocked loss path: inject a `StepPlayed` log with `won=false`
+//     and assert `hilo-status-lost` appears.
 
 import { expect, test } from '@playwright/test';
-import { installWalletMock } from './fixtures/wallet-mock';
+import {
+  installRpcRoute,
+  installWalletMock,
+  makeSessionCashedOutLog,
+  makeStepPlayedLostLog,
+} from './fixtures/wallet-mock';
 
 const ROUTE = '/casino/constellation-climb';
+const PLAYER: `0x${string}` = '0x1111111111111111111111111111111111111111';
+const CONSTELLATION_CLIMB_ADDRESS: `0x${string}` =
+  '0xd9B9b6c37ad4f3D5b07ae76dE261c5C865600d6e';
 
 test.describe('@casino-connected /casino/constellation-climb', () => {
   test('renders Constellation Climb page metadata + direction picker', async ({
@@ -37,64 +43,41 @@ test.describe('@casino-connected /casino/constellation-climb', () => {
     await expect(cta).toHaveText(/connect wallet/i);
   });
 
-  // Acceptance (c) for [SWO_CASINO_ALLOWLIST_UI_GATE_HILO]: a wallet-
-  // mocked player on the passthrough (no allowlist set) path sees the
-  // Open session CTA, not "Allowlist required". The mock pins
-  // `game.allowlist()` to the ABI-encoded zero address, which
-  // short-circuits `useAllowlistGate` to `passthrough` per
-  // `lib/casino/useAllowlistGate.ts` §1 (no-allowlist branch).
-  // The denied-allowlist branch is covered by the unit tests on
-  // `useAllowlistGate` itself; reproducing it here would require
-  // overriding the mock's eth_call selector map per-spec.
   test('wallet-mocked player on passthrough allowlist sees Open session CTA', async ({
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('hilo-primary-cta');
     await expect(cta).toBeVisible();
 
-    // The wallet mock pins `game.allowlist()` to the zero address, which
-    // short-circuits the gate to `passthrough` (see
-    // lib/casino/useAllowlistGate.ts §1). Wait for the connect-wallet
-    // copy to drop so we know the gate has resolved.
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
     ).not.toMatch(/^connect wallet/);
 
     const text = (await cta.textContent()) ?? '';
-    // Passthrough path: CTA must NOT be stuck on "Switch to Monad"
-    // (the wallet mock pins chainId=10143), the page must have hydrated
-    // past the connect-wallet state, and the gate must not be denying
-    // the player.
     expect(text).not.toMatch(/switch to monad/i);
     expect(text).not.toMatch(/^connect wallet/i);
     expect(text).not.toMatch(/allowlist required/i);
   });
 
   // Acceptance (b) for [SWO_CASINO_PLAYWRIGHT_CONNECTED]: place a min-stake
-  // openSession call and assert the page advances into the post-write
-  // state. The wallet mock pins `game.allowlist()` to the zero address so
-  // the gate clears to `passthrough` and the CTA becomes "Open session
-  // for X MON"; clicking it routes `eth_sendTransaction` to the mock's
-  // deterministic hash, which surfaces `hilo-tx-receipt`.
-  //
-  // The full SessionCashedOut/SessionLost/SessionPushed flip requires
-  // `SessionOpened` + `StepPlayed` + `SessionCashedOut` event logs fed
-  // back through `useWatchContractEvent`, which lives in the anvil-fork
-  // CI lane (.github/workflows/casino-e2e.yml) rather than the wallet-
-  // mock-only path.
-  test('min-stake openSession click renders tx receipt via mocked eth_sendTransaction', async ({
+  // openSession, inject a synthetic `SessionCashedOut` log, assert the
+  // session status banner reads `cashedOut`. The wallet mock supplies the
+  // deterministic tx hash for the openSession write; the queued log
+  // drives `useWatchContractEvent`'s onLogs callback in HiLoContent, which
+  // calls setSessionStatus('cashedOut').
+  test('min-stake openSession → injected SessionCashedOut → UI flips to cashedOut', async ({
     page,
   }) => {
     await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
     await page.goto(ROUTE);
 
     const cta = page.getByTestId('hilo-primary-cta');
-    await expect(cta).toBeVisible();
-
     await expect.poll(
       async () => (await cta.textContent())?.toLowerCase() ?? '',
       { timeout: 15_000 },
@@ -102,9 +85,52 @@ test.describe('@casino-connected /casino/constellation-climb', () => {
 
     await page.getByTestId('hilo-stake-input').fill('0.001');
     await cta.click();
-
     await expect(page.getByTestId('hilo-tx-receipt')).toBeVisible({
       timeout: 15_000,
+    });
+
+    rpc.pushLog(
+      makeSessionCashedOutLog({
+        contractAddress: CONSTELLATION_CLIMB_ADDRESS,
+        player: PLAYER,
+        sessionId: 1n,
+      }),
+    );
+
+    await expect(page.getByTestId('hilo-status-cashedOut')).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('open session → injected losing StepPlayed → UI flips to lost', async ({
+    page,
+  }) => {
+    await installWalletMock(page, { chainId: 10143 });
+    const rpc = await installRpcRoute(page, { chainId: 10143 });
+    await page.goto(ROUTE);
+
+    const cta = page.getByTestId('hilo-primary-cta');
+    await expect.poll(
+      async () => (await cta.textContent())?.toLowerCase() ?? '',
+      { timeout: 15_000 },
+    ).toMatch(/^open session for /);
+
+    await page.getByTestId('hilo-stake-input').fill('0.001');
+    await cta.click();
+    await expect(page.getByTestId('hilo-tx-receipt')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    rpc.pushLog(
+      makeStepPlayedLostLog({
+        contractAddress: CONSTELLATION_CLIMB_ADDRESS,
+        player: PLAYER,
+        sessionId: 2n,
+      }),
+    );
+
+    await expect(page.getByTestId('hilo-status-lost')).toBeVisible({
+      timeout: 30_000,
     });
   });
 });
