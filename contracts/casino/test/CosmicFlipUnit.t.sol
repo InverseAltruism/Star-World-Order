@@ -254,7 +254,9 @@ contract CosmicFlipUnitTest is Test {
         _placeBet(CosmicFlip.Side.Heads, 0.01 ether);
         vm.prank(player);
         vm.expectRevert(CosmicFlip.CommitAlreadyUsed.selector);
-        game.placeBet{value: 0.02 ether}(CosmicFlip.Side.Tails, bytes32(uint256(2)), _commit(SERVER_SEED));
+        game.placeBet{value: 0.02 ether}(
+            CosmicFlip.Side.Tails, bytes32(uint256(2)), _commit(SERVER_SEED)
+        );
     }
 
     function test_placeBet_revertsWhenAllowlistBlocks() public {
@@ -279,7 +281,9 @@ contract CosmicFlipUnitTest is Test {
     }
 
     function test_previewOutcome_matchesMath() public view {
-        CosmicFlip.Side expected = CommitRevealRandomness.rollOutcome(SERVER_SEED, CLIENT_SEED, 7, 2) == 0
+        CosmicFlip.Side expected = CommitRevealRandomness.rollOutcome(
+                SERVER_SEED, CLIENT_SEED, 7, 2
+            ) == 0
             ? CosmicFlip.Side.Heads
             : CosmicFlip.Side.Tails;
         assertEq(uint8(game.previewOutcome(SERVER_SEED, CLIENT_SEED, 7)), uint8(expected));
