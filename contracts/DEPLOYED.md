@@ -43,6 +43,23 @@ same PR that deploys a contract.
 > CreateX presence at `0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed`, and parity
 > between the live CREATE3 predictions and `143.predicted.json` before sending.
 > Run `bash contracts/casino/script/deploy-mainnet.sh --dry-run` to rehearse.
+>
+> **Ownership handover (G7):** the four casino contracts ship with the deployer
+> EOA as `Ownable.owner()`. Phase 3 migrates that owner role to the SWO
+> governance multisig via `contracts/casino/script/handover-ownership.sh` (wraps
+> `HandoverOwnership.s.sol`). The script enforces chain-id 143, requires
+> `CASINO_MULTISIG` to be a contract (codesize > 0, override with
+> `CASINO_ALLOW_EOA_MULTISIG=1`), refuses to broadcast without `--yes`, and
+> post-broadcast asserts `owner() == CASINO_MULTISIG` and `owner() != deployer`
+> on every casino contract. Update the table below from "deployer EOA" to the
+> multisig address (with the handover block #) in the same PR that broadcasts.
+>
+> | Contract | Current owner | Target owner (Phase 3) |
+> |---|---|---|
+> | CasinoBankroll | deployer EOA (`0xb29e6735629539cEd64F0d6f0c476Fe92539fD7B`) | SWO governance multisig (TBD) |
+> | CosmicFlip | deployer EOA | SWO governance multisig (TBD) |
+> | GravityDice | deployer EOA | SWO governance multisig (TBD) |
+> | ConstellationClimb | deployer EOA | SWO governance multisig (TBD) |
 
 ## Monad Testnet (chain id 10143)
 
