@@ -35,6 +35,13 @@ import {
   type GachaPickResult,
 } from './sanctuary/gacha';
 import { decayStats, computeNeeds, type DecayedStats } from './sanctuary/decay';
+import {
+  preferenceFor,
+  isNeedTargeted,
+  computeBondDelta,
+  type PreferenceLevel,
+} from './sanctuary/preferences';
+import { rollVariableReward, type VariableRewardTier } from './sanctuary/variableRewards';
 import { journalLineForAction } from './sanctuary/companionGreeting';
 import {
   abandonExpedition,
@@ -6158,6 +6165,29 @@ const INTERACTION_XP: Record<string, number> = { feed: 3, pet: 2, talk: 2, play:
 const STAR_HOLDER_XP_MULTIPLIER = 1.5;
 const STAR_HOLDER_BOND_MULTIPLIER = 1.25;
 
+/**
+ * Result of a companion interaction. Carries the reward *breakdown* (not just
+ * the new stats) so the UI can explain WHY an action paid off — preference
+ * match, need-state boost, variable bonus — which is what turns flat
+ * stat-bumping into a legible loop. See docs/SANCTUARY_ENGAGEMENT_PLAN.md.
+ */
+export interface CompanionInteractionResult {
+  companion: SanctuaryCompanion;
+  journal: SanctuaryJournalEntry;
+  dailyRemaining: number;
+  starBonus: boolean;
+  /** Final bond delta applied (after preference × need × tired × diminishing). */
+  bondGain: number;
+  /** This Skrumpey's hidden preference for the action just performed. */
+  preference: PreferenceLevel;
+  /** True when the action targeted a currently-low stat (need-state boost). */
+  needBoosted: boolean;
+  /** Variable-reward tier rolled (floor / bonus_star / rare_trinket). */
+  variableTier: VariableRewardTier;
+  /** Bonus STAR minted by the variable layer (0 on a floor roll). */
+  bonusStar: number;
+}
+
 function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: string, tokenId: number): number {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -6172,7 +6202,7 @@ function getDailyInteractionCount(db: ReturnType<typeof getDatabase>, addr: stri
 export function interactWithCompanion(
   walletAddress: string, tokenId: number, action: CompanionStatAction,
   options?: { isStar?: boolean }
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
+): CompanionInteractionResult {
   const db = getDatabase();
   const addr = walletAddress.toLowerCase();
 
@@ -6224,10 +6254,42 @@ export function interactWithCompanion(
 
     const starBonus = options?.isStar ?? false;
     const baseBond = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+
+    // Engagement doctrine rule 1 — actions must differ in OUTCOME, not just
+    // label. Scale the baseline by this Skrumpey's hidden per-action preference
+    // (loved 4× … hated −1×) and a need-state boost (1.5× when the action
+    // targets a currently-low stat, measured on the pre-action/decayed
+    // snapshot). Previously unwired: every action gave a flat bond bump.
+    const preference = preferenceFor(tokenId, action);
+    const needBoosted = isNeedTargeted(action, {
+      hunger: decayed.hunger,
+      happiness: decayed.happiness,
+      energy: decayed.energy,
+    });
+    const preferenceAdjusted = computeBondDelta({ baseline: baseBond, preference, needBoosted });
+
     // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — Tired halves non-sleep bond gains.
     const tired = isCompanionTired(comp.last_full_sleep_at, now);
-    let bondGain = applyTiredBondMultiplier(baseBond, action, tired);
+    // Doctrine rule 1 — diminishing returns within the daily cap so spam-tapping
+    // tapers (consistency > binge). Full value on the first interaction of the
+    // day, down to ~0.5× as the cap fills.
+    const diminish = 1 - 0.5 * (dailyCount / DAILY_INTERACTION_CAP);
+    let bondGain = applyTiredBondMultiplier(preferenceAdjusted, action, tired) * diminish;
     const xpGain = Math.round(INTERACTION_XP[action] * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
+
+    // [SWO_V2_SANCTUARY_VARIABLE_REWARDS] — doctrine rules 4 & 7: ambient bonus
+    // STAR on routine interactions, always with a floor. Most taps just give
+    // bond; occasionally a +STAR drop (the Neko-Atsume "gold fish"). This is
+    // the primary way STAR is farmed from day-to-day care.
+    const variable = rollVariableReward({ action, floorBond: bondGain });
+    const variableTier = variable.tier;
+    let bonusStar = variable.bonusStar;
+    if (variable.tier === 'rare_trinket') {
+      // v1: surface the ultra-rare branch as a small STAR windfall. Proper
+      // cosmetic trinkets are a shop/gacha follow-up — minting an off-catalog
+      // inventory key here would break the inventory→catalog join.
+      bonusStar = STAR_EARN_RATES.interaction.max;
+    }
 
     // Classify the sleep-state delta this action produced and apply the
     // dream-reward / early-wake economy on top of the baseline bond gain.
@@ -6282,6 +6344,11 @@ export function interactWithCompanion(
       earnStar(addr, 'dream', dreamStarGained, `token:${tokenId}`);
     }
 
+    // Mint the variable-reward bonus STAR (if any) in the same txn.
+    if (bonusStar > 0) {
+      earnStar(addr, 'interaction', bonusStar, `token:${tokenId}:${variableTier}`);
+    }
+
     const bonusTag = starBonus ? ' (Star Bonus!)' : '';
     // Seed the variety pool with the action itself — the live trait-mood is
     // not on SanctuaryCompanion (it comes from the meta view), but rotating
@@ -6293,6 +6360,7 @@ export function interactWithCompanion(
         hunger: stats.hunger, happiness: stats.happiness, energy: stats.energy,
         is_sleeping: stats.is_sleeping, woke_up: stats.woke_up,
         tired, sleep_transition: transition,
+        preference, needBoosted, variableTier, bonusStar,
       }));
 
     // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — annotate the journal with a
@@ -6315,7 +6383,17 @@ export function interactWithCompanion(
     const updated = db.prepare('SELECT * FROM sanctuary_companions WHERE id = ?')
       .get(comp.id) as SanctuaryCompanion;
 
-    return { companion: updated, journal, dailyRemaining: DAILY_INTERACTION_CAP - dailyCount - 1, starBonus };
+    return {
+      companion: updated,
+      journal,
+      dailyRemaining: DAILY_INTERACTION_CAP - dailyCount - 1,
+      starBonus,
+      bondGain,
+      preference,
+      needBoosted,
+      variableTier,
+      bonusStar,
+    };
   });
 
   return txn();
@@ -7949,7 +8027,7 @@ export function claimSanctuaryQuestReward(
 export function interactWithCompanionV15(
   walletAddress: string, tokenId: number, action: CompanionStatAction,
   options?: { isStar?: boolean }
-): { companion: SanctuaryCompanion; journal: SanctuaryJournalEntry; dailyRemaining: number; starBonus: boolean } {
+): CompanionInteractionResult {
   const result = interactWithCompanion(walletAddress, tokenId, action, options);
   const addr = walletAddress.toLowerCase();
   updateTraitProgress(addr, tokenId, action);
@@ -8023,7 +8101,8 @@ export type StarEarnSource =
   | 'daily_login'
   | 'activity'
   | 'levelup'
-  | 'dream';
+  | 'dream'
+  | 'interaction';
 
 // Earn-rate guardrails. Earn endpoint clamps the requested amount into the
 // `[min, max]` band for its source so a single misbehaving caller cannot
@@ -8037,6 +8116,9 @@ export const STAR_EARN_RATES: Record<StarEarnSource, { min: number; max: number 
   // [SWO_V2_SANCTUARY_SLEEP_DYNAMICS] — non-zero floor for the dream reward.
   // Baseline 1 STAR; Star-holder boost may request up to 3.
   dream: { min: 1, max: 3 },
+  // [SWO_V2_SANCTUARY_VARIABLE_REWARDS] — ambient bonus STAR drops on routine
+  // interactions (Neko-Atsume "gold fish" pattern). 1–3 STAR per bonus roll.
+  interaction: { min: 1, max: 3 },
 };
 
 export function getStarBalance(walletAddress: string): SanctuaryStarBalance {
