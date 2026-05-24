@@ -3580,3 +3580,12 @@ a,
   }
 }
 
+
+/* Bottom-sheet slide-up for SanctuaryWindow on mobile. */
+@keyframes sanctuary-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.sanctuary-sheet-in {
+  animation: sanctuary-sheet-in 0.22s ease-out;
+}
