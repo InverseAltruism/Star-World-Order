@@ -187,6 +187,31 @@ function StatBar({
   );
 }
 
+// Turn the Track-0 reward breakdown into a cozy "why that mattered" line, so a
+// tap reads as a relationship moment instead of a silent stat bump. Discovering
+// the preference IS the gameplay (doctrine rule 1 / 6).
+function actionFeedbackMessage(
+  name: string,
+  action: string,
+  preference?: string,
+  needBoosted?: boolean,
+): string {
+  const verbed: Record<string, string> = {
+    feed: 'the snack', pet: 'the cuddle', talk: 'the chat', play: 'playing', sleep: 'the rest',
+  };
+  const thing = verbed[action] ?? 'that';
+  const base: Record<string, string> = {
+    loved: `${name} LOVED ${thing}! 💖`,
+    liked: `${name} liked ${thing} 😊`,
+    neutral: `${name} appreciates ${thing}`,
+    disliked: `${name} wasn't keen on ${thing} 😕`,
+    hated: `${name} really disliked ${thing} 💔`,
+  };
+  let msg = (preference && base[preference]) || `${action.toUpperCase()} ✓`;
+  if (needBoosted) msg += ' — right when they needed it!';
+  return msg;
+}
+
 function navigateToWorld() {
   if (typeof window === 'undefined') return;
   const params = new URLSearchParams(window.location.search);
@@ -204,6 +229,9 @@ export default function CompanionView() {
   const [interacting, setInteracting] = useState<QuickAction | null>(null);
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [starBalance, setStarBalance] = useState<number | null>(null);
+  const [starPop, setStarPop] = useState<number | null>(null);
+  const starPopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatLines, setChatLines] = useState<ChatLine[]>([]);
   const [chatDraft, setChatDraft] = useState('');
@@ -370,6 +398,39 @@ export default function CompanionView() {
     [],
   );
 
+  // STAR balance for the HUD — fetched on open and kept in sync with the
+  // shared `star-balance-changed` event the shop/gacha emit. Surfacing the
+  // balance + "+⭐" on earn is how STAR farming becomes legible.
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/sanctuary/star/balance?wallet=${address}`);
+        const data = await res.json();
+        if (!cancelled && data.success && typeof data.balance === 'number') {
+          setStarBalance(data.balance);
+        }
+      } catch {
+        /* non-critical */
+      }
+    })();
+    const onChange = (p: { balance?: number }) => {
+      if (typeof p?.balance === 'number') setStarBalance(p.balance);
+    };
+    EventBus.on('star-balance-changed', onChange);
+    return () => {
+      cancelled = true;
+      EventBus.off('star-balance-changed', onChange);
+    };
+  }, [address]);
+
+  const popStar = useCallback((amount: number) => {
+    setStarPop(amount);
+    if (starPopTimer.current) clearTimeout(starPopTimer.current);
+    starPopTimer.current = setTimeout(() => setStarPop(null), 2000);
+  }, []);
+
   const handleAction = useCallback(
     async (action: QuickAction) => {
       if (!address || !companion || interacting) return;
@@ -460,7 +521,21 @@ export default function CompanionView() {
             }
           }
           triggerSpriteReaction(action);
-          flashFeedback(`${action.toUpperCase()} ✓`);
+          // Why-it-mattered feedback from the Track-0 breakdown (preference +
+          // need-state), so the tap reads as a relationship moment.
+          flashFeedback(
+            actionFeedbackMessage(
+              companion.nickname || `Skrumpey #${companion.token_id}`,
+              action,
+              data.preference,
+              data.needBoosted,
+            ),
+          );
+          // Ambient bonus STAR drop — bump the HUD + show a "+N⭐" pop.
+          if (typeof data.bonusStar === 'number' && data.bonusStar > 0) {
+            setStarBalance((b) => (b === null ? b : b + data.bonusStar));
+            popStar(data.bonusStar);
+          }
           // Refresh journal so the latest entry from the action shows up
           fetchJournal(companion.token_id);
         } else {
@@ -472,12 +547,13 @@ export default function CompanionView() {
         setInteracting(null);
       }
     },
-    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta, triggerBondCelebration],
+    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta, triggerBondCelebration, popStar],
   );
 
   useEffect(() => {
     return () => {
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+      if (starPopTimer.current) clearTimeout(starPopTimer.current);
     };
   }, []);
 
@@ -594,6 +670,30 @@ export default function CompanionView() {
 
   return (
     <div className="space-y-6">
+      {/* STAR balance HUD — always visible so "how do I farm stars" has an
+          answer on screen. Tapping it jumps to the Shop. The +⭐ pop fires on
+          a variable-reward bonus drop. */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => EventBus.emit('shop-overlay-open')}
+          aria-label={`STAR balance${starBalance !== null ? `: ${starBalance}` : ''} — open shop`}
+          className="relative flex items-center gap-2 rounded-full border border-[#ffd700]/50 bg-[#ffd700]/10 px-4 py-2 text-[#ffd700] transition-colors hover:bg-[#ffd700]/20 active:bg-[#ffd700]/30"
+        >
+          <span className="text-base leading-none" aria-hidden="true">⭐</span>
+          <span className="text-xs tabular-nums font-['Press_Start_2P']">
+            {starBalance ?? '—'}
+          </span>
+          {starPop !== null && (
+            <span
+              key={starPop + '-' + Date.now()}
+              className="companion-floating-text absolute -top-3 right-2 text-[10px] font-['Press_Start_2P'] text-[#fff3b0] pointer-events-none"
+            >
+              +{starPop}⭐
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Header */}
       <div className="text-center space-y-1">
         <h1
@@ -904,12 +1004,19 @@ export default function CompanionView() {
           </div>
 
           {isSleeping && (
-            <p
-              className="text-center text-[8px] text-[#66ccff] font-['Press_Start_2P'] tracking-wider"
+            <div
+              className="space-y-1 rounded-lg border border-[#66ccff]/40 bg-[#66ccff]/10 px-3 py-2 text-center"
               role="status"
             >
-              💤 Shhh — they&apos;re dreaming.
-            </p>
+              <p className="text-[9px] text-[#66ccff] font-['Press_Start_2P'] tracking-wider">
+                💤 Shhh — they&apos;re resting.
+              </p>
+              <p className="text-[8px] leading-relaxed text-gray-300">
+                They&apos;ll wake on their own once rested. A full sleep clears
+                tiredness and can bring a dream reward. Other actions are paused
+                until they wake — waking them early costs a little bond.
+              </p>
+            </div>
           )}
         </div>
 
