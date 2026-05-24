@@ -811,7 +811,7 @@ export default function CompanionView() {
       </div>
 
       {view !== 'companion' ? (
-        <div className="pixel-card p-3 space-y-3">
+        <div className="swo-panel-frame p-3 space-y-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setView('companion')}

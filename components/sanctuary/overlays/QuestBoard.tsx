@@ -276,7 +276,7 @@ export default function QuestBoard({
         ref={panelRef}
         className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
           inline
-            ? 'w-full'
+            ? 'w-full max-h-[58vh]'
             : `w-96 max-h-[85%] pointer-events-auto shadow-[0_0_25px_rgba(255,215,0,0.15)] transition-all duration-200 ${
                 open ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
               }`
@@ -375,7 +375,7 @@ export default function QuestBoard({
                 return (
                   <div
                     key={quest.id}
-                    className="bg-[#0a0a15] rounded-lg border border-[#2a2a4e] p-3 ml-3"
+                    className="swo-card p-3 ml-3"
                   >
                     <div className="flex items-start justify-between mb-1">
                       <div>
@@ -437,7 +437,7 @@ export default function QuestBoard({
                   <div
                     key={exp.id}
                     data-testid={`expedition-card-${exp.id}`}
-                    className="bg-[#0a0a15] rounded-lg border border-[#9966ff]/30 p-3"
+                    className="swo-card p-3"
                   >
                     <div className="flex items-start justify-between mb-1">
                       <div className="min-w-0">

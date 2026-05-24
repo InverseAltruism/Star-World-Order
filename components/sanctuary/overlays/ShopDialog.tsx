@@ -449,7 +449,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
         ref={panelRef}
         className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
           inline
-            ? 'w-full'
+            ? 'w-full max-h-[58vh]'
             : 'absolute right-4 top-4 w-80 max-h-[85%] pointer-events-auto shadow-[0_0_20px_rgba(255,215,0,0.2)] transition-all duration-200'
         }`}
       >
@@ -607,7 +607,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                     key={item.item_key}
                     onMouseEnter={() => previewItem(item)}
                     onMouseLeave={clearPreview}
-                    className={`bg-[#0a0a15] rounded border p-2 transition-colors ${
+                    className={`swo-card p-2 ${
                       previewKey === item.item_key
                         ? 'border-[#ffd700]/60 shadow-[0_0_8px_rgba(255,215,0,0.25)]'
                         : 'border-[#2a2a4e]'
@@ -711,7 +711,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                     key={item.item_key}
                     onMouseEnter={() => previewItem(item)}
                     onMouseLeave={clearPreview}
-                    className={`bg-[#0a0a15] rounded border p-2 transition-colors ${
+                    className={`swo-card p-2 ${
                       equippedHere
                         ? 'border-[#44ff88]/40'
                         : previewKey === item.item_key
