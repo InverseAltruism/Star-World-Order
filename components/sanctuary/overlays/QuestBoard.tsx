@@ -170,6 +170,14 @@ export default function QuestBoard({
     };
   }, [loadQuests, loadExpeditions]);
 
+  // Inline mode is always-open with no event to trigger the fetch — load on mount.
+  useEffect(() => {
+    if (inline) {
+      loadQuests();
+      loadExpeditions();
+    }
+  }, [inline, loadQuests, loadExpeditions]);
+
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -268,7 +276,7 @@ export default function QuestBoard({
         ref={panelRef}
         className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
           inline
-            ? 'w-full max-h-[70vh]'
+            ? 'w-full'
             : `w-96 max-h-[85%] pointer-events-auto shadow-[0_0_25px_rgba(255,215,0,0.15)] transition-all duration-200 ${
                 open ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
               }`
@@ -276,15 +284,16 @@ export default function QuestBoard({
       >
         {/* Header */}
         <div className="bg-[#1a0033] border-b border-[#ffd700]/20 p-3">
+          {!inline && (
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-base">📋</span>
-              <h3 className="text-[#ffd700] font-['Press_Start_2P'] text-[8px]">
+              <h3 className="text-[#ffd700] font-['Press_Start_2P'] text-[10px]">
                 QUEST BOARD
               </h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 text-[6px]">
+              <span className="text-gray-500 text-[9px]">
                 {totalCompleted}/{quests.length}
               </span>
               <button
@@ -296,6 +305,7 @@ export default function QuestBoard({
               </button>
             </div>
           </div>
+          )}
 
           {/* Tabs */}
           <div className="flex gap-1">
@@ -303,7 +313,7 @@ export default function QuestBoard({
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`px-2 py-1 text-[6px] font-['Press_Start_2P'] rounded transition-colors ${
+                className={`px-2 py-1 text-[9px] font-['Press_Start_2P'] rounded transition-colors ${
                   tab === t.key
                     ? 'bg-[#ffd700]/20 text-[#ffd700] border border-[#ffd700]/40'
                     : 'text-gray-500 hover:text-gray-300 border border-transparent'
@@ -318,14 +328,14 @@ export default function QuestBoard({
         {/* Quest List */}
         <div className="overflow-y-auto flex-1 p-3 space-y-3">
           {loading && (
-            <p className="text-gray-500 text-[7px] text-center py-4">Loading quests...</p>
+            <p className="text-gray-500 text-[9px] text-center py-4">Loading quests...</p>
           )}
 
           {!loading && activeGroups.length === 0 && completed.length === 0 && (
             <div className="text-center py-6 space-y-1">
               <p className="text-[#ffd700]/40 text-[12px]">🗺️</p>
-              <p className="text-gray-500 text-[8px]">No quests in this category.</p>
-              <p className="text-gray-600 text-[7px]">Try a different tab!</p>
+              <p className="text-gray-500 text-[10px]">No quests in this category.</p>
+              <p className="text-gray-600 text-[9px]">Try a different tab!</p>
             </div>
           )}
 
@@ -336,16 +346,16 @@ export default function QuestBoard({
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-[9px]">🧙</span>
                   <div className="min-w-0">
-                    <p className="text-[#00f7ff] text-[8px] font-['Press_Start_2P'] truncate">
+                    <p className="text-[#00f7ff] text-[10px] font-['Press_Start_2P'] truncate">
                       {group.source.npcName}
                     </p>
-                    <p className="text-gray-500 text-[6px] truncate">{group.source.zone}</p>
+                    <p className="text-gray-500 text-[9px] truncate">{group.source.zone}</p>
                   </div>
                 </div>
                 {group.source.room && (
                   <button
                     onClick={() => navigateToRoom(group.source.room as string)}
-                    className="px-2 py-1 text-[6px] font-['Press_Start_2P'] text-[#00f7ff]
+                    className="px-2 py-1 text-[9px] font-['Press_Start_2P'] text-[#00f7ff]
                       bg-[#00f7ff]/10 border border-[#00f7ff]/40 rounded
                       hover:bg-[#00f7ff]/20 hover:shadow-[0_0_8px_#00f7ff] transition-all shrink-0 ml-2"
                     title={`Highlight the door to ${group.source.room}`}
@@ -370,7 +380,7 @@ export default function QuestBoard({
                     <div className="flex items-start justify-between mb-1">
                       <div>
                         <span
-                          className="text-[6px] px-1.5 py-0.5 rounded mr-1.5"
+                          className="text-[9px] px-1.5 py-0.5 rounded mr-1.5"
                           style={{
                             color: badge.color,
                             backgroundColor: badge.color + '20',
@@ -379,13 +389,13 @@ export default function QuestBoard({
                         >
                           {badge.label}
                         </span>
-                        <span className="text-white text-[8px]">{quest.title}</span>
+                        <span className="text-white text-[10px]">{quest.title}</span>
                       </div>
-                      <span className="text-gray-500 text-[7px] shrink-0 ml-1">
+                      <span className="text-gray-500 text-[9px] shrink-0 ml-1">
                         {current}/{quest.requirement_count}
                       </span>
                     </div>
-                    <p className="text-gray-500 text-[7px] mb-1.5">{quest.description}</p>
+                    <p className="text-gray-500 text-[9px] mb-1.5">{quest.description}</p>
                     <div className="h-1 bg-[#1a1a2e] rounded-full overflow-hidden border border-[#2a2a4e]">
                       <div
                         className="h-full rounded-full transition-all"
@@ -394,17 +404,17 @@ export default function QuestBoard({
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {quest.reward_xp > 0 && (
-                        <span className="text-[6px] text-[#ffd700]">
+                        <span className="text-[9px] text-[#ffd700]">
                           +{quest.reward_xp} XP
                         </span>
                       )}
                       {quest.reward_bond > 0 && (
-                        <span className="text-[6px] text-[#ff66aa]">
+                        <span className="text-[9px] text-[#ff66aa]">
                           +{quest.reward_bond} Bond
                         </span>
                       )}
                       {quest.reward_trait && (
-                        <span className="text-[6px] text-[#9966ff]">
+                        <span className="text-[9px] text-[#9966ff]">
                           🏷️ {quest.reward_trait}
                         </span>
                       )}
@@ -417,7 +427,7 @@ export default function QuestBoard({
 
           {expeditions.length > 0 && (
             <div className="space-y-2" data-testid="expedition-section">
-              <p className="text-gray-500 text-[6px] font-['Press_Start_2P'] tracking-wider mt-2">
+              <p className="text-gray-500 text-[9px] font-['Press_Start_2P'] tracking-wider mt-2">
                 EXPEDITIONS
               </p>
               {expeditions.map((exp) => {
@@ -432,7 +442,7 @@ export default function QuestBoard({
                     <div className="flex items-start justify-between mb-1">
                       <div className="min-w-0">
                         <span
-                          className="text-[6px] px-1.5 py-0.5 rounded mr-1.5 uppercase"
+                          className="text-[9px] px-1.5 py-0.5 rounded mr-1.5 uppercase"
                           style={{
                             color,
                             backgroundColor: color + '20',
@@ -441,29 +451,29 @@ export default function QuestBoard({
                         >
                           {exp.tier}
                         </span>
-                        <span className="text-white text-[8px]">{exp.title}</span>
+                        <span className="text-white text-[10px]">{exp.title}</span>
                       </div>
-                      <span className="text-[#ffd700] text-[7px] shrink-0 ml-2">
+                      <span className="text-[#ffd700] text-[9px] shrink-0 ml-2">
                         ⭐ {exp.star_cost}
                       </span>
                     </div>
-                    <p className="text-gray-500 text-[7px] mb-1.5">
+                    <p className="text-gray-500 text-[9px] mb-1.5">
                       {exp.description}
                     </p>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         {exp.rewards.xp > 0 && (
-                          <span className="text-[6px] text-[#ffd700]">
+                          <span className="text-[9px] text-[#ffd700]">
                             +{exp.rewards.xp} XP
                           </span>
                         )}
                         {exp.rewards.bond > 0 && (
-                          <span className="text-[6px] text-[#ff66aa]">
+                          <span className="text-[9px] text-[#ff66aa]">
                             +{exp.rewards.bond} Bond
                           </span>
                         )}
                         {exp.rewards.trait && (
-                          <span className="text-[6px] text-[#9966ff]">
+                          <span className="text-[9px] text-[#9966ff]">
                             🏷️ {exp.rewards.trait}
                           </span>
                         )}
@@ -473,7 +483,7 @@ export default function QuestBoard({
                         onClick={() => launchExpedition(exp)}
                         data-testid={`expedition-launch-${exp.id}`}
                         className="px-2 py-1 rounded border border-[#9966ff]/40 bg-[#9966ff]/10
-                          hover:bg-[#9966ff]/20 text-[#9966ff] text-[6px] font-['Press_Start_2P']
+                          hover:bg-[#9966ff]/20 text-[#9966ff] text-[9px] font-['Press_Start_2P']
                           transition-colors shrink-0"
                       >
                         {isActive ? 'RESUME ▸' : 'BEGIN ▸'}
@@ -487,7 +497,7 @@ export default function QuestBoard({
 
           {completed.length > 0 && (
             <div className="space-y-2">
-              <p className="text-gray-500 text-[6px] font-['Press_Start_2P'] tracking-wider mt-2">
+              <p className="text-gray-500 text-[9px] font-['Press_Start_2P'] tracking-wider mt-2">
                 COMPLETED
               </p>
               {completed.map((quest) => {
@@ -503,9 +513,9 @@ export default function QuestBoard({
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-[8px] mr-1">✨</span>
-                        <span className="text-white text-[8px]">{quest.title}</span>
-                        <span className="text-gray-600 text-[6px] ml-1.5">
+                        <span className="text-[10px] mr-1">✨</span>
+                        <span className="text-white text-[10px]">{quest.title}</span>
+                        <span className="text-gray-600 text-[9px] ml-1.5">
                           · {quest.source.npcName}
                         </span>
                       </div>
@@ -513,12 +523,12 @@ export default function QuestBoard({
                         <button
                           onClick={() => claimReward(quest.id)}
                           disabled={claiming !== null}
-                          className="px-2 py-0.5 bg-[#ffd700]/20 border border-[#ffd700]/40 rounded text-[#ffd700] text-[7px] hover:bg-[#ffd700]/30 disabled:opacity-40 transition-colors"
+                          className="px-2 py-0.5 bg-[#ffd700]/20 border border-[#ffd700]/40 rounded text-[#ffd700] text-[9px] hover:bg-[#ffd700]/30 disabled:opacity-40 transition-colors"
                         >
                           {claiming === quest.id ? '...' : 'CLAIM'}
                         </button>
                       ) : (
-                        <span className="text-gray-600 text-[7px]">CLAIMED</span>
+                        <span className="text-gray-600 text-[9px]">CLAIMED</span>
                       )}
                     </div>
                   </div>

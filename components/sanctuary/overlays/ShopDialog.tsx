@@ -449,19 +449,20 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
         ref={panelRef}
         className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
           inline
-            ? 'w-full max-h-[70vh]'
+            ? 'w-full'
             : 'absolute right-4 top-4 w-80 max-h-[85%] pointer-events-auto shadow-[0_0_20px_rgba(255,215,0,0.2)] transition-all duration-200'
         }`}
       >
-        {/* Header */}
+        {/* Header — hidden inline (the Companion view provides the title/back). */}
+        {!inline && (
         <div className="bg-black/95 border-b border-[#ffd700]/30 p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">🛒</span>
             <div>
-              <h3 className="text-[#ffd700] font-['Press_Start_2P'] text-[8px]">
+              <h3 className="text-[#ffd700] font-['Press_Start_2P'] text-[10px]">
                 COSMIC SHOP
               </h3>
-              <span className="text-gray-500 text-[6px]">
+              <span className="text-gray-500 text-[9px]">
                 {balance !== null ? `${balance} ★` : 'Browse cosmetics'}
                 {walletLevel !== null && ` · L${walletLevel}`}
               </span>
@@ -475,6 +476,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
             ✕
           </button>
         </div>
+        )}
 
         {/* Tabs */}
         <div className="flex border-b border-[#ffd700]/20 bg-black/95">
@@ -482,7 +484,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-[7px] font-['Press_Start_2P'] transition-colors ${
+              className={`flex-1 py-2 text-[9px] font-['Press_Start_2P'] transition-colors ${
                 tab === t
                   ? 'text-[#ffd700] bg-[#ffd700]/10 border-b-2 border-[#ffd700]'
                   : 'text-gray-500 hover:text-white border-b-2 border-transparent'
@@ -496,7 +498,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
         {/* What-are-cosmetics explainer (shop tab only) */}
         {tab === 'shop' && (
           <div className="px-3 py-2 bg-[#9966ff]/5 border-b border-[#9966ff]/20">
-            <p className="text-[8px] leading-relaxed text-gray-300">
+            <p className="text-[10px] leading-relaxed text-gray-300">
               ✨ Cosmetics are <span className="text-[#bb88ff]">outfits</span> — hats &amp;
               accessories for your Skrumpey. Buy with ⭐, equip them from the 🎒 Inventory tab,
               and they show on your companion. Looks only — no stat boosts.
@@ -511,18 +513,18 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
             className="px-2 py-2 bg-[#0a0a15] border-b border-[#9966ff]/30 flex items-center justify-between gap-2"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-[#9966ff] font-['Press_Start_2P'] text-[7px]">
+              <p className="text-[#9966ff] font-['Press_Start_2P'] text-[9px]">
                 🎰 STAR PULL
               </p>
               {lastPull ? (
                 <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-[6px] text-gray-400 truncate">
+                  <span className="text-[9px] text-gray-400 truncate">
                     Last: {lastPull.item.name}
                   </span>
                   {lastPull.isRare && (
                     <span
                       data-testid="gacha-rare-badge"
-                      className="text-[6px] px-1 py-0.5 rounded font-['Press_Start_2P'] animate-pulse"
+                      className="text-[9px] px-1 py-0.5 rounded font-['Press_Start_2P'] animate-pulse"
                       style={{
                         color: RARITY_COLOR[lastPull.item.rarity],
                         backgroundColor: RARITY_COLOR[lastPull.item.rarity] + '22',
@@ -534,7 +536,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                   )}
                 </div>
               ) : (
-                <span className="text-[6px] text-gray-500">
+                <span className="text-[9px] text-gray-500">
                   Guaranteed cosmetic · {GACHA_PULL_COST}★
                 </span>
               )}
@@ -547,7 +549,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                 !walletAddress ||
                 (balance !== null && balance < GACHA_PULL_COST)
               }
-              className="px-3 py-1 text-[8px] font-['Press_Start_2P'] rounded bg-[#9966ff]/20 border border-[#9966ff]/60 text-[#9966ff] hover:bg-[#9966ff]/30 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-3 py-1 text-[10px] font-['Press_Start_2P'] rounded bg-[#9966ff]/20 border border-[#9966ff]/60 text-[#9966ff] hover:bg-[#9966ff]/30 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               title={
                 !walletAddress
                   ? 'Connect a wallet to pull.'
@@ -568,7 +570,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
               <button
                 key={c.key}
                 onClick={() => setCategory(c.key)}
-                className={`px-2 py-1 text-[7px] font-['Press_Start_2P'] rounded border transition-colors ${
+                className={`px-2 py-1 text-[9px] font-['Press_Start_2P'] rounded border transition-colors ${
                   category === c.key
                     ? 'border-[#ffd700]/60 text-[#ffd700] bg-[#ffd700]/10'
                     : 'border-[#2a2a4e] text-gray-400 hover:text-white hover:border-[#ffd700]/30'
@@ -585,12 +587,12 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
           {tab === 'shop' && (
             <>
               {loading && shopItems.length === 0 && (
-                <p className="text-gray-500 text-[7px] text-center py-4">Loading...</p>
+                <p className="text-gray-500 text-[9px] text-center py-4">Loading...</p>
               )}
               {!loading && shopItems.length === 0 && (
                 <div className="text-center py-6 space-y-1">
                   <p className="text-[#ffd700]/40 text-[14px]">🛒</p>
-                  <p className="text-gray-500 text-[8px]">No items in this category.</p>
+                  <p className="text-gray-500 text-[10px]">No items in this category.</p>
                 </div>
               )}
               {shopItems.map((item) => {
@@ -615,7 +617,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 mb-0.5">
                           <span
-                            className="text-[6px] px-1 py-0.5 rounded"
+                            className="text-[9px] px-1 py-0.5 rounded"
                             style={{
                               color: RARITY_COLOR[item.rarity],
                               backgroundColor: RARITY_COLOR[item.rarity] + '20',
@@ -625,24 +627,24 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                             {item.rarity.toUpperCase()}
                           </span>
                           {equippedHere && (
-                            <span className="text-[6px] px-1 py-0.5 rounded bg-[#44ff88]/20 text-[#44ff88] border border-[#44ff88]/40">
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-[#44ff88]/20 text-[#44ff88] border border-[#44ff88]/40">
                               EQUIPPED
                             </span>
                           )}
                         </div>
-                        <p className="text-white text-[8px] truncate">{item.name}</p>
+                        <p className="text-white text-[10px] truncate">{item.name}</p>
                         {item.description && (
-                          <p className="text-gray-500 text-[7px] mt-0.5 leading-tight">
+                          <p className="text-gray-500 text-[9px] mt-0.5 leading-tight">
                             {item.description}
                           </p>
                         )}
                       </div>
-                      <span className="text-[#ffd700] text-[8px] font-['Press_Start_2P'] whitespace-nowrap">
+                      <span className="text-[#ffd700] text-[10px] font-['Press_Start_2P'] whitespace-nowrap">
                         {item.star_cost}★
                       </span>
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-gray-500 text-[6px]">
+                      <span className="text-gray-500 text-[9px]">
                         L{item.level_required} req
                         {tooLow && ' · 🔒'}
                       </span>
@@ -651,7 +653,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                           <button
                             onClick={() => equipItem(item, true)}
                             disabled={busyKey !== null || tokenId === null}
-                            className="px-2 py-0.5 text-[7px] font-['Press_Start_2P'] rounded bg-[#2a2a4e] border border-[#44ff88]/40 text-[#44ff88] hover:bg-[#44ff88]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-2 py-0.5 text-[9px] font-['Press_Start_2P'] rounded bg-[#2a2a4e] border border-[#44ff88]/40 text-[#44ff88] hover:bg-[#44ff88]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {busyKey === item.item_key + ':un' ? '...' : 'UNEQUIP'}
                           </button>
@@ -659,7 +661,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                           <button
                             onClick={() => equipItem(item, false)}
                             disabled={busyKey !== null || tooLow || tokenId === null}
-                            className="px-2 py-0.5 text-[7px] font-['Press_Start_2P'] rounded bg-[#0a0a15] border border-[#9966ff]/40 text-[#9966ff] hover:bg-[#9966ff]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-2 py-0.5 text-[9px] font-['Press_Start_2P'] rounded bg-[#0a0a15] border border-[#9966ff]/40 text-[#9966ff] hover:bg-[#9966ff]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {busyKey === item.item_key ? '...' : 'EQUIP'}
                           </button>
@@ -668,7 +670,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                         <button
                           onClick={() => buy(item)}
                           disabled={buyDisabled}
-                          className="px-2 py-0.5 text-[7px] font-['Press_Start_2P'] rounded bg-[#ffd700]/15 border border-[#ffd700]/50 text-[#ffd700] hover:bg-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-2 py-0.5 text-[9px] font-['Press_Start_2P'] rounded bg-[#ffd700]/15 border border-[#ffd700]/50 text-[#ffd700] hover:bg-[#ffd700]/25 disabled:opacity-40 disabled:cursor-not-allowed"
                           title={
                             insufficient
                               ? 'Insufficient STAR'
@@ -690,15 +692,15 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
           {tab === 'inventory' && (
             <>
               {!walletAddress && (
-                <p className="text-gray-500 text-[7px] text-center py-4">
+                <p className="text-gray-500 text-[9px] text-center py-4">
                   Connect a wallet to view inventory.
                 </p>
               )}
               {walletAddress && inventoryItems.length === 0 && (
                 <div className="text-center py-6 space-y-1">
                   <p className="text-[#9966ff]/40 text-[14px]">🎒</p>
-                  <p className="text-gray-500 text-[8px]">Inventory is empty.</p>
-                  <p className="text-gray-600 text-[7px]">Buy something from the shop!</p>
+                  <p className="text-gray-500 text-[10px]">Inventory is empty.</p>
+                  <p className="text-gray-600 text-[9px]">Buy something from the shop!</p>
                 </div>
               )}
               {inventoryItems.map((item) => {
@@ -721,7 +723,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 mb-0.5">
                           <span
-                            className="text-[6px] px-1 py-0.5 rounded"
+                            className="text-[9px] px-1 py-0.5 rounded"
                             style={{
                               color: RARITY_COLOR[item.rarity],
                               backgroundColor: RARITY_COLOR[item.rarity] + '20',
@@ -730,22 +732,22 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                           >
                             {item.rarity.toUpperCase()}
                           </span>
-                          <span className="text-[6px] text-gray-500">
+                          <span className="text-[9px] text-gray-500">
                             {item.category.toUpperCase()}
                           </span>
                           {equippedHere && (
-                            <span className="text-[6px] px-1 py-0.5 rounded bg-[#44ff88]/20 text-[#44ff88] border border-[#44ff88]/40">
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-[#44ff88]/20 text-[#44ff88] border border-[#44ff88]/40">
                               EQUIPPED
                             </span>
                           )}
                         </div>
-                        <p className="text-white text-[8px] truncate">{item.name}</p>
+                        <p className="text-white text-[10px] truncate">{item.name}</p>
                       </div>
                       {equippedHere ? (
                         <button
                           onClick={() => equipItem(item, true)}
                           disabled={busyKey !== null || tokenId === null}
-                          className="px-2 py-0.5 text-[7px] font-['Press_Start_2P'] rounded bg-[#2a2a4e] border border-[#44ff88]/40 text-[#44ff88] hover:bg-[#44ff88]/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                          className="px-2 py-0.5 text-[9px] font-['Press_Start_2P'] rounded bg-[#2a2a4e] border border-[#44ff88]/40 text-[#44ff88] hover:bg-[#44ff88]/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                         >
                           {busyKey === item.item_key + ':un' ? '...' : 'UNEQUIP'}
                         </button>
@@ -753,7 +755,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                         <button
                           onClick={() => equipItem(item, false)}
                           disabled={busyKey !== null || tooLow || tokenId === null}
-                          className="px-2 py-0.5 text-[7px] font-['Press_Start_2P'] rounded bg-[#0a0a15] border border-[#9966ff]/40 text-[#9966ff] hover:bg-[#9966ff]/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                          className="px-2 py-0.5 text-[9px] font-['Press_Start_2P'] rounded bg-[#0a0a15] border border-[#9966ff]/40 text-[#9966ff] hover:bg-[#9966ff]/20 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                           title={tooLow ? `Requires level ${item.level_required}` : ''}
                         >
                           {busyKey === item.item_key ? '...' : tooLow ? '🔒' : 'EQUIP'}
@@ -769,11 +771,11 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
 
         {/* Footer */}
         <div className="border-t border-[#ffd700]/20 bg-black/95 px-3 py-1.5 flex items-center justify-between">
-          <span className="text-[6px] text-gray-500 font-['Press_Start_2P']">
+          <span className="text-[9px] text-gray-500 font-['Press_Start_2P']">
             B: TOGGLE · I: INV · ESC
           </span>
           {feedback && (
-            <span className="text-[6px] text-[#ffd700] truncate ml-2">{feedback}</span>
+            <span className="text-[9px] text-[#ffd700] truncate ml-2">{feedback}</span>
           )}
         </div>
       </div>

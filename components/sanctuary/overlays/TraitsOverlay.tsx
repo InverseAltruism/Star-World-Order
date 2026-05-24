@@ -49,11 +49,11 @@ function TraitRow({ trait }: { trait: CompanionTrait }) {
       style={{ borderColor: cfg.color + (trait.unlocked ? '' : '60') }}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[#f5e6b8] text-[8px] font-['Press_Start_2P']">
+        <span className="text-[#f5e6b8] text-[10px] font-['Press_Start_2P']">
           {cfg.icon} {trait.trait_name}
         </span>
         <span
-          className="text-[7px] font-['Press_Start_2P']"
+          className="text-[9px] font-['Press_Start_2P']"
           style={{ color: cfg.color }}
         >
           {trait.unlocked
@@ -62,7 +62,7 @@ function TraitRow({ trait }: { trait: CompanionTrait }) {
         </span>
       </div>
       {trait.description && (
-        <p className="text-[#8a7a55] text-[7px] mt-0.5 leading-snug">
+        <p className="text-[#8a7a55] text-[9px] mt-0.5 leading-snug">
           {trait.description}
         </p>
       )}
@@ -120,6 +120,11 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
       setLoading(false);
     }
   }, [walletAddress, tokenId]);
+
+  // Inline mode (card flip) is always-open with no event — load on mount.
+  useEffect(() => {
+    if (inline) fetchTraits();
+  }, [inline, fetchTraits]);
 
   useEffect(() => {
     const handleOpen = () => {
@@ -219,16 +224,17 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
             'linear-gradient(to bottom, rgba(153,102,255,0.06) 0%, rgba(0,0,0,0.2) 100%)',
         }}
       >
-        {/* Header */}
+        {/* Header — title/close hidden inline (the card flip provides them). */}
         <div className="bg-[#1a0f3a] border-b-2 border-[#6644aa] px-3 py-2">
+          {!inline && (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-base">🌌</span>
-              <h3 className="text-[#9966ff] font-['Press_Start_2P'] text-[8px] tracking-wider">
+              <h3 className="text-[#9966ff] font-['Press_Start_2P'] text-[10px] tracking-wider">
                 TRAITS
               </h3>
               {traits.length > 0 && (
-                <span className="text-[#6a5a9a] text-[6px] font-['Press_Start_2P']">
+                <span className="text-[#6a5a9a] text-[9px] font-['Press_Start_2P']">
                   {unlocked.length}/{traits.length} UNLOCKED
                 </span>
               )}
@@ -241,8 +247,9 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
               ✕
             </button>
           </div>
+          )}
           {meta && (meta.constellation || meta.aura || meta.form) && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5 text-[6px] font-['Press_Start_2P']">
+            <div className="mt-1.5 flex flex-wrap gap-1.5 text-[9px] font-['Press_Start_2P']">
               {meta.constellation && (
                 <span className="px-1.5 py-0.5 rounded-sm border border-[#ffd700]/60 text-[#ffd700] bg-[#ffd700]/10">
                   ⭐ {meta.constellation.toUpperCase()}
@@ -267,7 +274,7 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
           <div className="flex flex-wrap gap-1 px-3 py-2 border-b-2 border-[#1a0f3a] bg-[#050310]">
             <button
               onClick={() => setCategoryFilter(null)}
-              className={`text-[7px] px-1.5 py-0.5 rounded-sm border transition-colors font-['Press_Start_2P'] ${
+              className={`text-[9px] px-1.5 py-0.5 rounded-sm border transition-colors font-['Press_Start_2P'] ${
                 !categoryFilter
                   ? 'border-[#9966ff]/60 text-[#9966ff] bg-[#9966ff]/10'
                   : 'border-[#1a0f3a] text-[#6a5a9a] hover:text-[#c9b7ff]'
@@ -283,7 +290,7 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(active ? null : cat)}
-                  className={`text-[7px] px-1.5 py-0.5 rounded-sm border transition-colors ${
+                  className={`text-[9px] px-1.5 py-0.5 rounded-sm border transition-colors ${
                     active ? 'bg-white/5' : 'hover:bg-white/5'
                   }`}
                   style={{
@@ -302,23 +309,23 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-[200px]">
           {error ? (
             <div className="flex flex-col items-center gap-2 py-6">
-              <p className="text-red-400 text-[8px]">{error}</p>
+              <p className="text-red-400 text-[10px]">{error}</p>
               <button
                 onClick={fetchTraits}
-                className="text-[7px] text-[#9966ff] hover:text-[#c9b7ff] transition-colors font-['Press_Start_2P']"
+                className="text-[9px] text-[#9966ff] hover:text-[#c9b7ff] transition-colors font-['Press_Start_2P']"
               >
                 RETRY
               </button>
             </div>
           ) : loading && traits.length === 0 ? (
-            <p className="text-[#6a5a9a] text-[8px] text-center py-6">Loading...</p>
+            <p className="text-[#6a5a9a] text-[10px] text-center py-6">Loading...</p>
           ) : traits.length === 0 ? (
             <div className="text-center py-6 space-y-1">
               <p className="text-[#9966ff]/60 text-[14px]">✨</p>
-              <p className="text-[#9966ff]/80 text-[8px] font-['Press_Start_2P'] tracking-wider">
+              <p className="text-[#9966ff]/80 text-[10px] font-['Press_Start_2P'] tracking-wider">
                 AWAITING DISCOVERY
               </p>
-              <p className="text-[#8a7aaa] text-[7px] mt-1">
+              <p className="text-[#8a7aaa] text-[9px] mt-1">
                 Feed, pet, and talk to your companion to unlock unique traits.
               </p>
             </div>
@@ -326,7 +333,7 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
             <div className="space-y-3">
               {filteredUnlocked.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[#ffd700] text-[7px] font-['Press_Start_2P'] tracking-wider">
+                  <p className="text-[#ffd700] text-[9px] font-['Press_Start_2P'] tracking-wider">
                     ✧ UNLOCKED ({filteredUnlocked.length})
                   </p>
                   {filteredUnlocked.map((t) => (
@@ -336,7 +343,7 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
               )}
               {filteredInProgress.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[#9966ff] text-[7px] font-['Press_Start_2P'] tracking-wider">
+                  <p className="text-[#9966ff] text-[9px] font-['Press_Start_2P'] tracking-wider">
                     ◌ IN PROGRESS ({filteredInProgress.length})
                   </p>
                   {filteredInProgress.map((t) => (
@@ -345,7 +352,7 @@ export default function TraitsOverlay({ walletAddress, tokenId, inline = false }
                 </div>
               )}
               {filtered.length === 0 && (
-                <p className="text-[#6a5a9a] text-[8px] text-center py-6">
+                <p className="text-[#6a5a9a] text-[10px] text-center py-6">
                   No traits in this category yet.
                 </p>
               )}
