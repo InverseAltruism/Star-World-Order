@@ -18,6 +18,24 @@ import CompanionChip from '@/components/sanctuary/CompanionChip';
 import { COMPANION_ACTIONS } from '@/lib/sanctuary/companionAction';
 import EventBus from '@/components/sanctuary/EventBus';
 import { emitCompanionVfx } from '@/lib/sanctuary/vfxEvents';
+
+// Interactable overlays surfaced directly on the Companion view so mobile
+// players can reach quests/expeditions, the shop, traits and the journal
+// without walking the Phaser world. Each returns null until opened via its
+// EventBus event. Minigames stay in the world hub — they need the Phaser canvas.
+const QuestBoard = dynamic(() => import('@/components/sanctuary/overlays/QuestBoard'), { ssr: false });
+const ExpeditionDialog = dynamic(() => import('@/components/sanctuary/overlays/ExpeditionDialog'), { ssr: false });
+const ShopDialog = dynamic(() => import('@/components/sanctuary/overlays/ShopDialog'), { ssr: false });
+const TraitsOverlay = dynamic(() => import('@/components/sanctuary/overlays/TraitsOverlay'), { ssr: false });
+const JournalOverlay = dynamic(() => import('@/components/sanctuary/overlays/JournalOverlay'), { ssr: false });
+
+type ExploreItem = { icon: string; label: string; event: string; aria: string };
+const EXPLORE_ITEMS: ExploreItem[] = [
+  { icon: '🗺️', label: 'QUESTS', event: 'quest-board-open', aria: 'Open quests and expeditions' },
+  { icon: '🛍️', label: 'SHOP', event: 'shop-overlay-open', aria: 'Open the cosmetic shop' },
+  { icon: '✨', label: 'TRAITS', event: 'traits-overlay-toggle', aria: 'View companion traits' },
+  { icon: '📖', label: 'JOURNAL', event: 'journal-overlay-toggle', aria: 'Open the full journal' },
+];
 import {
   bondMilestoneBanner,
   crossedBondMilestones,
@@ -1052,14 +1070,51 @@ export default function CompanionView() {
         </div>
       </div>
 
+      {/* EXPLORE — interactables reachable without entering the Phaser world,
+          so mobile players aren't forced to walk the map. Big touch targets. */}
+      <div className="pixel-card p-4 space-y-3">
+        <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
+          EXPLORE
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {EXPLORE_ITEMS.map((it) => (
+            <button
+              key={it.label}
+              onClick={() => EventBus.emit(it.event)}
+              aria-label={it.aria}
+              className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#9966ff]/40 bg-[#9966ff]/10 px-2 py-3 text-center transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
+            >
+              <span className="text-2xl leading-none" aria-hidden="true">
+                {it.icon}
+              </span>
+              <span className="text-[8px] leading-tight text-[#bb88ff] font-['Press_Start_2P']">
+                {it.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Full Phaser world: free-roam walking, minigames, multiplayer */}
       <div className="flex justify-center">
         <button
           onClick={navigateToWorld}
-          className="px-6 py-3 bg-[#00f7ff]/15 border-2 border-[#00f7ff]/60 rounded-lg text-[#00f7ff] text-[10px] font-['Press_Start_2P'] tracking-widest uppercase hover:bg-[#00f7ff]/25 hover:border-[#00f7ff] transition-colors shadow-[0_0_12px_rgba(0,247,255,0.25)]"
-          aria-label="Enter the Sanctuary world"
+          className="w-full px-6 py-4 bg-[#00f7ff]/15 border-2 border-[#00f7ff]/60 rounded-lg text-[#00f7ff] text-[10px] font-['Press_Start_2P'] tracking-widest uppercase hover:bg-[#00f7ff]/25 hover:border-[#00f7ff] transition-colors shadow-[0_0_12px_rgba(0,247,255,0.25)] sm:w-auto"
+          aria-label="Enter the Sanctuary world to walk around and play minigames"
         >
-          ✦ Enter Sanctuary ✦
+          ✦ Enter Sanctuary World ✦
         </button>
+      </div>
+
+      {/* Overlay host: the overlays render absolute inset-0; this fixed wrapper
+          makes them full-screen modals when opened from EXPLORE. They each
+          return null until their event fires, so this is empty until used. */}
+      <div className="fixed inset-0 z-40 pointer-events-none">
+        <QuestBoard walletAddress={address} tokenId={companion.token_id} />
+        <ExpeditionDialog walletAddress={address} tokenId={companion.token_id} />
+        <ShopDialog walletAddress={address} tokenId={companion.token_id} />
+        <TraitsOverlay walletAddress={address} tokenId={companion.token_id} />
+        <JournalOverlay walletAddress={address} tokenId={companion.token_id} />
       </div>
     </div>
   );
