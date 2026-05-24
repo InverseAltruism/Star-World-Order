@@ -11,7 +11,9 @@ import { getRoomNPCDefinitions } from '../config/npcDefinitions';
 
 const ROOM_W = 1448;
 const ROOM_H = 1086;
-const SOUTHERN_SPAWN_Y = ROOM_H - 60;
+// Spawn well clear of the southern exit zone (at the very bottom edge) so the
+// player's feet-anchored physics body does not start inside it.
+const SOUTHERN_SPAWN_Y = ROOM_H - 180;
 const EXIT_ZONE_W = 120;
 const EXIT_ZONE_H = 30;
 // Ignore exit triggers (E, ESC, exit-zone overlap) for this many ms after entry,
@@ -32,6 +34,10 @@ export class RoomScene extends Phaser.Scene {
   private clickMarker: Phaser.GameObjects.Graphics | null = null;
   private exiting = false;
   private exitArmedAt = 0;
+  private exitZone!: Phaser.GameObjects.Zone;
+  // The exit zone only fires once the player has been clear of it at least
+  // once after entry — prevents the southern spawn from instantly re-exiting.
+  private exitZoneArmed = false;
   private npcManager: NPCManager | null = null;
 
   constructor() {
@@ -43,6 +49,7 @@ export class RoomScene extends Phaser.Scene {
     this.returnTo = data.returnTo;
     this.exiting = false;
     this.exitArmedAt = this.time.now + EXIT_GRACE_MS;
+    this.exitZoneArmed = false;
 
     const bgKey = `room-bg-${this.room}`;
     const bg = this.textures.exists(bgKey)
@@ -225,7 +232,10 @@ export class RoomScene extends Phaser.Scene {
     const zoneCenterY = ROOM_H - EXIT_ZONE_H / 2;
     const zone = this.add.zone(zoneCenterX, zoneCenterY, EXIT_ZONE_W, EXIT_ZONE_H);
     this.physics.add.existing(zone, true);
-    this.physics.add.overlap(this.player, zone, () => this.exit());
+    this.exitZone = zone;
+    this.physics.add.overlap(this.player, zone, () => {
+      if (this.exitZoneArmed) this.exit();
+    });
 
     const hint = this.add
       .text(zoneCenterX, zoneCenterY - 28, '[E] EXIT', {
@@ -267,6 +277,16 @@ export class RoomScene extends Phaser.Scene {
 
   update() {
     if (!this.player || this.exiting) return;
+    // Arm the exit zone only after the entry grace has passed AND the player
+    // is clear of it, so spawning near the southern exit can't kick them out.
+    if (
+      !this.exitZoneArmed &&
+      this.exitZone &&
+      this.time.now >= this.exitArmedAt &&
+      !this.physics.overlap(this.player, this.exitZone)
+    ) {
+      this.exitZoneArmed = true;
+    }
     const keyboardActive = this.player.handleKeyboardInput();
     if (!keyboardActive) this.player.updatePathMovement();
     this.companion.followPlayer(this.player.x, this.player.y, this.player.getDirection());
