@@ -5902,6 +5902,11 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v27Path, 'utf-8');
     database.exec(sql);
   }
+  const v28Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.8.sql');
+  if (fs.existsSync(v28Path)) {
+    const sql = fs.readFileSync(v28Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
