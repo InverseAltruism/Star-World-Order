@@ -161,15 +161,32 @@ export default function SanctuaryV2() {
     // Future: send wallet data to Phaser scene via EventBus
   }, []);
 
+  // Return to the Companion view (drops ?world=1). Mirrors CompanionView's
+  // navigateToWorld so the SanctuaryRouter re-renders without a full reload.
+  const backToCompanion = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('world');
+    const qs = params.toString();
+    window.history.pushState({}, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Wallet auth bar */}
       <div className="flex items-center justify-between bg-black/80 border border-[#00f7ff]/30 rounded-lg px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className="font-['Press_Start_2P'] text-xs text-[#00f7ff]">
-            SANCTUARY V2
+          <button
+            onClick={backToCompanion}
+            aria-label="Back to your companion"
+            className="flex items-center gap-1 rounded-lg border border-[#00f7ff]/50 bg-[#00f7ff]/10 px-3 py-2 text-[10px] font-['Press_Start_2P'] text-[#00f7ff] transition-colors hover:bg-[#00f7ff]/20 active:bg-[#00f7ff]/30"
+          >
+            ‹ COMPANION
+          </button>
+          <span className="hidden font-['Press_Start_2P'] text-xs text-[#00f7ff] sm:inline">
+            SANCTUARY
           </span>
-          <span className="text-[#9966ff] text-xs opacity-60">ALPHA</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
           {isConnected ? (

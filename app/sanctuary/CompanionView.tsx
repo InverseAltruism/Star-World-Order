@@ -28,6 +28,9 @@ const ExpeditionDialog = dynamic(() => import('@/components/sanctuary/overlays/E
 const ShopDialog = dynamic(() => import('@/components/sanctuary/overlays/ShopDialog'), { ssr: false });
 const TraitsOverlay = dynamic(() => import('@/components/sanctuary/overlays/TraitsOverlay'), { ssr: false });
 const JournalOverlay = dynamic(() => import('@/components/sanctuary/overlays/JournalOverlay'), { ssr: false });
+const SanctuaryWindow = dynamic(() => import('@/components/sanctuary/SanctuaryWindow'), { ssr: false });
+
+type OwnedSkrumpey = { tokenId: number; name?: string; image?: string; isStar?: boolean };
 
 type ExploreItem = { icon: string; label: string; event: string; aria: string };
 const EXPLORE_ITEMS: ExploreItem[] = [
@@ -232,6 +235,10 @@ export default function CompanionView() {
   const [starBalance, setStarBalance] = useState<number | null>(null);
   const [starPop, setStarPop] = useState<number | null>(null);
   const starPopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [owned, setOwned] = useState<OwnedSkrumpey[]>([]);
+  const [ownedLoaded, setOwnedLoaded] = useState(false);
+  const [switching, setSwitching] = useState<number | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatLines, setChatLines] = useState<ChatLine[]>([]);
   const [chatDraft, setChatDraft] = useState('');
@@ -430,6 +437,54 @@ export default function CompanionView() {
     if (starPopTimer.current) clearTimeout(starPopTimer.current);
     starPopTimer.current = setTimeout(() => setStarPop(null), 2000);
   }, []);
+
+  // Companion switcher — list the wallet's owned Skrumpey and make a different
+  // one active. Answers "how do I switch my Skrumpey" (there was no UI for it).
+  const openSwitcher = useCallback(async () => {
+    setSwitcherOpen(true);
+    if (ownedLoaded || !address) return;
+    try {
+      const res = await fetch(`/api/sanctuary/companion/list-owned?address=${address}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.owned)) setOwned(data.owned);
+    } catch {
+      /* non-critical */
+    } finally {
+      setOwnedLoaded(true);
+    }
+  }, [address, ownedLoaded]);
+
+  const doSwitch = useCallback(
+    async (tid: number) => {
+      if (!address || switching) return;
+      setSwitching(tid);
+      try {
+        const authHeader = await getWalletAuthHeader(address);
+        if (!authHeader) {
+          flashFeedback('Wallet signature required');
+          return;
+        }
+        const res = await fetch('/api/sanctuary/companion/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-wallet-auth': authHeader },
+          body: JSON.stringify({ walletAddress: address, tokenId: tid }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSwitcherOpen(false);
+          setLoading(true);
+          await fetchCompanion();
+        } else {
+          flashFeedback(data.error ?? 'Switch failed');
+        }
+      } catch {
+        flashFeedback('Network error');
+      } finally {
+        setSwitching(null);
+      }
+    },
+    [address, switching, flashFeedback, fetchCompanion],
+  );
 
   const handleAction = useCallback(
     async (action: QuickAction) => {
@@ -670,10 +725,18 @@ export default function CompanionView() {
 
   return (
     <div className="space-y-6">
-      {/* STAR balance HUD — always visible so "how do I farm stars" has an
-          answer on screen. Tapping it jumps to the Shop. The +⭐ pop fires on
-          a variable-reward bonus drop. */}
-      <div className="flex justify-end">
+      {/* Top bar: switch companion (left) + STAR balance (right). The HUD is
+          always visible so "how do I farm stars" has an on-screen answer, and
+          tapping it jumps to the Shop. The +⭐ pop fires on a bonus drop. */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={openSwitcher}
+          aria-label="Switch your active Skrumpey"
+          className="flex items-center gap-2 rounded-full border border-[#9966ff]/50 bg-[#9966ff]/10 px-4 py-2 text-[#bb88ff] transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
+        >
+          <span className="text-base leading-none" aria-hidden="true">⇄</span>
+          <span className="text-[9px] font-['Press_Start_2P']">SWITCH</span>
+        </button>
         <button
           onClick={() => EventBus.emit('shop-overlay-open')}
           aria-label={`STAR balance${starBalance !== null ? `: ${starBalance}` : ''} — open shop`}
@@ -1223,6 +1286,64 @@ export default function CompanionView() {
         <TraitsOverlay walletAddress={address} tokenId={companion.token_id} />
         <JournalOverlay walletAddress={address} tokenId={companion.token_id} />
       </div>
+
+      {switcherOpen && (
+        <SanctuaryWindow
+          title="SWITCH SKRUMPEY"
+          subtitle="Choose who to spend time with"
+          accent="#9966ff"
+          onClose={() => setSwitcherOpen(false)}
+          testId="companion-switcher"
+        >
+          {!ownedLoaded ? (
+            <p className="py-6 text-center text-[10px] text-gray-400">Loading your Skrumpey…</p>
+          ) : owned.length === 0 ? (
+            <p className="py-6 text-center text-[10px] text-gray-400">
+              No Skrumpey found in this wallet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {owned.map((o) => {
+                const isActive = o.tokenId === companion.token_id;
+                return (
+                  <button
+                    key={o.tokenId}
+                    onClick={() => !isActive && doSwitch(o.tokenId)}
+                    disabled={isActive || switching !== null}
+                    className={`flex flex-col items-center gap-1 rounded-lg border p-2 text-center transition-colors disabled:opacity-60 ${
+                      isActive
+                        ? 'border-[#44ff88]/60 bg-[#44ff88]/10'
+                        : 'border-[#2a2a4e] hover:bg-white/5 active:bg-white/10'
+                    }`}
+                  >
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#2a2a4e] bg-[#0a0a15]">
+                      {o.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={o.image}
+                          alt=""
+                          className="image-rendering-pixelated h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-2xl">🐸</div>
+                      )}
+                      {o.isStar && <span className="absolute right-0 top-0 text-[10px]">⭐</span>}
+                    </div>
+                    <span className="w-full truncate text-[8px] text-gray-300">
+                      {o.name || `#${o.tokenId}`}
+                    </span>
+                    {isActive ? (
+                      <span className="text-[7px] text-[#44ff88] font-['Press_Start_2P']">ACTIVE</span>
+                    ) : switching === o.tokenId ? (
+                      <span className="text-[7px] text-[#bb88ff]">switching…</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </SanctuaryWindow>
+      )}
     </div>
   );
 }

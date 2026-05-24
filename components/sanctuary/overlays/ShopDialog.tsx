@@ -489,6 +489,17 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
           ))}
         </div>
 
+        {/* What-are-cosmetics explainer (shop tab only) */}
+        {tab === 'shop' && (
+          <div className="px-3 py-2 bg-[#9966ff]/5 border-b border-[#9966ff]/20">
+            <p className="text-[8px] leading-relaxed text-gray-300">
+              ✨ Cosmetics are <span className="text-[#bb88ff]">outfits</span> — hats &amp;
+              accessories for your Skrumpey. Buy with ⭐, equip them from the 🎒 Inventory tab,
+              and they show on your companion. Looks only — no stat boosts.
+            </p>
+          </div>
+        )}
+
         {/* Gacha pull strip (shop only) */}
         {tab === 'shop' && (
           <div
