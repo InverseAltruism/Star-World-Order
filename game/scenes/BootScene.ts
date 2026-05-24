@@ -19,7 +19,12 @@ export class BootScene extends Phaser.Scene {
     this.load.image('player-sheet', '/sanctuary/Male_Grey_Sprite_transparent.png');
 
     for (const room of ROOMS) {
-      this.load.image(`room-bg-${room}`, `/sanctuary/${encodeURI(room)}.png`);
+      // Polished interior art lives under /sanctuary-v3/interiors as the
+      // kebab-case of the room key (e.g. "Aura Forge" -> "aura-forge.png").
+      // These replaced the earlier flat /sanctuary/{Room}.png backgrounds,
+      // which rendered with washed-out / inverted-looking colors.
+      const slug = room.toLowerCase().replace(/\s+/g, '-');
+      this.load.image(`room-bg-${room}`, `/sanctuary-v3/interiors/${slug}.png`);
     }
 
     for (const def of NPC_DEFINITIONS) {
