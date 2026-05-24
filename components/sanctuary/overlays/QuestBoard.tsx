@@ -91,11 +91,14 @@ function groupBySource(quests: QuestWithSource[]): QuestGroup[] {
 export default function QuestBoard({
   walletAddress,
   tokenId,
+  inline = false,
 }: {
   walletAddress: string | undefined;
   tokenId: number | null;
+  /** Render in-place (no popup frame, always open) for the Companion view. */
+  inline?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(inline));
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<TabFilter>('all');
@@ -257,17 +260,19 @@ export default function QuestBoard({
   const completed = filtered.filter((q) => q.progress?.completed);
   const totalCompleted = quests.filter((q) => q.progress?.completed).length;
 
-  if (!open) return null;
+  if (!open && !inline) return null;
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+    <div className={inline ? 'w-full' : 'absolute inset-0 z-40 flex items-center justify-center pointer-events-none'}>
       <div
         ref={panelRef}
-        className={`w-96 max-h-[85%] overflow-hidden flex flex-col pointer-events-auto
-          bg-black/95 border border-[#ffd700]/40 rounded-lg shadow-[0_0_25px_rgba(255,215,0,0.15)]
-          transition-all duration-200 ${
-            open ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-          }`}
+        className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
+          inline
+            ? 'w-full max-h-[70vh]'
+            : `w-96 max-h-[85%] pointer-events-auto shadow-[0_0_25px_rgba(255,215,0,0.15)] transition-all duration-200 ${
+                open ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+              }`
+        }`}
       >
         {/* Header */}
         <div className="bg-[#1a0033] border-b border-[#ffd700]/20 p-3">

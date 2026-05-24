@@ -3589,3 +3589,10 @@ a,
 .sanctuary-sheet-in {
   animation: sanctuary-sheet-in 0.22s ease-out;
 }
+
+/* Card flip-in for the Companion traits back-face. */
+@keyframes sanctuary-flip-in {
+  from { transform: rotateY(85deg); opacity: 0; }
+  to { transform: rotateY(0); opacity: 1; }
+}
+.sanctuary-flip-in { animation: sanctuary-flip-in 0.25s ease-out; transform-origin: center; }

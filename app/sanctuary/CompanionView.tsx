@@ -30,18 +30,10 @@ const QuestBoard = dynamic(() => import('@/components/sanctuary/overlays/QuestBo
 const ExpeditionDialog = dynamic(() => import('@/components/sanctuary/overlays/ExpeditionDialog'), { ssr: false });
 const ShopDialog = dynamic(() => import('@/components/sanctuary/overlays/ShopDialog'), { ssr: false });
 const TraitsOverlay = dynamic(() => import('@/components/sanctuary/overlays/TraitsOverlay'), { ssr: false });
-const JournalOverlay = dynamic(() => import('@/components/sanctuary/overlays/JournalOverlay'), { ssr: false });
 const SanctuaryWindow = dynamic(() => import('@/components/sanctuary/SanctuaryWindow'), { ssr: false });
 
 type OwnedSkrumpey = { tokenId: number; name?: string; image?: string; isStar?: boolean };
 
-type ExploreItem = { icon: string; label: string; event: string; aria: string };
-const EXPLORE_ITEMS: ExploreItem[] = [
-  { icon: '🗺️', label: 'QUESTS', event: 'quest-board-open', aria: 'Open quests and expeditions' },
-  { icon: '🛍️', label: 'SHOP', event: 'shop-overlay-open', aria: 'Open the cosmetic shop' },
-  { icon: '✨', label: 'TRAITS', event: 'traits-overlay-toggle', aria: 'View companion traits' },
-  { icon: '📖', label: 'JOURNAL', event: 'journal-overlay-toggle', aria: 'Open the full journal' },
-];
 import {
   bondMilestoneBanner,
   crossedBondMilestones,
@@ -240,6 +232,11 @@ export default function CompanionView() {
   const [resources, setResources] = useState<ResourceSnapshot | null>(null);
   const [gates, setGates] = useState<Record<string, ActionGate>>({});
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  // In-place view switch (no popups): the main area shows the companion, or a
+  // rendered Quests / Shop panel. Traits flip the card; journal expands inline.
+  const [view, setView] = useState<'companion' | 'quests' | 'shop'>('companion');
+  const [flipped, setFlipped] = useState(false);
+  const [journalExpanded, setJournalExpanded] = useState(false);
   const [starPop, setStarPop] = useState<number | null>(null);
   const starPopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -308,13 +305,15 @@ export default function CompanionView() {
     async (tokenId: number) => {
       if (!address) return;
       try {
+        // Keep more than 3 so the inline "expand" view has history to show
+        // (the collapsed card still renders just the latest 3).
         const res = await fetch(
-          `/api/sanctuary/companion/journal?address=${address}&token_id=${tokenId}&page=1&limit=3`,
+          `/api/sanctuary/companion/journal?address=${address}&token_id=${tokenId}&page=1&limit=25`,
         );
         if (!res.ok) return;
         const data = await res.json();
         if (data.success && Array.isArray(data.entries)) {
-          setJournal(data.entries.slice(0, 3));
+          setJournal(data.entries.slice(0, 25));
         }
       } catch {
         // Non-critical
@@ -760,7 +759,7 @@ export default function CompanionView() {
           <span className="text-[9px] font-['Press_Start_2P']">SWITCH</span>
         </button>
         <button
-          onClick={() => EventBus.emit('shop-overlay-open')}
+          onClick={() => setView('shop')}
           aria-label={`STAR balance${starBalance !== null ? `: ${starBalance}` : ''} — open shop`}
           className="relative flex items-center gap-2 rounded-full border border-[#ffd700]/50 bg-[#ffd700]/10 px-4 py-2 text-[#ffd700] transition-colors hover:bg-[#ffd700]/20 active:bg-[#ffd700]/30"
         >
@@ -811,6 +810,28 @@ export default function CompanionView() {
         )}
       </div>
 
+      {view !== 'companion' ? (
+        <div className="pixel-card p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setView('companion')}
+              className="flex items-center gap-1 rounded-lg border border-[#00f7ff]/50 bg-[#00f7ff]/10 px-3 py-2 text-[10px] font-['Press_Start_2P'] text-[#00f7ff] transition-colors hover:bg-[#00f7ff]/20 active:bg-[#00f7ff]/30"
+            >
+              ‹ {companion.nickname || `#${companion.token_id}`}
+            </button>
+            <span className="text-[9px] text-[#ffd700] font-['Press_Start_2P'] tracking-wider">
+              {view === 'quests' ? '🗺️ QUESTS' : '🛍️ SHOP'}
+            </span>
+          </div>
+          {view === 'quests' && (
+            <QuestBoard inline walletAddress={address} tokenId={companion.token_id} />
+          )}
+          {view === 'shop' && (
+            <ShopDialog inline walletAddress={address} tokenId={companion.token_id} />
+          )}
+        </div>
+      ) : (
+        <>
       <div className="grid md:grid-cols-2 gap-6">
         {/* Sprite + needs */}
         <div className="chrome-panel p-6 space-y-4 relative">
@@ -818,6 +839,25 @@ export default function CompanionView() {
               public/sanctuary/ui/chrome/manifest.json. */}
           <span className="chrome-flourish-a" aria-hidden="true" />
           <span className="chrome-flourish-b" aria-hidden="true" />
+          {/* Traits back-face — flips over the card (see the TRAITS button under
+              the resource bars). */}
+          {flipped && (
+            <div className="sanctuary-flip-in absolute inset-0 z-20 flex flex-col rounded-2xl bg-[#0a0520]/98 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] text-[#bb88ff] font-['Press_Start_2P']">TRAITS</span>
+                <button
+                  onClick={() => setFlipped(false)}
+                  aria-label="Flip back to your companion"
+                  className="flex h-8 items-center gap-1 rounded border border-[#9966ff]/50 bg-[#9966ff]/10 px-2 text-[8px] text-[#bb88ff] font-['Press_Start_2P'] hover:bg-[#9966ff]/20"
+                >
+                  ↺ BACK
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <TraitsOverlay inline walletAddress={address} tokenId={companion.token_id} />
+              </div>
+            </div>
+          )}
           <div className="flex justify-center">
             <div className="relative">
               {/* Cozy ambient: a few twinkling stars behind the sprite. Pure
@@ -1092,6 +1132,13 @@ export default function CompanionView() {
               pulse={recentlyChanged.has('energy')}
               delta={statDeltas.find((d) => d.stat === 'energy')?.delta}
             />
+            <button
+              onClick={() => setFlipped(true)}
+              aria-label="View this Skrumpey's traits"
+              className="w-full rounded-lg border border-[#9966ff]/40 bg-[#9966ff]/10 py-2 text-[9px] text-[#bb88ff] font-['Press_Start_2P'] transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
+            >
+              ✨ TRAITS ⟳
+            </button>
           </div>
 
           {isSleeping && (
@@ -1169,7 +1216,15 @@ export default function CompanionView() {
               <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
                 JOURNAL
               </h2>
-              <span className="text-[7px] text-gray-500">last 3</span>
+              {journal.length > 0 && (
+                <button
+                  onClick={() => setJournalExpanded((v) => !v)}
+                  className="text-[7px] text-[#9966ff] hover:text-[#bb88ff] font-['Press_Start_2P']"
+                  aria-label={journalExpanded ? 'Collapse journal' : 'Expand journal'}
+                >
+                  {journalExpanded ? '▴ LESS' : `▾ ALL (${journal.length})`}
+                </button>
+              )}
             </div>
             {journal.length === 0 ? (
               // Empty-state journal: pixel-art stickers anchor the cozy
@@ -1199,8 +1254,12 @@ export default function CompanionView() {
                 />
               </div>
             ) : (
-              <ul className="space-y-2">
-                {journal.map((entry, idx) => {
+              <ul
+                className={`space-y-2 ${
+                  journalExpanded ? 'max-h-48 overflow-y-auto overscroll-contain pr-1' : ''
+                }`}
+              >
+                {(journalExpanded ? journal : journal.slice(0, 3)).map((entry, idx) => {
                   // Rotate three sticker glyphs through the (max-3) entry
                   // list so each line gets a pixel-art bullet.
                   const stickerCls =
@@ -1292,28 +1351,28 @@ export default function CompanionView() {
         </div>
       </div>
 
-      {/* EXPLORE — interactables reachable without entering the Phaser world,
-          so mobile players aren't forced to walk the map. Big touch targets. */}
+      {/* EXPLORE — switches the main area to an in-place panel (no popups). */}
       <div className="pixel-card p-4 space-y-3">
         <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
           EXPLORE
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {EXPLORE_ITEMS.map((it) => (
-            <button
-              key={it.label}
-              onClick={() => EventBus.emit(it.event)}
-              aria-label={it.aria}
-              className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#9966ff]/40 bg-[#9966ff]/10 px-2 py-3 text-center transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
-            >
-              <span className="text-2xl leading-none" aria-hidden="true">
-                {it.icon}
-              </span>
-              <span className="text-[8px] leading-tight text-[#bb88ff] font-['Press_Start_2P']">
-                {it.label}
-              </span>
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setView('quests')}
+            aria-label="Open quests and expeditions"
+            className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#9966ff]/40 bg-[#9966ff]/10 px-2 py-3 text-center transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
+          >
+            <span className="text-2xl leading-none" aria-hidden="true">🗺️</span>
+            <span className="text-[8px] leading-tight text-[#bb88ff] font-['Press_Start_2P']">QUESTS</span>
+          </button>
+          <button
+            onClick={() => setView('shop')}
+            aria-label="Open the cosmetic shop"
+            className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#ffd700]/40 bg-[#ffd700]/10 px-2 py-3 text-center transition-colors hover:bg-[#ffd700]/20 active:bg-[#ffd700]/30"
+          >
+            <span className="text-2xl leading-none" aria-hidden="true">🛍️</span>
+            <span className="text-[8px] leading-tight text-[#ffd700] font-['Press_Start_2P']">SHOP</span>
+          </button>
         </div>
       </div>
 
@@ -1327,16 +1386,12 @@ export default function CompanionView() {
           ✦ Enter Sanctuary World ✦
         </button>
       </div>
+        </>
+      )}
 
-      {/* Overlay host: the overlays render absolute inset-0; this fixed wrapper
-          makes them full-screen modals when opened from EXPLORE. They each
-          return null until their event fires, so this is empty until used. */}
+      {/* Expedition sub-dialog — opened from the inline Quest Board. */}
       <div className="fixed inset-0 z-40 pointer-events-none">
-        <QuestBoard walletAddress={address} tokenId={companion.token_id} />
         <ExpeditionDialog walletAddress={address} tokenId={companion.token_id} />
-        <ShopDialog walletAddress={address} tokenId={companion.token_id} />
-        <TraitsOverlay walletAddress={address} tokenId={companion.token_id} />
-        <JournalOverlay walletAddress={address} tokenId={companion.token_id} />
       </div>
 
       {switcherOpen && (

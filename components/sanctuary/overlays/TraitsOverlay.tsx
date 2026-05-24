@@ -23,6 +23,8 @@ interface CompanionMeta {
 interface TraitsOverlayProps {
   walletAddress: string | undefined;
   tokenId: number | null;
+  /** Render in-place (no popup frame, always open) — used on the card flip. */
+  inline?: boolean;
 }
 
 const TRAIT_CATEGORY_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
@@ -74,8 +76,8 @@ function TraitRow({ trait }: { trait: CompanionTrait }) {
   );
 }
 
-export default function TraitsOverlay({ walletAddress, tokenId }: TraitsOverlayProps) {
-  const [open, setOpen] = useState(false);
+export default function TraitsOverlay({ walletAddress, tokenId, inline = false }: TraitsOverlayProps) {
+  const [open, setOpen] = useState(Boolean(inline));
   const [traits, setTraits] = useState<CompanionTrait[]>([]);
   const [meta, setMeta] = useState<CompanionMeta | null>(null);
   const [loading, setLoading] = useState(false);
@@ -190,7 +192,7 @@ export default function TraitsOverlay({ walletAddress, tokenId }: TraitsOverlayP
     };
   }, [open, close]);
 
-  if (!open) return null;
+  if (!open && !inline) return null;
 
   const unlocked = traits.filter((t) => t.unlocked);
   const byCategoryCount: Record<string, number> = {};
@@ -205,13 +207,13 @@ export default function TraitsOverlay({ walletAddress, tokenId }: TraitsOverlayP
   const filteredInProgress = filtered.filter((t) => !t.unlocked);
 
   return (
-    <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+    <div className={inline ? 'w-full' : 'absolute inset-0 z-40 flex items-center justify-center pointer-events-none'}>
       <div
         ref={panelRef}
-        className="w-[22rem] max-h-[85%] flex flex-col pointer-events-auto
-          bg-[#0a0520] border-4 border-[#6644aa] rounded-sm
-          shadow-[inset_0_0_0_2px_#1a0f3a,0_0_25px_rgba(153,102,255,0.4)]
-          transition-all duration-200"
+        className={`flex flex-col bg-[#0a0520] border-4 border-[#6644aa] rounded-sm
+          shadow-[inset_0_0_0_2px_#1a0f3a,0_0_25px_rgba(153,102,255,0.4)] ${
+            inline ? 'w-full max-h-[60vh]' : 'w-[22rem] max-h-[85%] pointer-events-auto transition-all duration-200'
+          }`}
         style={{
           backgroundImage:
             'linear-gradient(to bottom, rgba(153,102,255,0.06) 0%, rgba(0,0,0,0.2) 100%)',

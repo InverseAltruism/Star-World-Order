@@ -77,10 +77,12 @@ const SHOP_NPC_IDS = new Set([
 interface ShopDialogProps {
   walletAddress: string | undefined;
   tokenId: number | null;
+  /** Render in-place (no popup frame, always open) for the Companion view. */
+  inline?: boolean;
 }
 
-export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) {
-  const [open, setOpen] = useState(false);
+export default function ShopDialog({ walletAddress, tokenId, inline = false }: ShopDialogProps) {
+  const [open, setOpen] = useState(Boolean(inline));
   const [tab, setTab] = useState<'shop' | 'inventory'>('shop');
   const [category, setCategory] = useState<Category>('hat');
   const [items, setItems] = useState<ShopItem[]>([]);
@@ -434,7 +436,7 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
     [walletAddress, tokenId],
   );
 
-  if (!open) return null;
+  if (!open && !inline) return null;
 
   const shopItems = items;
   const inventoryItems = inventory;
@@ -442,12 +444,14 @@ export default function ShopDialog({ walletAddress, tokenId }: ShopDialogProps) 
     equipped[item.category] != null && equipped[item.category] === item.item_key;
 
   return (
-    <div className="absolute inset-0 z-40 pointer-events-none">
+    <div className={inline ? 'w-full' : 'absolute inset-0 z-40 pointer-events-none'}>
       <div
         ref={panelRef}
-        className="absolute right-4 top-4 w-80 max-h-[85%] overflow-hidden flex flex-col pointer-events-auto
-          bg-black/95 border border-[#ffd700]/40 rounded-lg shadow-[0_0_20px_rgba(255,215,0,0.2)]
-          transition-all duration-200"
+        className={`overflow-hidden flex flex-col bg-black/95 border border-[#ffd700]/40 rounded-lg ${
+          inline
+            ? 'w-full max-h-[70vh]'
+            : 'absolute right-4 top-4 w-80 max-h-[85%] pointer-events-auto shadow-[0_0_20px_rgba(255,215,0,0.2)] transition-all duration-200'
+        }`}
       >
         {/* Header */}
         <div className="bg-black/95 border-b border-[#ffd700]/30 p-3 flex items-center justify-between">
