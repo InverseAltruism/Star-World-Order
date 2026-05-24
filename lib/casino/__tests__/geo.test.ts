@@ -25,12 +25,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   BLOCKED_COUNTRIES,
+  blockedCountryList,
+  casinoWafExpression,
+  casinoWafRule,
   countryFromHeaders,
   decide,
   geoGuard,
   isBlockedCountry,
   modeFromEnv,
   normalizeCountry,
+  WAF_CASINO_PATH_PREFIX,
 } from '../geo';
 
 function makeRequest(
@@ -257,6 +261,50 @@ describe('geo blocklist', () => {
       const blocked = geoGuard(makeRequest('US'));
       expect(blocked).not.toBeNull();
       expect(blocked!.status).toBe(403);
+    });
+  });
+
+  describe('Cloudflare WAF rule (edge layer)', () => {
+    it('blockedCountryList() returns every blocked country, sorted + deduped', () => {
+      const list = blockedCountryList();
+      // Same membership as the source-of-truth set (no drift).
+      expect(new Set(list)).toEqual(BLOCKED_COUNTRIES);
+      // Sorted ascending for deterministic WAF output.
+      expect(list).toEqual([...list].sort());
+      // No duplicates.
+      expect(list.length).toBe(new Set(list).size);
+      expect(list.length).toBe(BLOCKED_COUNTRIES.size);
+    });
+
+    it('casinoWafExpression() includes every blocked country code', () => {
+      const expr = casinoWafExpression();
+      for (const cc of BLOCKED_COUNTRIES) {
+        expect(expr).toContain(`"${cc}"`);
+      }
+    });
+
+    it('casinoWafExpression() scopes to the /casino path prefix only', () => {
+      const expr = casinoWafExpression();
+      expect(WAF_CASINO_PATH_PREFIX).toBe('/casino');
+      expect(expr).toContain(
+        `http.request.uri.path matches "^${WAF_CASINO_PATH_PREFIX}(/|$)"`,
+      );
+      expect(expr).toContain('ip.geoip.country in {');
+      expect(expr).toContain(') and (');
+    });
+
+    it('casinoWafExpression() does not list neutral jurisdictions', () => {
+      const expr = casinoWafExpression();
+      for (const cc of ['DE', 'JP', 'BR', 'CA', 'CH']) {
+        expect(expr).not.toContain(`"${cc}"`);
+      }
+    });
+
+    it('casinoWafRule() is a blocking rule mirroring the expression', () => {
+      const rule = casinoWafRule();
+      expect(rule.action).toBe('block');
+      expect(rule.expression).toBe(casinoWafExpression());
+      expect(rule.description).toMatch(/OFAC/);
     });
   });
 });

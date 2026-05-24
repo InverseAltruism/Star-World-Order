@@ -153,3 +153,66 @@ export function geoGuard(req: Request): Response | null {
 
 export const GEO_BLOCKED_HEADER = 'x-swo-geo-blocked';
 export const GEO_COUNTRY_HEADER = 'x-swo-geo-country';
+
+// --- Edge (Cloudflare WAF) layer -------------------------------------------
+//
+// Defense-in-depth. The Next.js middleware above is the *application* line of
+// defence (it runs at the origin / Vercel edge fn). The Cloudflare WAF rule
+// below is the *network* line of defence: it drops blocked-jurisdiction
+// traffic at the CDN before it ever reaches our origin, so a misconfigured
+// rewrite, a cold-started middleware, or a direct-to-origin request can't slip
+// a blocked region through. Both layers read the SAME `BLOCKED_COUNTRIES` set
+// here, so the edge rule can never silently drift from the in-app blocklist —
+// `scripts/casino/print-waf-rule.ts` regenerates the rule from this module and
+// the geo test asserts the two stay in sync.
+
+/** URI path prefix the WAF rule scopes to — mirrors the middleware matcher. */
+export const WAF_CASINO_PATH_PREFIX = '/casino';
+
+/**
+ * Blocked ISO-3166-1 alpha-2 codes as a sorted, deduped array. The `Set`
+ * iteration order is insertion-driven; sorting makes the generated WAF
+ * expression deterministic (stable diffs, stable test snapshots).
+ */
+export function blockedCountryList(): string[] {
+  return [...BLOCKED_COUNTRIES].sort();
+}
+
+/**
+ * Build the Cloudflare WAF custom-rule filter expression from the blocklist.
+ * Uses the Cloudflare Rules language: `ip.geoip.country` is the edge-resolved
+ * alpha-2 code (the same value Cloudflare forwards as `cf-ipcountry`), and the
+ * path is matched with an RE2 anchor so `/casino` and `/casino/<game>` match
+ * but `/casinox` does not.
+ *
+ * Example:
+ *   (http.request.uri.path matches "^/casino(/|$)") and
+ *   (ip.geoip.country in {"AU" "CU" "ES" ...})
+ */
+export function casinoWafExpression(): string {
+  const countries = blockedCountryList()
+    .map((cc) => `"${cc}"`)
+    .join(' ');
+  const pathMatch = `(http.request.uri.path matches "^${WAF_CASINO_PATH_PREFIX}(/|$)")`;
+  const countryMatch = `(ip.geoip.country in {${countries}})`;
+  return `${pathMatch} and ${countryMatch}`;
+}
+
+export interface CasinoWafRule {
+  description: string;
+  expression: string;
+  action: 'block';
+}
+
+/**
+ * The full Cloudflare WAF custom rule object. Shape mirrors the
+ * `cloudflare_ruleset` Terraform `rules[]` entry and the Rulesets API
+ * `PUT /rulesets/{id}` payload — see `docs/casino/CASINO_GEO_WAF.md`.
+ */
+export function casinoWafRule(): CasinoWafRule {
+  return {
+    description: 'SWO casino geo blocklist (OFAC + 9 licensed jurisdictions)',
+    expression: casinoWafExpression(),
+    action: 'block',
+  };
+}
