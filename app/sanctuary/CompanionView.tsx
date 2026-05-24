@@ -17,6 +17,9 @@ import CompanionActionButton from '@/components/sanctuary/CompanionActionButton'
 import CompanionChip from '@/components/sanctuary/CompanionChip';
 import { COMPANION_ACTIONS } from '@/lib/sanctuary/companionAction';
 import EventBus from '@/components/sanctuary/EventBus';
+import type { ResourceSnapshot } from '@/lib/sanctuary/walletResources';
+
+type ActionGate = { usesLeft: number; dailyLimit: number; readyAt: number };
 import { emitCompanionVfx } from '@/lib/sanctuary/vfxEvents';
 
 // Interactable overlays surfaced directly on the Companion view so mobile
@@ -233,6 +236,10 @@ export default function CompanionView() {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [starBalance, setStarBalance] = useState<number | null>(null);
+  // Shared per-wallet resources + per-action gates (uses left + cooldown).
+  const [resources, setResources] = useState<ResourceSnapshot | null>(null);
+  const [gates, setGates] = useState<Record<string, ActionGate>>({});
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [starPop, setStarPop] = useState<number | null>(null);
   const starPopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -438,6 +445,50 @@ export default function CompanionView() {
     starPopTimer.current = setTimeout(() => setStarPop(null), 2000);
   }, []);
 
+  // Ingest a {resources, actions} payload (from GET /resources or an action
+  // response). cooldownMs is converted to an absolute readyAt so a 1s tick can
+  // render a live countdown without refetching.
+  const ingestResourceState = useCallback(
+    (data: {
+      resources?: ResourceSnapshot;
+      actions?: Record<string, { usesLeft: number; dailyLimit: number; cooldownMs: number }>;
+    }) => {
+      if (data.resources) setResources(data.resources);
+      if (data.actions) {
+        const base = Date.now();
+        const next: Record<string, ActionGate> = {};
+        for (const [k, v] of Object.entries(data.actions)) {
+          next[k] = { usesLeft: v.usesLeft, dailyLimit: v.dailyLimit, readyAt: base + v.cooldownMs };
+        }
+        setGates(next);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/sanctuary/resources?address=${address}`);
+        const data = await res.json();
+        if (!cancelled && data.success) ingestResourceState(data);
+      } catch {
+        /* non-critical */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, ingestResourceState]);
+
+  // Drive the live cooldown countdown on the action buttons.
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Companion switcher — list the wallet's owned Skrumpey and make a different
   // one active. Answers "how do I switch my Skrumpey" (there was no UI for it).
   const openSwitcher = useCallback(async () => {
@@ -506,7 +557,10 @@ export default function CompanionView() {
           flashFeedback('Wallet signature required');
           return;
         }
-        const res = await fetch('/api/sanctuary/companion/interact', {
+        // Quick actions now fill the SHARED per-wallet resource pool (gated by
+        // per-action cooldown + 24h limit) and still deepen the active
+        // companion's bond. [SWO_V2_SANCTUARY_ECONOMY_REDESIGN]
+        const res = await fetch('/api/sanctuary/resources/action', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -519,46 +573,17 @@ export default function CompanionView() {
           }),
         });
         const data = await res.json();
-        if (data.success && data.companion) {
-          const prevSnapshot = {
-            hunger: companion.hunger,
-            happiness: companion.happiness,
-            energy: companion.energy,
-          };
-          const next = {
-            hunger: data.companion.hunger ?? companion.hunger,
-            happiness: data.companion.happiness ?? companion.happiness,
-            energy: data.companion.energy ?? companion.energy,
-          };
+        if (data.success) {
+          const prevRes = resources;
+          ingestResourceState(data);
+          // Bond celebration from the returned bondGain (server clamps 0–100).
           const prevBond = companion.bond_score;
-          const nextBond = data.companion.bond_score ?? prevBond;
-          setCompanion((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  hunger: next.hunger,
-                  happiness: next.happiness,
-                  energy: next.energy,
-                  is_sleeping:
-                    data.companion.is_sleeping ?? prev.is_sleeping,
-                  bond_score: nextBond,
-                  mood: data.companion.mood ?? prev.mood,
-                  stats_updated_at:
-                    data.companion.stats_updated_at ?? prev.stats_updated_at,
-                }
-              : prev,
-          );
-          // Detect upward crossings of [25, 50, 75, 100] and fire one
-          // celebration moment per threshold per companion. lastCelebrated
-          // is persisted in localStorage so a refresh or a wobble around the
-          // threshold cannot retrigger a banner that was already shown.
+          const nextBond = Math.max(0, Math.min(100, prevBond + (data.bondGain ?? 0)));
+          setCompanion((prev) => (prev ? { ...prev, bond_score: nextBond } : prev));
           const lastCelebrated = readLastCelebratedMilestone(companion.token_id);
-          const crossings = crossedBondMilestones(
-            prevBond,
-            nextBond,
-            lastCelebrated,
+          const top = highestMilestone(
+            crossedBondMilestones(prevBond, nextBond, lastCelebrated),
           );
-          const top = highestMilestone(crossings);
           if (top !== null) {
             triggerBondCelebration(
               top,
@@ -566,20 +591,14 @@ export default function CompanionView() {
             );
             writeLastCelebratedMilestone(companion.token_id, top);
           }
-          // Floating "+N" near each stat bar that moved (uses the projected
-          // post-decay delta from server-side, so tiny rounding deltas don't
-          // create noisy +1s).
-          for (const k of ['hunger', 'happiness', 'energy'] as const) {
-            const a = prevSnapshot[k];
-            const b = next[k];
-            if (typeof a === 'number' && typeof b === 'number') {
-              const d = Math.round(b - a);
+          // Floating "+N" near each resource bar that moved.
+          if (prevRes && data.resources) {
+            for (const k of ['hunger', 'happiness', 'energy'] as const) {
+              const d = Math.round((data.resources[k] ?? 0) - (prevRes[k] ?? 0));
               if (Math.abs(d) >= 2) pushStatDelta(k, d);
             }
           }
           triggerSpriteReaction(action);
-          // Why-it-mattered feedback from the Track-0 breakdown (preference +
-          // need-state), so the tap reads as a relationship moment.
           flashFeedback(
             actionFeedbackMessage(
               companion.nickname || `Skrumpey #${companion.token_id}`,
@@ -588,12 +607,10 @@ export default function CompanionView() {
               data.needBoosted,
             ),
           );
-          // Ambient bonus STAR drop — bump the HUD + show a "+N⭐" pop.
           if (typeof data.bonusStar === 'number' && data.bonusStar > 0) {
             setStarBalance((b) => (b === null ? b : b + data.bonusStar));
             popStar(data.bonusStar);
           }
-          // Refresh journal so the latest entry from the action shows up
           fetchJournal(companion.token_id);
         } else {
           flashFeedback(data.error ?? 'Action failed');
@@ -604,7 +621,7 @@ export default function CompanionView() {
         setInteracting(null);
       }
     },
-    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta, triggerBondCelebration, popStar],
+    [address, companion, interacting, flashFeedback, fetchJournal, triggerSpriteReaction, pushStatDelta, triggerBondCelebration, popStar, resources, ingestResourceState],
   );
 
   useEffect(() => {
@@ -1048,23 +1065,29 @@ export default function CompanionView() {
           )}
 
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] uppercase tracking-wider text-gray-500 font-['Press_Start_2P']">
+                Resources
+              </span>
+              <span className="text-[7px] text-gray-600">shared across your Skrumpey · spent on quests &amp; games</span>
+            </div>
             <StatBar
               label="Hunger"
-              value={companion.hunger ?? 0}
+              value={resources?.hunger ?? companion.hunger ?? 0}
               color="#ff9944"
               pulse={recentlyChanged.has('hunger')}
               delta={statDeltas.find((d) => d.stat === 'hunger')?.delta}
             />
             <StatBar
               label="Happiness"
-              value={companion.happiness ?? 0}
+              value={resources?.happiness ?? companion.happiness ?? 0}
               color="#ff66aa"
               pulse={recentlyChanged.has('happiness')}
               delta={statDeltas.find((d) => d.stat === 'happiness')?.delta}
             />
             <StatBar
               label="Energy"
-              value={companion.energy ?? 0}
+              value={resources?.energy ?? companion.energy ?? 0}
               color="#66ccff"
               pulse={recentlyChanged.has('energy')}
               delta={statDeltas.find((d) => d.stat === 'energy')?.delta}
@@ -1092,20 +1115,44 @@ export default function CompanionView() {
         <div className="space-y-4">
           <div className="pixel-card p-4 space-y-3">
             <span className="chrome-dust" aria-hidden="true" />
-            <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
-              QUICK ACTIONS
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
+                QUICK ACTIONS
+              </h2>
+              <span className="text-[7px] text-gray-500">refill resources · limited per day</span>
+            </div>
             <div className="grid grid-cols-3 gap-2">
-              {COMPANION_ACTIONS.map((a) => (
-                <CompanionActionButton
-                  key={a.id}
-                  action={a.id}
-                  label={a.label}
-                  busy={interacting}
-                  isSleeping={isSleeping}
-                  onActivate={handleAction}
-                />
-              ))}
+              {COMPANION_ACTIONS.map((a) => {
+                const gate = gates[a.id];
+                const cooldownSeconds = gate
+                  ? Math.max(0, Math.ceil((gate.readyAt - nowMs) / 1000))
+                  : 0;
+                const outOfUses = gate ? gate.usesLeft <= 0 : false;
+                return (
+                  <CompanionActionButton
+                    key={a.id}
+                    action={a.id}
+                    label={a.label}
+                    busy={interacting}
+                    isSleeping={isSleeping}
+                    cooldownSeconds={cooldownSeconds}
+                    onActivate={
+                      outOfUses
+                        ? () => flashFeedback('No uses left today — back tomorrow!')
+                        : handleAction
+                    }
+                    badgeSlot={
+                      cooldownSeconds === 0 && gate ? (
+                        <span
+                          className={`tabular-nums ${outOfUses ? 'text-gray-500' : 'text-[#44ff88]'}`}
+                        >
+                          {gate.usesLeft}/{gate.dailyLimit}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
             </div>
             {feedback && (
               <p

@@ -42,6 +42,19 @@ import {
   type PreferenceLevel,
 } from './sanctuary/preferences';
 import { rollVariableReward, type VariableRewardTier } from './sanctuary/variableRewards';
+import {
+  ACTION_RESOURCE,
+  ACTION_DAILY_LIMIT,
+  RESOURCE_MAX,
+  decayResources,
+  replenish,
+  gateAction,
+  advanceUsage,
+  usesRemaining,
+  cooldownRemainingMs,
+  type ResourceSnapshot,
+  type ActionUsage as WalletActionUsage,
+} from './sanctuary/walletResources';
 import { journalLineForAction } from './sanctuary/companionGreeting';
 import {
   abandonExpedition,
@@ -8039,6 +8052,166 @@ export function interactWithCompanionV15(
   incrementQuestProgress(addr, tokenId, 'interact');
   if (action === 'feed') incrementQuestProgress(addr, tokenId, 'feed');
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Shared per-wallet resource economy (V2.8) — see
+// docs/SANCTUARY_ECONOMY_REDESIGN.md. Quick actions fill a shared pool gated by
+// a per-action 24h limit + cooldown; quests/games spend it. Bond/XP still land
+// on the active companion (Track 0), but resources are wallet-wide.
+// ---------------------------------------------------------------------------
+
+const QUICK_ACTIONS: CompanionStatAction[] = ['feed', 'pet', 'talk', 'play', 'sleep'];
+
+export interface ActionGateState {
+  usesLeft: number;
+  dailyLimit: number;
+  cooldownMs: number;
+}
+export interface WalletResourceState {
+  resources: ResourceSnapshot;
+  actions: Record<string, ActionGateState>;
+}
+export interface QuickActionResult extends WalletResourceState {
+  bondGain: number;
+  preference: PreferenceLevel;
+  needBoosted: boolean;
+  variableTier: VariableRewardTier;
+  bonusStar: number;
+}
+
+function loadWalletResources(
+  db: ReturnType<typeof getDatabase>, addr: string, now: Date,
+): ResourceSnapshot {
+  const row = db.prepare(
+    'SELECT hunger, happiness, energy, updated_at FROM sanctuary_wallet_resources WHERE wallet_address = ?',
+  ).get(addr) as { hunger: number; happiness: number; energy: number; updated_at: string } | undefined;
+  if (!row) return { hunger: RESOURCE_MAX, happiness: RESOURCE_MAX, energy: RESOURCE_MAX };
+  return decayResources(
+    { hunger: row.hunger, happiness: row.happiness, energy: row.energy },
+    row.updated_at, now,
+  );
+}
+
+function loadActionUsage(
+  db: ReturnType<typeof getDatabase>, addr: string, action: string,
+): WalletActionUsage | null {
+  const row = db.prepare(
+    'SELECT used_count, window_start, last_used_at FROM sanctuary_action_usage WHERE wallet_address = ? AND action = ?',
+  ).get(addr, action) as { used_count: number; window_start: string; last_used_at: string | null } | undefined;
+  return row
+    ? { used_count: row.used_count, window_start: row.window_start, last_used_at: row.last_used_at }
+    : null;
+}
+
+function buildActionGates(
+  db: ReturnType<typeof getDatabase>, addr: string, now: Date,
+): Record<string, ActionGateState> {
+  const out: Record<string, ActionGateState> = {};
+  for (const a of QUICK_ACTIONS) {
+    const u = loadActionUsage(db, addr, a);
+    out[a] = {
+      usesLeft: usesRemaining(u, a, now),
+      dailyLimit: ACTION_DAILY_LIMIT[a],
+      cooldownMs: cooldownRemainingMs(u, a, now),
+    };
+  }
+  return out;
+}
+
+/** Read the shared resource pool (decayed to now) + per-action gates for the UI. */
+export function getWalletResources(walletAddress: string): WalletResourceState {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+  return { resources: loadWalletResources(db, addr, now), actions: buildActionGates(db, addr, now) };
+}
+
+/**
+ * Perform a quick action: enforce its per-action cooldown + 24h limit, fill the
+ * shared resource pool, and deepen the active companion's bond (preference ×
+ * need-state, with a chance of bonus STAR). Throws on a gated action.
+ */
+export function applyQuickAction(
+  walletAddress: string, tokenId: number, action: CompanionStatAction,
+  options?: { isStar?: boolean },
+): QuickActionResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+
+  const txn = db.transaction(() => {
+    const usage = loadActionUsage(db, addr, action);
+    const gate = gateAction(usage, action, now);
+    if (!gate.ok) {
+      throw new Error(
+        gate.reason === 'daily_limit'
+          ? 'Daily limit reached for this action — come back tomorrow!'
+          : 'That action is on cooldown.',
+      );
+    }
+
+    // Need-boost is measured against the shared pool now (filling a low
+    // resource is the "right when they needed it" moment).
+    const decayed = loadWalletResources(db, addr, now);
+    const needBoosted = isNeedTargeted(action, decayed);
+    const next = replenish(decayed, action);
+    db.prepare(`
+      INSERT INTO sanctuary_wallet_resources (wallet_address, hunger, happiness, energy, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        hunger = excluded.hunger, happiness = excluded.happiness,
+        energy = excluded.energy, updated_at = excluded.updated_at
+    `).run(addr, next.hunger, next.happiness, next.energy, toSqlDate(now));
+
+    const adv = advanceUsage(usage, now);
+    db.prepare(`
+      INSERT INTO sanctuary_action_usage (wallet_address, action, used_count, window_start, last_used_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(wallet_address, action) DO UPDATE SET
+        used_count = excluded.used_count, window_start = excluded.window_start,
+        last_used_at = excluded.last_used_at
+    `).run(addr, action, adv.used_count, adv.window_start, adv.last_used_at);
+
+    // Bond/XP/variable-STAR on the active companion (Track 0 mechanics).
+    const starBonus = options?.isStar ?? false;
+    const preference = preferenceFor(tokenId, action);
+    const variable = rollVariableReward({ action, floorBond: 0 });
+    let bonusStar = variable.bonusStar;
+    if (variable.tier === 'rare_trinket') bonusStar = STAR_EARN_RATES.interaction.max;
+
+    let bondGain = 0;
+    const comp = db.prepare(
+      'SELECT id FROM sanctuary_companions WHERE wallet_address = ? AND token_id = ? AND is_active = 1',
+    ).get(addr, tokenId) as { id: number } | undefined;
+    if (comp) {
+      const baseBond = INTERACTION_BOND[action] * (starBonus ? STAR_HOLDER_BOND_MULTIPLIER : 1);
+      bondGain = computeBondDelta({ baseline: baseBond, preference, needBoosted });
+      const xpGain = Math.round(INTERACTION_XP[action] * (starBonus ? STAR_HOLDER_XP_MULTIPLIER : 1));
+      db.prepare(`
+        UPDATE sanctuary_companions
+        SET bond_score = MAX(MIN(bond_score + ?, 100.0), 0.0),
+            total_interactions = total_interactions + 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(bondGain, comp.id);
+      if (xpGain > 0) addUserXP(addr, xpGain);
+      addJournalEntry(
+        addr, tokenId, 'interaction',
+        journalLineForAction(action, action, now.getHours()),
+        JSON.stringify({ action, bond: bondGain, preference, needBoosted, bonusStar, resource: ACTION_RESOURCE[action] }),
+      );
+    }
+    if (bonusStar > 0) earnStar(addr, 'interaction', bonusStar, `token:${tokenId}:${variable.tier}`);
+
+    return {
+      resources: next,
+      actions: buildActionGates(db, addr, now),
+      bondGain, preference, needBoosted, variableTier: variable.tier, bonusStar,
+    };
+  });
+
+  return txn();
 }
 
 export function completeActivityV15(
