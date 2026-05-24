@@ -226,7 +226,7 @@ function navigateToWorld() {
 }
 
 export default function CompanionView() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, status } = useAccount();
   const [companion, setCompanion] = useState<CompanionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [interacting, setInteracting] = useState<QuickAction | null>(null);
@@ -472,7 +472,9 @@ export default function CompanionView() {
         const data = await res.json();
         if (data.success) {
           setSwitcherOpen(false);
-          setLoading(true);
+          // fetchCompanion updates the companion in place — do NOT flip the
+          // `loading` flag here (fetchCompanion doesn't clear it, which left the
+          // view stuck on "Loading companion…" requiring a hard refresh).
           await fetchCompanion();
         } else {
           flashFeedback(data.error ?? 'Switch failed');
@@ -659,7 +661,10 @@ export default function CompanionView() {
     }
   }, [address, companion, chatBusy, chatDraft, flashFeedback]);
 
-  if (loading) {
+  // Hold the loading state while wagmi is still (re)connecting on first paint,
+  // otherwise `address` is briefly undefined and we'd flash the V1 SanctuaryContent
+  // (the old star map) before the companion view appears.
+  if (loading || status === 'connecting' || status === 'reconnecting') {
     return (
       <div className="flex items-center justify-center h-64">
         <span className="text-[#00f7ff] font-['Press_Start_2P'] text-xs animate-pulse">
