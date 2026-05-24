@@ -20,6 +20,7 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "compile": "node scripts/compile-contracts.js",
     "test:network": "node scripts/test-connection.js",
+    "casino:waf-rule": "npx tsx scripts/casino/print-waf-rule.ts",
     "db:init": "mkdir -p data && sqlite3 data/swo.db < scripts/init-db.sql",
     "db:fetch-metadata": "npx tsx scripts/fetch-metadata-to-db.ts",
     "colyseus:start": "npx tsx server/colyseus/index.ts",
