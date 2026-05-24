@@ -1,0 +1,27 @@
+# Outer Rim — halmos symbolic-execution config.
+#
+# Pairs with contracts/outer-rim/test/Dust.invariant.t.sol. Halmos runs the
+# `check_*` functions on `DustSymbolicTest` as symbolic properties proving the
+# two ADR-003 §1.2 invariants:
+#   (c) sell-tax routes 100% to the vault sink during the anti-snipe window;
+#   (d) only MINTER_ROLE can mint and only BURNER_ROLE can burn.
+#
+# Invoke:
+#   halmos --contract DustSymbolicTest
+#
+# Halmos reads foundry.toml for compiler config (solc 0.8.24, optimizer, etc.)
+# and these settings extend that with symbolic-execution-specific knobs.
+
+[global]
+contract = "DustSymbolicTest"
+
+# The DUST transfer/mint/burn paths have no on-chain loops; a small loop bound
+# keeps verification sub-minute.
+loop = 2
+
+solver-timeout-assertion = 60000
+solver-timeout-branching = 1000
+
+# Generic storage layout lets halmos reason about the AccessControl role
+# mappings and per-epoch mint accounting without per-slot hints.
+storage-layout = "generic"

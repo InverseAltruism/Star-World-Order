@@ -1,0 +1,41 @@
+# Outer Rim — Cosmic Offshore overlay. Foundry config for the DUST token
+# (transferable ERC-20 + anti-snipe sell-tax) on Monad.
+#
+# Shares the dependency set with contracts/casino (OpenZeppelin 5.0.2,
+# forge-std, createx-forge) via the relative `libs` path below, so there is
+# no duplicated `lib/` tree. Chain targets and explorer config mirror the
+# casino suite (Monad mainnet 143 / testnet 10143). See ADR-003 §1.2 for the
+# contract shape this implements.
+
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["../casino/lib"]
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+fuzz = { runs = 256 }
+invariant = { runs = 64, depth = 64 }
+# Allow DeployDust.s.sol to write predicted/live address artifacts.
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+[profile.ci]
+fuzz = { runs = 1024 }
+invariant = { runs = 256, depth = 128 }
+
+[rpc_endpoints]
+monad_mainnet = "https://rpc.monad.xyz"
+monad_testnet = "https://testnet-rpc.monad.xyz"
+
+[etherscan]
+monad_mainnet = { key = "${MONAD_ETHERSCAN_KEY}", url = "https://api.monadscan.com/api", chain = 143 }
+monad_testnet = { key = "${MONAD_ETHERSCAN_KEY}", url = "https://testnet-api.monadscan.com/api", chain = 10143 }
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
