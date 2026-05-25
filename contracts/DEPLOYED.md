@@ -79,6 +79,38 @@ same PR that deploys a contract.
 > | CosmicFlip | deployer EOA | SWO governance multisig (TBD) |
 > | GravityDice | deployer EOA | SWO governance multisig (TBD) |
 > | ConstellationClimb | deployer EOA | SWO governance multisig (TBD) |
+>
+> **Mainnet smoke (G8):** `contracts/casino/script/smoke-mainnet.sh`. After
+> deploy (G5), seed (G6), and ownership handover (G7), the operator runs one
+> min-stake bet against each of the three games to prove the live wiring
+> (player → game → bankroll `settle`/`payout`) end-to-end. Each game is
+> commit/reveal, so for the smoke the operator plays both roles: the script
+> generates a random server reveal, derives the commit
+> (`keccak256(abi.encodePacked(reveal))`, matching
+> `CommitRevealRandomness.verifyCommit`), places the bet, then settles by
+> revealing — six broadcasts total:
+>
+> - CosmicFlip: `placeBet(Heads)` → `settleBet`
+> - GravityDice: `placeBet(rollUnder=50)` → `settleBet`
+> - ConstellationClimb: `openSession` → `cashOut` (step 0, multiplier 1.0x, so
+>   the stake round-trips with no extra bankroll exposure)
+>
+> The script reuses the seed/deploy mainnet guards (chain-id 143, requires
+> `143.json` from G5, asserts every game + bankroll has on-chain code, refuses a
+> world-readable wallet, checks the wallet covers 3 stakes + gas, and gates the
+> broadcast behind `--yes`). Stake defaults to each game's on-chain `minBet()`;
+> override with `CASINO_SMOKE_STAKE_WEI`. Rehearse with
+> `bash contracts/casino/script/smoke-mainnet.sh --dry-run` (simulates all six
+> calls via `cast call`, no broadcast). On success the script prints the captured
+> tx hashes; record them below in the same tracking PR.
+>
+> **Mainnet smoke (G8) — execution log**
+>
+> | Game | Action | Tx | Block |
+> |---|---|---|---|
+> | CosmicFlip | placeBet / settleBet | _pending operator smoke_ / — | — |
+> | GravityDice | placeBet / settleBet | — / — | — |
+> | ConstellationClimb | openSession / cashOut | — / — | — |
 
 ## Monad Testnet (chain id 10143)
 
