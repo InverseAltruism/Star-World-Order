@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
+import { isCasinoMainnetLive } from '@/lib/casino/addresses';
 
 // ============================================================================
 // Types
@@ -34,6 +35,16 @@ interface CasinoStats {
 // Constants
 // ============================================================================
 
+// The three games backed by on-chain casino contracts (Cosmic Flip,
+// Gravity Dice, Constellation Climb). They are wired to Monad mainnet
+// (chain 143) and flip from "coming soon" to "live" the moment the operator
+// activates the mainnet gate (see `isCasinoMainnetLive()` in
+// `lib/casino/addresses.ts`) once mainnet bets have settled. No code change is
+// needed to go live — only the `NEXT_PUBLIC_CASINO_MAINNET_LIVE` env flag.
+const ON_CHAIN_GAME_STATUS: GameInfo['status'] = isCasinoMainnetLive()
+  ? 'live'
+  : 'coming_soon';
+
 const GAMES: GameInfo[] = [
   {
     id: 'starforge',
@@ -53,13 +64,39 @@ const GAMES: GameInfo[] = [
     name: 'Cosmic Flip',
     description: 'Classic heads or tails with 2x payout. Simple, fast, and provably fair.',
     emoji: '🪙',
-    status: 'coming_soon',
+    status: ON_CHAIN_GAME_STATUS,
     path: '/casino/coinflip',
     minBet: '10 MON',
     maxWin: '1,000 MON',
     rtp: '98%',
     color: '#00ffff',
     glowColor: 'rgba(0, 255, 255, 0.5)',
+  },
+  {
+    id: 'dice',
+    name: 'Gravity Dice',
+    description: 'Roll the dice and predict high or low. Adjustable odds for risk takers.',
+    emoji: '🎲',
+    status: ON_CHAIN_GAME_STATUS,
+    path: '/casino/dice',
+    minBet: '5 MON',
+    maxWin: '500 MON',
+    rtp: '99%',
+    color: '#44ff88',
+    glowColor: 'rgba(68, 255, 136, 0.5)',
+  },
+  {
+    id: 'constellation-climb',
+    name: 'Constellation Climb',
+    description: 'Hi-lo card climb — call the next star higher or lower and cash out before you bust.',
+    emoji: '🌌',
+    status: ON_CHAIN_GAME_STATUS,
+    path: '/casino/constellation-climb',
+    minBet: '5 MON',
+    maxWin: 'Streak Multiplier',
+    rtp: '97%',
+    color: '#9966ff',
+    glowColor: 'rgba(153, 102, 255, 0.5)',
   },
   {
     id: 'roulette',
@@ -73,19 +110,6 @@ const GAMES: GameInfo[] = [
     rtp: '97.3%',
     color: '#ff00ff',
     glowColor: 'rgba(255, 0, 255, 0.5)',
-  },
-  {
-    id: 'dice',
-    name: 'Gravity Dice',
-    description: 'Roll the dice and predict high or low. Adjustable odds for risk takers.',
-    emoji: '🎲',
-    status: 'coming_soon',
-    path: '/casino/dice',
-    minBet: '5 MON',
-    maxWin: '500 MON',
-    rtp: '99%',
-    color: '#44ff88',
-    glowColor: 'rgba(68, 255, 136, 0.5)',
   },
 ];
 
