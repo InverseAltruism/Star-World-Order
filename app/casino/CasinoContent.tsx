@@ -463,6 +463,20 @@ export default function CasinoContent() {
             </div>
           </div>
         </CasinoAccessGate>
+
+        {/* Casino Footer */}
+        <footer className="mt-10 pt-6 border-t border-[#2a2a4e] text-center">
+          <p className="text-gray-500 text-[10px] mb-2 tracking-wider">
+            ✦ 18+ ONLY · PLAY RESPONSIBLY ✦
+          </p>
+          <Link
+            href="/casino/responsible-gaming"
+            className="text-[#9966ff] hover:text-[#ff00ff] text-xs underline transition-colors"
+            data-testid="casino-footer-responsible-gaming-link"
+          >
+            Responsible Gaming
+          </Link>
+        </footer>
       </div>
 
       {/* CSS Animations */}
