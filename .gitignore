@@ -58,3 +58,4 @@ data/*.db
 data/corpus/
 __pycache__/
 test-nonce-security.js
+logs/

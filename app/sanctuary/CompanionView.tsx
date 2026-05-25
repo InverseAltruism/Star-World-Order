@@ -26,7 +26,19 @@ import { emitCompanionVfx } from '@/lib/sanctuary/vfxEvents';
 // players can reach quests/expeditions, the shop, traits and the journal
 // without walking the Phaser world. Each returns null until opened via its
 // EventBus event. Minigames stay in the world hub — they need the Phaser canvas.
-const QuestBoard = dynamic(() => import('@/components/sanctuary/overlays/QuestBoard'), { ssr: false });
+const QuestsV2Panel = dynamic(() => import('@/components/sanctuary/overlays/QuestsV2Panel'), { ssr: false });
+const MinigameArcade = dynamic(() => import('@/components/sanctuary/overlays/MinigameArcade'), { ssr: false });
+
+// What each quick action gives the shared resource pool (mirrors ACTION_REPLENISH
+// in lib/sanctuary/walletResources.ts) — surfaced on the buttons so players see
+// what they get. Quick actions only GIVE resources; quests/games spend them.
+const ACTION_EFFECT: Record<string, { txt: string; color: string }> = {
+  feed: { txt: '+25 food', color: '#ff9944' },
+  pet: { txt: '+15 joy', color: '#ff66aa' },
+  talk: { txt: '+15 joy', color: '#ff66aa' },
+  play: { txt: '+20 joy', color: '#ff66aa' },
+  sleep: { txt: '+30 rest', color: '#66ccff' },
+};
 const ExpeditionDialog = dynamic(() => import('@/components/sanctuary/overlays/ExpeditionDialog'), { ssr: false });
 const ShopDialog = dynamic(() => import('@/components/sanctuary/overlays/ShopDialog'), { ssr: false });
 const TraitsOverlay = dynamic(() => import('@/components/sanctuary/overlays/TraitsOverlay'), { ssr: false });
@@ -234,7 +246,7 @@ export default function CompanionView() {
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   // In-place view switch (no popups): the main area shows the companion, or a
   // rendered Quests / Shop panel. Traits flip the card; journal expands inline.
-  const [view, setView] = useState<'companion' | 'quests' | 'shop'>('companion');
+  const [view, setView] = useState<'companion' | 'quests' | 'shop' | 'games'>('companion');
   const [flipped, setFlipped] = useState(false);
   const [journalExpanded, setJournalExpanded] = useState(false);
   const [starPop, setStarPop] = useState<number | null>(null);
@@ -243,7 +255,8 @@ export default function CompanionView() {
   const [owned, setOwned] = useState<OwnedSkrumpey[]>([]);
   const [ownedLoaded, setOwnedLoaded] = useState(false);
   const [switching, setSwitching] = useState<number | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  // Chat flips over the right column (mirrors the TRAITS flip on the left).
+  const [chatFlipped, setChatFlipped] = useState(false);
   const [chatLines, setChatLines] = useState<ChatLine[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
@@ -811,7 +824,7 @@ export default function CompanionView() {
       </div>
 
       {view !== 'companion' ? (
-        <div className="swo-panel-frame p-3 space-y-3">
+        <div className="sanctuary-panel-in swo-panel-frame p-3 space-y-3">
           <div className="flex items-center justify-between">
             <button
               onClick={() => setView('companion')}
@@ -820,11 +833,14 @@ export default function CompanionView() {
               ‹ {companion.nickname || `#${companion.token_id}`}
             </button>
             <span className="text-[9px] text-[#ffd700] font-['Press_Start_2P'] tracking-wider">
-              {view === 'quests' ? '🗺️ QUESTS' : '🛍️ SHOP'}
+              {view === 'quests' ? '🗺️ QUESTS' : view === 'games' ? '🎮 GAMES' : '🛍️ SHOP'}
             </span>
           </div>
           {view === 'quests' && (
-            <QuestBoard inline walletAddress={address} tokenId={companion.token_id} />
+            <QuestsV2Panel walletAddress={address} tokenId={companion.token_id} />
+          )}
+          {view === 'games' && (
+            <MinigameArcade walletAddress={address} tokenId={companion.token_id} />
           )}
           {view === 'shop' && (
             <ShopDialog inline walletAddress={address} tokenId={companion.token_id} />
@@ -1159,7 +1175,60 @@ export default function CompanionView() {
         </div>
 
         {/* Actions + Journal */}
-        <div className="space-y-4">
+        <div className="relative space-y-4">
+          {/* Chat back-face — flips over the whole right column (mirrors the
+              TRAITS flip on the left card). */}
+          {chatFlipped && (
+            <div className="sanctuary-flip-in absolute inset-0 z-20 flex flex-col rounded-2xl bg-[#0a0520]/98 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[10px] text-[#ffd700] font-['Press_Start_2P']">💬 CHAT · {displayName}</span>
+                <button
+                  onClick={() => setChatFlipped(false)}
+                  aria-label="Flip back to your companion"
+                  className="flex h-8 items-center gap-1 rounded border border-[#9966ff]/50 bg-[#9966ff]/10 px-2 text-[8px] text-[#bb88ff] font-['Press_Start_2P'] hover:bg-[#9966ff]/20"
+                >
+                  ↺ BACK
+                </button>
+              </div>
+              <div className="flex flex-1 flex-col gap-2 overflow-hidden">
+                <div className="flex-1 space-y-1 overflow-y-auto rounded border border-[#2a2a4e] bg-[#0a0a15] p-2">
+                  {chatLines.length === 0 ? (
+                    <p className="text-[8px] italic text-gray-500">Say hello to {displayName}.</p>
+                  ) : (
+                    chatLines.map((line) => (
+                      <p
+                        key={line.id}
+                        className={`text-[8px] ${line.role === 'user' ? 'text-right text-[#bb88ff]' : 'text-gray-300'}`}
+                      >
+                        <span className="opacity-60">{line.role === 'user' ? 'You: ' : `${displayName}: `}</span>
+                        {line.content}
+                      </p>
+                    ))
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatDraft}
+                    onChange={(e) => setChatDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); void handleSendChat(); }
+                    }}
+                    maxLength={500}
+                    placeholder={`Talk to ${displayName}...`}
+                    className="flex-1 rounded border border-[#2a2a4e] bg-[#0a0a15] px-2 py-1 text-[9px] text-white placeholder-gray-600 focus:border-[#9966ff]/60 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => void handleSendChat()}
+                    disabled={!chatDraft.trim() || chatBusy}
+                    className="rounded border border-[#9966ff]/50 bg-[#9966ff]/20 px-3 py-1 text-[8px] text-[#9966ff] font-['Press_Start_2P'] hover:bg-[#9966ff]/30 disabled:opacity-40"
+                  >
+                    SEND
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="pixel-card p-4 space-y-3">
             <span className="chrome-dust" aria-hidden="true" />
             <div className="flex items-center justify-between">
@@ -1175,6 +1244,7 @@ export default function CompanionView() {
                   ? Math.max(0, Math.ceil((gate.readyAt - nowMs) / 1000))
                   : 0;
                 const outOfUses = gate ? gate.usesLeft <= 0 : false;
+                const eff = ACTION_EFFECT[a.id];
                 return (
                   <CompanionActionButton
                     key={a.id}
@@ -1183,6 +1253,9 @@ export default function CompanionView() {
                     busy={interacting}
                     isSleeping={isSleeping}
                     cooldownSeconds={cooldownSeconds}
+                    effectHint={
+                      <span style={{ color: eff.color }}>{eff.txt}</span>
+                    }
                     onActivate={
                       outOfUses
                         ? () => flashFeedback('No uses left today — back tomorrow!')
@@ -1285,69 +1358,15 @@ export default function CompanionView() {
             )}
           </div>
 
-          <div className="pixel-card p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
-                CHAT
-              </h2>
-              <button
-                onClick={() => setChatOpen((v) => !v)}
-                className="text-[8px] text-[#9966ff] hover:text-[#bb88ff] font-['Press_Start_2P']"
-              >
-                {chatOpen ? 'CLOSE' : 'OPEN'}
-              </button>
-            </div>
-            {chatOpen && (
-              <div className="space-y-2">
-                <div className="bg-[#0a0a15] border border-[#2a2a4e] rounded p-2 max-h-32 overflow-y-auto space-y-1">
-                  {chatLines.length === 0 ? (
-                    <p className="text-gray-500 text-[8px] italic">
-                      Say hello to {displayName}.
-                    </p>
-                  ) : (
-                    chatLines.map((line) => (
-                      <p
-                        key={line.id}
-                        className={`text-[8px] ${
-                          line.role === 'user'
-                            ? 'text-[#bb88ff] text-right'
-                            : 'text-gray-300'
-                        }`}
-                      >
-                        <span className="opacity-60">
-                          {line.role === 'user' ? 'You: ' : `${displayName}: `}
-                        </span>
-                        {line.content}
-                      </p>
-                    ))
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatDraft}
-                    onChange={(e) => setChatDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleSendChat();
-                      }
-                    }}
-                    maxLength={500}
-                    placeholder={`Talk to ${displayName}...`}
-                    className="flex-1 bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1 text-[9px] text-white placeholder-gray-600 focus:border-[#9966ff]/60 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => void handleSendChat()}
-                    disabled={!chatDraft.trim() || chatBusy}
-                    className="px-3 py-1 bg-[#9966ff]/20 border border-[#9966ff]/50 rounded text-[#9966ff] text-[8px] font-['Press_Start_2P'] hover:bg-[#9966ff]/30 disabled:opacity-40"
-                  >
-                    SEND
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setChatFlipped(true)}
+            className="pixel-card flex w-full items-center justify-between p-4 text-left transition-transform hover:translate-y-[-2px] active:scale-[0.99]"
+          >
+            <span className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">💬 CHAT</span>
+            <span className="text-[8px] text-[#9966ff] font-['Press_Start_2P']">
+              {chatLines.length > 0 ? `${chatLines.length} msgs ⟳` : `talk to ${displayName} ⟳`}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -1356,18 +1375,26 @@ export default function CompanionView() {
         <h2 className="text-[#ffd700] text-[10px] tracking-wider font-['Press_Start_2P']">
           EXPLORE
         </h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => setView('quests')}
-            aria-label="Open quests and expeditions"
+            aria-label="Open quests"
             className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#9966ff]/40 bg-[#9966ff]/10 px-2 py-3 text-center transition-colors hover:bg-[#9966ff]/20 active:bg-[#9966ff]/30"
           >
             <span className="text-2xl leading-none" aria-hidden="true">🗺️</span>
             <span className="text-[8px] leading-tight text-[#bb88ff] font-['Press_Start_2P']">QUESTS</span>
           </button>
           <button
+            onClick={() => setView('games')}
+            aria-label="Open the minigame arcade"
+            className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#00f7ff]/40 bg-[#00f7ff]/10 px-2 py-3 text-center transition-colors hover:bg-[#00f7ff]/20 active:bg-[#00f7ff]/30"
+          >
+            <span className="text-2xl leading-none" aria-hidden="true">🎮</span>
+            <span className="text-[8px] leading-tight text-[#66e0ff] font-['Press_Start_2P']">GAMES</span>
+          </button>
+          <button
             onClick={() => setView('shop')}
-            aria-label="Open the cosmetic shop"
+            aria-label="Open the shop"
             className="flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-lg border border-[#ffd700]/40 bg-[#ffd700]/10 px-2 py-3 text-center transition-colors hover:bg-[#ffd700]/20 active:bg-[#ffd700]/30"
           >
             <span className="text-2xl leading-none" aria-hidden="true">🛍️</span>
@@ -1376,15 +1403,16 @@ export default function CompanionView() {
         </div>
       </div>
 
-      {/* Full Phaser world: free-roam walking, minigames, multiplayer */}
+      {/* Full Phaser world — not released yet. Minigames are available now via
+          the GAMES section above; free-roam/multiplayer is coming soon. */}
       <div className="flex justify-center">
-        <button
-          onClick={navigateToWorld}
-          className="w-full px-6 py-4 bg-[#00f7ff]/15 border-2 border-[#00f7ff]/60 rounded-lg text-[#00f7ff] text-[10px] font-['Press_Start_2P'] tracking-widest uppercase hover:bg-[#00f7ff]/25 hover:border-[#00f7ff] transition-colors shadow-[0_0_12px_rgba(0,247,255,0.25)] sm:w-auto"
-          aria-label="Enter the Sanctuary world to walk around and play minigames"
+        <div
+          className="w-full cursor-not-allowed select-none rounded-lg border-2 border-dashed border-[#00f7ff]/30 bg-[#00f7ff]/5 px-6 py-4 text-center text-[10px] font-['Press_Start_2P'] uppercase tracking-widest text-[#00f7ff]/50 sm:w-auto"
+          aria-disabled="true"
+          title="The full free-roam Sanctuary world is coming soon."
         >
-          ✦ Enter Sanctuary World ✦
-        </button>
+          ✦ Sanctuary World — Coming Soon ✦
+        </div>
       </div>
         </>
       )}

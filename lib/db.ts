@@ -19,6 +19,7 @@ import { getResilientClient } from './rpcClient';
 import {
   applyInteractionStats,
   toSqlDate,
+  parseSqlDateMs,
   type CompanionStatAction,
 } from './sanctuary/companionStats';
 import {
@@ -56,6 +57,20 @@ import {
   type ActionUsage as WalletActionUsage,
 } from './sanctuary/walletResources';
 import { journalLineForAction } from './sanctuary/companionGreeting';
+import {
+  QUEST_CATALOG,
+  getQuestDef,
+  getWagerTier,
+  isValidStake,
+  questResourceCost,
+  gateQuestStart,
+  payCost,
+  earnPayout,
+  effectiveWager,
+  type CharmEffect,
+  type CharmEffectType,
+} from './sanctuary/questsV2';
+import { resolveArcade, isValidArcadeStake } from './sanctuary/arcade';
 import {
   abandonExpedition,
   chooseExpeditionPath,
@@ -5920,6 +5935,16 @@ function initializeSanctuary(database: Database.Database): void {
     const sql = fs.readFileSync(v28Path, 'utf-8');
     database.exec(sql);
   }
+  const v29Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.9.sql');
+  if (fs.existsSync(v29Path)) {
+    const sql = fs.readFileSync(v29Path, 'utf-8');
+    database.exec(sql);
+  }
+  const v210Path = path.join(process.cwd(), 'scripts', 'init-sanctuary-v2.10.sql');
+  if (fs.existsSync(v210Path)) {
+    const sql = fs.readFileSync(v210Path, 'utf-8');
+    database.exec(sql);
+  }
   // V1.7: per-companion XP/level columns (Training Grounds). ALTER TABLE IF NOT
   // EXISTS is not portable across SQLite versions, so wrap in try/catch.
   try { database.exec('ALTER TABLE sanctuary_companions ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'); }
@@ -5965,6 +5990,7 @@ function initializeSanctuary(database: Database.Database): void {
   seedSanctuaryQuests(database);
   seedSkrumpeyMetadataFromCorpus(database);
   seedSanctuaryCosmeticItems(database);
+  seedSanctuaryCharmItems(database);
 }
 
 function seedSkrumpeyMetadataFromCorpus(database: Database.Database): void {
@@ -8214,6 +8240,47 @@ export function applyQuickAction(
   return txn();
 }
 
+/**
+ * Spend resources from the shared pool (decay-aware). Throws INSUFFICIENT_RESOURCES
+ * if any resource can't cover its cost. Used by minigame entry and any other
+ * sink that consumes the pool outside the quest engine. [SWO_V2_SANCTUARY_ECONOMY_REDESIGN]
+ */
+export function spendWalletResources(
+  walletAddress: string, cost: Partial<ResourceSnapshot>,
+): ResourceSnapshot {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+  const want = { hunger: cost.hunger ?? 0, happiness: cost.happiness ?? 0, energy: cost.energy ?? 0 };
+
+  const txn = db.transaction(() => {
+    const pool = loadWalletResources(db, addr, now);
+    const short = (['hunger', 'happiness', 'energy'] as const).filter((k) => pool[k] < want[k]);
+    if (short.length > 0) {
+      const e = new Error(`INSUFFICIENT_RESOURCES:${short.join(',')}`);
+      (e as { code?: string }).code = 'INSUFFICIENT_RESOURCES';
+      throw e;
+    }
+    const next = {
+      hunger: Math.max(0, pool.hunger - want.hunger),
+      happiness: Math.max(0, pool.happiness - want.happiness),
+      energy: Math.max(0, pool.energy - want.energy),
+    };
+    db.prepare(`
+      INSERT INTO sanctuary_wallet_resources (wallet_address, hunger, happiness, energy, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        hunger = excluded.hunger, happiness = excluded.happiness,
+        energy = excluded.energy, updated_at = excluded.updated_at
+    `).run(addr, next.hunger, next.happiness, next.energy, toSqlDate(now));
+    return next;
+  });
+  return txn();
+}
+
+/** Resource cost to enter a minigame — games tire the companion (the spend sink). */
+export const MINIGAME_ENTRY_COST: Readonly<Partial<ResourceSnapshot>> = Object.freeze({ energy: 12, happiness: 4 });
+
 export function completeActivityV15(
   walletAddress: string, tokenId: number,
   options?: { isStar?: boolean }
@@ -8275,6 +8342,9 @@ export interface SanctuaryStarLedgerEntry {
 
 export type StarEarnSource =
   | 'quest'
+  | 'quest_earn'
+  | 'quest_wager'
+  | 'minigame_wager'
   | 'minigame_first'
   | 'daily_login'
   | 'activity'
@@ -8287,6 +8357,14 @@ export type StarEarnSource =
 // accidentally mint a million STAR. See task spec [SWO_V2_STAR_CURRENCY].
 export const STAR_EARN_RATES: Record<StarEarnSource, { min: number; max: number }> = {
   quest: { min: 10, max: 50 },
+  // [SWO_V2_SANCTUARY_QUESTS_V2] earn quests scale STAR with duration (the income
+  // floor); wager wins pay stake × multiplier. Wide bands — the questsV2 engine
+  // is the real guardrail (earn payout fixed per quest; wager EV capped < 1).
+  quest_earn: { min: 1, max: 300 },
+  quest_wager: { min: 1, max: 20000 },
+  // Skill-wager minigames: payout = stake × score/par, capped. Wide band; the
+  // resolver + the resource entry cost are the real guardrails.
+  minigame_wager: { min: 1, max: 1000 },
   minigame_first: { min: 25, max: 25 },
   daily_login: { min: 5, max: 5 },
   activity: { min: 5, max: 20 },
@@ -8353,6 +8431,10 @@ export function earnStar(
       'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
     ).run(addr, clamped, 'earn', sourceTag, newBalance);
 
+    // Auto-mint mirror on-chain (no claim button) — enqueued in the same txn so
+    // it's atomic with the ledger credit. A cron worker drains the queue.
+    enqueueStarOnchain(db, addr, 'mint', clamped, sourceTag);
+
     return { balance: newBalance, lifetime_earned: newLifetime, gained: clamped };
   });
 
@@ -8392,10 +8474,109 @@ export function spendStar(
       'INSERT INTO sanctuary_star_ledger (wallet_address, delta, kind, source, balance_after) VALUES (?, ?, ?, ?, ?)'
     ).run(addr, -cost, 'spend', source, newBalance);
 
+    // Auto-burn mirror on-chain (atomic with the ledger debit).
+    enqueueStarOnchain(db, addr, 'burn', cost, source);
+
     return { balance: newBalance, lifetime_earned: lifetime, spent: cost };
   });
 
   return txn();
+}
+
+// --- On-chain STAR mirror (auto mint/burn) — [SWO_V2_SANCTUARY_STAR_ONCHAIN] ---
+
+export function isStarOnchainEnabled(): boolean {
+  return process.env.STAR_ONCHAIN_ENABLED === 'true' || process.env.STAR_ONCHAIN_ENABLED === '1';
+}
+
+export interface StarOnchainOp {
+  id: number;
+  wallet_address: string;
+  op: 'mint' | 'burn';
+  amount: number;
+  status: 'pending' | 'sent' | 'confirmed' | 'failed';
+  tx_hash: string | null;
+  attempts: number;
+  last_error: string | null;
+  reason: string | null;
+}
+
+/** Enqueue an on-chain mint/burn (call INSIDE the earn/spend txn). No-op unless enabled. */
+function enqueueStarOnchain(
+  db: ReturnType<typeof getDatabase>, walletAddress: string,
+  op: 'mint' | 'burn', amount: number, reason: string,
+): void {
+  if (!isStarOnchainEnabled()) return;
+  if (!Number.isFinite(amount) || amount <= 0) return;
+  db.prepare(`
+    INSERT INTO sanctuary_star_onchain_queue (wallet_address, op, amount, reason)
+    VALUES (?, ?, ?, ?)
+  `).run(walletAddress.toLowerCase(), op, Math.floor(amount), reason.slice(0, 120));
+}
+
+/** Pending on-chain ops, FIFO — the worker drains these. */
+export function getPendingStarOnchainOps(limit = 25): StarOnchainOp[] {
+  const db = getDatabase();
+  return db.prepare(
+    "SELECT * FROM sanctuary_star_onchain_queue WHERE status = 'pending' ORDER BY id ASC LIMIT ?"
+  ).all(Math.max(1, Math.min(200, limit))) as StarOnchainOp[];
+}
+
+export function markStarOnchainSent(id: number, txHash: string): void {
+  getDatabase().prepare(
+    "UPDATE sanctuary_star_onchain_queue SET status = 'sent', tx_hash = ?, attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+  ).run(txHash, id);
+}
+
+export function markStarOnchainConfirmed(id: number, txHash: string): void {
+  getDatabase().prepare(
+    "UPDATE sanctuary_star_onchain_queue SET status = 'confirmed', tx_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+  ).run(txHash, id);
+}
+
+export function markStarOnchainFailed(id: number, err: string): void {
+  getDatabase().prepare(
+    "UPDATE sanctuary_star_onchain_queue SET status = 'failed', last_error = ?, attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+  ).run(err.slice(0, 240), id);
+}
+
+export interface StarOnchainQueueStats { pending: number; sent: number; confirmed: number; failed: number; }
+export function getStarOnchainQueueStats(): StarOnchainQueueStats {
+  const db = getDatabase();
+  const rows = db.prepare(
+    'SELECT status, COUNT(*) as n FROM sanctuary_star_onchain_queue GROUP BY status'
+  ).all() as { status: string; n: number }[];
+  const out: StarOnchainQueueStats = { pending: 0, sent: 0, confirmed: 0, failed: 0 };
+  for (const r of rows) (out as unknown as Record<string, number>)[r.status] = r.n;
+  return out;
+}
+
+// Reconciliation model: rather than replaying each mint/burn (fragile — a burn
+// strands if the on-chain balance is behind), the worker converges each wallet's
+// ON-CHAIN balance to its OFF-CHAIN ledger balance by minting/burning only the
+// net delta. Queue rows are just "this wallet is dirty" markers. Self-healing.
+
+/** Distinct wallets with un-synced (pending OR failed) on-chain ops. */
+export function getDirtyOnchainWallets(limit = 25): string[] {
+  const db = getDatabase();
+  const rows = db.prepare(
+    "SELECT DISTINCT wallet_address FROM sanctuary_star_onchain_queue WHERE status IN ('pending','failed') ORDER BY wallet_address LIMIT ?"
+  ).all(Math.max(1, Math.min(200, limit))) as { wallet_address: string }[];
+  return rows.map((r) => r.wallet_address);
+}
+
+/** Mark all of a wallet's un-synced ops confirmed after a successful reconcile. */
+export function markWalletOnchainSynced(wallet: string, txHash: string | null): void {
+  getDatabase().prepare(
+    "UPDATE sanctuary_star_onchain_queue SET status = 'confirmed', tx_hash = COALESCE(?, tx_hash), updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND status IN ('pending','failed')"
+  ).run(txHash, wallet.toLowerCase());
+}
+
+/** Mark a wallet's pending ops failed (leaves them eligible for the next reconcile). */
+export function markWalletOnchainReconcileFailed(wallet: string, err: string): void {
+  getDatabase().prepare(
+    "UPDATE sanctuary_star_onchain_queue SET status = 'failed', last_error = ?, attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND status = 'pending'"
+  ).run(err.slice(0, 240), wallet.toLowerCase());
 }
 
 export function getStarLedger(
@@ -8407,6 +8588,512 @@ export function getStarLedger(
   return db.prepare(
     'SELECT * FROM sanctuary_star_ledger WHERE wallet_address = ? ORDER BY created_at DESC, id DESC LIMIT ?'
   ).all(addr, Math.max(1, Math.min(500, Math.floor(limit)))) as SanctuaryStarLedgerEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Functional charms + Quests v2 (V2.9) — see docs/SANCTUARY_ECONOMY_REDESIGN.md
+// and lib/sanctuary/questsV2.ts (the pure engine). Charms are STAR-bought items
+// that feed back into the win/lose loop (luck on wagers, resource discounts,
+// STAR boosts). Quests are STAR-only and wall-clock-timed.
+// ---------------------------------------------------------------------------
+
+export interface SanctuaryCharmItem {
+  id: number;
+  item_key: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'legendary';
+  star_cost: number;
+  effect_type: CharmEffectType; // 'gambit' (wager) | 'prospect' (earn)
+  upside: number; // fraction added to the reward side
+  downside: number; // fraction added to the cost side
+  charges: number;
+  description: string;
+  asset_key: string;
+}
+
+// Trade-off charms: bigger upside paired with a real downside. Bought in the
+// Shop, applied at quest start, consumed by the charge. The engine clamps a
+// charmed wager's EV to CHARM_EV_CAP so charms add spice + swing, never a
+// printing press — and the charm itself is a STAR sink to buy.
+const CHARM_SEED: Omit<SanctuaryCharmItem, 'id'>[] = [
+  {
+    item_key: 'charm-gambit', name: "Gambler's Token", rarity: 'uncommon', star_cost: 40,
+    effect_type: 'gambit', upside: 0.35, downside: 0.25, charges: 3,
+    description: 'Wager: +35% payout multiplier, but the stake costs 25% more (3 charges).',
+    asset_key: 'charm/gambit',
+  },
+  {
+    item_key: 'charm-highroller', name: 'High Roller Die', rarity: 'rare', star_cost: 90,
+    effect_type: 'gambit', upside: 0.6, downside: 0.45, charges: 1,
+    description: 'Wager: +60% payout multiplier, but the stake costs 45% more (1 charge).',
+    asset_key: 'charm/highroller',
+  },
+  {
+    item_key: 'charm-prospect', name: "Prospector's Map", rarity: 'uncommon', star_cost: 35,
+    effect_type: 'prospect', upside: 0.5, downside: 0.5, charges: 3,
+    description: 'Earn quest: +50% STAR, but it costs 50% more resources (3 charges).',
+    asset_key: 'charm/prospect',
+  },
+  {
+    item_key: 'charm-motherlode', name: 'Motherlode Charm', rarity: 'legendary', star_cost: 110,
+    effect_type: 'prospect', upside: 1.0, downside: 0.9, charges: 1,
+    description: 'Earn quest: double the STAR, but nearly double the resource cost (1 charge).',
+    asset_key: 'charm/motherlode',
+  },
+];
+
+function seedSanctuaryCharmItems(database: Database.Database): void {
+  const insert = database.prepare(`
+    INSERT INTO sanctuary_charm_items
+      (item_key, name, rarity, star_cost, effect_type, upside, downside, charges, description, asset_key)
+    VALUES (@item_key, @name, @rarity, @star_cost, @effect_type, @upside, @downside, @charges, @description, @asset_key)
+    ON CONFLICT(item_key) DO UPDATE SET
+      name = excluded.name, rarity = excluded.rarity, star_cost = excluded.star_cost,
+      effect_type = excluded.effect_type, upside = excluded.upside, downside = excluded.downside,
+      charges = excluded.charges, description = excluded.description, asset_key = excluded.asset_key
+  `);
+  const txn = database.transaction(() => {
+    for (const c of CHARM_SEED) insert.run(c);
+  });
+  txn();
+}
+
+export function listCharmItems(): SanctuaryCharmItem[] {
+  const db = getDatabase();
+  return db.prepare(
+    'SELECT * FROM sanctuary_charm_items ORDER BY star_cost ASC, id ASC'
+  ).all() as SanctuaryCharmItem[];
+}
+
+function getCharmItem(db: ReturnType<typeof getDatabase>, itemKey: string): SanctuaryCharmItem | undefined {
+  return db.prepare('SELECT * FROM sanctuary_charm_items WHERE item_key = ?')
+    .get(itemKey) as SanctuaryCharmItem | undefined;
+}
+
+/** A wallet's remaining charm charges, keyed by item_key (only positive counts). */
+export function getCharmStock(walletAddress: string): Record<string, number> {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const rows = db.prepare(
+    'SELECT item_key, charges FROM sanctuary_charm_stock WHERE wallet_address = ? AND charges > 0'
+  ).all(addr) as { item_key: string; charges: number }[];
+  const out: Record<string, number> = {};
+  for (const r of rows) out[r.item_key] = r.charges;
+  return out;
+}
+
+/** Buy a charm: spend STAR, add its charges to the wallet's stock. */
+export function buyCharm(
+  walletAddress: string, itemKey: string,
+): { balance: number; charges: number; item: SanctuaryCharmItem } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const item = getCharmItem(db, itemKey);
+  if (!item) { const e = new Error('CHARM_NOT_FOUND'); (e as { code?: string }).code = 'CHARM_NOT_FOUND'; throw e; }
+
+  const txn = db.transaction(() => {
+    const spend = spendStar(addr, item.star_cost, `charm:${itemKey}`);
+    const row = db.prepare(
+      'SELECT charges FROM sanctuary_charm_stock WHERE wallet_address = ? AND item_key = ?'
+    ).get(addr, itemKey) as { charges: number } | undefined;
+    const nextCharges = (row?.charges ?? 0) + item.charges;
+    db.prepare(`
+      INSERT INTO sanctuary_charm_stock (wallet_address, item_key, charges, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(wallet_address, item_key) DO UPDATE SET
+        charges = excluded.charges, updated_at = CURRENT_TIMESTAMP
+    `).run(addr, itemKey, nextCharges);
+    return { balance: spend.balance, charges: nextCharges };
+  });
+  const res = txn();
+  return { ...res, item };
+}
+
+/** Build a CharmEffect from the catalog + verify the wallet has a charge (no consume). */
+function resolveCharm(
+  db: ReturnType<typeof getDatabase>, addr: string, itemKey: string | null | undefined,
+): CharmEffect | null {
+  if (!itemKey) return null;
+  const item = getCharmItem(db, itemKey);
+  if (!item) return null;
+  const stock = db.prepare(
+    'SELECT charges FROM sanctuary_charm_stock WHERE wallet_address = ? AND item_key = ?'
+  ).get(addr, itemKey) as { charges: number } | undefined;
+  if (!stock || stock.charges <= 0) return null;
+  return { itemKey, type: item.effect_type, upside: item.upside, downside: item.downside };
+}
+
+/** Consume one charge of a charm (call inside the start transaction). */
+function consumeCharmCharge(db: ReturnType<typeof getDatabase>, addr: string, itemKey: string): void {
+  db.prepare(
+    'UPDATE sanctuary_charm_stock SET charges = MAX(charges - 1, 0), updated_at = CURRENT_TIMESTAMP WHERE wallet_address = ? AND item_key = ?'
+  ).run(addr, itemKey);
+}
+
+// --- Quests v2 ---------------------------------------------------------------
+
+export interface QuestRunRow {
+  id: number;
+  wallet_address: string;
+  token_id: number;
+  quest_key: string;
+  kind: 'earn' | 'wager';
+  tier: string | null;
+  star_wager: number;
+  win_chance: number;
+  payout_mult: number;
+  star_reward: number;
+  charm_key: string | null;
+  roll: number | null;
+  started_at: string;
+  ends_at: string;
+  status: 'active' | 'claimed';
+  outcome: 'win' | 'lose' | 'earn' | null;
+  star_settled: number | null;
+  claimed_at: string | null;
+}
+
+export interface ActiveQuestRunView {
+  id: number;
+  quest_key: string;
+  title: string;
+  kind: 'earn' | 'wager';
+  tier: string | null;
+  star_wager: number;
+  win_chance: number;
+  payout_mult: number;
+  star_reward: number;
+  ends_at: string;
+  ready: boolean; // now >= ends_at
+}
+
+export interface QuestsV2View {
+  quests: typeof QUEST_CATALOG;
+  active: ActiveQuestRunView[];
+  resources: ResourceSnapshot;
+  charms: Record<string, number>;
+  charmCatalog: SanctuaryCharmItem[];
+  starBalance: number;
+}
+
+function activeQuestRuns(db: ReturnType<typeof getDatabase>, addr: string, tokenId: number): QuestRunRow[] {
+  return db.prepare(
+    "SELECT * FROM sanctuary_quest_runs WHERE wallet_address = ? AND token_id = ? AND status = 'active' ORDER BY started_at ASC"
+  ).all(addr, tokenId) as QuestRunRow[];
+}
+
+/** Everything the Quests v2 panel needs in one read. */
+export function getSanctuaryQuestsV2(walletAddress: string, tokenId: number): QuestsV2View {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+  const runs = activeQuestRuns(db, addr, tokenId);
+  const active: ActiveQuestRunView[] = runs.map((r) => {
+    // ends_at is stored as a tz-naive UTC string; parse it AS UTC and hand the
+    // client a real ISO timestamp so countdowns are correct in any timezone.
+    const endsMs = parseSqlDateMs(r.ends_at) ?? Date.now();
+    return {
+      id: r.id,
+      quest_key: r.quest_key,
+      title: getQuestDef(r.quest_key)?.title ?? r.quest_key,
+      kind: r.kind,
+      tier: r.tier,
+      star_wager: r.star_wager,
+      win_chance: r.win_chance,
+      payout_mult: r.payout_mult,
+      star_reward: r.star_reward,
+      ends_at: new Date(endsMs).toISOString(),
+      ready: now.getTime() >= endsMs,
+    };
+  });
+  return {
+    quests: QUEST_CATALOG,
+    active,
+    resources: loadWalletResources(db, addr, now),
+    charms: getCharmStock(addr),
+    charmCatalog: listCharmItems(),
+    starBalance: getStarBalance(addr).balance,
+  };
+}
+
+export interface StartQuestOptions {
+  tier?: string;
+  stake?: number;
+  charmKey?: string | null;
+}
+
+/**
+ * Start a quest run: gate on resources, pay the (charm-discounted) resource cost,
+ * stake STAR for wagers, freeze the roll, and consume one charm charge. The
+ * outcome is sealed at start (roll frozen) but only revealed/credited on claim
+ * after the duration elapses.
+ */
+export function startSanctuaryQuestV2(
+  walletAddress: string, tokenId: number, questKey: string, opts: StartQuestOptions = {},
+): { run: ActiveQuestRunView; resources: ResourceSnapshot } {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+  const def = getQuestDef(questKey);
+  if (!def) { const e = new Error('QUEST_NOT_FOUND'); (e as { code?: string }).code = 'QUEST_NOT_FOUND'; throw e; }
+
+  const txn = db.transaction(() => {
+    // One active run per quest per companion keeps the loop legible.
+    const dupe = db.prepare(
+      "SELECT id FROM sanctuary_quest_runs WHERE wallet_address = ? AND token_id = ? AND quest_key = ? AND status = 'active'"
+    ).get(addr, tokenId, questKey);
+    if (dupe) { const e = new Error('QUEST_ALREADY_ACTIVE'); (e as { code?: string }).code = 'QUEST_ALREADY_ACTIVE'; throw e; }
+
+    const charm = resolveCharm(db, addr, opts.charmKey);
+    const pool = loadWalletResources(db, addr, now);
+    const gate = gateQuestStart(def, pool, charm);
+    if (!gate.ok) {
+      const e = new Error(`INSUFFICIENT_RESOURCES:${gate.failing.join(',')}`);
+      (e as { code?: string }).code = 'INSUFFICIENT_RESOURCES';
+      throw e;
+    }
+
+    // Pay resource cost (a prospect charm raises it).
+    const cost = questResourceCost(def, charm);
+    const nextPool = payCost(pool, def, charm);
+    db.prepare(`
+      INSERT INTO sanctuary_wallet_resources (wallet_address, hunger, happiness, energy, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        hunger = excluded.hunger, happiness = excluded.happiness,
+        energy = excluded.energy, updated_at = excluded.updated_at
+    `).run(addr, nextPool.hunger, nextPool.happiness, nextPool.energy, toSqlDate(now));
+
+    let starWager = 0;
+    let winChance = 0;
+    let payoutMult = 0;
+    let starReward = 0;
+    let roll: number | null = null;
+    let tierLabel: string | null = null;
+
+    if (def.kind === 'wager') {
+      const tier = getWagerTier(def, opts.tier ?? '');
+      if (!tier) { const e = new Error('TIER_REQUIRED'); (e as { code?: string }).code = 'TIER_REQUIRED'; throw e; }
+      const baseStake = opts.stake ?? 0;
+      if (!isValidStake(def, baseStake)) {
+        const e = new Error('BAD_STAKE'); (e as { code?: string }).code = 'BAD_STAKE'; throw e;
+      }
+      // Effective terms after a gambit charm: bigger payout, bigger stake cost,
+      // EV clamped by the engine. Stake the EFFECTIVE amount up front.
+      const w = effectiveWager(tier, baseStake, charm);
+      starWager = w.stake;
+      winChance = w.winChance;
+      payoutMult = w.payoutMult;
+      spendStar(addr, starWager, `quest_wager_stake:${questKey}:${tier.label}`);
+      roll = Math.random(); // the single RNG, frozen now
+      tierLabel = tier.label;
+    } else {
+      starReward = earnPayout(def, charm);
+    }
+
+    if (charm) consumeCharmCharge(db, addr, charm.itemKey);
+
+    const endsAt = new Date(now.getTime() + def.durationSeconds * 1000);
+    const info = db.prepare(`
+      INSERT INTO sanctuary_quest_runs
+        (wallet_address, token_id, quest_key, kind, tier, cost_hunger, cost_happiness, cost_energy,
+         star_wager, win_chance, payout_mult, star_reward, charm_key, roll, started_at, ends_at, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).run(
+      addr, tokenId, questKey, def.kind, tierLabel, cost.hunger, cost.happiness, cost.energy,
+      starWager, winChance, payoutMult, starReward, charm?.itemKey ?? null, roll,
+      toSqlDate(now), toSqlDate(endsAt),
+    );
+
+    const run: ActiveQuestRunView = {
+      id: Number(info.lastInsertRowid), quest_key: questKey, title: def.title, kind: def.kind,
+      tier: tierLabel, star_wager: starWager, win_chance: winChance, payout_mult: payoutMult,
+      star_reward: starReward, ends_at: endsAt.toISOString(), ready: false,
+    };
+    return { run, resources: nextPool };
+  });
+  return txn();
+}
+
+export interface QuestClaimResult {
+  outcome: 'win' | 'lose' | 'earn';
+  starDelta: number; // STAR credited on claim (0 on a wager loss)
+  balance: number;
+  quest_key: string;
+  title: string;
+  win_chance: number;
+  payout_mult: number;
+  star_wager: number;
+}
+
+/** Claim a finished run: reveal the sealed wager outcome / pay the earn reward. */
+export function claimSanctuaryQuestV2(
+  walletAddress: string, tokenId: number, runId: number,
+): QuestClaimResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+
+  const txn = db.transaction(() => {
+    const run = db.prepare(
+      'SELECT * FROM sanctuary_quest_runs WHERE id = ? AND wallet_address = ? AND token_id = ?'
+    ).get(runId, addr, tokenId) as QuestRunRow | undefined;
+    if (!run) { const e = new Error('RUN_NOT_FOUND'); (e as { code?: string }).code = 'RUN_NOT_FOUND'; throw e; }
+    if (run.status !== 'active') { const e = new Error('ALREADY_CLAIMED'); (e as { code?: string }).code = 'ALREADY_CLAIMED'; throw e; }
+    // ends_at is a tz-naive UTC string — parse it AS UTC (parseSqlDateMs), else a
+    // CEST server reads it ~2h early and every quest is instantly claimable.
+    const endsMs = parseSqlDateMs(run.ends_at) ?? 0;
+    if (now.getTime() < endsMs) {
+      const e = new Error('NOT_READY'); (e as { code?: string }).code = 'NOT_READY'; throw e;
+    }
+    const def = getQuestDef(run.quest_key);
+    const title = def?.title ?? run.quest_key;
+
+    let outcome: 'win' | 'lose' | 'earn';
+    let starDelta = 0;
+    if (run.kind === 'wager') {
+      const won = (run.roll ?? 1) < run.win_chance;
+      outcome = won ? 'win' : 'lose';
+      if (won) {
+        const payout = Math.round(run.star_wager * run.payout_mult);
+        const res = earnStar(addr, 'quest_wager', payout, `${run.quest_key}:${run.tier}`);
+        starDelta = res.gained;
+      }
+    } else {
+      outcome = 'earn';
+      if (run.star_reward > 0) {
+        const res = earnStar(addr, 'quest_earn', run.star_reward, run.quest_key);
+        starDelta = res.gained;
+      }
+    }
+
+    db.prepare(
+      "UPDATE sanctuary_quest_runs SET status = 'claimed', outcome = ?, star_settled = ?, claimed_at = ? WHERE id = ?"
+    ).run(outcome, starDelta, toSqlDate(now), runId);
+
+    addJournalEntry(
+      addr, tokenId, 'quest',
+      outcome === 'lose'
+        ? `${title}: the wager didn’t pay off this time.`
+        : `${title}: earned ${starDelta} STAR.`,
+      JSON.stringify({ quest_key: run.quest_key, outcome, starDelta }),
+    );
+
+    return {
+      outcome, starDelta, balance: getStarBalance(addr).balance,
+      quest_key: run.quest_key, title, win_chance: run.win_chance,
+      payout_mult: run.payout_mult, star_wager: run.star_wager,
+    };
+  });
+  return txn();
+}
+
+// --- Arcade (minigame STAR wagers) ------------------------------------------
+
+export interface ArcadeStartResult {
+  resources: ResourceSnapshot;
+  balance: number;
+  stake: number;
+  game_id: string;
+}
+
+/**
+ * Open an arcade run: pay the resource entry cost AND stake STAR up front, then
+ * record a server-side session so the stake can't be inflated at settle. Any
+ * previously-open session is forfeited (abandoning a wager loses the stake).
+ */
+export function startArcadeRun(
+  walletAddress: string, gameId: string, stake: number,
+): ArcadeStartResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  if (!isValidArcadeStake(stake)) {
+    const e = new Error('BAD_STAKE'); (e as { code?: string }).code = 'BAD_STAKE'; throw e;
+  }
+  const now = new Date();
+  const txn = db.transaction(() => {
+    // Resource gate first (throws INSUFFICIENT_RESOURCES) — games tire the companion.
+    const pool = loadWalletResources(db, addr, now);
+    const want = MINIGAME_ENTRY_COST;
+    const short = (['hunger', 'happiness', 'energy'] as const).filter((k) => pool[k] < (want[k] ?? 0));
+    if (short.length > 0) {
+      const e = new Error(`INSUFFICIENT_RESOURCES:${short.join(',')}`);
+      (e as { code?: string }).code = 'INSUFFICIENT_RESOURCES'; throw e;
+    }
+    const next = {
+      hunger: Math.max(0, pool.hunger - (want.hunger ?? 0)),
+      happiness: Math.max(0, pool.happiness - (want.happiness ?? 0)),
+      energy: Math.max(0, pool.energy - (want.energy ?? 0)),
+    };
+    db.prepare(`
+      INSERT INTO sanctuary_wallet_resources (wallet_address, hunger, happiness, energy, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        hunger = excluded.hunger, happiness = excluded.happiness,
+        energy = excluded.energy, updated_at = excluded.updated_at
+    `).run(addr, next.hunger, next.happiness, next.energy, toSqlDate(now));
+
+    // Stake STAR (throws on insufficient balance → surfaced as 402).
+    const spend = spendStar(addr, stake, `arcade_stake:${gameId}`);
+
+    db.prepare(`
+      INSERT INTO sanctuary_arcade_session (wallet_address, game_id, stake, started_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(wallet_address) DO UPDATE SET
+        game_id = excluded.game_id, stake = excluded.stake, started_at = excluded.started_at
+    `).run(addr, gameId, stake, toSqlDate(now));
+
+    return { resources: next, balance: spend.balance, stake, game_id: gameId };
+  });
+  return txn();
+}
+
+export interface ArcadeSettleResult {
+  game_id: string;
+  stake: number;
+  score: number;
+  payout: number;
+  net: number;
+  won: boolean;
+  balance: number;
+}
+
+/** Settle an arcade run by score. Stake is read from the server session (anti-tamper). */
+export function settleArcadeRun(
+  walletAddress: string, tokenId: number, gameId: string, score: number,
+): ArcadeSettleResult {
+  const db = getDatabase();
+  const addr = walletAddress.toLowerCase();
+  const now = new Date();
+  const txn = db.transaction(() => {
+    const session = db.prepare(
+      'SELECT game_id, stake FROM sanctuary_arcade_session WHERE wallet_address = ?'
+    ).get(addr) as { game_id: string; stake: number } | undefined;
+    if (!session || session.game_id !== gameId) {
+      const e = new Error('NO_SESSION'); (e as { code?: string }).code = 'NO_SESSION'; throw e;
+    }
+    const result = resolveArcade(gameId, session.stake, Math.max(0, Math.floor(score)));
+    let balance = getStarBalance(addr).balance;
+    if (result.payout > 0) {
+      balance = earnStar(addr, 'minigame_wager', result.payout, `${gameId}:${session.stake}`).balance;
+    }
+    db.prepare('DELETE FROM sanctuary_arcade_session WHERE wallet_address = ?').run(addr);
+    // entry_type must be one of the sanctuary_journal CHECK set
+    // (activity/interaction/quest/achievement/system) — 'minigame' is NOT
+    // allowed and would revert the whole settle txn. Use 'activity'.
+    addJournalEntry(
+      addr, tokenId, 'activity',
+      result.won
+        ? `Arcade ${gameId}: scored ${score} and won ${result.payout} STAR (staked ${session.stake}).`
+        : `Arcade ${gameId}: scored ${score}, lost the ${session.stake} STAR wager.`,
+      JSON.stringify({ game_id: gameId, stake: session.stake, score, payout: result.payout, net: result.net }),
+    );
+    return {
+      game_id: gameId, stake: session.stake, score: Math.max(0, Math.floor(score)),
+      payout: result.payout, net: result.net, won: result.won, balance,
+    };
+  });
+  return txn();
 }
 
 // ---------------------------------------------------------------------------

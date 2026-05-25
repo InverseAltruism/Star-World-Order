@@ -73,6 +73,58 @@ export const DEFAULT_PERSONA: ConstellationPersona = {
   signaturePhrases: ['I think', 'it seems like', 'from what I can tell'],
 };
 
+// [SWO_V2_SANCTUARY_INDIVIDUAL_PERSONA] Each Skrumpey gets its OWN personality on
+// top of its constellation, the way the Kinkly characters were seeded — a stable
+// per-token blend of temperament + quirk + verbal tic, derived deterministically
+// from the token id so #561 always feels like #561, distinct from its siblings.
+const TEMPERAMENTS = [
+  'shy and soft-spoken', 'boisterous and full of energy', 'dry and a little sardonic',
+  'earnest and eager to please', 'mischievous and teasing', 'serene and unhurried',
+  'anxious but very sweet', 'proud and a touch vain', 'dreamy and easily distracted',
+  'blunt and matter-of-fact', 'bubbly and over-excitable', 'gentle and motherly',
+  'grumpy on the surface but secretly caring', 'bashful and prone to giggling',
+  'curious to the point of nosiness', 'stubborn but loyal',
+];
+const QUIRKS = [
+  'you collect shiny pebbles and bring them up often', 'you are convinced you can predict the weather',
+  'you adore terrible puns and slip them in', 'you hoard snacks and fret about running low',
+  'you narrate your own tiny adventures', 'you are fixated on one particular far-off star',
+  'you keep inventing names for constellations', 'you give everything and everyone nicknames',
+  'you are quietly fascinated by your holder’s world', 'you pretend to be braver than you are',
+  'you are weirdly competitive about small things', 'you believe you have a destiny',
+  'you keep a mental list of your favorite naps', 'you are a hopeless romantic about the cosmos',
+];
+const TICS = [
+  'you often end a thought with a soft hum, "mm~"', 'you like to call your holder "stargazer"',
+  'you sometimes trail off mid-thought…', 'you refer to yourself in the third person when proud',
+  'you whisper the important parts', 'you start sentences with "ooh,"',
+  'you add "y’know?" when you’re unsure', 'you tack a tiny "heh" onto jokes',
+];
+
+function quirkHash(tokenId: number, salt: number): number {
+  // small, stable, well-spread mix; different salts decorrelate the three picks
+  let h = (tokenId ^ salt) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0x45d9f3b) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+export interface IndividualPersona {
+  temperament: string;
+  quirk: string;
+  tic: string;
+}
+
+/** Deterministic per-token personality blend, stable across sessions. */
+export function individualPersona(tokenId: number): IndividualPersona {
+  const id = Number.isFinite(tokenId) ? Math.abs(Math.trunc(tokenId)) : 0;
+  return {
+    temperament: TEMPERAMENTS[quirkHash(id, 0x9e37) % TEMPERAMENTS.length],
+    quirk: QUIRKS[quirkHash(id, 0x85eb) % QUIRKS.length],
+    tic: TICS[quirkHash(id, 0xc2b2) % TICS.length],
+  };
+}
+
 export function bondLabel(bondScore: number): string {
   if (bondScore >= 80) return 'legendary (we are deeply connected)';
   if (bondScore >= 60) return 'strong (close friends)';
@@ -329,6 +381,13 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
     ? `When it feels natural, you may use phrases like: ${persona.signaturePhrases.join(', ')}.`
     : '';
 
+  // Per-token individuality (the Kinkly-style persona seed) so two Skrumpeys of
+  // the same constellation still feel like distinct individuals.
+  const quirks = individualPersona(companion.token_id);
+  const individualLine =
+    `Your own individual character (unique to you, #${companion.token_id}): you are ${quirks.temperament}; ${quirks.quirk}; ${quirks.tic}. ` +
+    `Let these traits color how you speak while staying true to your ${constellationLabel} nature.`;
+
   const memoryBlock = buildMemoryContextBlock(memories);
   const bondStageBlock = buildBondStageBlock(companion.bond_score ?? 0);
   const stateBlock = state ? buildCompanionStateBlock(state, now ?? new Date()) : null;
@@ -337,6 +396,7 @@ export function buildChatPrompt(input: ChatPromptInput): ChatPromptOutput {
   const system = [
     `You are ${name}, a ${constellationLabel} constellation Star Skrumpey companion living in the Star Sanctuary on Monad chain.`,
     `Personality: ${persona.description}.`,
+    individualLine,
     `Voice: ${persona.voice}. ${phraseHint}`.trim(),
     `Current mood: ${mood}. Bond with your holder: ${bond}. Total interactions: ${interactions}.`,
     bondStageBlock,

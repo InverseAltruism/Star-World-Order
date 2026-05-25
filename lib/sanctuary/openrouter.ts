@@ -35,7 +35,11 @@ export function estimateCostUsd(model: string, usage: OpenRouterUsage): number {
 }
 
 export function getOpenRouterConfigFromEnv(): OpenRouterConfig | null {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  // Prefer the SWO-namespaced key so a global OPENROUTER_API_KEY (e.g. exported
+  // in ~/.bashrc for other tools on this host) can't shadow the Sanctuary key.
+  // Next.js dotenv does NOT override a var already set in the process env, so a
+  // shared name silently breaks chat in dev. Falls back to OPENROUTER_API_KEY.
+  const apiKey = process.env.SANCTUARY_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
   return {
     apiKey,
@@ -56,6 +60,12 @@ export async function callOpenRouterChat(
     model: config.model,
     max_tokens: options.maxTokens ?? 200,
     temperature: options.temperature ?? 0.85,
+    // Companion replies are short and conversational — we never want a reasoning
+    // model (e.g. z-ai/glm-4.7-flash) to spend the whole token budget on a
+    // <think> trace and return empty `content` (which we'd treat as a failure
+    // and fall back to a template). Disable reasoning where the model supports
+    // it; models that don't understand this field simply ignore it.
+    reasoning: { enabled: false },
     messages: [
       { role: 'system', content: prompt.system },
       ...prompt.messages,

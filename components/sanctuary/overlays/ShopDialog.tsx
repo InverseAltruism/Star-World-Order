@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import { GACHA_PULL_COST } from '@/lib/sanctuary/gacha';
+import CharmShop from '@/components/sanctuary/overlays/CharmShop';
 
 type Category = 'hat' | 'accessory' | 'background' | 'animation';
 type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
@@ -83,7 +84,7 @@ interface ShopDialogProps {
 
 export default function ShopDialog({ walletAddress, tokenId, inline = false }: ShopDialogProps) {
   const [open, setOpen] = useState(Boolean(inline));
-  const [tab, setTab] = useState<'shop' | 'inventory'>('shop');
+  const [tab, setTab] = useState<'shop' | 'charms' | 'inventory'>('shop');
   const [category, setCategory] = useState<Category>('hat');
   const [items, setItems] = useState<ShopItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -480,7 +481,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
 
         {/* Tabs */}
         <div className="flex border-b border-[#ffd700]/20 bg-black/95">
-          {(['shop', 'inventory'] as const).map((t) => (
+          {(['shop', 'charms', 'inventory'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -490,7 +491,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
                   : 'text-gray-500 hover:text-white border-b-2 border-transparent'
               }`}
             >
-              {t === 'shop' ? '🛍️ SHOP' : `🎒 INVENTORY (${inventoryItems.length})`}
+              {t === 'shop' ? '🛍️ SHOP' : t === 'charms' ? '🎲 CHARMS' : `🎒 INV (${inventoryItems.length})`}
             </button>
           ))}
         </div>
@@ -584,6 +585,7 @@ export default function ShopDialog({ walletAddress, tokenId, inline = false }: S
 
         {/* List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1.5 bg-black/90 min-h-[180px]">
+          {tab === 'charms' && <CharmShop walletAddress={walletAddress} />}
           {tab === 'shop' && (
             <>
               {loading && shopItems.length === 0 && (

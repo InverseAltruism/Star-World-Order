@@ -28,6 +28,8 @@ export interface CompanionActionButtonProps {
   badgeSlot?: ReactNode;
   className?: string;
   style?: CSSProperties;
+  /** Small "what this gives" hint under the label, e.g. "+25 hunger". */
+  effectHint?: ReactNode;
 }
 
 export default function CompanionActionButton({
@@ -40,6 +42,7 @@ export default function CompanionActionButton({
   onActivate,
   iconSlot,
   badgeSlot,
+  effectHint,
   className = '',
   style,
 }: CompanionActionButtonProps) {
@@ -78,6 +81,11 @@ export default function CompanionActionButton({
       <span className="companion-action-button__label font-['Press_Start_2P']">
         {label}
       </span>
+      {effectHint ? (
+        <span className="companion-action-button__effect font-['Press_Start_2P']" aria-hidden="true">
+          {effectHint}
+        </span>
+      ) : null}
       {(badgeSlot ?? resolved.badge) ? (
         <span
           className="companion-action-button__badge font-['Press_Start_2P']"

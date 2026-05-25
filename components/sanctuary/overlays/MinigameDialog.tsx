@@ -271,10 +271,33 @@ export default function MinigameDialog({
     };
   }, [visible, close]);
 
-  const launchGame = useCallback(() => {
+  const launchGame = useCallback(async () => {
     if (!npc) return;
     const meta = MINIGAME_NPCS[npc.npcId];
     if (!meta) return;
+    // Games cost resources to enter (the spend sink). Pay first; only launch on
+    // success. Without a wallet there's no pool, so play is free (no STAR either).
+    if (walletAddress) {
+      try {
+        const header = await getWalletAuthHeader(walletAddress);
+        if (header) {
+          const res = await fetch('/api/sanctuary/minigame/enter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-wallet-auth': header },
+            body: JSON.stringify({ address: walletAddress }),
+          });
+          const data = await res.json();
+          if (!data.success) {
+            setSubmissionError(data.error ?? 'Could not enter the game.');
+            return;
+          }
+          EventBus.emit('resources-changed', { resources: data.resources });
+        }
+      } catch {
+        setSubmissionError('Could not enter the game — try again.');
+        return;
+      }
+    }
     EventBus.emit('minigame-launch', {
       gameId: meta.gameId,
       sceneKey: meta.sceneKey,
@@ -284,7 +307,7 @@ export default function MinigameDialog({
       title: game?.label ?? meta.gameId.toUpperCase(),
     });
     close();
-  }, [npc, tokenId, game, close]);
+  }, [npc, tokenId, game, close, walletAddress]);
 
   if (!npc) return null;
 
@@ -337,7 +360,7 @@ export default function MinigameDialog({
               </p>
             )}
             <button
-              onClick={launchGame}
+              onClick={() => void launchGame()}
               disabled={tokenId === null}
               className="mt-2 w-full px-3 py-2 rounded border border-[#00f7ff] bg-[#00f7ff]/20 hover:bg-[#00f7ff]/30 text-[#00f7ff] text-[8px] font-['Press_Start_2P'] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >

@@ -85,6 +85,26 @@ same PR that deploys a contract.
 | Contract | Version | Address | Block | Status |
 |---|---|---|---|---|
 | Skrumpeys NFT | v1 | _set via `NEXT_PUBLIC_SKRUMPEY_CONTRACT`_ | — | Variable |
+| STAR (soulbound) | v1 | `0x27EdCbA8A50b6872b7b95F49d198A277DEcBfA1D` | — | **Live + Sourcify-verified** (2026-05-25) |
+| Casino suite (review deploy) | v1 | see review artifact ↓ | — | **Reviewed + verified** (2026-05-25) |
+
+> **Casino review deployment (separate deployer):** I deployed the casino suite to
+> testnet for security review under the review wallet
+> `0x5e81C0D3511FD2266763448C8a6B7f9CE4a5142D` (CREATE3; bankroll funded 0.05 MON,
+> each game allowance 0.01 MON). These are DISTINCT from the canonical operator
+> prediction (`0xb29e…fD7B`, recorded in `deployments/10143.json` / `143.predicted.json`)
+> — the operator's mainnet/testnet identity is unchanged. Review-deploy addresses +
+> Sourcify `exact_match` verification are in `contracts/casino/SECURITY_REVIEW.md`
+> and `deployments/10143.review-0x5e81.json`. Review: no high/critical; 198 tests +
+> Slither + live e2e bet.
+
+> **STAR** — soulbound Sanctuary currency (`contracts/outer-rim/src/Star.sol`).
+> CREATE3 via CreateX, deployer `0x5e81C0D3511FD2266763448C8a6B7f9CE4a5142D`,
+> salt entropy `0x57A201`. Constructor: admin = deployer, mintCapPerEpoch =
+> 10,000,000e18, epochDuration = 1 day. On-chain verified: mint ✓, burn ✓,
+> transfer reverts `Soulbound()` ✓. Deploy: `contracts/outer-rim/script/deploy-star-testnet.sh`.
+> Roles: deployer holds DEFAULT_ADMIN + (for testing) MINTER + BURNER; the
+> Sanctuary backend signer should receive MINTER/BURNER for live distribution.
 
 ## Environment variable mapping
 

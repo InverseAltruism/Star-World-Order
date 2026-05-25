@@ -11,6 +11,8 @@ export interface MinigameLaunchData {
   returnTo: { x: number; y: number };
   durationSeconds?: number;
   title?: string;
+  /** Arcade mode: one wager per launch — hide "PLAY AGAIN" (replay has no stake). */
+  singlePlay?: boolean;
 }
 
 export interface MinigameCompletePayload {
@@ -41,6 +43,7 @@ export abstract class MinigameScene extends Phaser.Scene {
   protected returnRoom: string | null = null;
   protected returnTo: { x: number; y: number } = { x: 600, y: 800 };
   protected durationSeconds: number = 60;
+  protected singlePlay: boolean = false;
   protected score: number = 0;
   protected phase: Phase = 'intro';
   protected timeRemaining: number = 0;
@@ -72,6 +75,7 @@ export abstract class MinigameScene extends Phaser.Scene {
     this.returnTo = data.returnTo;
     this.durationSeconds = Math.max(15, Math.min(data.durationSeconds ?? 60, 120));
     this.gameTitle = data.title ?? this.gameId.toUpperCase();
+    this.singlePlay = data.singlePlay ?? false;
     this.score = 0;
     this.phase = 'intro';
     this.timeRemaining = this.durationSeconds;
@@ -403,19 +407,22 @@ export abstract class MinigameScene extends Phaser.Scene {
   }
 
   private showResultScreen() {
+    // Arcade (singlePlay) mode owns the result UI in React (clear win/loss +
+    // payout + multiplier), so the in-canvas overlay stays minimal — no
+    // "STAR +calculating" / "Personal Best" lines (those were the ugly,
+    // confusing bit). The world high-score mode keeps the full overlay.
     this.showOverlay({
       title: 'ROUND COMPLETE',
-      lines: [
-        `Score: ${this.score}`,
-        '',
-        'STAR  +calculating...',
-        'Personal Best: ...',
-      ],
-      buttons: [
-        { label: 'PLAY AGAIN [SPACE]', onClick: () => this.replay() },
-        { label: 'EXIT TO ROOM [ESC]', onClick: () => this.requestExit() },
-      ],
-      extra: (container) => {
+      lines: this.singlePlay
+        ? [`Score: ${this.score}`]
+        : [`Score: ${this.score}`, '', 'STAR  +calculating...', 'Personal Best: ...'],
+      buttons: this.singlePlay
+        ? [{ label: 'BACK TO GAMES [ESC]', onClick: () => this.requestExit() }]
+        : [
+            { label: 'PLAY AGAIN [SPACE]', onClick: () => this.replay() },
+            { label: 'EXIT TO ROOM [ESC]', onClick: () => this.requestExit() },
+          ],
+      extra: this.singlePlay ? undefined : (container) => {
         // Replace the placeholder lines with named refs we can update later.
         const status = this.add
           .text(0, -20, 'STAR  +calculating...', {
@@ -442,10 +449,12 @@ export abstract class MinigameScene extends Phaser.Scene {
       },
     });
 
-    const space = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    space.once('down', () => {
-      if (this.phase === 'result') this.replay();
-    });
+    if (!this.singlePlay) {
+      const space = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      space.once('down', () => {
+        if (this.phase === 'result') this.replay();
+      });
+    }
   }
 
   private refreshResultText() {
