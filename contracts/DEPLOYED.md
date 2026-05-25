@@ -53,6 +53,16 @@ same PR that deploys a contract.
 > Rehearse with `bash contracts/casino/script/seed-mainnet.sh --dry-run` and
 > set `CASINO_SEED_AMOUNT_WEI` to the operator-chosen seed.
 >
+> Record each executed seed below so the bankroll's funded state is auditable
+> alongside its on-chain identity. The script prints these fields on success;
+> commit the row in the same tracking PR that follows the broadcast.
+>
+> **Bankroll seed (G6) — execution log**
+>
+> | Date | Seed (MON) | Tx | Resulting bankroll balance | Block |
+> |---|---|---|---|---|
+> | _pending operator broadcast_ | — | — | — | — |
+>
 > **Ownership handover (G7):** the four casino contracts ship with the deployer
 > EOA as `Ownable.owner()`. Phase 3 migrates that owner role to the SWO
 > governance multisig via `contracts/casino/script/handover-ownership.sh` (wraps

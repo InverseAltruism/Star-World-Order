@@ -92,4 +92,13 @@ describe('contracts/casino/script/seed-mainnet.sh', () => {
     // and double-checks via `cast sig` so a future rename trips the script
     expect(script).toMatch(/cast sig 'deposit\(\)'/);
   });
+
+  it('reminds the operator to record the seed in DEPLOYED.md after broadcast', () => {
+    // Post-broadcast handoff: the executed seed must be recorded so the
+    // bankroll's funded state is auditable (mirrors deploy-mainnet.sh's
+    // "Next:" block). Without this the seed tx is fire-and-forget.
+    expect(script).toMatch(/Bankroll seed \(G6\)/);
+    expect(script).toMatch(/contracts\/DEPLOYED\.md/);
+    expect(script).toMatch(/api\/casino\/health/);
+  });
 });
