@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://starworldorder.xyz/schemas/outer-rim/equipment_items.schema.json",
+  "title": "Outer Rim Equipment Catalog",
+  "description": "Canonical schema for the Outer Rim Equipment loadout catalog (SWO_OUTER_RIM_EQUIPMENT_DATA_SCHEMA). 6 slots x 7 assets x 6 stats. Rarity multipliers (Common x1 / Rare x1.5 / Epic x2.5 / Legendary x4.5 / Mythic x8) are lifted verbatim from Offshore per ADR-003 SS3.4; catalog rows carry the Common base block and runtime applies the multiplier. base_stats values are a normalized 100-point Common-base budget so that the output<->survival tradeoff is enforced by construction (no two distinct items can Pareto-dominate when sums are equal).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema_version", "spec_id", "slots", "stats", "rarity_multipliers", "stat_sum_budget", "items"],
+  "properties": {
+    "$schema_version": { "type": "string" },
+    "spec_id": { "type": "string", "const": "SWO_OUTER_RIM_EQUIPMENT_DATA_SCHEMA" },
+    "description": { "type": "string" },
+    "slots": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "enum": ["Vessel", "Crew", "Cloaking", "Cargo", "Quartermaster", "CommsBlackout"] }
+    },
+    "stats": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": { "enum": ["haul_rate", "detection_tolerance", "speed", "stealth", "bonus_chance", "bonus_multiplier"] }
+    },
+    "rarity_multipliers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Common", "Rare", "Epic", "Legendary", "Mythic"],
+      "properties": {
+        "Common": { "const": 1 },
+        "Rare": { "const": 1.5 },
+        "Epic": { "const": 2.5 },
+        "Legendary": { "const": 4.5 },
+        "Mythic": { "const": 8 }
+      }
+    },
+    "stat_sum_budget": { "type": "integer", "const": 100 },
+    "items": {
+      "type": "array",
+      "minItems": 42,
+      "maxItems": 42,
+      "items": { "$ref": "#/definitions/equipmentItem" }
+    }
+  },
+  "definitions": {
+    "equipmentItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_key", "name", "slot", "rarity", "asset_key", "base_stats", "lore"],
+      "properties": {
+        "item_key": { "type": "string", "pattern": "^[a-z]+_[a-z0-9_]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "slot": { "enum": ["Vessel", "Crew", "Cloaking", "Cargo", "Quartermaster", "CommsBlackout"] },
+        "rarity": { "enum": ["Common", "Rare", "Epic", "Legendary", "Mythic"] },
+        "asset_key": { "type": "string", "minLength": 1 },
+        "lore": { "type": "string", "minLength": 1 },
+        "base_stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["haul_rate", "detection_tolerance", "speed", "stealth", "bonus_chance", "bonus_multiplier"],
+          "properties": {
+            "haul_rate": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "detection_tolerance": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "speed": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "stealth": { "type": "integer", "minimum": 0, "maximum": 70 },
+            "bonus_chance": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "bonus_multiplier": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        }
+      }
+    }
+  }
+}
