@@ -1,0 +1,389 @@
+{
+  "$schema_version": "1.0.0",
+  "spec_id": "SWO_OUTER_RIM_EQUIPMENT_DATA_SCHEMA",
+  "description": "Canonical Outer Rim Equipment catalog: 6 slots x 7 assets = 42 items, each carrying a 6-stat Common-base block. Rarity multipliers (x1 / x1.5 / x2.5 / x4.5 / x8) are lifted verbatim from Offshore (ADR-003 SS3.4) and applied at runtime over these base blocks. Each base_stats block is a normalized 100-point budget: every output point (haul_rate, speed, bonus_chance, bonus_multiplier) is paid for with a survival point (detection_tolerance, stealth), encoding the non-negotiable output<->survival tradeoff. Because all base blocks sum to the same budget, no distinct item can Pareto-dominate another. Schema: equipment_items.schema.json. Tests: lib/outer-rim/equipment.test.ts.",
+  "slots": ["Vessel", "Crew", "Cloaking", "Cargo", "Quartermaster", "CommsBlackout"],
+  "stats": ["haul_rate", "detection_tolerance", "speed", "stealth", "bonus_chance", "bonus_multiplier"],
+  "rarity_multipliers": { "Common": 1, "Rare": 1.5, "Epic": 2.5, "Legendary": 4.5, "Mythic": 8 },
+  "stat_sum_budget": 100,
+  "items": [
+    {
+      "item_key": "vessel_rustbucket_skiff",
+      "name": "Rustbucket Skiff",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_rustbucket_skiff",
+      "lore": "Held together with prayer-tape and a stubborn refusal to sink.",
+      "base_stats": { "haul_rate": 30, "detection_tolerance": 20, "speed": 25, "stealth": 10, "bonus_chance": 8, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "vessel_ion_runner",
+      "name": "Ion Runner",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_ion_runner",
+      "lore": "Fast enough to outrun a patrol, loud enough to wake one.",
+      "base_stats": { "haul_rate": 28, "detection_tolerance": 15, "speed": 32, "stealth": 8, "bonus_chance": 9, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "vessel_void_clipper",
+      "name": "Void Clipper",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_void_clipper",
+      "lore": "A smuggler's classic: deep holds, shallow conscience.",
+      "base_stats": { "haul_rate": 35, "detection_tolerance": 18, "speed": 22, "stealth": 9, "bonus_chance": 8, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "vessel_nebula_barge",
+      "name": "Nebula Barge",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_nebula_barge",
+      "lore": "Slow, fat, and gloriously full of someone else's cargo.",
+      "base_stats": { "haul_rate": 40, "detection_tolerance": 22, "speed": 14, "stealth": 12, "bonus_chance": 6, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "vessel_phantom_yacht",
+      "name": "Phantom Yacht",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_phantom_yacht",
+      "lore": "Looks like a pleasure cruiser; runs like a ghost.",
+      "base_stats": { "haul_rate": 22, "detection_tolerance": 20, "speed": 20, "stealth": 25, "bonus_chance": 7, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "vessel_dreadnaught_hull",
+      "name": "Dreadnaught Hull",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_dreadnaught_hull",
+      "lore": "Armored to shrug off patrols, too proud to hide from them.",
+      "base_stats": { "haul_rate": 38, "detection_tolerance": 30, "speed": 12, "stealth": 10, "bonus_chance": 5, "bonus_multiplier": 5 }
+    },
+    {
+      "item_key": "vessel_starlight_cutter",
+      "name": "Starlight Cutter",
+      "slot": "Vessel",
+      "rarity": "Common",
+      "asset_key": "vessel_starlight_cutter",
+      "lore": "Trim, quick, and built for the long dark between checkpoints.",
+      "base_stats": { "haul_rate": 26, "detection_tolerance": 16, "speed": 30, "stealth": 12, "bonus_chance": 8, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "crew_greenhorn_deckhands",
+      "name": "Greenhorn Deckhands",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_greenhorn_deckhands",
+      "lore": "Eager, cheap, and only occasionally a liability.",
+      "base_stats": { "haul_rate": 18, "detection_tolerance": 22, "speed": 15, "stealth": 13, "bonus_chance": 18, "bonus_multiplier": 14 }
+    },
+    {
+      "item_key": "crew_void_pirates",
+      "name": "Void Pirates",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_void_pirates",
+      "lore": "They take a cut, but the score is always bigger when they swing.",
+      "base_stats": { "haul_rate": 22, "detection_tolerance": 16, "speed": 18, "stealth": 9, "bonus_chance": 20, "bonus_multiplier": 15 }
+    },
+    {
+      "item_key": "crew_exiled_navigators",
+      "name": "Exiled Navigators",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_exiled_navigators",
+      "lore": "Banished for charting routes that were never meant to exist.",
+      "base_stats": { "haul_rate": 16, "detection_tolerance": 20, "speed": 24, "stealth": 12, "bonus_chance": 16, "bonus_multiplier": 12 }
+    },
+    {
+      "item_key": "crew_rogue_ai_cluster",
+      "name": "Rogue AI Cluster",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_rogue_ai_cluster",
+      "lore": "It calls the crits. It does not explain how.",
+      "base_stats": { "haul_rate": 20, "detection_tolerance": 14, "speed": 20, "stealth": 8, "bonus_chance": 22, "bonus_multiplier": 16 }
+    },
+    {
+      "item_key": "crew_mercenary_gunners",
+      "name": "Mercenary Gunners",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_mercenary_gunners",
+      "lore": "Loyal to the manifest, devoted to the bonus payout.",
+      "base_stats": { "haul_rate": 24, "detection_tolerance": 18, "speed": 14, "stealth": 8, "bonus_chance": 19, "bonus_multiplier": 17 }
+    },
+    {
+      "item_key": "crew_smuggler_guild",
+      "name": "Smuggler's Guild",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_smuggler_guild",
+      "lore": "Old hands who know which patrols can be bought and which must be ghosted.",
+      "base_stats": { "haul_rate": 17, "detection_tolerance": 19, "speed": 16, "stealth": 18, "bonus_chance": 16, "bonus_multiplier": 14 }
+    },
+    {
+      "item_key": "crew_ghost_crew",
+      "name": "Ghost Crew",
+      "slot": "Crew",
+      "rarity": "Common",
+      "asset_key": "crew_ghost_crew",
+      "lore": "Nobody signed them on. Nobody saw them leave.",
+      "base_stats": { "haul_rate": 14, "detection_tolerance": 16, "speed": 14, "stealth": 28, "bonus_chance": 15, "bonus_multiplier": 13 }
+    },
+    {
+      "item_key": "cloaking_patchwork_tarp",
+      "name": "Patchwork Tarp",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_patchwork_tarp",
+      "lore": "It hides the cargo as long as nobody looks too hard.",
+      "base_stats": { "haul_rate": 18, "detection_tolerance": 25, "speed": 12, "stealth": 30, "bonus_chance": 8, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "cloaking_mirror_field",
+      "name": "Mirror Field",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_mirror_field",
+      "lore": "Patrols see only their own reflection and wave you through.",
+      "base_stats": { "haul_rate": 14, "detection_tolerance": 20, "speed": 12, "stealth": 40, "bonus_chance": 7, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "cloaking_phase_shroud",
+      "name": "Phase Shroud",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_phase_shroud",
+      "lore": "Half in this dimension, half somewhere the patrols can't subpoena.",
+      "base_stats": { "haul_rate": 10, "detection_tolerance": 18, "speed": 12, "stealth": 50, "bonus_chance": 5, "bonus_multiplier": 5 }
+    },
+    {
+      "item_key": "cloaking_null_signature",
+      "name": "Null Signature",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_null_signature",
+      "lore": "On every sensor you read as empty space and bad luck.",
+      "base_stats": { "haul_rate": 8, "detection_tolerance": 16, "speed": 11, "stealth": 60, "bonus_chance": 3, "bonus_multiplier": 2 }
+    },
+    {
+      "item_key": "cloaking_event_horizon_veil",
+      "name": "Event Horizon Veil",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_event_horizon_veil",
+      "lore": "The darkest cloak ever woven; light goes in, suspicion never comes out.",
+      "base_stats": { "haul_rate": 6, "detection_tolerance": 16, "speed": 8, "stealth": 70, "bonus_chance": 0, "bonus_multiplier": 0 }
+    },
+    {
+      "item_key": "cloaking_chameleon_plating",
+      "name": "Chameleon Plating",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_chameleon_plating",
+      "lore": "Reads as a harmless freighter right up until it doesn't.",
+      "base_stats": { "haul_rate": 20, "detection_tolerance": 28, "speed": 12, "stealth": 28, "bonus_chance": 7, "bonus_multiplier": 5 }
+    },
+    {
+      "item_key": "cloaking_decoy_array",
+      "name": "Decoy Array",
+      "slot": "Cloaking",
+      "rarity": "Common",
+      "asset_key": "cloaking_decoy_array",
+      "lore": "Spawns a dozen phantom ships; patrols chase the wrong nine.",
+      "base_stats": { "haul_rate": 16, "detection_tolerance": 35, "speed": 14, "stealth": 22, "bonus_chance": 7, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "cargo_scrap_ore",
+      "name": "Scrap Ore",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_scrap_ore",
+      "lore": "Heavy, dull, and legal enough to bore a patrol into waving you on.",
+      "base_stats": { "haul_rate": 42, "detection_tolerance": 24, "speed": 12, "stealth": 10, "bonus_chance": 6, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "cargo_contraband_spice",
+      "name": "Contraband Spice",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_contraband_spice",
+      "lore": "Worth a fortune per gram and a death sentence per crate.",
+      "base_stats": { "haul_rate": 45, "detection_tolerance": 20, "speed": 12, "stealth": 8, "bonus_chance": 8, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "cargo_stolen_relics",
+      "name": "Stolen Relics",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_stolen_relics",
+      "lore": "Pried from a museum nobody admits owning.",
+      "base_stats": { "haul_rate": 38, "detection_tolerance": 18, "speed": 14, "stealth": 12, "bonus_chance": 10, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "cargo_dark_matter_vials",
+      "name": "Dark Matter Vials",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_dark_matter_vials",
+      "lore": "Pays like nothing else and screams across every sensor in the sector.",
+      "base_stats": { "haul_rate": 48, "detection_tolerance": 26, "speed": 10, "stealth": 6, "bonus_chance": 6, "bonus_multiplier": 4 }
+    },
+    {
+      "item_key": "cargo_forged_star_charts",
+      "name": "Forged Star Charts",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_forged_star_charts",
+      "lore": "Maps to places that pay, drawn by people who lie.",
+      "base_stats": { "haul_rate": 36, "detection_tolerance": 16, "speed": 16, "stealth": 14, "bonus_chance": 9, "bonus_multiplier": 9 }
+    },
+    {
+      "item_key": "cargo_living_cargo",
+      "name": "Living Cargo",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_living_cargo",
+      "lore": "Don't ask what's in the crates. Don't let it ask either.",
+      "base_stats": { "haul_rate": 40, "detection_tolerance": 22, "speed": 12, "stealth": 10, "bonus_chance": 9, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "cargo_unmarked_bullion",
+      "name": "Unmarked Bullion",
+      "slot": "Cargo",
+      "rarity": "Common",
+      "asset_key": "cargo_unmarked_bullion",
+      "lore": "Cold, dense, and untraceable to anyone still breathing.",
+      "base_stats": { "haul_rate": 44, "detection_tolerance": 19, "speed": 11, "stealth": 9, "bonus_chance": 9, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "quartermaster_dusty_ledger",
+      "name": "Dusty Ledger",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_dusty_ledger",
+      "lore": "Every favor owed and every patrol bribed, in one cursed book.",
+      "base_stats": { "haul_rate": 24, "detection_tolerance": 20, "speed": 28, "stealth": 12, "bonus_chance": 9, "bonus_multiplier": 7 }
+    },
+    {
+      "item_key": "quartermaster_blackmarket_broker",
+      "name": "Black Market Broker",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_blackmarket_broker",
+      "lore": "Turns your haul over faster and skims a little luck off the top.",
+      "base_stats": { "haul_rate": 22, "detection_tolerance": 16, "speed": 26, "stealth": 10, "bonus_chance": 14, "bonus_multiplier": 12 }
+    },
+    {
+      "item_key": "quartermaster_efficiency_droid",
+      "name": "Efficiency Droid",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_efficiency_droid",
+      "lore": "Optimizes every tick; complains about your life choices in binary.",
+      "base_stats": { "haul_rate": 20, "detection_tolerance": 18, "speed": 34, "stealth": 10, "bonus_chance": 10, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "quartermaster_supply_cache",
+      "name": "Supply Cache",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_supply_cache",
+      "lore": "Stocked for a long haul and a longer getaway.",
+      "base_stats": { "haul_rate": 26, "detection_tolerance": 22, "speed": 24, "stealth": 14, "bonus_chance": 8, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "quartermaster_fuel_skimmer",
+      "name": "Fuel Skimmer",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_fuel_skimmer",
+      "lore": "Squeezes one more burn out of fuel that was already someone else's.",
+      "base_stats": { "haul_rate": 18, "detection_tolerance": 17, "speed": 38, "stealth": 9, "bonus_chance": 10, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "quartermaster_route_optimizer",
+      "name": "Route Optimizer",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_route_optimizer",
+      "lore": "Finds the gap between two patrols and threads the whole run through it.",
+      "base_stats": { "haul_rate": 21, "detection_tolerance": 19, "speed": 30, "stealth": 13, "bonus_chance": 9, "bonus_multiplier": 8 }
+    },
+    {
+      "item_key": "quartermaster_bribe_fund",
+      "name": "Bribe Fund",
+      "slot": "Quartermaster",
+      "rarity": "Common",
+      "asset_key": "quartermaster_bribe_fund",
+      "lore": "A slush of DUST that makes inconvenient sensors malfunction.",
+      "base_stats": { "haul_rate": 19, "detection_tolerance": 30, "speed": 22, "stealth": 15, "bonus_chance": 8, "bonus_multiplier": 6 }
+    },
+    {
+      "item_key": "commsblackout_static_jammer",
+      "name": "Static Jammer",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_static_jammer",
+      "lore": "Fills the patrol's channel with noise and the void with silence.",
+      "base_stats": { "haul_rate": 14, "detection_tolerance": 32, "speed": 14, "stealth": 28, "bonus_chance": 7, "bonus_multiplier": 5 }
+    },
+    {
+      "item_key": "commsblackout_silent_running",
+      "name": "Silent Running",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_silent_running",
+      "lore": "Power down to a whisper and let the patrol drift right past.",
+      "base_stats": { "haul_rate": 12, "detection_tolerance": 24, "speed": 16, "stealth": 38, "bonus_chance": 5, "bonus_multiplier": 5 }
+    },
+    {
+      "item_key": "commsblackout_signal_scrambler",
+      "name": "Signal Scrambler",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_signal_scrambler",
+      "lore": "Rewrites your transponder to read as someone with better paperwork.",
+      "base_stats": { "haul_rate": 16, "detection_tolerance": 38, "speed": 14, "stealth": 22, "bonus_chance": 6, "bonus_multiplier": 4 }
+    },
+    {
+      "item_key": "commsblackout_dead_channel",
+      "name": "Dead Channel",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_dead_channel",
+      "lore": "There is no hail to answer because there is no hail at all.",
+      "base_stats": { "haul_rate": 10, "detection_tolerance": 26, "speed": 12, "stealth": 45, "bonus_chance": 4, "bonus_multiplier": 3 }
+    },
+    {
+      "item_key": "commsblackout_ghost_protocol",
+      "name": "Ghost Protocol",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_ghost_protocol",
+      "lore": "Your ship stops existing on the network the instant it matters.",
+      "base_stats": { "haul_rate": 8, "detection_tolerance": 22, "speed": 12, "stealth": 52, "bonus_chance": 3, "bonus_multiplier": 3 }
+    },
+    {
+      "item_key": "commsblackout_encrypted_relay",
+      "name": "Encrypted Relay",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_encrypted_relay",
+      "lore": "Talks to the Vault and nobody else, no matter who's listening.",
+      "base_stats": { "haul_rate": 18, "detection_tolerance": 40, "speed": 16, "stealth": 18, "bonus_chance": 5, "bonus_multiplier": 3 }
+    },
+    {
+      "item_key": "commsblackout_void_whisper",
+      "name": "Void Whisper",
+      "slot": "CommsBlackout",
+      "rarity": "Common",
+      "asset_key": "commsblackout_void_whisper",
+      "lore": "The last word the sensors hear before they forget you were ever there.",
+      "base_stats": { "haul_rate": 11, "detection_tolerance": 20, "speed": 13, "stealth": 48, "bonus_chance": 4, "bonus_multiplier": 4 }
+    }
+  ]
+}
