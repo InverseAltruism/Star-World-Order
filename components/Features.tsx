@@ -86,17 +86,15 @@ export default function Features() {
               <Panel interactive className="h-full !p-6" style={{ ['--fc' as string]: f.color }}>
                 <div className="mb-4">{renderIcon(f)}</div>
                 <h3
-                  className="text-xs mb-2 tracking-wider font-bold"
-                  style={{ color: f.color, fontFamily: 'var(--font-ui)', textShadow: `0 0 10px ${f.color}60, 1px 1px 0 rgba(0,0,0,0.8)` }}
+                  className="text-xs mb-3 tracking-wider font-bold"
+                  style={{ color: f.color, textShadow: `0 0 10px ${f.color}60, 1px 1px 0 rgba(0,0,0,0.8)` }}
                 >
                   {f.title}
                 </h3>
-                <p className="text-fg-muted text-[11px] leading-relaxed" style={{ fontFamily: 'var(--font-console)', fontSize: '14px' }}>
-                  {f.description}
-                </p>
+                <p className="text-gray-400 text-[11px] leading-relaxed tracking-wide">{f.description}</p>
                 <span
                   className="mt-4 inline-flex items-center gap-1 text-[10px] tracking-wider opacity-70 group-hover:opacity-100 transition-opacity"
-                  style={{ color: f.color, fontFamily: 'var(--font-ui)' }}
+                  style={{ color: f.color }}
                 >
                   ENTER <span className="transition-transform group-hover:translate-x-1">→</span>
                 </span>
@@ -123,13 +121,11 @@ export default function Features() {
           <Panel className="inline-block !px-8 !py-6 !overflow-visible" accent="dao">
             <p
               className="text-gold text-[10px] mb-3 tracking-wide animate-glow-pulse"
-              style={{ fontFamily: 'var(--font-ui)', textShadow: '0 0 10px rgba(255,215,0,0.5)' }}
+              style={{ textShadow: '0 0 10px rgba(255,215,0,0.5)' }}
             >
               ★ u in or what? ★
             </p>
-            <p className="text-fg-muted text-xs mb-4" style={{ fontFamily: 'var(--font-console)', fontSize: '14px' }}>
-              connect wallet • check stars
-            </p>
+            <p className="text-gray-400 text-xs mb-4">connect wallet • check stars</p>
             <WalletConnect />
           </Panel>
         </div>

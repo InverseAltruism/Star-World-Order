@@ -49,7 +49,7 @@ export default function LandingStats() {
   }, []);
 
   return (
-    <section className="relative -mt-2 mb-4 px-4">
+    <section className="relative -mt-10 mb-4 px-4">
       <Panel className="mx-auto max-w-3xl !p-5">
         <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
           <StatReadout label="Star Holders" value={fmt(s.holders)} accent="gold" />

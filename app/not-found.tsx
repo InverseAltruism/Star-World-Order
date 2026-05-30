@@ -20,12 +20,7 @@ export default function NotFound() {
               'repeating-linear-gradient(0deg, rgba(0,0,0,0.18), rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px)',
           }}
         />
-        <p
-          className="text-[10px] tracking-[0.3em] text-cyan"
-          style={{ fontFamily: 'var(--font-console)', fontSize: '14px' }}
-        >
-          STAR-64 // SIGNAL LOST
-        </p>
+        <p className="text-[9px] tracking-[0.3em] text-cyan">STAR-64 // SIGNAL LOST</p>
         <h1
           className="my-4 text-6xl glitch-text text-gold"
           data-text="404"
@@ -33,10 +28,7 @@ export default function NotFound() {
         >
           404
         </h1>
-        <p
-          className="mx-auto mb-8 max-w-sm text-fg-muted"
-          style={{ fontFamily: 'var(--font-console)', fontSize: '16px' }}
-        >
+        <p className="mx-auto mb-8 max-w-sm text-[10px] leading-relaxed text-fg-muted">
           this cartridge has no data here — the stars drifted out of alignment.
         </p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">

@@ -11,16 +11,16 @@ import styles from './LoadingScreen.module.css';
 
 type Phase = 'idle' | 'inserting' | 'powering' | 'zooming' | 'booting' | 'loading' | 'done';
 
-// Timeline (ms from cartridge click)
+// Timeline (ms from cartridge click) — paced to feel deliberate, not rushed.
 const T = {
   INSERTING: 0,
-  POWERING: 700,
-  ZOOMING: 1550,
-  BOOTING: 2350,
-  LOGO_UP: 3950, // BIOS log finished → reveal title card
-  LOADING: 4250,
-  CLOSING: 5900,
-  HIDE: 6650,
+  POWERING: 950,
+  ZOOMING: 2100,
+  BOOTING: 3150,
+  LOGO_UP: 5250, // BIOS log finished → reveal title card
+  LOADING: 5700,
+  CLOSING: 7900,
+  HIDE: 8700,
 } as const;
 
 const BOOT_LINES: { text: string; cls?: string }[] = [
@@ -96,7 +96,7 @@ export default function LoadingScreen() {
           clearInterval(interval.current);
           interval.current = null;
         }
-      }, 190);
+      }, 250);
     });
     at(T.LOGO_UP, () => setLogoUp(true));
     at(T.LOADING, () => {
@@ -110,7 +110,7 @@ export default function LoadingScreen() {
           }
           return Math.min(100, p + 4);
         });
-      }, 60);
+      }, 70);
     });
     at(T.CLOSING, () => setClosing(true));
     at(T.HIDE, () => finish());

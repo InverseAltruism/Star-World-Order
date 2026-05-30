@@ -20,6 +20,9 @@ export type NavItem = {
 
 export type NavGroup = { label: string; accent: string; items: NavItem[] };
 
+// Grouped so each bucket is intuitive: PLAY = the games, DAO = governance +
+// treasury + members, COLLECTION = the NFTs. Hangout and Profile are their own
+// top-level links (single-item groups auto-render as a plain link).
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'PLAY',
@@ -28,27 +31,32 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/sanctuary', label: 'Sanctuary', icon: '🪐', desc: 'Raise your companion', accent: 'var(--color-feature-sanctuary)' },
       { href: '/casino', label: 'Cosmic Casino', icon: '🎰', desc: 'Provably-fair games', accent: 'var(--color-feature-casino)' },
       { href: '/raffle', label: 'Cosmic Raffle', icon: '🎟️', desc: 'Holder-tier raffles', accent: 'var(--color-feature-raffle)' },
-      { href: '/starforge', label: 'Star Forge', icon: '🔨', desc: 'Forge the constellation grid', accent: 'var(--color-feature-forge)', dev: true },
+      { href: '/starforge', label: 'Star Forge', icon: '🔨', desc: 'Forge the grid', accent: 'var(--color-feature-forge)', dev: true },
     ],
   },
   {
-    label: 'COMMUNITY',
+    label: 'DAO',
     accent: 'var(--color-gold)',
     items: [
-      { href: '/dao', label: 'The Order', icon: '⭐', desc: 'DAO & governance', accent: 'var(--color-feature-dao)' },
-      { href: '/hangout', label: 'Hangout', icon: '💬', desc: 'Community lobby & chat', accent: 'var(--color-feature-hangout)' },
+      { href: '/dao', label: 'The Order', icon: '⭐', desc: 'Governance & voting', accent: 'var(--color-feature-dao)' },
+      { href: '/treasury', label: 'Treasury', icon: '💎', desc: 'DAO holdings on-chain', accent: 'var(--color-green)' },
       { href: '/members', label: 'Members', icon: '🛡️', desc: 'Star holder directory', accent: 'var(--color-cyan)' },
     ],
   },
   {
-    label: 'COLLECTION',
-    accent: 'var(--color-cyan)',
-    items: [
-      { href: '/gallery', label: 'Gallery', icon: '🖼️', desc: 'All 333 Star Skrumpeys', accent: 'var(--color-feature-gallery)' },
-      { href: '/treasury', label: 'Treasury', icon: '💎', desc: 'DAO holdings on-chain', accent: 'var(--color-green)' },
-      { href: '/profile', label: 'Profile', icon: '👤', desc: 'Your stats & socials', accent: 'var(--color-gold)' },
-      { href: '/marketplace', label: 'Exchange', icon: '🔄', desc: 'OTC NFT trading', accent: 'var(--color-magenta)', dev: true },
-    ],
+    label: 'GALLERY',
+    accent: 'var(--color-feature-gallery)',
+    items: [{ href: '/gallery', label: 'Gallery', icon: '🖼️', desc: 'All 333 Star Skrumpeys', accent: 'var(--color-feature-gallery)' }],
+  },
+  {
+    label: 'HANGOUT',
+    accent: 'var(--color-feature-hangout)',
+    items: [{ href: '/hangout', label: 'Hangout', icon: '💬', desc: 'Community lobby & chat', accent: 'var(--color-feature-hangout)' }],
+  },
+  {
+    label: 'PROFILE',
+    accent: 'var(--color-gold)',
+    items: [{ href: '/profile', label: 'Profile', icon: '👤', desc: 'Your stats & socials', accent: 'var(--color-gold)' }],
   },
 ];
 
@@ -89,6 +97,14 @@ export function DesktopNav({ isProd }: { isProd: boolean }) {
       {NAV_GROUPS.map((g) => {
         const items = visibleItems(g, isProd);
         if (!items.length) return null;
+        // Single-item groups render as a plain top-level link (no dropdown).
+        if (items.length === 1) {
+          return (
+            <Link key={g.label} href={items[0].href} className={styles.trigger} style={{ ['--gc' as string]: g.accent }}>
+              {g.label}
+            </Link>
+          );
+        }
         const isOpen = open === g.label;
         return (
           <div
@@ -129,9 +145,11 @@ export function MobileNav({ isProd, onNavigate }: { isProd: boolean; onNavigate:
         if (!items.length) return null;
         return (
           <div key={g.label} className={styles.mobileGroup}>
-            <h3 className={styles.mobileGroupTitle} style={{ color: g.accent }}>
-              {g.label}
-            </h3>
+            {items.length > 1 && (
+              <h3 className={styles.mobileGroupTitle} style={{ color: g.accent }}>
+                {g.label}
+              </h3>
+            )}
             {items.map((it) => (
               <NavLinkRow key={it.href} item={it} onNavigate={onNavigate} />
             ))}

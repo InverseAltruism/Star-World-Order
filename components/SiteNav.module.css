@@ -16,10 +16,11 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  font-family: var(--font-ui), 'Press Start 2P', monospace;
+  font-family: var(--font-pixel), 'Press Start 2P', monospace;
   font-size: 10px;
   letter-spacing: 1px;
   text-transform: uppercase;
+  text-decoration: none;
   color: #cfcfe0;
   background: transparent;
   border: none;
@@ -38,9 +39,10 @@
 /* Dropdown panel */
 .panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: 100%;
   left: 0;
-  min-width: 248px;
+  min-width: 252px;
+  margin-top: 10px;
   padding: 8px;
   background: linear-gradient(180deg, #15132a 0%, #0d0c1c 100%);
   border: 2px solid var(--gc, #2a2a48);
@@ -56,17 +58,16 @@
   z-index: 60;
 }
 .panel::before {
-  /* little notch + hover bridge so the pointer can cross the gap */
+  /* full-width INVISIBLE hover bridge spanning the gap to the trigger, so the
+     pointer can travel anywhere from the trigger into the panel without the
+     dropdown closing (fixes the left-edge-only dead-zone). */
   content: '';
   position: absolute;
-  top: -10px;
-  left: 14px;
-  width: 14px;
-  height: 14px;
-  background: linear-gradient(135deg, #15132a, #15132a);
-  border-left: 2px solid var(--gc, #2a2a48);
-  border-top: 2px solid var(--gc, #2a2a48);
-  transform: rotate(45deg);
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: transparent;
 }
 .panelOpen {
   opacity: 1;
@@ -99,16 +100,18 @@
 }
 .itemText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .itemLabel {
-  font-family: var(--font-ui), monospace;
-  font-size: 12px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 10px;
   letter-spacing: 0.5px;
+  text-transform: uppercase;
   color: var(--ic, #e8e8e8);
 }
 .itemDesc {
-  font-family: var(--font-console), monospace;
-  font-size: 13px;
-  line-height: 1.1;
-  color: #8a86a8;
+  font-family: var(--font-pixel), monospace;
+  font-size: 7px;
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+  color: #9a96b8;
 }
 
 /* Mobile sheet sections */

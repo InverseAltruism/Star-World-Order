@@ -38,7 +38,7 @@ export const StatReadout = forwardRef<HTMLDivElement, StatReadoutProps>(function
     >
       <span
         className="text-[8px] uppercase tracking-widest text-fg-dim"
-        style={{ fontFamily: 'var(--font-ui)' }}
+        style={{ fontFamily: 'var(--font-pixel)' }}
       >
         {label}
       </span>
