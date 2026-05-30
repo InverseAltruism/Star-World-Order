@@ -1,0 +1,458 @@
+/* ===================================================================
+   SWO V2 — STAR-64 boot sequence (scoped CSS module).
+   Replaces the old .swo-* loading CSS. Two acts:
+     ACT 1  spotlit hero console; click cartridge → it drops → CRT power-on
+     ACT 2  camera pushes in while a FULL-RESOLUTION boot screen cross-fades
+            over the top (VT323 BIOS log → logo reveal → loading bar)
+   Cross-fading to a real full-screen screen (instead of scaling the tiny TV
+   screen 4.5x) is what keeps the boot text crisp instead of blurry.
+   =================================================================== */
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse 70% 70% at 50% 42%, #15122e 0%, #0a0a18 55%, #050509 100%);
+  font-family: var(--font-console), 'Courier New', monospace;
+  --gold: #ffd76a;
+  --purple: #9f7bff;
+  --cyan: #5ff0ff;
+}
+.root.closing {
+  animation: rootFade 0.7s ease-out forwards;
+}
+/* keep the title card visible while the screen fades out */
+.closing .logo, .closing .barWrap { opacity: 1; }
+@keyframes rootFade {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* Vignette + spotlight that frame the hero unit (fade out during zoom) */
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 46% 52% at 50% 44%, rgba(159, 123, 255, 0.16) 0%, transparent 62%),
+    radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.7) 0%, transparent 55%),
+    radial-gradient(ellipse 120% 120% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 100%);
+  transition: opacity 1s ease;
+}
+.zooming .vignette,
+.booting .vignette,
+.loading .vignette { opacity: 0; }
+
+/* faint twinkling stars */
+.stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(255, 215, 106, 0.7), transparent),
+    radial-gradient(1px 1px at 28% 64%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(2px 2px at 44% 16%, rgba(159, 123, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 62% 78%, rgba(255, 215, 106, 0.5), transparent),
+    radial-gradient(1px 1px at 74% 34%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(2px 2px at 88% 68%, rgba(159, 123, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 92% 20%, rgba(255, 215, 106, 0.5), transparent);
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+@keyframes twinkle { from { opacity: 0.5; } to { opacity: 0.95; } }
+
+/* dust motes drifting up through the spotlight */
+.dust { position: absolute; inset: 0; pointer-events: none; }
+.dust span {
+  position: absolute;
+  bottom: -8px;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 226, 160, 0.55);
+  box-shadow: 0 0 6px rgba(255, 226, 160, 0.5);
+  animation: motes 9s linear infinite;
+}
+@keyframes motes {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 0.8; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-70vh); opacity: 0; }
+}
+
+/* ===== ACT 1 — hero unit (TV + console) ===== */
+.stage {
+  position: relative;
+  z-index: 5;
+  transition: transform 1.05s cubic-bezier(0.5, 0, 0.2, 1), filter 1.05s ease;
+  transform-origin: 50% 38%;
+  will-change: transform;
+}
+.zooming .stage,
+.booting .stage,
+.loading .stage { transform: scale(3.2) translateY(6%); filter: blur(2px); }
+
+.unit { display: flex; flex-direction: column; align-items: center; }
+
+/* CRT TV */
+.tv {
+  position: relative;
+  width: 340px;
+  padding: 18px 18px 14px;
+  border-radius: 18px 18px 14px 14px;
+  background: linear-gradient(180deg, #2b2740 0%, #1c1930 60%, #141022 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.6),
+    0 22px 40px rgba(0, 0, 0, 0.6),
+    0 0 0 2px #0c0a18;
+}
+.screen {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #05060a;
+  box-shadow:
+    inset 0 0 0 6px #0a0a14,
+    inset 0 0 26px rgba(0, 0, 0, 0.9);
+}
+/* glass curvature + glare */
+.screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 18%, rgba(255, 255, 255, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 120% 120% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+}
+/* the picture that "powers on" */
+.tube {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, #1a1640 0%, #0a0820 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scaleY(0);
+  opacity: 0;
+}
+.powering .tube { animation: crtOn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+.zooming .tube, .booting .tube, .loading .tube { transform: scaleY(1); opacity: 1; }
+@keyframes crtOn {
+  0%   { transform: scaleX(0.2) scaleY(0.006); opacity: 1; filter: brightness(7); }
+  35%  { transform: scaleX(1) scaleY(0.006); opacity: 1; filter: brightness(7); }
+  55%  { transform: scaleX(1) scaleY(0.04); filter: brightness(9); }
+  100% { transform: scaleX(1) scaleY(1); opacity: 1; filter: brightness(1); }
+}
+.tubeStar {
+  width: 26px; height: 26px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 8px var(--gold));
+  opacity: 0;
+}
+.zooming .tubeStar, .booting .tubeStar, .loading .tubeStar { opacity: 0.9; animation: spin 6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* idle dark-screen reflection */
+.off {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, #0c0e16 0%, #060709 45%, #0c0e16 100%);
+}
+.off::before {
+  content: '';
+  position: absolute;
+  top: -40%; left: -10%;
+  width: 50%; height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.045), transparent);
+  transform: rotate(18deg);
+}
+.powering .off, .zooming .off, .booting .off, .loading .off { opacity: 0; transition: opacity 0.2s; }
+
+/* TV bezel details */
+.plate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px 0;
+}
+.brand {
+  font-family: var(--font-display), monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #6b6790;
+  text-shadow: 1px 1px 0 #000;
+}
+.led {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #3a1518;
+  box-shadow: inset 0 0 2px #000;
+  transition: all 0.3s;
+}
+.on .led, .powering .led, .zooming .led, .booting .led, .loading .led {
+  background: #ff5a5a;
+  box-shadow: 0 0 8px #ff5a5a, 0 0 14px rgba(255, 90, 90, 0.6);
+}
+
+/* Console block under the TV */
+.console {
+  position: relative;
+  width: 300px;
+  margin-top: 82px; /* gap for the floating cartridge to sit in, clear of the TV */
+  height: 86px;
+  border-radius: 10px 10px 12px 12px;
+  background: linear-gradient(180deg, #211d33 0%, #16122440 1%, #16122a 60%, #100d1c 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.06),
+    0 16px 28px rgba(0, 0, 0, 0.55),
+    0 0 0 2px #0c0a18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slot {
+  position: absolute;
+  top: -7px;
+  width: 132px; height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #06060c, #100d1c);
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.consoleBadge {
+  font-family: var(--font-display), monospace;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  opacity: 0.7;
+  text-shadow: 0 0 8px rgba(255, 215, 106, 0.4);
+  display: flex; gap: 6px; align-items: center;
+}
+.vents { position: absolute; right: 16px; display: flex; gap: 4px; }
+.vents i { width: 3px; height: 26px; border-radius: 2px; background: #0c0a16; box-shadow: inset 1px 0 0 rgba(255,255,255,0.04); }
+
+/* The cartridge — floats over the slot, bobbing, until inserted */
+.cartWrap {
+  position: absolute;
+  top: -74px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: pointer;
+  z-index: 8;
+}
+.idle .cartWrap { animation: bob 2.6s ease-in-out infinite; }
+@keyframes bob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-7px); } }
+.idle .cart { animation: cartGlow 2.2s ease-in-out infinite; }
+@keyframes cartGlow {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(255,255,255,0.22), inset 0 -4px 8px rgba(0,0,0,0.4), 0 10px 18px rgba(0,0,0,0.5), 0 0 16px rgba(159,123,255,0.35); }
+  50% { box-shadow: inset 0 2px 0 rgba(255,255,255,0.22), inset 0 -4px 8px rgba(0,0,0,0.4), 0 10px 18px rgba(0,0,0,0.5), 0 0 30px rgba(159,123,255,0.7), 0 0 50px rgba(159,123,255,0.4); }
+}
+.cartWrap:hover .cart { box-shadow: inset 0 2px 0 rgba(255,255,255,0.3), 0 10px 18px rgba(0,0,0,0.5), 0 0 36px rgba(255,215,106,0.6); }
+.inserting .cartWrap { animation: drop 0.7s cubic-bezier(0.6, 0, 0.9, 0.4) forwards; }
+@keyframes drop {
+  0% { transform: translateX(-50%) translateY(0); }
+  80% { transform: translateX(-50%) translateY(68px); }
+  90% { transform: translateX(-50%) translateY(64px); }
+  100% { transform: translateX(-50%) translateY(68px); opacity: 0; }
+}
+.inserted .cartWrap, .powering .cartWrap, .zooming .cartWrap,
+.booting .cartWrap, .loading .cartWrap { opacity: 0; }
+
+.cart {
+  width: 92px; height: 66px;
+  border-radius: 5px 5px 3px 3px;
+  background: linear-gradient(180deg, #6a4bd6 0%, #4a32a6 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.4),
+    0 10px 18px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(159, 123, 255, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+}
+.cartTop { width: 78px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(90deg, #3a2880, #3a2880 3px, #4a35a0 3px, #4a35a0 6px); }
+.cartLabel {
+  margin-top: 6px;
+  width: 74px; height: 36px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff7e0 0%, #ffe6a8 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: inset 0 0 0 2px #caa24a;
+}
+.cartLabel b {
+  font-family: var(--font-display), monospace;
+  font-size: 10px;
+  color: #2a1a4a;
+}
+.cartLabel small { font-size: 11px; color: #6a4bd6; }
+
+.prompt {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(255, 215, 106, 0.6);
+  animation: promptPulse 1.4s ease-in-out infinite;
+}
+.promptText { font-family: var(--font-display), monospace; font-size: 9px; letter-spacing: 1px; }
+.promptArrow { font-size: 14px; }
+@keyframes promptPulse { 0%,100% { opacity: 0.55; transform: translateX(-50%) translateY(0); } 50% { opacity: 1; transform: translateX(-50%) translateY(3px); } }
+
+/* ===== ACT 2 — full-resolution boot screen (crisp, fills viewport) ===== */
+.bootScreen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6vh 8vw;
+  background: radial-gradient(ellipse 75% 70% at 50% 45%, #181440 0%, #0a0820 60%, #050410 100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease 0.25s;
+}
+.zooming .bootScreen, .booting .bootScreen, .loading .bootScreen { opacity: 1; }
+/* CRT overlay on the boot screen: scanlines + curvature glare */
+.bootScreen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.16), rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px);
+  mix-blend-mode: multiply;
+}
+.bootScreen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 120% 120% at 50% 50%, transparent 62%, rgba(0,0,0,0.55) 100%);
+}
+
+/* BIOS / POST log */
+.log {
+  width: 100%;
+  max-width: 720px;
+  font-family: var(--font-console), 'Courier New', monospace;
+  font-size: clamp(15px, 2.4vw, 22px);
+  line-height: 1.5;
+  color: #b7ffd0;
+  text-shadow: 0 0 6px rgba(95, 240, 160, 0.4);
+  position: relative;
+  z-index: 2;
+}
+.logLine { opacity: 0; white-space: nowrap; overflow: hidden; }
+.logLine.show { animation: typeLine 0.42s steps(28) forwards; }
+@keyframes typeLine { from { opacity: 1; max-width: 0; } to { opacity: 1; max-width: 100%; } }
+.ok { color: var(--gold); }
+.dim { color: #5f8f78; }
+.cursor { display: inline-block; width: 0.6ch; background: #b7ffd0; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Logo reveal (after the log) */
+.logo {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+}
+.loading .logo, .booting.showLogo .logo { opacity: 1; animation: logoIn 0.7s cubic-bezier(0.2, 0.9, 0.2, 1.2) forwards; }
+@keyframes logoIn { from { opacity: 0; transform: translateY(10px) scale(0.96); } to { opacity: 1; transform: none; } }
+.logoStar { width: 64px; height: 64px; image-rendering: pixelated; filter: drop-shadow(0 0 18px var(--gold)) drop-shadow(0 0 36px rgba(255,215,106,0.5)); animation: spin 8s linear infinite; }
+.title {
+  font-family: var(--font-display), monospace;
+  font-size: clamp(16px, 4vw, 34px);
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-align: center;
+  text-shadow: 0 0 18px rgba(255, 215, 106, 0.6), 3px 3px 0 rgba(0,0,0,0.8);
+  position: relative;
+}
+.subtitle { font-family: var(--font-console), monospace; font-size: clamp(12px, 2vw, 16px); color: var(--purple); letter-spacing: 1px; }
+
+/* Loading bar */
+.barWrap { position: relative; z-index: 2; width: min(420px, 70vw); margin-top: 22px; opacity: 0; transition: opacity 0.4s; }
+.loading .barWrap, .booting .barWrap { opacity: 1; }
+.barRail {
+  height: 18px;
+  border-radius: 3px;
+  background: #0b0a18;
+  box-shadow: inset 0 0 0 2px #2a2550, inset 0 2px 6px rgba(0,0,0,0.8);
+  overflow: hidden;
+  padding: 3px;
+}
+.barFill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffd76a, #ff9d4d 60%, #ffd76a);
+  background-size: 200% 100%;
+  box-shadow: 0 0 10px rgba(255, 215, 106, 0.7);
+  transition: width 0.12s linear;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: 200% 0; } }
+.barMeta { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--font-hud), monospace; font-size: 13px; color: #8a86b0; }
+.pct { color: var(--gold); }
+
+/* Skip + hint */
+.skip {
+  position: absolute;
+  top: 20px; right: 22px;
+  z-index: 30;
+  font-family: var(--font-display), monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #6b6790;
+  background: rgba(12, 10, 24, 0.6);
+  border: 2px solid #2a2550;
+  border-radius: 4px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.skip:hover { color: var(--gold); border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 215, 106, 0.3); }
+.hint {
+  position: absolute;
+  bottom: 26px;
+  left: 0; right: 0;
+  text-align: center;
+  z-index: 6;
+  font-family: var(--font-console), monospace;
+  font-size: clamp(13px, 2vw, 16px);
+  color: #8a86b0;
+  letter-spacing: 1px;
+}
+.hint b { color: var(--gold); }
+.hintFlavor { display: block; margin-top: 6px; font-size: 0.85em; color: #6b6790; letter-spacing: 0.5px; }
+
+@media (max-width: 640px) {
+  .tv { width: 78vw; }
+  .console { width: 68vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idle .cartWrap, .stars, .dust span,
+  .logoStar, .tubeStar, .barFill, .prompt { animation: none !important; }
+  .stage { transition: none; }
+}

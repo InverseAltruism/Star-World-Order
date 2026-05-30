@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { Button } from './ui';
 
 export default function Hero() {
   const router = useRouter();
@@ -114,18 +115,12 @@ export default function Hero() {
         
         {/* Action buttons - Tighter spacing on mobile */}
         <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 mb-4 sm:mb-12 animate-slide-in-up animate-delay-3 px-4">
-          <button 
-            onClick={handleEnterTheOrder}
-            className="pixel-btn pixel-btn-gold smooth-transition hover-lift text-[9px] sm:text-xs"
-          >
+          <Button variant="gold" size="md" onClick={handleEnterTheOrder} className="hover-lift">
             ⭐ ENTER THE ORDER ⭐
-          </button>
-          <button 
-            onClick={handleDiscoverMore}
-            className="pixel-btn smooth-transition hover-lift text-[9px] sm:text-xs"
-          >
+          </Button>
+          <Button variant="purple" size="md" onClick={handleDiscoverMore} className="hover-lift">
             ▼ DISCOVER MORE
-          </button>
+          </Button>
         </div>
 
         {/* Pixel art showcase - Smaller on mobile */}

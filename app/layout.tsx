@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
+import { fontVariables } from './fonts';
+import SiteChrome from '@/components/SiteChrome';
 
 export const metadata: Metadata = {
   title: 'Star World Order | Skrumpey DAO',
@@ -13,15 +15,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={fontVariables}>
       <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
-          rel="stylesheet"
+        {/* Apply persisted CRT preference before paint (no flash). See A5 / CrtToggle. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var v=localStorage.getItem('swo-crt');if(v){document.documentElement.dataset.crt=v;}}catch(e){}})();",
+          }}
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <SiteChrome>{children}</SiteChrome>
+        </Providers>
       </body>
     </html>
   );
