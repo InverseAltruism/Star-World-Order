@@ -1,5 +1,6 @@
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
+import LandingStats from '@/components/LandingStats';
 
 // Header, Footer and the floating FeedbackButton are rendered globally by
 // SiteChrome (app/layout.tsx) — see docs/UI_V2_REDESIGN_PLAN.md §6.1.
@@ -8,6 +9,7 @@ export default function Home() {
     <div className="min-h-screen">
       <main>
         <Hero />
+        <LandingStats />
         <Features />
       </main>
     </div>
