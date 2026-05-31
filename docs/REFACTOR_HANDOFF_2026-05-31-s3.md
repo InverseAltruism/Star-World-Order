@@ -117,19 +117,42 @@ asset guards (`components/casino/__tests__/mascotSwap.test.ts` bunny/rabbit,
 
 ---
 
-## STILL LEFT (prioritized)
+## Session-3 continuation (god-split finished + cross-surface dedup)
 
-1. **ProfileCard's other 4 tabs** (settings/friends/collection/raffles) are still
-   inline (~settings 104 / friends 114 / collection 103 / raffles 190 lines). If
-   continuing, mirror `components/profile/tabs/{Messages,Achievements}Tab.tsx`:
-   each is a presentational component with a typed props bag; keep parent state in
-   place. Lower value than the hooks (pure JSX relocation), so it was deprioritized.
-2. **2 asset-guard test failures** (casino mascotSwap, game roomScene) — low value;
+After the above, the remaining ProfileCard tabs were extracted and two
+cross-surface helper duplications were consolidated:
+
+| Commit | Summary |
+|---|---|
+| `29c855d` | `refactor(profile)`: extract Settings/Friends/Collection/Raffles tabs + hoist variant styles → **ProfileCard 1431 → 910 (2506 → 910, −64% overall)** |
+| `fa755de` | `refactor(skrumpey)`: consolidate the byte-identical variant-style helpers (profile/members/treasury) into `lib/skrumpeyVariantStyles.ts` |
+| `4fa84fa` | `refactor`: consolidate 4 `truncateAddress` defs into `lib/format.ts` |
+
+- ProfileCard is now a ~910-line shell: all 6 tabs in `components/profile/tabs/*`,
+  all data/edit logic in `components/profile/hooks/*`, variant styles + achievement
+  defs + types in their own modules.
+- `app/gallery/GalleryContent.tsx` keeps its OWN `getVariantColor` **on purpose** —
+  it diverges (case-insensitive + `#9966ff` default vs canonical `#ffd700`).
+
+## STILL LEFT (all incremental / low-priority — no structural debt remains)
+
+1. **2 asset-guard test failures** (casino mascotSwap, game roomScene) — low value;
    they assert source strings / asset refs, not logic. Confirm count is still 2
    before blaming any change.
-3. **`lib/db.ts` sanctuary tail (~4.2k lines)** — STILL WIP, **LEAVE ALONE**. Peel
+2. **`lib/db.ts` sanctuary tail (~4.2k lines)** — STILL WIP, **LEAVE ALONE**. Peel
    it the same way once sanctuary/outer-rim settles.
-4. **db perf tuning** (prepare-caching / transactions) — see "Deliberately NOT
+3. **Minor helper duplication tail** (codeslop, but small): `getLevelTitle` /
+   `getLevelColor` duplicated in `MembersContent` + `UserProfileModal` (same
+   thresholds); ~17 inline `addr.slice(0,6)…slice(-4)` truncations that could use
+   `lib/format.truncateAddress`. Clean up opportunistically.
+4. **Lint tail** — 62 eslint errors, but **none in refactored code**: 41
+   `no-explicit-any` (30 in `lib/sanctuary/__tests__/db.test.ts`), 9 unused
+   `catch(error)` bindings, 2 `no-require-imports` (game scenes, intentional), 3
+   trivia. Mostly the "do-not-bulk-fix" categories. No CI lint gate currently.
+5. **API route boilerplate** — 79 `app/api/**/route.ts` each repeat try/catch +
+   zod-parse + error JSON. A shared `route()`/`handle()` wrapper would dedupe this
+   (audit P2). Behavior-preserving but broad; do as a dedicated pass.
+6. **db perf tuning** (prepare-caching / transactions) — see "Deliberately NOT
    done" above; needs the test-DB lifecycle handled first.
 
 ## DO NOT (still applies — from prior handoffs)
