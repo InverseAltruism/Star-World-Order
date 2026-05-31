@@ -9,27 +9,8 @@ import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import SocialConnect from './SocialConnect';
 
 /**
- * Get level title based on Star Skrumpey holdings count
- */
-function getLevelTitle(holdingsCount: number): string {
-  if (holdingsCount >= 10) return 'COSMIC EMPEROR';
-  if (holdingsCount >= 5) return 'STAR LORD';
-  if (holdingsCount >= 2) return 'COSMIC WARDEN';
-  return 'STAR FORGED';
-}
-
-/**
- * Get level color based on holdings count
- */
-function getLevelColor(holdingsCount: number): string {
-  if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
-  if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
-  if (holdingsCount >= 2) return '#00ffff'; // Cyan - Cosmic Warden
-  return '#9966ff'; // Purple - Star Forged
-}
-
-/**
- * Calculate level number based on holdings and STAR points
+ * Calculate level number based on holdings and STAR points (used internally for
+ * achievement checks only — not displayed).
  */
 function calculateLevel(starCount: number, starPoints: number = 0): number {
   const nftContribution = starCount * 10;
@@ -47,50 +28,6 @@ interface SkrumpeyDisplayData {
   hasStar: boolean;
   rarity: string;
   starVariant?: StarTraitVariant;
-}
-
-/**
- * Quest and XP types for profile display
- */
-interface UserQuestProgress {
-  id: number;
-  wallet_address: string;
-  quest_id: string;
-  status: 'available' | 'in_progress' | 'completed' | 'claimed';
-  progress: number;
-  started_at: string | null;
-  completed_at: string | null;
-  claimed_at: string | null;
-  created_at: string;
-}
-
-interface QuestWithProgress {
-  id: string;
-  name: string;
-  description: string;
-  xp_reward: number;
-  quest_type: 'daily' | 'weekly' | 'one_time' | 'urgent';
-  category: 'social' | 'trading' | 'governance' | 'community' | 'general';
-  requirements_json: string | null;
-  is_active: number;
-  priority: number;
-  icon: string;
-  created_at: string;
-  expires_at: string | null;
-  userProgress: UserQuestProgress | null;
-  canClaim: boolean;
-}
-
-interface UserXPData {
-  id: number;
-  wallet_address: string;
-  total_xp: number;
-  level: number;
-  currentLevelXP: number;
-  requiredForNextLevel: number;
-  percentage: number;
-  created_at: string;
-  updated_at: string;
 }
 
 /**
@@ -586,7 +523,7 @@ export default function ProfileCard() {
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   
   // Tab navigation state - includes all sections
-  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'quests' | 'raffles'>('settings');
+  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'raffles'>('settings');
   
   // Friends system state
   const [friends, setFriends] = useState<FriendWithProfileData[]>([]);
@@ -605,11 +542,6 @@ export default function ProfileCard() {
   const [allNotifications, setAllNotifications] = useState<NotificationData[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   
-  // Quest system state
-  const [quests, setQuests] = useState<QuestWithProgress[]>([]);
-  const [userXP, setUserXP] = useState<UserXPData | null>(null);
-  const [isLoadingQuests, setIsLoadingQuests] = useState(false);
-  const [questClaimingId, setQuestClaimingId] = useState<string | null>(null);
   
   // Raffle history state
   const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
@@ -719,26 +651,6 @@ export default function ProfileCard() {
     }
   }, [address]);
   
-  // Fetch quests and user XP
-  const fetchQuestsAndXP = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingQuests(true);
-    try {
-      const response = await fetch(`/api/quests?address=${address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setQuests(data.quests || []);
-        setUserXP(data.userXP || null);
-      }
-    } catch (error) {
-      console.error('Failed to fetch quests:', error);
-    } finally {
-      setIsLoadingQuests(false);
-    }
-  }, [address]);
-  
   // Fetch raffle history
   // markAsViewed: when true, also marks won raffles as viewed after fetching
   const fetchRaffleHistory = useCallback(async (markAsViewed = false) => {
@@ -801,9 +713,6 @@ export default function ProfileCard() {
     if (!address) return;
     
     switch (activeSection) {
-      case 'quests':
-        fetchQuestsAndXP();
-        break;
       case 'friends':
         fetchFriends();
         break;
@@ -816,7 +725,7 @@ export default function ProfileCard() {
         fetchRaffleHistory(true);
         break;
     }
-  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
+  }, [activeSection, address, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
   
   // Load chat when selected
   useEffect(() => {
@@ -832,7 +741,7 @@ export default function ProfileCard() {
       const tab = params.get('tab');
       const chat = params.get('chat');
       
-      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'quests' || tab === 'raffles') {
+      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'raffles') {
         setActiveSection(tab);
       }
       if (chat) {
@@ -902,70 +811,6 @@ export default function ProfileCard() {
     }
   };
   
-  // Claim quest reward handler
-  const handleClaimQuest = async (questId: string) => {
-    if (!address || questClaimingId) return;
-    
-    setQuestClaimingId(questId);
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'claim',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Update user XP
-        setUserXP(data.userXP);
-        // Refresh quests to update status
-        await fetchQuestsAndXP();
-      }
-    } catch (error) {
-      console.error('Failed to claim quest:', error);
-    } finally {
-      setQuestClaimingId(null);
-    }
-  };
-  
-  // Complete quest handler (for quests that can be auto-completed)
-  const handleCompleteQuest = async (questId: string) => {
-    if (!address) return;
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'complete',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        await fetchQuestsAndXP();
-      }
-    } catch (error) {
-      console.error('Failed to complete quest:', error);
-    }
-  };
-
   // Fetch metadata for owned tokens to get real constellation data
   useEffect(() => {
     if (starSkrumpeys.length > 0) {
@@ -1402,7 +1247,6 @@ export default function ProfileCard() {
             messages: '💬',
             collection: '🎨', 
             achievements: '🏆', 
-            quests: '📜',
             raffles: '🎰'
           };
           const labels: Record<string, string> = { 
@@ -1411,7 +1255,6 @@ export default function ProfileCard() {
             messages: 'Messages',
             collection: 'Collection', 
             achievements: 'Achievements', 
-            quests: 'Quests',
             raffles: 'Raffles'
           };
           // Short labels for small screens
@@ -1421,7 +1264,6 @@ export default function ProfileCard() {
             messages: 'Msgs',
             collection: 'NFTs', 
             achievements: 'Achv', 
-            quests: 'Qst',
             raffles: 'Raff'
           };
           
@@ -2477,118 +2319,6 @@ export default function ProfileCard() {
           getVariantTextStyle={getVariantTextStyle}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Quest Item Component
- * Displays a single quest with progress and claim button
- */
-function QuestItem({ 
-  quest, 
-  onClaim, 
-  onComplete,
-  isClaiming 
-}: { 
-  quest: QuestWithProgress; 
-  onClaim: (questId: string) => void;
-  onComplete: (questId: string) => void;
-  isClaiming: boolean;
-}) {
-  const status = quest.userProgress?.status || 'available';
-  const isClaimed = status === 'claimed';
-  const canClaim = quest.canClaim;
-  
-  // Get status color and text
-  const getStatusDisplay = () => {
-    switch (status) {
-      case 'claimed':
-        return { text: 'CLAIMED', color: '#44ff88', icon: '✓' };
-      case 'completed':
-        return { text: 'READY TO CLAIM', color: '#ffd700', icon: '🎁' };
-      case 'in_progress':
-        return { text: 'IN PROGRESS', color: '#00ffff', icon: '⏳' };
-      default:
-        return { text: 'AVAILABLE', color: '#9966ff', icon: '○' };
-    }
-  };
-  
-  const statusDisplay = getStatusDisplay();
-  
-  return (
-    <div 
-      className={`p-3 rounded-lg border-2 transition-all ${
-        isClaimed 
-          ? 'bg-[#44ff88]/10 border-[#44ff88]/30 opacity-60' 
-          : canClaim
-          ? 'bg-[#ffd700]/10 border-[#ffd700] animate-glow-pulse'
-          : 'bg-[#0a0a15] border-[#2a2a4e] hover:border-[#3a3a5e]'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Quest Icon */}
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
-          style={{ 
-            backgroundColor: `${statusDisplay.color}20`,
-            border: `2px solid ${statusDisplay.color}50`,
-          }}
-        >
-          {quest.icon}
-        </div>
-        
-        {/* Quest Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-gray-400' : 'text-white'}`}>
-              {quest.name}
-            </h4>
-            <span 
-              className="text-[9px] px-2 py-0.5 rounded border flex-shrink-0"
-              style={{ 
-                color: statusDisplay.color,
-                borderColor: statusDisplay.color,
-                backgroundColor: `${statusDisplay.color}10`,
-              }}
-            >
-              {statusDisplay.icon} {statusDisplay.text}
-            </span>
-          </div>
-          
-          <p className="text-gray-400 text-[10px] mb-2 leading-relaxed">
-            {quest.description}
-          </p>
-          
-          <div className="flex items-center justify-between">
-            {/* XP Reward */}
-            <span className="text-[#44ff88] text-[10px] font-bold">
-              +{quest.xp_reward} XP
-            </span>
-            
-            {/* Action Button */}
-            {canClaim && !isClaimed && (
-              <button
-                onClick={() => onClaim(quest.id)}
-                disabled={isClaiming}
-                className="pixel-btn pixel-btn-gold text-[9px] !px-3 !py-1 disabled:opacity-50"
-              >
-                {isClaiming ? '...' : 'CLAIM'}
-              </button>
-            )}
-            
-            {/* Mark Complete Button (for manual completion) */}
-            {status === 'available' && !canClaim && (
-              <button
-                onClick={() => onComplete(quest.id)}
-                className="pixel-btn text-[9px] !px-3 !py-1"
-              >
-                MARK DONE
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
