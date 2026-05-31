@@ -13,6 +13,10 @@
    in globals.css or the components breaks. New code should use tokens.
    =================================================================== */
 @theme {
+  /* Custom breakpoint (was defined in the now-removed v3 tailwind.config.ts;
+     under v4 it must live here or `xs:` utilities emit no CSS). */
+  --breakpoint-xs: 475px;
+
   /* Surfaces — deep charcoal/indigo, never pure black */
   --color-bg: #0a0a1a;
   --color-bg-mid: #12122a;

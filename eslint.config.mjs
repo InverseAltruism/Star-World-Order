@@ -4,7 +4,13 @@ import nextTypeScript from 'eslint-config-next/typescript';
 
 export default defineConfig([
   {
-    ignores: ['.next/**', 'node_modules/**', 'out/**', 'contracts/casino/defender/**'],
+    ignores: [
+      '.next/**',
+      'node_modules/**',
+      'out/**',
+      'contracts/casino/defender/**',
+      'contracts/casino/lib/**', // vendored Foundry deps (git-ignored OpenZeppelin tree)
+    ],
   },
   ...nextCoreWebVitals,
   ...nextTypeScript,
