@@ -3,9 +3,9 @@ import React from 'react';
 /**
  * Pure variant-style helpers for Star Skrumpey trait variants.
  *
- * These were hoisted out of ProfileCard (they have no closure over component
- * state) so the parent, the inspect modal, and the collection tab can all share
- * them without prop-drilling.
+ * Canonical home for the trait-color / gradient / text-style logic that was
+ * previously copy-pasted across the profile, members, treasury, and gallery
+ * surfaces. No closure over component state — safe to import anywhere.
  */
 
 // Get color for star variant (solid color for CSS color property)

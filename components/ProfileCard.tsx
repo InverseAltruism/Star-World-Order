@@ -21,7 +21,7 @@ import CollectionTab from './profile/tabs/CollectionTab';
 import RafflesTab from './profile/tabs/RafflesTab';
 import { ACHIEVEMENTS, type Achievement, type AchievementCheckData } from './profile/achievements';
 import type { SkrumpeyDisplayData } from './profile/types';
-import { getVariantTextStyle } from './profile/variantStyles';
+import { getVariantTextStyle } from '@/lib/skrumpeyVariantStyles';
 
 /**
  * Calculate level number based on holdings and STAR points (used internally for

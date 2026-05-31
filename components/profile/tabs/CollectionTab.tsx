@@ -4,7 +4,7 @@ import React from 'react';
 import { STAR_TRAIT_VARIANTS } from '@/lib/starSkrumpey';
 import type { OwnedToken } from '@/lib/starSkrumpey';
 import SkrumpeyImage from '../../SkrumpeyImage';
-import { getVariantTextStyle } from '../variantStyles';
+import { getVariantTextStyle } from '@/lib/skrumpeyVariantStyles';
 import type { SkrumpeyDisplayData } from '../types';
 
 /**
