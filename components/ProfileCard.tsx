@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
-import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
 import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import SocialConnect from './SocialConnect';
+import SkrumpeyImage, { useSkrumpeyImage } from './SkrumpeyImage';
 
 /**
  * Calculate level number based on holdings and STAR points (used internally for
@@ -238,21 +239,8 @@ function SkrumpeyInspectModal({
   getVariantColor: (variant?: string) => string;
   getVariantTextStyle: (variant?: string) => React.CSSProperties;
 }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(skrumpey.id, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Reset load state and try GIF (for galaxy background NFTs)
-      setImageLoaded(false);
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
+  const { imageUrl, imageLoaded, imageError, setImageLoaded, handleImageError } =
+    useSkrumpeyImage(skrumpey.id);
 
   // Close modal on escape key
   useEffect(() => {
@@ -370,130 +358,6 @@ function SkrumpeyInspectModal({
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Profile Avatar Component with fallback
- */
-function ProfileAvatar({ tokenId }: { tokenId: number }) {
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Try GIF on first error (for galaxy background NFTs)
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
-
-  if (imageError) {
-    return (
-      <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
-        🐸
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#ffd700]">
-      <img
-        src={imageUrl}
-        alt={`Skrumpey #${tokenId}`}
-        className="w-full h-full object-cover"
-        onError={handleImageError}
-      />
-    </div>
-  );
-}
-
-/**
- * NFT Image Component with loading and error states
- */
-function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Reset load state and try GIF (for galaxy background NFTs)
-      setImageLoaded(false);
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
-
-  return (
-    <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
-      hasStar 
-        ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
-        : 'bg-[#0a0a15]'
-    }`}>
-      {/* Show placeholder while loading or on error */}
-      {(!imageLoaded || imageError) && (
-        <div className="absolute inset-0 flex items-center justify-center text-4xl">
-          <span className="animate-pixel-float" style={{ animationDelay: `${tokenId % 3 * 0.3}s` }}>
-            🐸
-          </span>
-        </div>
-      )}
-      
-      {/* Actual NFT image */}
-      {!imageError && (
-        <img
-          src={imageUrl}
-          alt={name}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            imageLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={() => setImageLoaded(true)}
-          onError={handleImageError}
-          loading="lazy"
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Avatar Picker Image Component - Simplified image for avatar selection modal
- */
-function AvatarPickerImage({ tokenId }: { tokenId: number }) {
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      setUseGif(true);
-    } else {
-      setImageError(true);
-    }
-  };
-
-  if (imageError) {
-    return (
-      <div className="w-full h-full bg-gradient-to-br from-[#9966ff] to-[#ffd700] flex items-center justify-center text-2xl">
-        🐸
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={imageUrl}
-      alt={`Skrumpey #${tokenId}`}
-      className="w-full h-full object-cover"
-      onError={handleImageError}
-    />
   );
 }
 
@@ -1207,7 +1071,7 @@ export default function ProfileCard() {
           {/* Avatar - Use selected Star Skrumpey as profile picture */}
           <div className="relative group">
             {displayAvatarTokenId ? (
-              <ProfileAvatar tokenId={displayAvatarTokenId} />
+              <SkrumpeyImage variant="avatar" tokenId={displayAvatarTokenId} />
             ) : (
               <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
                 🐸
@@ -1813,8 +1677,9 @@ export default function ProfileCard() {
                   )}
                   
                   {/* NFT Image */}
-                  <NFTImage 
-                    tokenId={nft.id} 
+                  <SkrumpeyImage
+                    variant="card"
+                    tokenId={nft.id}
                     hasStar={nft.hasStar}
                     name={nft.name}
                   />
@@ -2294,7 +2159,7 @@ export default function ProfileCard() {
                       
                       {/* NFT Image */}
                       <div className="w-full aspect-square rounded overflow-hidden mb-2">
-                        <AvatarPickerImage tokenId={star.tokenId} />
+                        <SkrumpeyImage variant="picker" tokenId={star.tokenId} />
                       </div>
                       
                       {/* Token Info */}
