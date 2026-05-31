@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // ─── Hoisted mocks (created before imports resolve) ─────────────────
@@ -139,6 +139,28 @@ function post(path: string, body: Record<string, unknown>, headers?: Record<stri
 // ─── Reset between tests ────────────────────────────────────────────
 
 beforeEach(() => vi.resetAllMocks());
+
+// The companion-chat route branches to the LLM path whenever an OpenRouter key
+// is present in the environment. Vitest loads `.env.local` into `process.env`,
+// and dev sets `SANCTUARY_OPENROUTER_API_KEY` there — so without this guard the
+// route would call the real LLM branch (and 500 on the unmocked prompt deps)
+// instead of the deterministic template path these e2e tests target (they mock
+// `db.chatWithCompanion` and assert its reply). Neutralize the keys for the
+// whole suite and restore the originals afterwards.
+const savedOpenRouterKeys: Record<string, string | undefined> = {
+  SANCTUARY_OPENROUTER_API_KEY: process.env.SANCTUARY_OPENROUTER_API_KEY,
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+};
+beforeAll(() => {
+  delete process.env.SANCTUARY_OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+});
+afterAll(() => {
+  for (const [key, value] of Object.entries(savedOpenRouterKeys)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+});
 
 // =====================================================================
 // GET /api/sanctuary/map
