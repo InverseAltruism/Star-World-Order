@@ -155,6 +155,29 @@ cross-surface helper duplications were consolidated:
 6. **db perf tuning** (prepare-caching / transactions) — see "Deliberately NOT
    done" above; needs the test-DB lifecycle handled first.
 
+## NEXT STEPS (recommended order)
+
+The structural debt is cleared, so the next moves are about *locking in* the
+gains and chipping the minor tail — not firefighting.
+
+1. **Add a CI gate** (highest value, prevents regression). CI is currently
+   casino-only; add a workflow that runs `npx tsc --noEmit` + `npx vitest run` on
+   PRs to `dev`/`main`. Optionally `npx eslint` as non-blocking first (62 errors
+   today, mostly intentional `any`/test files — don't make it blocking until that
+   tail is triaged).
+2. **API `route()` wrapper** (best dedup ROI). 79 `app/api/**/route.ts` repeat the
+   same try/catch + zod-parse + error-JSON shape. A shared `handle()`/`route()`
+   helper (mirror the sanctuary routes' validation pattern) removes the most
+   remaining boilerplate. Behavior-preserving; do it as a dedicated pass with a
+   route-200 sweep + vitest after each batch.
+3. **Helper-dup tail**: hoist `getLevelTitle`/`getLevelColor` to a shared module
+   (members + UserProfileModal share them); migrate the ~17 inline
+   `addr.slice(0,6)…slice(-4)` to `lib/format.truncateAddress`.
+4. **Lint triage**: convert unused `catch(error)` → `catch {`; decide on the
+   `no-explicit-any` in tests (often fine to allow in `**/__tests__/**` via config).
+5. **Sanctuary, once it settles**: peel the `lib/db.ts` sanctuary tail and split
+   CompanionView / SanctuaryContent with the same recipe (hooks + tabs).
+
 ## DO NOT (still applies — from prior handoffs)
 - Don't merge `useDAOAccess` + `useSkrumpeyAccess` (different questions/caching).
 - Don't delete/force-adopt `components/ui/*` (V2 design-system foundation).
