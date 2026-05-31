@@ -14,8 +14,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // suppressHydrationWarning on <html>: the inline boot script below sets
+  // documentElement.dataset.crt from localStorage before React hydrates, so the
+  // <html> attributes legitimately differ between server and client. This only
+  // suppresses the warning one level deep (the <html> element's own attributes).
   return (
-    <html lang="en" className={fontVariables}>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
       <head>
         {/* Apply persisted CRT preference before paint (no flash). See A5 / CrtToggle. */}
         <script
