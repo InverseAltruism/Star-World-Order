@@ -430,21 +430,6 @@ function SkrumpeyInspectModal({
             </div>
           )}
 
-          {/* Stats Placeholder */}
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#2a2a4e]">
-            <div className="text-center">
-              <p className="text-[#9966ff] text-xs sm:text-sm">LVL</p>
-              <p className="text-white text-[10px] sm:text-xs">1</p>
-            </div>
-            <div className="text-center border-x border-[#2a2a4e]">
-              <p className="text-[#44ff88] text-xs sm:text-sm">XP</p>
-              <p className="text-white text-[10px] sm:text-xs">0</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[#ff6ec7] text-xs sm:text-sm">RANK</p>
-              <p className="text-white text-[10px] sm:text-xs">—</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -1400,51 +1385,16 @@ export default function ProfileCard() {
         </div>
         
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-3 sm:pt-4">
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#ffd700] text-base sm:text-lg">{starSkrumpeys.length}</p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">STAR SKRUMPEYS</p>
-          </div>
-          <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-base sm:text-lg">
-              LVL {userXP?.level ?? calculateLevel(starSkrumpeys.length)}
-            </p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
-          </div>
-          <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#44ff88] text-[10px] sm:text-xs font-bold leading-tight">
-              {userXP?.total_xp ?? 0} XP
-            </p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">EXPERIENCE</p>
-          </div>
+        <div className="border-t-2 border-[#2a2a4e] pt-3 sm:pt-4 text-center smooth-transition animate-slide-in-up animate-delay-1">
+          <p className="text-[#ffd700] text-xl sm:text-2xl">{starSkrumpeys.length}</p>
+          <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">STAR SKRUMPEYS</p>
         </div>
-        
-        {/* XP Progress Bar */}
-        {userXP && (
-          <div className="mt-3 pt-3 border-t-2 border-[#2a2a4e]">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-gray-400 text-[9px]">XP PROGRESS</span>
-              <span className="text-[#44ff88] text-[9px]">
-                {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
-              </span>
-            </div>
-            <div className="h-2 bg-[#1a1a2e] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
-                style={{ 
-                  width: `${userXP.percentage}%`,
-                  boxShadow: '0 0 10px #44ff8880',
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Section Tab Navigation */}
       {/* Section Tab Navigation - Mobile optimized */}
       <div className="flex gap-1 sm:gap-2 justify-center flex-wrap animate-slide-in-up px-2 sm:px-0 mt-2 sm:mt-0">
-        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests', 'raffles'] as const).map((section) => {
+        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'raffles'] as const).map((section) => {
           const isActive = activeSection === section;
           const icons: Record<string, string> = { 
             settings: '⚙️', 
@@ -2263,155 +2213,6 @@ export default function ProfileCard() {
           </div>
         </div>
       )}
-        </>
-      )}
-
-      {/* Quests Section */}
-      {activeSection === 'quests' && (
-        <>
-          {/* XP Overview Card */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#44ff88] text-sm tracking-wider mb-4 text-center">
-              ⚡ EXPERIENCE POINTS
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
-                <p className="text-[#44ff88] text-xl font-bold">{userXP?.total_xp || 0}</p>
-                <p className="text-gray-500 text-[10px]">TOTAL XP</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
-                <p className="text-[#ffd700] text-xl font-bold">{userXP?.level || 1}</p>
-                <p className="text-gray-500 text-[10px]">LEVEL</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
-                <p className="text-[#9966ff] text-xl font-bold">
-                  {quests.filter(q => q.userProgress?.status === 'claimed').length}
-                </p>
-                <p className="text-gray-500 text-[10px]">COMPLETED</p>
-              </div>
-            </div>
-            
-            {/* Level Progress */}
-            {userXP && (
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-gray-400 text-[9px]">Level {userXP.level} → {userXP.level + 1}</span>
-                  <span className="text-[#44ff88] text-[9px]">
-                    {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
-                  </span>
-                </div>
-                <div className="h-3 bg-[#1a1a2e] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${userXP.percentage}%`,
-                      boxShadow: '0 0 10px #44ff8880',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Quest Lists by Type */}
-          {isLoadingQuests ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4 animate-spin">⭐</div>
-              <p className="text-[#ffd700] text-xs">Loading quests...</p>
-            </div>
-          ) : (
-            <>
-              {/* Urgent Quests */}
-              {quests.filter(q => q.quest_type === 'urgent').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up border-2 border-[#ff6ec7]">
-                  <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    🚨 URGENT QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'urgent').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* One-Time Quests */}
-              {quests.filter(q => q.quest_type === 'one_time').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    ⭐ ONE-TIME QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'one_time').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Daily Quests */}
-              {quests.filter(q => q.quest_type === 'daily').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#00ffff] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    📅 DAILY QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'daily').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Weekly Quests */}
-              {quests.filter(q => q.quest_type === 'weekly').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#9966ff] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    📆 WEEKLY QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'weekly').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Quests State */}
-              {quests.length === 0 && (
-                <div className="pixel-card p-8 text-center animate-slide-in-up">
-                  <div className="text-4xl mb-4">📜</div>
-                  <p className="text-gray-400 text-sm">No quests available</p>
-                  <p className="text-gray-500 text-xs mt-2">Check back later for new quests!</p>
-                </div>
-              )}
-            </>
-          )}
         </>
       )}
 

@@ -644,11 +644,16 @@ function Chat({
     return () => clearInterval(interval);
   }, [loadMessages]);
   
-  // Scroll to bottom only when user sends a message OR when near bottom already
+  // Scroll the CHAT CONTAINER (not the page) to its bottom — only when the user
+  // just sent a message or is already near the bottom. Using scrollIntoView here
+  // scrolled the whole window down on every 5s poll; scrolling the container's
+  // own scrollTop keeps the page where the user left it.
   useEffect(() => {
-    // Only auto-scroll if user just sent a message or is near the bottom
     if (userSentMessageRef.current || shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
       userSentMessageRef.current = false;
     }
   }, [messages]);

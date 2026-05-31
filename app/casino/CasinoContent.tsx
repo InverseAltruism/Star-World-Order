@@ -322,59 +322,6 @@ function CasinoStatsBar({ stats }: CasinoStatsBarProps) {
   );
 }
 
-// ============================================================================
-// Entrance Animation Component
-// ============================================================================
-
-function CasinoEntrance({ onEnter }: { onEnter: () => void }) {
-  const [isAnimating, setIsAnimating] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAnimating(false);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!isAnimating) {
-      const enterTimer = setTimeout(onEnter, 500);
-      return () => clearTimeout(enterTimer);
-    }
-  }, [isAnimating, onEnter]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-      <div className={`text-center transition-all duration-1000 ${isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-110'}`}>
-        {/* Casino doors opening animation */}
-        <div className="relative">
-          <div className="flex">
-            <div 
-              className={`w-32 h-48 bg-gradient-to-r from-[#1a0033] to-[#2a0044] border-4 border-[#ffd700] transition-transform duration-1000 ${isAnimating ? 'translate-x-0' : '-translate-x-full'}`}
-              style={{ transformOrigin: 'left center' }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <span className="text-[#ffd700] text-4xl">★</span>
-              </div>
-            </div>
-            <div 
-              className={`w-32 h-48 bg-gradient-to-l from-[#1a0033] to-[#2a0044] border-4 border-[#ffd700] transition-transform duration-1000 ${isAnimating ? 'translate-x-0' : 'translate-x-full'}`}
-              style={{ transformOrigin: 'right center' }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <span className="text-[#ffd700] text-4xl">★</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <p className="mt-8 text-[#9966ff] text-sm animate-pulse tracking-wider">
-          ENTERING THE COSMIC CASINO...
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================================
 // Main Casino Content Component
@@ -382,7 +329,6 @@ function CasinoEntrance({ onEnter }: { onEnter: () => void }) {
 
 export default function CasinoContent() {
   const { isConnected } = useAccount();
-  const [showEntrance, setShowEntrance] = useState(true);
   const [stats, setStats] = useState<CasinoStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -414,14 +360,6 @@ export default function CasinoContent() {
     fetchStats();
   }, [fetchStats]);
 
-  const handleEntranceComplete = useCallback(() => {
-    setShowEntrance(false);
-  }, []);
-
-  // Show entrance animation on first visit
-  if (showEntrance) {
-    return <CasinoEntrance onEnter={handleEntranceComplete} />;
-  }
 
   return (
     <div className="min-h-screen py-8 px-4">
