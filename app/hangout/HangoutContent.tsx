@@ -7,6 +7,7 @@ import SkrumpeyAccessGate from '@/components/SkrumpeyAccessGate';
 import { useStarPoints, OnlineUser, formatStarAmount } from '@/lib/hooks/useStarPoints';
 import { truncateAddress } from '@/lib/governance';
 import { checkStarOwnershipBatched } from '@/lib/starSkrumpey';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
 // Chat message interface
 interface ChatMessage {
@@ -67,9 +68,16 @@ async function getAuthenticatedJsonHeaders(address?: string): Promise<Record<str
   if (!address) {
     return null;
   }
-
+  // Include the signed wallet-auth header so the chat/presence/voice routes can
+  // verify the caller actually controls this address (getWalletAuthHeader caches
+  // the signature for ~5 min, so it doesn't re-prompt on every action).
+  const walletAuthHeader = await getWalletAuthHeader(address);
+  if (!walletAuthHeader) {
+    return null;
+  }
   return {
     'Content-Type': 'application/json',
+    'x-wallet-auth': walletAuthHeader,
   };
 }
 

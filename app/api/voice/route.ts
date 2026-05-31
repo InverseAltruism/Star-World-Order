@@ -17,6 +17,7 @@ import {
   getVoiceParticipants,
   updateMuteStatus,
 } from '@/lib/db';
+import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET() {
   try {
@@ -51,11 +52,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { walletAddress, action } = body;
-    
+
     if (!walletAddress) {
       return NextResponse.json(
         { success: false, error: 'Wallet address required' },
         { status: 400 }
+      );
+    }
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error || 'Unauthorized' },
+        { status: 401 }
       );
     }
     
@@ -126,14 +135,22 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { walletAddress, sessionId, isMuted } = body;
-    
+
     if (!walletAddress || !sessionId || isMuted === undefined) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     updateMuteStatus(sessionId, walletAddress, isMuted);
     
     return NextResponse.json({
@@ -153,14 +170,22 @@ export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
     const { walletAddress, sessionId, endSession } = body;
-    
+
     if (!walletAddress || !sessionId) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
-    
+
+    const auth = await verifyWalletAccess(request, walletAddress);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     if (endSession) {
       // End the entire session
       endVoiceSession(sessionId);
