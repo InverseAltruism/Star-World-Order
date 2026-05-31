@@ -5,6 +5,20 @@
  * these interfaces).
  */
 
+import type { StarTraitVariant } from '@/lib/starSkrumpey';
+
+/**
+ * Interface defining the structure for Skrumpey NFT display data.
+ * Used in collection grid components and the inspect modal.
+ */
+export interface SkrumpeyDisplayData {
+  id: number;
+  name: string;
+  hasStar: boolean;
+  rarity: string;
+  starVariant?: StarTraitVariant;
+}
+
 /**
  * Friend data interface
  */

@@ -6,7 +6,6 @@ import { useDemoMode } from '@/lib/contexts/DemoModeContext';
 import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
 import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
-import SocialConnect from './SocialConnect';
 import SkrumpeyImage, { useSkrumpeyImage } from './SkrumpeyImage';
 import { useAuthHeaders } from './profile/hooks/useAuthHeaders';
 import { useProfileEdit } from './profile/hooks/useProfileEdit';
@@ -16,7 +15,13 @@ import { useNotifications } from './profile/hooks/useNotifications';
 import { useRaffleHistory } from './profile/hooks/useRaffleHistory';
 import MessagesTab from './profile/tabs/MessagesTab';
 import AchievementsTab from './profile/tabs/AchievementsTab';
+import SettingsTab from './profile/tabs/SettingsTab';
+import FriendsTab from './profile/tabs/FriendsTab';
+import CollectionTab from './profile/tabs/CollectionTab';
+import RafflesTab from './profile/tabs/RafflesTab';
 import { ACHIEVEMENTS, type Achievement, type AchievementCheckData } from './profile/achievements';
+import type { SkrumpeyDisplayData } from './profile/types';
+import { getVariantTextStyle } from './profile/variantStyles';
 
 /**
  * Calculate level number based on holdings and STAR points (used internally for
@@ -29,30 +34,14 @@ function calculateLevel(starCount: number, starPoints: number = 0): number {
 }
 
 /**
- * Interface defining the structure for Skrumpey NFT display data
- * Used in collection grid components and the inspect modal
- */
-interface SkrumpeyDisplayData {
-  id: number;
-  name: string;
-  hasStar: boolean;
-  rarity: string;
-  starVariant?: StarTraitVariant;
-}
-
-/**
  * Skrumpey Inspect Modal - Shows detailed view of an NFT
  */
 function SkrumpeyInspectModal({
   skrumpey,
   onClose,
-  getVariantColor,
-  getVariantTextStyle,
 }: {
   skrumpey: SkrumpeyDisplayData;
   onClose: () => void;
-  getVariantColor: (variant?: string) => string;
-  getVariantTextStyle: (variant?: string) => React.CSSProperties;
 }) {
   const { imageUrl, imageLoaded, imageError, setImageLoaded, handleImageError } =
     useSkrumpeyImage(skrumpey.id);
@@ -431,80 +420,6 @@ export default function ProfileCard() {
     return null;
   }
 
-  // Get color for star variant (solid color for CSS color property)
-  // Rare traits (monflare, auracore, parallel, prime) have special distinct colors
-  const getVariantColor = (variant?: string): string => {
-    const colors: Record<string, string> = {
-      // Common traits
-      aether: '#87CEEB',      // Light blue
-      spectra: '#40E0D0',     // Turquoise (primary from gradient)
-      solveil: '#FFD93D',     // Bright warm yellow (solar/sun-like)
-      nebulu: '#9966ff',      // Purple
-      chroma: '#DDA0DD',      // Light purple (primary from gradient)
-      rose: '#FFB6C1',        // Pink
-      // Rare traits - more distinctive colors
-      monflare: '#BF5FFF',    // Bright purple/magenta glow
-      auracore: '#FFB347',    // Warm golden-orange (distinct from solveil)
-      parallel: '#00CED1',    // Dark cyan (blue-green primary)
-      prime: '#FFD700',       // Pure gold for legendary
-    };
-    return colors[variant || ''] || '#ffd700';
-  };
-
-  // Get variant gradient for background
-  // Rare traits have special gradients to make them stand out
-  const getVariantGradient = (variant?: string): string => {
-    const gradients: Record<string, string> = {
-      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)',
-      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)',
-      // Rare trait gradients
-      monflare: 'linear-gradient(135deg, #9933FF, #BF5FFF, #E066FF)', // Purple glow gradient
-      auracore: 'linear-gradient(135deg, #FF8C00, #FFB347, #FFD700)', // Golden glow gradient
-      parallel: 'linear-gradient(90deg, #20B2AA, #00CED1, #4169E1)', // Blue-green to blue gradient
-      prime: 'linear-gradient(135deg, #FFD700, #FFF8DC, #FFD700, #DAA520)', // Legendary gold shimmer
-    };
-    return gradients[variant || ''] || getVariantColor(variant);
-  };
-
-  // Check if variant has a gradient (including rare traits)
-  const isGradientVariant = (variant?: string): boolean => {
-    return variant === 'spectra' || variant === 'chroma' || 
-           variant === 'parallel' || variant === 'monflare' || 
-           variant === 'auracore' || variant === 'prime';
-  };
-
-  // Check if variant is a rare trait (for special styling)
-  const isRareVariant = (variant?: string): boolean => {
-    return variant === 'monflare' || variant === 'auracore' || 
-           variant === 'parallel' || variant === 'prime';
-  };
-
-  // Get text style for variant - handles both solid colors and gradients
-  // Rare variants get gradient text with glow effects
-  const getVariantTextStyle = (variant?: string): React.CSSProperties => {
-    if (isGradientVariant(variant)) {
-      const baseStyle: React.CSSProperties = {
-        display: 'inline-block', // Required for gradient text to render properly
-        background: getVariantGradient(variant),
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        color: 'transparent', // Fallback for non-webkit browsers
-      };
-      // Add text shadow glow for rare variants
-      if (isRareVariant(variant)) {
-        const glowColor = getVariantColor(variant);
-        return {
-          ...baseStyle,
-          textShadow: `0 0 10px ${glowColor}80, 0 0 20px ${glowColor}40`,
-          filter: 'brightness(1.1)',
-        };
-      }
-      return baseStyle;
-    }
-    return { color: getVariantColor(variant) };
-  };
-
   return (
     <div className="space-y-6">
       {/* Player Stats Box with Profile Picture */}
@@ -640,220 +555,37 @@ export default function ProfileCard() {
 
       {/* Settings Section */}
       {activeSection === 'settings' && (
-        <>
-          {/* Profile Edit Box */}
-          <div className="pixel-card p-6 animate-slide-in-up">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[#9966ff] text-sm tracking-wider">
-                PROFILE SETTINGS
-              </h3>
-              {!isEditingProfile && (
-                <button
-                  onClick={() => setIsEditingProfile(true)}
-                  disabled={isDemoMode}
-                  className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={isDemoMode ? 'Editing disabled in Demo Mode' : 'Edit profile'}
-                >
-                  {isDemoMode ? '🔒 EDIT' : 'EDIT'}
-                </button>
-              )}
-            </div>
-        
-        {isEditingProfile ? (
-          <div className="space-y-4">
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-2">Display Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter your display name (3-20 characters)"
-                maxLength={20}
-                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-2">Bio</label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell us about yourself (max 200 characters)"
-                maxLength={200}
-                rows={3}
-                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none resize-none"
-              />
-              <p className="text-gray-600 text-xs mt-1">{bio.length}/200 characters</p>
-            </div>
-            
-            {profileError && (
-              <p className="text-[#ff4466] text-[10px] bg-[#ff4466]/10 px-3 py-2 rounded">
-                ⚠️ {profileError}
-              </p>
-            )}
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveProfile}
-                disabled={isSavingProfile}
-                className="pixel-btn pixel-btn-gold text-[10px] !px-4 disabled:opacity-50"
-              >
-                {isSavingProfile ? 'SAVING...' : 'SAVE'}
-              </button>
-              <button
-                onClick={() => {
-                  setIsEditingProfile(false);
-                  setProfileError(null);
-                }}
-                className="pixel-btn text-[10px] !px-4"
-              >
-                CANCEL
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div>
-              <p className="text-gray-500 text-[9px]">Display Name</p>
-              <p className="text-white text-[11px]">{displayName || 'Not set'}</p>
-            </div>
-            {bio && (
-              <div>
-                <p className="text-gray-500 text-[9px]">Bio</p>
-                <p className="text-gray-300 text-[10px] leading-relaxed">{bio}</p>
-              </div>
-            )}
-            {profileSuccess && (
-              <p className="text-[#44ff88] text-[10px] bg-[#44ff88]/10 px-3 py-2 rounded">
-                ✓ Profile saved successfully!
-              </p>
-            )}
-            
-            {/* Social Connections - Inside Profile Settings */}
-            <div className="pt-4 mt-4 border-t border-[#2a2a4e]">
-              <p className="text-gray-500 text-[9px] mb-3">Social Connections</p>
-              <SocialConnect />
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Notification Settings */}
-      <NotificationSettingsCard walletAddress={address || ''} isDemoMode={isDemoMode} />
-        </>
+        <SettingsTab
+          address={address}
+          isDemoMode={isDemoMode}
+          displayName={displayName}
+          setDisplayName={setDisplayName}
+          bio={bio}
+          setBio={setBio}
+          isEditingProfile={isEditingProfile}
+          setIsEditingProfile={setIsEditingProfile}
+          isSavingProfile={isSavingProfile}
+          profileError={profileError}
+          setProfileError={setProfileError}
+          profileSuccess={profileSuccess}
+          handleSaveProfile={handleSaveProfile}
+          notificationSettings={
+            <NotificationSettingsCard walletAddress={address || ''} isDemoMode={isDemoMode} />
+          }
+        />
       )}
 
       {/* Friends Section */}
       {activeSection === 'friends' && (
-        <>
-          {/* Pending Friend Requests */}
-          {pendingRequests.length > 0 && (
-            <div className="pixel-card p-4 animate-slide-in-up border-2 border-[#ff6ec7]">
-              <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
-                👋 PENDING REQUESTS ({pendingRequests.length})
-              </h3>
-              <div className="space-y-2">
-                {pendingRequests.map((request) => (
-                  <div 
-                    key={request.id}
-                    className="flex items-center justify-between p-3 bg-[#0a0a15] rounded-lg border border-[#2a2a4e]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#2a2a4e] flex items-center justify-center text-lg">
-                        🐸
-                      </div>
-                      <div>
-                        <p className="text-white text-xs font-bold">
-                          {request.display_name || `${request.user_address.slice(0, 6)}...${request.user_address.slice(-4)}`}
-                        </p>
-                        <p className="text-gray-500 text-[9px]">Wants to be your friend</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleFriendAction(request.user_address, 'accept')}
-                        className="pixel-btn pixel-btn-gold text-[9px] !px-3 !py-1"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={() => handleFriendAction(request.user_address, 'decline')}
-                        className="pixel-btn text-[9px] !px-3 !py-1"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Friends List */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#00ffff] text-sm tracking-wider mb-4 flex items-center gap-2">
-              👥 SWO FRIENDS ({friends.length})
-            </h3>
-            
-            {isLoadingFriends ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="text-2xl animate-spin">⭐</span>
-              </div>
-            ) : friends.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <span className="text-4xl mb-2 opacity-50">👥</span>
-                <p className="text-gray-500 text-xs text-center">No friends yet</p>
-                <p className="text-gray-600 text-[10px] text-center mt-1">
-                  Visit the Members page to send friend requests
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {friends.map((friend) => {
-                  const friendAddress = friend.user_address === address?.toLowerCase() 
-                    ? friend.friend_address 
-                    : friend.user_address;
-                  const friendName = friend.display_name || `${friendAddress.slice(0, 6)}...${friendAddress.slice(-4)}`;
-                  
-                  return (
-                    <div 
-                      key={friend.id}
-                      className="flex items-center justify-between p-3 bg-[#0a0a15] rounded-lg border border-[#2a2a4e] hover:border-[#00ffff]/50 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#2a2a4e] flex items-center justify-center text-lg">
-                          🐸
-                        </div>
-                        <div>
-                          <p className="text-white text-xs font-bold">{friendName}</p>
-                          <p className="text-gray-500 text-[9px] font-mono">{friendAddress.slice(0, 10)}...</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedChat(friendAddress);
-                            setActiveSection('messages');
-                          }}
-                          className="pixel-btn text-[9px] !px-3 !py-1"
-                          title="Send Message"
-                        >
-                          💬
-                        </button>
-                        <button
-                          onClick={() => handleFriendAction(friendAddress, 'remove')}
-                          className="pixel-btn text-[9px] !px-3 !py-1 opacity-50 hover:opacity-100"
-                          title="Remove Friend"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
+        <FriendsTab
+          address={address}
+          friends={friends}
+          pendingRequests={pendingRequests}
+          isLoadingFriends={isLoadingFriends}
+          handleFriendAction={handleFriendAction}
+          setSelectedChat={setSelectedChat}
+          setActiveSection={setActiveSection}
+        />
       )}
 
       {/* Messages Section */}
@@ -876,105 +608,13 @@ export default function ProfileCard() {
 
       {/* My Collection Section */}
       {activeSection === 'collection' && (
-        <>
-          {/* Star Trait Legend - Collection Section */}
-          {starSkrumpeys.length > 0 && (
-            <div className="pixel-card p-4 animate-slide-in-up">
-              <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
-                STAR CONSTELLATIONS
-              </h3>
-              <div className="flex flex-wrap justify-center gap-2">
-                {STAR_TRAIT_VARIANTS.map((variant, index) => {
-                  // Use displaySkrumpeys which has the correct fetched IPFS metadata
-                  const hasVariant = displaySkrumpeys.some(s => s.hasStar && s.starVariant === variant);
-                  return (
-                    <div 
-                      key={variant}
-                      className={`px-2 py-1 rounded text-xs border smooth-transition hover-lift ${
-                        hasVariant 
-                          ? 'border-[#ffd700] bg-[#ffd700]/20' 
-                          : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
-                      }`}
-                      style={{ 
-                        ...(hasVariant ? getVariantTextStyle(variant) : { color: '#666' }),
-                        animationDelay: `${index * 0.05}s`
-                      }}
-                    >
-                      {variant.toUpperCase()}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Demo Data Notice - Collection Section */}
-          {showDemoData && (
-            <div className="text-center">
-              <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
-                📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
-              </p>
-            </div>
-          )}
-
-          {/* NFT Collection Grid */}
-          <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
-            <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
-              YOUR COLLECTION
-            </h3>
-            <p className="text-gray-500 text-[8px] text-center mb-3 sm:mb-4">
-              Click on a Skrumpey to inspect
-            </p>
-            
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-              {finalDisplaySkrumpeys.map((nft, index) => (
-                <div 
-                  key={nft.id}
-                  onClick={() => setSelectedSkrumpey(nft)}
-                  className={`relative p-3 sm:p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} min-h-[44px] ${
-                    nft.hasStar 
-                      ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
-                      : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
-                  }`}
-                >
-                  {/* Star badge */}
-                  {nft.hasStar && (
-                    <div className="absolute -top-2 -right-2 text-lg sm:text-xl animate-pixel-pulse animate-star-rotate z-10">
-                      ⭐
-                    </div>
-                  )}
-                  
-                  {/* NFT Image */}
-                  <SkrumpeyImage
-                    variant="card"
-                    tokenId={nft.id}
-                    hasStar={nft.hasStar}
-                    name={nft.name}
-                  />
-                  
-                  {/* NFT Info */}
-                  <p className={`text-[9px] sm:text-[10px] font-bold tracking-wide truncate ${
-                    nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
-                  }`}>
-                    {nft.name}
-                  </p>
-                  <p className="text-[10px] sm:text-xs truncate">
-                    <span style={getVariantTextStyle(nft.starVariant)}>
-                      {nft.rarity}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-            
-            {/* Empty state */}
-            {finalDisplaySkrumpeys.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-[10px]">No Skrumpeys found in this wallet</p>
-              </div>
-            )}
-          </div>
-        </>
+        <CollectionTab
+          starSkrumpeys={starSkrumpeys}
+          displaySkrumpeys={displaySkrumpeys}
+          finalDisplaySkrumpeys={finalDisplaySkrumpeys}
+          showDemoData={showDemoData}
+          setSelectedSkrumpey={setSelectedSkrumpey}
+        />
       )}
 
       {/* Achievements Section */}
@@ -997,169 +637,10 @@ export default function ProfileCard() {
 
       {/* Raffle History Section */}
       {activeSection === 'raffles' && (
-        <>
-          {/* Raffle History Stats */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-4 text-center">
-              🎰 RAFFLE HISTORY
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
-                <p className="text-[#9966ff] text-xl font-bold">{raffleHistory.length}</p>
-                <p className="text-gray-500 text-[10px]">ENTERED</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
-                <p className="text-[#ffd700] text-xl font-bold">{raffleHistory.filter(r => r.won).length}</p>
-                <p className="text-gray-500 text-[10px]">WON</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
-                <p className="text-[#44ff88] text-xl font-bold">
-                  {raffleHistory.reduce((acc, r) => acc + r.entries_count, 0)}
-                </p>
-                <p className="text-gray-500 text-[10px]">TOTAL TICKETS</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Raffle List */}
-          {isLoadingRaffles ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4 animate-spin">⭐</div>
-              <p className="text-[#ffd700] text-xs">Loading raffle history...</p>
-            </div>
-          ) : raffleHistory.length === 0 ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4">🎰</div>
-              <p className="text-gray-400 text-sm">No raffle entries yet</p>
-              <p className="text-gray-500 text-xs mt-2">Enter a raffle to see your history here!</p>
-              <a href="/raffle" className="pixel-btn pixel-btn-gold text-xs mt-4 inline-block">
-                VIEW RAFFLES
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-3 animate-slide-in-up">
-              {raffleHistory.map((entry) => {
-                const isWinner = entry.won;
-                const isActive = entry.raffle.status === 'active';
-                const isDrawn = entry.raffle.status === 'drawn';
-                const isEnded = new Date(entry.raffle.end_time) <= new Date();
-                
-                let statusColor = '#2a2a4e';
-                let statusText = 'ENTERED';
-                let statusBg = 'bg-[#2a2a4e]';
-                
-                if (isWinner) {
-                  statusColor = '#ffd700';
-                  statusText = '🏆 WON';
-                  statusBg = 'bg-[#ffd700]/20';
-                } else if (isDrawn) {
-                  statusColor = '#ff4466';
-                  statusText = 'NOT WON';
-                  statusBg = 'bg-[#ff4466]/10';
-                } else if (isActive && !isEnded) {
-                  statusColor = '#44ff88';
-                  statusText = 'ACTIVE';
-                  statusBg = 'bg-[#44ff88]/20';
-                } else if (isEnded && !isDrawn) {
-                  statusColor = '#9966ff';
-                  statusText = 'PENDING DRAW';
-                  statusBg = 'bg-[#9966ff]/20';
-                }
-                
-                return (
-                  <div 
-                    key={entry.id}
-                    className={`pixel-card p-4 ${
-                      isWinner 
-                        ? 'border-2 border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
-                        : ''
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className={`text-sm font-bold ${isWinner ? 'text-[#ffd700]' : 'text-white'}`}>
-                          {entry.raffle.name}
-                        </h4>
-                        <p className="text-gray-400 text-[10px]">{entry.raffle.prize_description}</p>
-                      </div>
-                      <span 
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusBg}`}
-                        style={{ color: statusColor }}
-                      >
-                        {statusText}
-                      </span>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#00ffff] text-sm font-bold">{entry.entries_count}</p>
-                        <p className="text-gray-600 text-[8px]">Tickets</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#9966ff] text-[10px] font-bold uppercase">{entry.tier.replace('_', ' ')}</p>
-                        <p className="text-gray-600 text-[8px]">Tier</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#44ff88] text-sm font-bold">{entry.star_count}</p>
-                        <p className="text-gray-600 text-[8px]">Stars</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-gray-300 text-[9px]">
-                          {new Date(entry.entered_at).toLocaleDateString()}
-                        </p>
-                        <p className="text-gray-600 text-[8px]">Entered</p>
-                      </div>
-                    </div>
-                    
-                    {/* Bonuses */}
-                    {/* Bonuses - only show Like & RT now */}
-                    {entry.engagement_bonus > 0 && (
-                      <div className="flex gap-2 mb-2">
-                        <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
-                          +{entry.engagement_bonus} Like & RT
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Winner Info for Won Raffles */}
-                    {isWinner && entry.raffle.winner_drawn_at && (
-                      <div className="bg-[#ffd700]/10 rounded p-2 mt-2 border border-[#ffd700]/30">
-                        <p className="text-[#ffd700] text-[10px] text-center">
-                          🎉 Congratulations! You won this raffle!
-                        </p>
-                        <p className="text-gray-500 text-[8px] text-center mt-1">
-                          Drawn on {new Date(entry.raffle.winner_drawn_at).toLocaleString()}
-                        </p>
-                        <p className="text-gray-400 text-[8px] text-center mt-2 italic">
-                          Prizes will be sent manually. If we need any info from you, we will reach out.
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Raffle End Info */}
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a4e]">
-                      <p className="text-gray-500 text-[9px]">
-                        {isEnded 
-                          ? `Ended: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
-                          : `Ends: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
-                        }
-                      </p>
-                      {isActive && !isEnded && (
-                        <a 
-                          href="/raffle" 
-                          className="text-[#00ffff] text-[9px] hover:underline"
-                        >
-                          View Raffle →
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+        <RafflesTab
+          raffleHistory={raffleHistory}
+          isLoadingRaffles={isLoadingRaffles}
+        />
       )}
 
       {/* Avatar Picker Modal */}
@@ -1252,8 +733,6 @@ export default function ProfileCard() {
         <SkrumpeyInspectModal
           skrumpey={selectedSkrumpey}
           onClose={closeModal}
-          getVariantColor={getVariantColor}
-          getVariantTextStyle={getVariantTextStyle}
         />
       )}
     </div>
