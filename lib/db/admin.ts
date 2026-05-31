@@ -2,6 +2,7 @@
  * Admin Database Functions — db helpers. Extracted from the lib/db.ts god-file.
  * Handle via ./connection.
  */
+import { logger } from '@/lib/logger';
 import { getDatabase } from './connection';
 import type { NotificationType } from './notifications';
 import type { Raffle } from './raffle';
@@ -77,7 +78,7 @@ export function getAllUsersWithSocialConnections(options?: {
       level: number;
     }>;
   } catch (error) {
-    console.error('Error getting all users:', error);
+    logger.error('Error getting all users', { error: String(error) });
     return [];
   }
 }
@@ -198,7 +199,7 @@ export function updateNotification(
     const getStmt = db.prepare('SELECT * FROM notifications WHERE id = ?');
     return getStmt.get(notificationId) as Notification | null;
   } catch (error) {
-    console.error('Error updating notification:', error);
+    logger.error('Error updating notification', { error: String(error) });
     return null;
   }
 }
@@ -242,7 +243,7 @@ export function getDatabaseStats(): {
     
     return counts;
   } catch (error) {
-    console.error('Error getting database stats:', error);
+    logger.error('Error getting database stats', { error: String(error) });
     return {
       users: 0,
       notifications: 0,
@@ -395,7 +396,7 @@ export function getRaffleWinnerDetails(walletAddress: string): {
       created_at: string;
     } | null;
   } catch (error) {
-    console.error('Error getting raffle winner details:', error);
+    logger.error('Error getting raffle winner details', { error: String(error) });
     return null;
   }
 }

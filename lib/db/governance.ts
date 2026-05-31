@@ -3,6 +3,7 @@
  * Handle via ./connection.
  */
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 import { getDatabase } from './connection';
 import { getResilientClient } from '../rpcClient';
 
@@ -69,7 +70,7 @@ async function getCurrentBlockNumber(): Promise<number> {
     const block = await client.getBlockNumber();
     return Number(block);
   } catch (error) {
-    console.error('Failed to get current block number:', error);
+    logger.error('Failed to get current block number', { error: String(error) });
     // Return 0 as fallback - proposals without snapshot_block will use real-time voting power
     return 0;
   }
@@ -219,7 +220,7 @@ export function getGovernanceProposals(options?: {
     
     return proposals;
   } catch (error) {
-    console.error('Error getting governance proposals:', error);
+    logger.error('Error getting governance proposals', { error: String(error) });
     return [];
   }
 }
@@ -410,7 +411,7 @@ export function castGovernanceVote(data: {
     
     return { success: true, vote };
   } catch (error) {
-    console.error('Error casting governance vote:', error);
+    logger.error('Error casting governance vote', { error: String(error) });
     return { success: false, error: 'Failed to cast vote' };
   }
 }
@@ -504,7 +505,7 @@ export function changeGovernanceVote(data: {
     
     return { success: true, vote };
   } catch (error) {
-    console.error('Error changing governance vote:', error);
+    logger.error('Error changing governance vote', { error: String(error) });
     return { success: false, error: 'Failed to change vote' };
   }
 }
@@ -591,7 +592,7 @@ export function cancelGovernanceProposal(
     
     return { success: true };
   } catch (error) {
-    console.error('Error cancelling governance proposal:', error);
+    logger.error('Error cancelling governance proposal', { error: String(error) });
     return { success: false, error: 'Failed to cancel proposal' };
   }
 }

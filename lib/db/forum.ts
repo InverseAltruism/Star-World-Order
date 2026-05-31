@@ -3,6 +3,7 @@
  * Handle via ./connection.
  */
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 import { getDatabase } from './connection';
 
 
@@ -117,7 +118,7 @@ export function getForumThreads(options?: {
     const stmt = db.prepare(query);
     return stmt.all(...params) as ForumThreadDB[];
   } catch (error) {
-    console.error('Error getting forum threads:', error);
+    logger.error('Error getting forum threads', { error: String(error) });
     return [];
   }
 }
@@ -202,7 +203,7 @@ export function addForumReply(data: {
     
     return { success: true, reply };
   } catch (error) {
-    console.error('Error adding forum reply:', error);
+    logger.error('Error adding forum reply', { error: String(error) });
     return { success: false, error: 'Failed to add reply' };
   }
 }
@@ -239,7 +240,7 @@ export function editForumThread(data: {
     const updatedThread = getForumThreadById(data.threadId);
     return { success: true, thread: updatedThread || undefined };
   } catch (error) {
-    console.error('Error editing forum thread:', error);
+    logger.error('Error editing forum thread', { error: String(error) });
     return { success: false, error: 'Failed to edit thread' };
   }
 }
@@ -278,7 +279,7 @@ export function editForumReply(data: {
     const updatedReply = db.prepare('SELECT * FROM forum_replies WHERE id = ?').get(data.replyId) as ForumReplyDB;
     return { success: true, reply: updatedReply };
   } catch (error) {
-    console.error('Error editing forum reply:', error);
+    logger.error('Error editing forum reply', { error: String(error) });
     return { success: false, error: 'Failed to edit reply' };
   }
 }
@@ -342,7 +343,7 @@ export function toggleForumLike(data: {
       return { success: true, action: 'added' };
     }
   } catch (error) {
-    console.error('Error toggling forum like:', error);
+    logger.error('Error toggling forum like', { error: String(error) });
     return { success: false, action: 'added', error: 'Failed to toggle like' };
   }
 }

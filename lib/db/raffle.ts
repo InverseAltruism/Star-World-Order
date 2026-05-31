@@ -3,6 +3,7 @@
  * Handle via ./connection.
  */
 import crypto from 'crypto';
+import { logger } from '@/lib/logger';
 import { getDatabase } from './connection';
 
 
@@ -167,7 +168,7 @@ export function createRaffle(data: {
     // Check if we need to migrate by attempting to query for the constraint
     const tableInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='raffle_entries'`).get() as { sql: string } | undefined;
     if (tableInfo && !tableInfo.sql.includes('skrumpey_holder')) {
-      console.log('Migrating raffle_entries table to support skrumpey_holder tier...');
+      logger.info('Migrating raffle_entries table to support skrumpey_holder tier');
       
       // Create new table with updated constraint
       db.exec(`
@@ -197,10 +198,10 @@ export function createRaffle(data: {
       db.exec(`DROP TABLE raffle_entries`);
       db.exec(`ALTER TABLE raffle_entries_new RENAME TO raffle_entries`);
       
-      console.log('Migration complete: raffle_entries table now supports skrumpey_holder tier');
+      logger.info('Migration complete: raffle_entries table now supports skrumpey_holder tier');
     }
   } catch (migrationError) {
-    console.error('Migration error (raffle_entries tier constraint):', migrationError);
+    logger.error('Migration error (raffle_entries tier constraint)', { error: String(migrationError) });
   }
   
   // Create raffle result view tracking (for one-time animation display)
@@ -463,7 +464,7 @@ export function enterRaffle(data: {
     
     return getRaffleEntry(data.raffleId, normalizedAddress);
   } catch (error) {
-    console.error('Error entering raffle:', error);
+    logger.error('Error entering raffle', { error: String(error) });
     return null;
   }
 }
@@ -679,7 +680,7 @@ export function markRaffleResultViewed(raffleId: string, walletAddress: string):
       VALUES (?, ?)
     `).run(raffleId, walletAddress.toLowerCase());
   } catch (error) {
-    console.error('Error marking raffle result as viewed:', error);
+    logger.error('Error marking raffle result as viewed', { error: String(error) });
   }
 }
 
