@@ -62,12 +62,6 @@ export default function AdminContent() {
   const [userNotifications, setUserNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   
-  // Notification history state
-  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
-  const [notificationHistoryTotal, setNotificationHistoryTotal] = useState(0);
-  const [isLoadingNotificationHistory, setIsLoadingNotificationHistory] = useState(false);
-  const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
-  
   // User database state
   const [users, setUsers] = useState<UserData[]>([]);
   const [userCount, setUserCount] = useState(0);
@@ -93,8 +87,7 @@ export default function AdminContent() {
   const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
   const [raffleIsPublic, setRaffleIsPublic] = useState(false);
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
-  const [showDrawnRaffles, setShowDrawnRaffles] = useState(false);
-  
+
   // Winner details modal state
   const [selectedWinner, setSelectedWinner] = useState<WinnerDetails | null>(null);
   const [isLoadingWinnerDetails, setIsLoadingWinnerDetails] = useState(false);
@@ -356,79 +349,8 @@ export default function AdminContent() {
         success: data.success,
         message: data.success ? 'Old notifications cleaned up!' : data.error,
       });
-      // Refresh notification history after cleanup
-      if (data.success) {
-        await fetchNotificationHistory();
-      }
     } catch (error) {
       setActionResult({ success: false, message: 'Failed to cleanup notifications' });
-    }
-  };
-
-  /**
-   * Fetch notification history (all notifications)
-   */
-  const fetchNotificationHistory = useCallback(async () => {
-    if (!isAuthenticated) return;
-    
-    setIsLoadingNotificationHistory(true);
-    try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return;
-
-      const response = await fetch('/api/admin?action=allNotifications&limit=100', {
-        headers: { 'x-admin-auth': authHeader },
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setAllNotifications(data.notifications || []);
-        setNotificationHistoryTotal(data.totalCount || 0);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notification history:', error);
-    } finally {
-      setIsLoadingNotificationHistory(false);
-    }
-  }, [isAuthenticated, getAuthHeader]);
-
-  /**
-   * Update an existing notification
-   */
-  const updateNotificationAction = async () => {
-    if (!editingNotification) return;
-    
-    try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return;
-
-      const response = await fetch('/api/admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-auth': authHeader,
-        },
-        body: JSON.stringify({
-          action: 'updateNotification',
-          notificationId: editingNotification.id,
-          title: editingNotification.title,
-          message: editingNotification.message,
-          type: editingNotification.type,
-          icon: editingNotification.icon,
-          link: editingNotification.link,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setActionResult({ success: true, message: 'Notification updated!' });
-        setEditingNotification(null);
-        await fetchNotificationHistory();
-      } else {
-        setActionResult({ success: false, message: data.error || 'Failed to update notification' });
-      }
-    } catch (error) {
-      setActionResult({ success: false, message: 'Failed to update notification' });
     }
   };
 
@@ -825,15 +747,13 @@ export default function AdminContent() {
   // Fetch data based on active tab
   useEffect(() => {
     if (isAuthenticated) {
-      if (activeTab === 'notifications') {
-        fetchNotificationHistory();
-      } else if (activeTab === 'users') {
+      if (activeTab === 'users') {
         fetchUsers();
       } else if (activeTab === 'database') {
         fetchDbStats();
       }
     }
-  }, [isAuthenticated, activeTab, fetchNotificationHistory, fetchUsers, fetchDbStats]);
+  }, [isAuthenticated, activeTab, fetchUsers, fetchDbStats]);
 
   // Clear action result after 5 seconds
   useEffect(() => {
