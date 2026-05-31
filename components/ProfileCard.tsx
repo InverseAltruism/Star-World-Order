@@ -8,6 +8,11 @@ import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 import SocialConnect from './SocialConnect';
 import SkrumpeyImage, { useSkrumpeyImage } from './SkrumpeyImage';
+import { useAuthHeaders } from './profile/hooks/useAuthHeaders';
+import { useFriends } from './profile/hooks/useFriends';
+import { useMessages } from './profile/hooks/useMessages';
+import { useNotifications } from './profile/hooks/useNotifications';
+import { useRaffleHistory } from './profile/hooks/useRaffleHistory';
 
 /**
  * Calculate level number based on holdings and STAR points (used internally for
@@ -29,91 +34,6 @@ interface SkrumpeyDisplayData {
   hasStar: boolean;
   rarity: string;
   starVariant?: StarTraitVariant;
-}
-
-/**
- * Friend data interface
- */
-interface FriendWithProfileData {
-  id: number;
-  user_address: string;
-  friend_address: string;
-  status: 'pending' | 'accepted' | 'blocked';
-  created_at: string;
-  updated_at: string;
-  display_name?: string;
-  bio?: string;
-}
-
-/**
- * Conversation data interface
- */
-interface ConversationData {
-  other_address: string;
-  other_display_name?: string;
-  last_message: string;
-  last_message_at: string;
-  unread_count: number;
-  is_sender: boolean;
-}
-
-/**
- * Direct message data interface
- */
-interface DirectMessageData {
-  id: number;
-  sender_address: string;
-  recipient_address: string;
-  message: string;
-  is_read: number;
-  created_at: string;
-  sender_display_name?: string;
-  recipient_display_name?: string;
-}
-
-/**
- * Notification data interface
- */
-interface NotificationData {
-  id: number;
-  wallet_address: string;
-  type: 'quest' | 'achievement' | 'system' | 'social' | 'governance';
-  title: string;
-  message: string;
-  link: string | null;
-  icon: string;
-  is_read: number;
-  created_at: string;
-}
-
-/**
- * Raffle history data interface
- */
-interface RaffleHistoryEntry {
-  id: number;
-  raffle_id: string;
-  wallet_address: string;
-  tier: string;
-  entries_count: number;
-  discord_bonus: number;
-  engagement_bonus: number;
-  star_count: number;
-  entered_at: string;
-  won: boolean;
-  hasViewed?: boolean; // Whether user has viewed this raffle result
-  raffle: {
-    id: string;
-    name: string;
-    description: string;
-    status: 'active' | 'ended' | 'drawn' | 'cancelled';
-    prize_description: string;
-    prize_image_url: string | null;
-    start_time: string;
-    end_time: string;
-    winner_address: string | null;
-    winner_drawn_at: string | null;
-    winner_draw_seed: string | null;
-  };
 }
 
 /**
@@ -388,192 +308,52 @@ export default function ProfileCard() {
   
   // Tab navigation state - includes all sections
   const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'raffles'>('settings');
-  
-  // Friends system state
-  const [friends, setFriends] = useState<FriendWithProfileData[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<FriendWithProfileData[]>([]);
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
-  
-  // Messaging system state
-  const [conversations, setConversations] = useState<ConversationData[]>([]);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<DirectMessageData[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [newMessage, setNewMessage] = useState('');
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  
-  // All notifications state
-  const [allNotifications, setAllNotifications] = useState<NotificationData[]>([]);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-  
-  
-  // Raffle history state
-  const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
-  const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
-  const [unviewedWonCount, setUnviewedWonCount] = useState(0); // Count of unviewed won raffles from API
-  
+
   // Close modal handler
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
   }, []);
 
-  const getAuthenticatedJsonHeaders = useCallback(async () => {
-    if (!address) {
-      return null;
-    }
-    const walletAuthHeader = await getWalletAuthHeader(address);
-    if (!walletAuthHeader) {
-      return null;
-    }
-    return {
-      'Content-Type': 'application/json',
-      'x-wallet-auth': walletAuthHeader,
-    };
-  }, [address]);
-  
-  // Fetch friends data
-  const fetchFriends = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingFriends(true);
-    try {
-      const [friendsRes, pendingRes] = await Promise.all([
-        fetch(`/api/friends?address=${address}&type=all`),
-        fetch(`/api/friends?address=${address}&type=pending`),
-      ]);
-      
-      const friendsData = await friendsRes.json();
-      const pendingData = await pendingRes.json();
-      
-      if (friendsData.success) {
-        setFriends(friendsData.friends || []);
-      }
-      if (pendingData.success) {
-        setPendingRequests(pendingData.pending || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch friends:', error);
-    } finally {
-      setIsLoadingFriends(false);
-    }
-  }, [address]);
-  
-  // Fetch conversations
-  const fetchConversations = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingMessages(true);
-    try {
-      const response = await fetch(`/api/messages?address=${address}&type=conversations`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setConversations(data.conversations || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  }, [address]);
-  
-  // Fetch chat messages for selected conversation
-  const fetchChatMessages = useCallback(async (otherAddress: string, signal?: AbortSignal) => {
-    if (!address) return;
+  const getAuthenticatedJsonHeaders = useAuthHeaders(address);
 
-    setIsLoadingMessages(true);
-    try {
-      const response = await fetch(`/api/messages?address=${address}&type=conversation&otherAddress=${otherAddress}`, { signal });
-      const data = await response.json();
+  // Friends system (state + fetch + actions)
+  const {
+    friends,
+    pendingRequests,
+    isLoadingFriends,
+    fetchFriends,
+    handleFriendAction,
+  } = useFriends(address);
 
-      if (data.success) {
-        setChatMessages(data.messages || []);
-      }
-    } catch (error) {
-      if ((error as Error)?.name !== 'AbortError') {
-        console.error('Failed to fetch chat messages:', error);
-      }
-    } finally {
-      if (!signal?.aborted) setIsLoadingMessages(false);
-    }
-  }, [address]);
-  
-  // Fetch all notifications
-  const fetchAllNotifications = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingNotifications(true);
-    try {
-      const response = await fetch(`/api/notifications?address=${address}&limit=50`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setAllNotifications(data.notifications || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  }, [address]);
-  
-  // Fetch raffle history
-  // markAsViewed: when true, also marks won raffles as viewed after fetching
-  const fetchRaffleHistory = useCallback(async (markAsViewed = false) => {
-    if (!address) return;
-    
-    setIsLoadingRaffles(true);
-    try {
-      const response = await fetch(`/api/raffle?type=history&address=${address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const entries = data.entries || [];
-        setRaffleHistory(entries);
-        setUnviewedWonCount(data.unviewedWonCount || 0);
-        
-        // Mark won raffles as viewed if requested (when user clicks on raffles tab)
-        if (markAsViewed) {
-          const unviewedWonRaffles = entries.filter((r: RaffleHistoryEntry) => r.won && !r.hasViewed);
-          if (unviewedWonRaffles.length > 0) {
-            const headers = await getAuthenticatedJsonHeaders();
-            if (!headers) {
-              return;
-            }
-            // Mark asynchronously without blocking
-            Promise.allSettled(
-              unviewedWonRaffles.map((entry: RaffleHistoryEntry) =>
-                fetch('/api/raffle', {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify({
-                    action: 'markViewed',
-                    walletAddress: address,
-                    raffleId: entry.raffle_id,
-                  }),
-                })
-              )
-            ).then(() => {
-              // Reset the count locally after marking
-              setUnviewedWonCount(0);
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch raffle history:', error);
-    } finally {
-      setIsLoadingRaffles(false);
-    }
-  }, [address, getAuthenticatedJsonHeaders]);
-  
-  // Fetch raffle history on mount to show badge in tab navigation
-  useEffect(() => {
-    if (address) {
-      fetchRaffleHistory(false); // Don't mark as viewed on initial mount
-    }
-  }, [address, fetchRaffleHistory]);
-  
+  // Messaging system (state + fetch + send + selected-chat effect)
+  const {
+    conversations,
+    selectedChat,
+    setSelectedChat,
+    chatMessages,
+    isLoadingMessages,
+    newMessage,
+    setNewMessage,
+    isSendingMessage,
+    fetchConversations,
+    handleSendMessage,
+  } = useMessages(address);
+
+  // All notifications (state + fetch)
+  const {
+    allNotifications,
+    isLoadingNotifications,
+    fetchAllNotifications,
+  } = useNotifications(address);
+
+  // Raffle history (state + fetch + tab-badge mount effect)
+  const {
+    raffleHistory,
+    isLoadingRaffles,
+    unviewedWonCount,
+    fetchRaffleHistory,
+  } = useRaffleHistory(address, getAuthenticatedJsonHeaders);
+
   // Load data when section changes
   useEffect(() => {
     if (!address) return;
@@ -592,16 +372,7 @@ export default function ProfileCard() {
         break;
     }
   }, [activeSection, address, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
-  
-  // Load chat when selected (abort the in-flight request when switching chats)
-  useEffect(() => {
-    if (selectedChat && address) {
-      const controller = new AbortController();
-      fetchChatMessages(selectedChat, controller.signal);
-      return () => controller.abort();
-    }
-  }, [selectedChat, address, fetchChatMessages]);
-  
+
   // Check URL params for tab and chat selection
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -617,68 +388,9 @@ export default function ProfileCard() {
         setActiveSection('messages');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  // Handle sending a message
-  const handleSendMessage = async () => {
-    if (!address || !selectedChat || !newMessage.trim() || isSendingMessage) return;
-    
-    setIsSendingMessage(true);
-    try {
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderAddress: address,
-          recipientAddress: selectedChat,
-          message: newMessage.trim(),
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setNewMessage('');
-        // Refresh messages
-        await fetchChatMessages(selectedChat);
-        await fetchConversations();
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsSendingMessage(false);
-    }
-  };
-  
-  // Handle friend request action
-  const handleFriendAction = async (targetAddress: string, action: string) => {
-    if (!address) return;
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
 
-      const response = await fetch('/api/friends', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          targetAddress,
-          action,
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Refresh friends list
-        await fetchFriends();
-      }
-    } catch (error) {
-      console.error('Failed to process friend action:', error);
-    }
-  };
-  
   // Fetch metadata for owned tokens to get real constellation data
   useEffect(() => {
     if (starSkrumpeys.length === 0) return;
