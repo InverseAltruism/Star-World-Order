@@ -437,22 +437,26 @@ function MemberDetailModal({
   useEffect(() => {
     if (!currentUserAddress || isCurrentUser) return;
     
+    let cancelled = false;
     const fetchStatus = async () => {
       setIsLoadingFriendStatus(true);
       try {
         const res = await fetch(`/api/friends?address=${currentUserAddress}&type=status&otherAddress=${member.address}`);
         const data = await res.json();
-        if (data.success) {
+        if (!cancelled && data.success) {
           setFriendStatus(data.status);
         }
       } catch (error) {
         console.error('Failed to fetch friend status:', error);
       } finally {
-        setIsLoadingFriendStatus(false);
+        if (!cancelled) setIsLoadingFriendStatus(false);
       }
     };
-    
+
     fetchStatus();
+    return () => {
+      cancelled = true;
+    };
   }, [currentUserAddress, member.address, isCurrentUser]);
   
   // Send friend request handler

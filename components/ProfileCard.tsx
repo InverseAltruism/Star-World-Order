@@ -614,21 +614,23 @@ export default function ProfileCard() {
   }, [address]);
   
   // Fetch chat messages for selected conversation
-  const fetchChatMessages = useCallback(async (otherAddress: string) => {
+  const fetchChatMessages = useCallback(async (otherAddress: string, signal?: AbortSignal) => {
     if (!address) return;
-    
+
     setIsLoadingMessages(true);
     try {
-      const response = await fetch(`/api/messages?address=${address}&type=conversation&otherAddress=${otherAddress}`);
+      const response = await fetch(`/api/messages?address=${address}&type=conversation&otherAddress=${otherAddress}`, { signal });
       const data = await response.json();
-      
+
       if (data.success) {
         setChatMessages(data.messages || []);
       }
     } catch (error) {
-      console.error('Failed to fetch chat messages:', error);
+      if ((error as Error)?.name !== 'AbortError') {
+        console.error('Failed to fetch chat messages:', error);
+      }
     } finally {
-      setIsLoadingMessages(false);
+      if (!signal?.aborted) setIsLoadingMessages(false);
     }
   }, [address]);
   
@@ -727,10 +729,12 @@ export default function ProfileCard() {
     }
   }, [activeSection, address, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
   
-  // Load chat when selected
+  // Load chat when selected (abort the in-flight request when switching chats)
   useEffect(() => {
     if (selectedChat && address) {
-      fetchChatMessages(selectedChat);
+      const controller = new AbortController();
+      fetchChatMessages(selectedChat, controller.signal);
+      return () => controller.abort();
     }
   }, [selectedChat, address, fetchChatMessages]);
   
@@ -813,65 +817,73 @@ export default function ProfileCard() {
   
   // Fetch metadata for owned tokens to get real constellation data
   useEffect(() => {
-    if (starSkrumpeys.length > 0) {
-      const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
-      fetch(`/api/metadata?tokenIds=${tokenIds}`)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.success && data.metadata && typeof data.metadata === 'object') {
-            const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
-            for (const [id, meta] of Object.entries(data.metadata)) {
-              // Validate the metadata structure before using
-              if (meta && typeof meta === 'object' && 'constellation' in meta) {
-                const constellation = (meta as Record<string, unknown>).constellation;
-                if (typeof constellation === 'string' || constellation === undefined) {
-                  metaMap[parseInt(id, 10)] = { constellation: constellation as StarTraitVariant | undefined };
-                }
+    if (starSkrumpeys.length === 0) return;
+    let cancelled = false;
+    const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
+    fetch(`/api/metadata?tokenIds=${tokenIds}`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        if (data.success && data.metadata && typeof data.metadata === 'object') {
+          const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
+          for (const [id, meta] of Object.entries(data.metadata)) {
+            // Validate the metadata structure before using
+            if (meta && typeof meta === 'object' && 'constellation' in meta) {
+              const constellation = (meta as Record<string, unknown>).constellation;
+              if (typeof constellation === 'string' || constellation === undefined) {
+                metaMap[parseInt(id, 10)] = { constellation: constellation as StarTraitVariant | undefined };
               }
             }
-            setTokenMetadata(metaMap);
           }
-        })
-        .catch(console.error);
-    }
+          setTokenMetadata(metaMap);
+        }
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
   }, [starSkrumpeys]);
 
   // Load profile on mount
   useEffect(() => {
-    if (address) {
-      fetch(`/api/profile?address=${address}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.profile) {
-            setDisplayName(data.profile.display_name || '');
-            setBio(data.profile.bio || '');
-            // Load avatar token ID from avatar_url field (stored as string number)
-            if (data.profile.avatar_url) {
-              const tokenId = parseInt(data.profile.avatar_url, 10);
-              if (!isNaN(tokenId)) {
-                setAvatarTokenId(tokenId);
-              }
-            }
-            // Load displayed badges from database
-            if (data.profile.displayed_badges) {
-              try {
-                const badges = JSON.parse(data.profile.displayed_badges);
-                if (Array.isArray(badges)) {
-                  setSelectedBadges(badges);
-                }
-              } catch (e) {
-                console.error('Failed to parse displayed badges:', e);
-              }
+    if (!address) return;
+    let cancelled = false;
+    fetch(`/api/profile?address=${address}`)
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        if (data.success && data.profile) {
+          setDisplayName(data.profile.display_name || '');
+          setBio(data.profile.bio || '');
+          // Load avatar token ID from avatar_url field (stored as string number)
+          if (data.profile.avatar_url) {
+            const tokenId = parseInt(data.profile.avatar_url, 10);
+            if (!isNaN(tokenId)) {
+              setAvatarTokenId(tokenId);
             }
           }
-        })
-        .catch(console.error);
-    }
+          // Load displayed badges from database
+          if (data.profile.displayed_badges) {
+            try {
+              const badges = JSON.parse(data.profile.displayed_badges);
+              if (Array.isArray(badges)) {
+                setSelectedBadges(badges);
+              }
+            } catch (e) {
+              console.error('Failed to parse displayed badges:', e);
+            }
+          }
+        }
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
 
   const handleSaveProfile = async () => {

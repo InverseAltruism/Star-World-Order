@@ -582,19 +582,23 @@ function Chat({
       return;
     }
     
+    let cancelled = false;
     const fetchDisplayName = async () => {
       try {
         const response = await fetch(`/api/profile?address=${address}`);
         const data = await response.json();
-        if (data.success && data.profile?.display_name) {
+        if (!cancelled && data.success && data.profile?.display_name) {
           setDisplayName(data.profile.display_name);
         }
       } catch (error) {
         console.error('Failed to fetch profile:', error);
       }
     };
-    
+
     fetchDisplayName();
+    return () => {
+      cancelled = true;
+    };
   }, [address]);
   
   // Scroll threshold for auto-scroll behavior (in pixels)

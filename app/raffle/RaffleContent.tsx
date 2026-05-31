@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import Image from 'next/image';
@@ -673,69 +673,73 @@ export default function RaffleContent() {
   };
 
   // Fetch ALL active and past raffles
+  const fetchIdRef = useRef(0);
   const fetchRaffles = useCallback(async () => {
+    // Request-id guard: if a newer fetchRaffles starts (e.g. wallet switch), the
+    // older one's results are discarded instead of clobbering fresh state.
+    const myId = ++fetchIdRef.current;
+    const isStale = () => fetchIdRef.current !== myId;
     try {
       setIsLoading(true);
-      
+
       // Fetch both active and past raffles
       const [activeRes, pastRes] = await Promise.all([
         fetch(`/api/raffle?type=active${address ? `&address=${address}` : ''}`),
         fetch(`/api/raffle?type=past${address ? `&address=${address}` : ''}`),
       ]);
-      
+
       const activeData = await activeRes.json();
       const pastData = await pastRes.json();
-      
+      if (isStale()) return;
+
       // Track if we've shown an animation to avoid showing multiple
       let animationShown = false;
-      
+
       // Always set past raffles for the History tab
       if (pastData.success) {
         setPastRaffles(pastData.raffles || []);
         setHolderTiers(pastData.holderTiers);
-        
-        // Check past (drawn) raffles for win/lose animation - this is where most
-        // drawn raffles will be since they move from "active" to "past" after auto-draw
+
+        // Check past (drawn) raffles for win/lose animation. Fetch the details for
+        // all drawn-with-entry raffles in PARALLEL, then walk them in order and
+        // show the first eligible animation.
         if (address && pastData.raffles) {
-          for (const raffle of pastData.raffles) {
-            // Only check drawn raffles where user has an entry
-            if (raffle.status === 'drawn' && raffle.userEntry) {
-              // Fetch full details to get hasViewedResult
-              const detailRes = await fetch(`/api/raffle?id=${raffle.id}&address=${address}`);
-              const detailData = await detailRes.json();
-              
-              if (detailData.success && !animationShown) {
-                animationShown = await checkAndShowResultAnimation(
-                  {
-                    raffle: detailData.raffle,
-                    userEntry: detailData.userEntry,
-                    hasViewedResult: detailData.hasViewedResult,
-                  },
-                  address
-                );
-              }
-              
-              // Only show one animation per page load
+          const drawn = (pastData.raffles as Raffle[]).filter(
+            (r) => r.status === 'drawn' && r.userEntry
+          );
+          const details = await Promise.all(
+            drawn.map((r) => fetch(`/api/raffle?id=${r.id}&address=${address}`).then((res) => res.json()))
+          );
+          if (isStale()) return;
+          for (const detailData of details) {
+            if (detailData.success && !animationShown) {
+              animationShown = await checkAndShowResultAnimation(
+                {
+                  raffle: detailData.raffle,
+                  userEntry: detailData.userEntry,
+                  hasViewedResult: detailData.hasViewedResult,
+                },
+                address
+              );
               if (animationShown) break;
             }
           }
         }
       }
-      
+
       if (activeData.success && activeData.raffles.length > 0) {
-        // Fetch detailed data for ALL active raffles
+        // Fetch detailed data for ALL active raffles in parallel
         const raffleDetailsPromises = activeData.raffles.map(async (raffle: Raffle) => {
           const detailRes = await fetch(`/api/raffle?id=${raffle.id}${address ? `&address=${address}` : ''}`);
           const detailData = await detailRes.json();
-          
+
           if (detailData.success) {
             // Store social connections for later use
             if (detailData.socialConnections) {
               setUserSocialConnections(detailData.socialConnections);
             }
-            
-            // Check for winner animation (only show once per drawn raffle)
-            // Note: This handles edge case where raffle was drawn but still in "active" list briefly
+
+            // Check for winner animation (edge case: drawn but still briefly "active")
             if (!animationShown && address) {
               animationShown = await checkAndShowResultAnimation(
                 {
@@ -746,7 +750,7 @@ export default function RaffleContent() {
                 address
               );
             }
-            
+
             return {
               raffle: detailData.raffle,
               entries: detailData.entries || [],
@@ -754,34 +758,33 @@ export default function RaffleContent() {
               userEntry: detailData.userEntry,
               socialConnections: detailData.socialConnections,
               userTier: detailData.userTier,
-            } as ActiveRaffleData;
+              holderTiers: detailData.holderTiers,
+            } as ActiveRaffleData & { holderTiers?: typeof holderTiers };
           }
           return null;
         });
-        
-        const raffleDetails = (await Promise.all(raffleDetailsPromises)).filter((r): r is ActiveRaffleData => r !== null);
+
+        const raffleDetails = (await Promise.all(raffleDetailsPromises)).filter(
+          (r): r is ActiveRaffleData & { holderTiers?: typeof holderTiers } => r !== null
+        );
+        if (isStale()) return;
         setActiveRaffles(raffleDetails);
-        
-        // Set user tier from any raffle response
-        if (activeData.raffles.length > 0) {
-          const firstDetailRes = await fetch(`/api/raffle?id=${activeData.raffles[0].id}${address ? `&address=${address}` : ''}`);
-          const firstDetailData = await firstDetailRes.json();
-          if (firstDetailData.success) {
-            setUserTier(firstDetailData.userTier);
-            setHolderTiers(firstDetailData.holderTiers);
-            if (firstDetailData.socialConnections) {
-              setUserSocialConnections(firstDetailData.socialConnections);
-            }
-          }
+
+        // Reuse the first raffle's ALREADY-FETCHED detail for the user's tier
+        // (was a redundant extra round-trip).
+        if (raffleDetails.length > 0) {
+          const first = raffleDetails[0];
+          setUserTier(first.userTier);
+          if (first.holderTiers) setHolderTiers(first.holderTiers);
         }
-      } else {
+      } else if (!isStale()) {
         setActiveRaffles([]);
       }
     } catch (err) {
       console.error('Error fetching raffles:', err);
-      setError('Failed to load raffles');
+      if (!isStale()) setError('Failed to load raffles');
     } finally {
-      setIsLoading(false);
+      if (!isStale()) setIsLoading(false);
     }
   }, [address]);
   
