@@ -1,10 +1,23 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useSignMessage, useSignTypedData, useAccount } from 'wagmi';
 import AccessGate from '@/components/AccessGate';
-import MembersContent from '@/app/members/MembersContent';
-import TreasuryContent from '@/app/treasury/TreasuryContent';
+
+// Code-split the two heavy cross-page tab bodies so they're not bundled into the
+// DAO page's initial JS — they load on demand when their tab is opened.
+const TabLoading = () => (
+  <div className="py-20 text-center text-[#9966ff] text-sm tracking-wider animate-pulse">LOADING…</div>
+);
+const MembersContent = dynamic(() => import('@/app/members/MembersContent'), {
+  ssr: false,
+  loading: TabLoading,
+});
+const TreasuryContent = dynamic(() => import('@/app/treasury/TreasuryContent'), {
+  ssr: false,
+  loading: TabLoading,
+});
 import ClickableUsername from '@/components/ClickableUsername';
 import {
   useGovernance,
