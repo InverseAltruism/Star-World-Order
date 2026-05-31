@@ -11,6 +11,7 @@ export {
   isRareVariant,
   getVariantTextStyle,
 } from '@/lib/skrumpeyVariantStyles';
+export { truncateAddress } from '@/lib/format';
 
 /**
  * Member data interface from API
@@ -26,11 +27,4 @@ export interface MemberData {
   lastSeen?: string;
   displayedBadges?: string[];
   avatarTokenId?: number; // User's selected avatar token ID from profile
-}
-
-/**
- * Truncate address for display
- */
-export function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }

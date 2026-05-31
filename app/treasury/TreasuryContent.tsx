@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import { getVariantColor } from '@/lib/skrumpeyVariantStyles';
+import { truncateAddress } from '@/lib/format';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af';
@@ -43,13 +44,6 @@ interface TreasuryData {
   estimatedNFTValueMON: string;
   recentActivities: TreasuryActivity[];
   lastUpdated: string;
-}
-
-/**
- * Truncate address for display
- */
-function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 /**

@@ -675,13 +675,8 @@ export function createMockListing(
   };
 }
 
-/**
- * Truncate address for display
- */
-export function truncateAddress(address: string): string {
-  if (!address) return '';
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
+// truncateAddress re-exported from the canonical formatter.
+export { truncateAddress } from './format';
 
 /**
  * Transaction history event type

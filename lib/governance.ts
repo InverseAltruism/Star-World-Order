@@ -969,13 +969,9 @@ export function formatRelativeTime(timestamp: number): string {
   return 'Just now';
 }
 
-/**
- * Truncate address for display
- */
-export function truncateAddress(address: string): string {
-  if (!address) return '';
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
+// truncateAddress re-exported from the canonical formatter (kept here so the
+// many `@/lib/governance` import sites stay unchanged).
+export { truncateAddress } from './format';
 
 /**
  * Format MON amount
