@@ -48,8 +48,10 @@ export function generateServerSeed(): string {
   // Use crypto.randomBytes for secure random generation
   const bytes = new Uint8Array(32);
   
-  // In Node.js environment
+  // In Node.js environment — deliberate runtime require: keeps this module
+  // importable in the browser bundle, where a top-level `import 'crypto'` breaks.
   if (typeof require !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const crypto = require('crypto');
     return crypto.randomBytes(32).toString('hex');
   }

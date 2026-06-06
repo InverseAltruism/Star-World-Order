@@ -115,6 +115,7 @@ export function DAOAccessProvider({ children }: { children: ReactNode }) {
   let demoModeContext: { isDemoMode: boolean; demoWalletAddress: string | null } | null = null;
   try {
     // Dynamically import to avoid circular dependency
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { useDemoMode } = require('@/lib/contexts/DemoModeContext');
     // eslint-disable-next-line react-hooks/rules-of-hooks
     demoModeContext = useDemoMode();

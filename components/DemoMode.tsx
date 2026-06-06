@@ -142,7 +142,7 @@ export default function DemoMode({ className }: DemoModeProps) {
                 <li>• See feature unlocks</li>
               </ul>
               <p className="text-[#ff4466] text-xs mt-3 mb-2 tracking-wide">
-                ✗ What doesn't work:
+                ✗ What doesn&apos;t work:
               </p>
               <ul className="text-gray-400 text-xs space-y-1 ml-4">
                 <li>• Username changes</li>
