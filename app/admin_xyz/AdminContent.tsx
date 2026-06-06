@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
+import { truncateAddress } from '@/lib/format';
 import type {
   HealthData,
   Notification,
@@ -802,7 +803,7 @@ export default function AdminContent() {
             This wallet is not authorized for admin access.
           </p>
           <p className="text-gray-600 text-[10px] font-mono">
-            Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
+            Connected: {address ? truncateAddress(address) : '...'}
           </p>
         </div>
       </div>
@@ -835,7 +836,7 @@ export default function AdminContent() {
           </button>
           
           <p className="text-gray-600 text-[10px] mt-4 font-mono">
-            Wallet: {address?.slice(0, 6)}...{address?.slice(-4)}
+            Wallet: {address ? truncateAddress(address) : '...'}
           </p>
         </div>
       </div>
@@ -1167,7 +1168,7 @@ export default function AdminContent() {
       {/* Footer */}
       <div className="text-center mt-8">
         <p className="text-gray-600 text-[10px]">
-          Admin: {address?.slice(0, 6)}...{address?.slice(-4)} • 
+          Admin: {address ? truncateAddress(address) : '...'} •
           Last refresh: {healthData?.timestamp ? new Date(healthData.timestamp).toLocaleTimeString() : 'N/A'}
         </p>
       </div>

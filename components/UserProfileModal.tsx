@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import { truncateAddress } from '@/lib/governance';
+import { getLevelColor, getLevelTitle } from '@/lib/format';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
 
@@ -82,26 +83,6 @@ const ACHIEVEMENTS = [
  * Friend status type
  */
 type FriendStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked' | 'loading';
-
-/**
- * Get level title based on Star count
- */
-function getLevelTitle(count: number): string {
-  if (count >= 10) return 'COSMIC EMPEROR';
-  if (count >= 5) return 'STAR LORD';
-  if (count >= 2) return 'COSMIC WARDEN';
-  return 'STAR FORGED';
-}
-
-/**
- * Get level color based on Star count
- */
-function getLevelColor(count: number): string {
-  if (count >= 10) return '#ffd700';
-  if (count >= 5) return '#ff00ff';
-  if (count >= 2) return '#00ffff';
-  return '#9966ff';
-}
 
 interface UserProfileModalProps {
   isOpen: boolean;

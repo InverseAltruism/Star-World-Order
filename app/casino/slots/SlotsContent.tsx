@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import Link from 'next/link';
 import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { truncateAddress } from '@/lib/format';
 
 // ============================================================================
 // Types
@@ -555,7 +556,7 @@ function RecentGames({ games }: RecentGamesProps) {
               <div className="flex items-center gap-2">
                 <span>{patternInfo?.emoji || '⭐'}</span>
                 <span className="text-gray-400 text-xs font-mono">
-                  {game.playerAddress.slice(0, 6)}...{game.playerAddress.slice(-4)}
+                  {truncateAddress(game.playerAddress)}
                 </span>
               </div>
               <div className="flex items-center gap-2">

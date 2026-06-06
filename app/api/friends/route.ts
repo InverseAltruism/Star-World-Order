@@ -31,6 +31,7 @@ import {
   getUserProfile,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { truncateAddress } from '@/lib/format';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET(request: NextRequest) {
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
         
         // Create notification for the target user
         const senderProfile = getUserProfile(walletAddress);
-        const senderName = senderProfile?.display_name || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+        const senderName = senderProfile?.display_name || truncateAddress(walletAddress);
         
         createNotification(targetAddress, {
           type: 'social',
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
         
         // Create notification for the requester
         const accepterProfile = getUserProfile(walletAddress);
-        const accepterName = accepterProfile?.display_name || `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+        const accepterName = accepterProfile?.display_name || truncateAddress(walletAddress);
         
         createNotification(targetAddress, {
           type: 'social',

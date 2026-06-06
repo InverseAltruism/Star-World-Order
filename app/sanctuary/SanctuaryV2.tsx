@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import type { PhaserGameRef } from '@/components/sanctuary/PhaserGame';
 import { useAccount } from 'wagmi';
+import { truncateAddress } from '@/lib/format';
 
 const PhaserGame = dynamic(
   () => import('@/components/sanctuary/PhaserGame'),
@@ -193,7 +194,7 @@ export default function SanctuaryV2() {
             <>
               <span className="w-2 h-2 rounded-full bg-[#44ff88] inline-block" />
               <span className="text-[#44ff88] font-mono">
-                {address?.slice(0, 6)}...{address?.slice(-4)}
+                {address ? truncateAddress(address) : '...'}
               </span>
             </>
           ) : (

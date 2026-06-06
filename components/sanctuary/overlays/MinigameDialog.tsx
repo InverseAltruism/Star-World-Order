@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EventBus from '@/components/sanctuary/EventBus';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { truncateAddress } from '@/lib/format';
 
 interface NPCClickPayload {
   npcId: string;
@@ -395,7 +396,7 @@ export default function MinigameDialog({
                     #{row.rank.toString().padStart(2, '0')}
                   </span>
                   <span className="text-[#9966ff]">
-                    {row.wallet_address.slice(0, 6)}...{row.wallet_address.slice(-4)}
+                    {truncateAddress(row.wallet_address)}
                   </span>
                   <span className="text-[#ffd700]">{row.score}</span>
                 </li>

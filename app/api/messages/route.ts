@@ -28,6 +28,7 @@ import {
   areFriends,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { truncateAddress } from '@/lib/format';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 
 export async function GET(request: NextRequest) {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     // Create notification for the recipient
     const senderProfile = getUserProfile(senderAddress);
-    const senderName = senderProfile?.display_name || `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)}`;
+    const senderName = senderProfile?.display_name || truncateAddress(senderAddress);
     
     // Truncate message for notification preview
     const messagePreview = trimmedMessage.length > 50 

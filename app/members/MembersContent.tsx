@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl, STAR_SKRUMPEY_IDS } from '@/lib/starSkrumpey';
+import { getLevelColor, getLevelTitle } from '@/lib/format';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useAccount } from 'wagmi';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
@@ -43,32 +44,6 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: 'cosmic_collector', name: 'Cosmic Collector', description: 'Collect 5+ constellation types', icon: '🌌', color: '#44ff88' },
   { id: 'constellation_master', name: 'Constellation Master', description: 'Hold 3+ of same constellation', icon: '✨', color: '#ff6ec7' },
 ];
-
-/**
- * Get level color based on Star Skrumpey holdings count
- */
-function getLevelColor(holdingsCount: number): string {
-  if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
-  if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
-  if (holdingsCount >= 2) return '#00ffff'; // Cyan - Cosmic Warden
-  return '#9966ff'; // Purple - Star Forged
-}
-
-/**
- * Get level title based on Star Skrumpey holdings count
- * 
- * Title thresholds (based on holdings):
- * - 10+ holdings: COSMIC EMPEROR (highest honor)
- * - 5+ holdings: STAR LORD (veteran collector)
- * - 2+ holdings: COSMIC WARDEN (dedicated member)
- * - 1+ holdings: STAR FORGED (entry level)
- */
-function getLevelTitle(holdingsCount: number): string {
-  if (holdingsCount >= 10) return 'COSMIC EMPEROR';
-  if (holdingsCount >= 5) return 'STAR LORD';
-  if (holdingsCount >= 2) return 'COSMIC WARDEN';
-  return 'STAR FORGED';
-}
 
 /**
  * Member Avatar with NFT image fallback

@@ -6,6 +6,7 @@ import type {
   DirectMessageData,
   NotificationData,
 } from '../types';
+import { truncateAddress } from '@/lib/format';
 
 /**
  * MessagesTab — presentational extraction of the `messages` section of
@@ -116,7 +117,7 @@ export default function MessagesTab({
                     <div className="pb-3 mb-3 border-b border-[#2a2a4e]">
                       <p className="text-white text-xs font-bold">
                         {conversations.find(c => c.other_address === selectedChat)?.other_display_name ||
-                         `${selectedChat.slice(0, 6)}...${selectedChat.slice(-4)}`}
+                         truncateAddress(selectedChat)}
                       </p>
                       <p className="text-gray-500 text-[9px] font-mono">{selectedChat}</p>
                     </div>

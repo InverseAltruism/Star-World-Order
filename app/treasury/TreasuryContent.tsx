@@ -571,8 +571,7 @@ function ActivityItem({
   formatTime: (timestamp: number) => string;
 }) {
   const isIncoming = activity.type === 'nft_in' || activity.type === 'mon_in';
-  const shortHash = activity.transactionHash ? 
-    `${activity.transactionHash.slice(0, 6)}...${activity.transactionHash.slice(-4)}` : '';
+  const shortHash = activity.transactionHash ? truncateAddress(activity.transactionHash) : '';
   
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2 group">

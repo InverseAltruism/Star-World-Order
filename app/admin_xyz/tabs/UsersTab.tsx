@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { UserData } from './types';
+import { truncateAddress } from '@/lib/format';
 
 interface UsersTabProps {
   fetchUsers: (search?: string) => void;
@@ -73,7 +74,7 @@ export default function UsersTab({
             {users.map((user) => (
               <tr key={user.wallet_address} className="border-b border-[#2a2a4e]/50 hover:bg-[#2a2a4e]/20">
                 <td className="p-2 font-mono text-gray-300">
-                  {user.wallet_address.slice(0, 6)}...{user.wallet_address.slice(-4)}
+                  {truncateAddress(user.wallet_address)}
                 </td>
                 <td className="p-2 text-white">{user.display_name || '-'}</td>
                 <td className="p-2">

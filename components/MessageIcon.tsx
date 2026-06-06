@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
+import { truncateAddress } from '@/lib/format';
 
 interface Conversation {
   other_address: string;
@@ -30,13 +31,6 @@ function formatRelativeTime(dateString: string): string {
   if (hours < 24) return `${hours}h`;
   if (days < 7) return `${days}d`;
   return date.toLocaleDateString();
-}
-
-/**
- * Format address for display
- */
-function formatAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 /**
@@ -159,7 +153,7 @@ export default function MessageIcon() {
               <div>
                 {conversations.map((convo) => {
                   const hasUnread = convo.unread_count > 0;
-                  const displayName = convo.other_display_name || formatAddress(convo.other_address);
+                  const displayName = convo.other_display_name || truncateAddress(convo.other_address);
                   
                   return (
                     <Link 

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { FriendWithProfileData } from '../types';
+import { truncateAddress } from '@/lib/format';
 
 /**
  * FriendsTab — presentational extraction of the `friends` section of
@@ -50,7 +51,7 @@ export default function FriendsTab({
                       </div>
                       <div>
                         <p className="text-white text-xs font-bold">
-                          {request.display_name || `${request.user_address.slice(0, 6)}...${request.user_address.slice(-4)}`}
+                          {request.display_name || truncateAddress(request.user_address)}
                         </p>
                         <p className="text-gray-500 text-[9px]">Wants to be your friend</p>
                       </div>
@@ -99,7 +100,7 @@ export default function FriendsTab({
                   const friendAddress = friend.user_address === address?.toLowerCase()
                     ? friend.friend_address
                     : friend.user_address;
-                  const friendName = friend.display_name || `${friendAddress.slice(0, 6)}...${friendAddress.slice(-4)}`;
+                  const friendName = friend.display_name || truncateAddress(friendAddress);
 
                   return (
                     <div

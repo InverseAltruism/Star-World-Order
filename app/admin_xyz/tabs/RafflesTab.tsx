@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { Raffle, RaffleStats, ActionResult } from './types';
+import { truncateAddress } from '@/lib/format';
 
 interface RafflesTabProps {
   fetchRaffles: () => void;
@@ -256,7 +257,7 @@ export default function RafflesTab({
                 </div>
                 <div className="text-right ml-2">
                   <p className="text-[#ffd700] text-[10px] font-mono hover:text-[#ffea80] transition-colors">
-                    {raffle.winner_address?.slice(0, 6)}...{raffle.winner_address?.slice(-4)} →
+                    {raffle.winner_address ? truncateAddress(raffle.winner_address) : '...'} →
                   </p>
                   <p className="text-gray-500 text-[8px]">
                     {raffle.winner_drawn_at ? new Date(raffle.winner_drawn_at).toLocaleDateString() : ''}
@@ -369,7 +370,7 @@ export default function RafflesTab({
                 {raffle.winner_address && (
                   <div className="bg-[#ffd700]/10 rounded p-2 mb-3">
                     <p className="text-[#ffd700] text-[10px]">
-                      🏆 Winner: {raffle.winner_address.slice(0, 6)}...{raffle.winner_address.slice(-4)}
+                      🏆 Winner: {truncateAddress(raffle.winner_address)}
                     </p>
                     {raffle.winner_draw_seed && (
                       <p className="text-gray-500 text-[8px] mt-1 font-mono break-all">

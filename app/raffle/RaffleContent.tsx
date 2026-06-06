@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import Image from 'next/image';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { truncateAddress } from '@/lib/format';
 import type { Raffle, SocialConnections } from './types';
 import { useRaffles } from './useRaffles';
 
@@ -562,7 +563,7 @@ export default function RaffleContent() {
           <div className="bg-[#ffd700]/10 border border-[#ffd700] rounded-lg p-4 mb-4 text-center">
             <p className="text-[#ffd700] text-xs mb-2">🏆 WINNER 🏆</p>
             <p className="text-white text-lg font-bold">
-              {activeRaffle.winner_address.slice(0, 6)}...{activeRaffle.winner_address.slice(-4)}
+              {truncateAddress(activeRaffle.winner_address)}
             </p>
             {address && activeRaffle.winner_address.toLowerCase() === address.toLowerCase() && (
               <p className="text-[#44ff88] text-sm mt-2 animate-pulse">
@@ -899,7 +900,7 @@ export default function RaffleContent() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 text-xs font-mono">
-                        {entry.display_name || `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`}
+                        {entry.display_name || truncateAddress(entry.wallet_address)}
                       </span>
                       <TierBadge tier={entry.tier} small />
                     </div>
