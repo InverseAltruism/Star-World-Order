@@ -48,6 +48,16 @@ export async function installWalletMock(
   const chainId = options.chainId ?? DEFAULT_CHAIN_ID;
   const walletLabel = options.walletLabel ?? 'SWO Mock Wallet';
 
+  // Skip the STAR-64 boot/cartridge overlay (components/LoadingScreen.tsx).
+  // It renders fixed at zIndex 9999, only advances on a user click, and
+  // short-circuits when `sessionStorage["swo-loading-seen"]` is truthy —
+  // fresh Playwright contexts never have it, so without this every click in
+  // the connected specs is intercepted by the overlay. (visual.spec.ts sets
+  // the same key independently.)
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem('swo-loading-seen', '1');
+  });
+
   await page.addInitScript(
     ({ address, chainId, walletLabel }) => {
       // Hex-encode the chain id without leading zeros (EIP-695).
