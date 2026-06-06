@@ -25,6 +25,35 @@ permissions:
   contents: read
 
 jobs:
+  typecheck:
+    name: tsc --noEmit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  lint:
+    name: eslint (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Advisory only until the remaining lint tail is triaged — do not make
+    # this blocking while intentional `any`s in tests still trip it.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx eslint .
+
   default:
     name: vitest (default project)
     runs-on: ubuntu-latest
