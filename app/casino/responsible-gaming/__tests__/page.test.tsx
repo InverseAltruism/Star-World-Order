@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 //
 // Acceptance test for [SWO_CASINO_RESPONSIBLE_GAMING_PAGE] (G4), ported
-// from the BunnyBagz [BB_PHASE3_LEGAL_PAGES] /responsible-gaming suite
+// from the BB predecessor casino [BB_PHASE3_LEGAL_PAGES] /responsible-gaming suite
 // and adapted to the SWO casino test harness (raw `react-dom/client` +
 // happy-dom; SWO does not ship @testing-library). Covers:
 //   (a) routing entry point + key copy,

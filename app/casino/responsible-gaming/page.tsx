@@ -1,5 +1,5 @@
 // /casino/responsible-gaming — responsible-gaming notice for the Cosmic
-// Casino. Ported from the BunnyBagz [BB_PHASE3_LEGAL_PAGES]
+// Casino. Ported from the BB predecessor casino [BB_PHASE3_LEGAL_PAGES]
 // `/responsible-gaming` page and re-skinned to the SWO casino theme
 // (Tailwind neon instead of the BB `--bb-*` CSS vars). Task:
 // [SWO_CASINO_RESPONSIBLE_GAMING_PAGE] (G4).

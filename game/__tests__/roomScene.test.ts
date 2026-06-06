@@ -28,7 +28,10 @@ describe('RoomScene gameplay wiring', () => {
 
   it('spawns a PlayerSprite inside the room', () => {
     expect(source).toContain('new PlayerSprite(this, spawnX, spawnY)');
-    expect(source).toContain('ROOM_H - 60');
+    // Spawn sits near the room's southern edge (was `ROOM_H - 60`, moved to
+    // a named constant when the spawn point was raised).
+    expect(source).toContain('const spawnY = SOUTHERN_SPAWN_Y');
+    expect(source).toContain('SOUTHERN_SPAWN_Y = ROOM_H -');
   });
 
   it('spawns a CompanionSprite that follows the player', () => {
