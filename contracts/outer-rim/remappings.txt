@@ -1,0 +1,3 @@
+@openzeppelin/=../casino/lib/openzeppelin-contracts/
+forge-std/=../casino/lib/forge-std/src/
+createx-forge/=../casino/lib/createx-forge/

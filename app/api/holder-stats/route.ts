@@ -15,6 +15,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { 
   getHolderSnapshots, 
   insertHolderSnapshotsBatch, 
@@ -159,88 +160,80 @@ function isValidConstellation(value: string): boolean {
   return (CONSTELLATIONS as readonly string[]).includes(value);
 }
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const constellation = searchParams.get('constellation')?.toLowerCase() || 'all';
-    const timeRange = searchParams.get('timeRange') || '1H';
-    
-    // Validate constellation
-    if (!isValidConstellation(constellation)) {
-      return NextResponse.json(
-        { success: false, error: `Invalid constellation: ${constellation}` },
-        { status: 400 }
-      );
-    }
-    
-    // Validate time range
-    if (timeRange !== '1H' && timeRange !== '1D' && timeRange !== '1W') {
-      return NextResponse.json(
-        { success: false, error: `Invalid timeRange: ${timeRange}. Use '1H', '1D', or '1W'` },
-        { status: 400 }
-      );
-    }
-    
-    // Check if we need to record a new snapshot
-    const lastAllSnapshot = getLatestHolderSnapshot('all');
-    
-    if (shouldRecordSnapshot(lastAllSnapshot)) {
-      logger.info('Recording new holder snapshot');
-      
-      // Fetch current data from blockchain
-      const { totalHolders, holdersByConstellation } = await fetchCurrentHolderData();
-      
-      if (totalHolders > 0) {
-        // Prepare batch insert
-        const snapshots = [
-          { constellation: 'all', holderCount: totalHolders },
-          ...Object.entries(holdersByConstellation).map(([c, count]) => ({
-            constellation: c,
-            holderCount: count,
-          })),
-        ];
-        
-        insertHolderSnapshotsBatch(snapshots);
-        logger.info('Recorded holder snapshots', { totalHolders, constellations: Object.keys(holdersByConstellation).length });
-      }
-    }
-    
-    // Get historical data based on time range
-    // 1H = last 24 hours (hourly data), 1D = last 30 days (daily data), 1W = last 90 days (weekly data)
-    let hoursBack: number;
-    if (timeRange === '1H') {
-      hoursBack = 24;
-    } else if (timeRange === '1D') {
-      hoursBack = 24 * 30; // 30 days
-    } else {
-      hoursBack = 24 * 90; // 90 days for 1W
-    }
-    const history = getHolderSnapshots(constellation, hoursBack, 200);
-    
-    // Get current holder count
-    const latestSnapshot = getLatestHolderSnapshot(constellation);
-    const currentHolders = latestSnapshot?.holder_count || 0;
-    
-    // Convert to response format
-    const historyData = history.map(snapshot => ({
-      timestamp: new Date(snapshot.created_at).getTime(),
-      holderCount: snapshot.holder_count,
-    }));
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        constellation,
-        currentHolders,
-        history: historyData,
-        lastUpdated: latestSnapshot?.created_at || new Date().toISOString(),
-      },
-    });
-  } catch (error) {
-    logger.error('Failed to get holder stats:', { error: String(error) });
+export const GET = route({ error: 'Failed to fetch holder stats' }, async (request) => {
+  const { searchParams } = new URL(request.url);
+  const constellation = searchParams.get('constellation')?.toLowerCase() || 'all';
+  const timeRange = searchParams.get('timeRange') || '1H';
+  
+  // Validate constellation
+  if (!isValidConstellation(constellation)) {
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch holder stats' },
-      { status: 500 }
+      { success: false, error: `Invalid constellation: ${constellation}` },
+      { status: 400 }
     );
   }
-}
+  
+  // Validate time range
+  if (timeRange !== '1H' && timeRange !== '1D' && timeRange !== '1W') {
+    return NextResponse.json(
+      { success: false, error: `Invalid timeRange: ${timeRange}. Use '1H', '1D', or '1W'` },
+      { status: 400 }
+    );
+  }
+  
+  // Check if we need to record a new snapshot
+  const lastAllSnapshot = getLatestHolderSnapshot('all');
+  
+  if (shouldRecordSnapshot(lastAllSnapshot)) {
+    logger.info('Recording new holder snapshot');
+    
+    // Fetch current data from blockchain
+    const { totalHolders, holdersByConstellation } = await fetchCurrentHolderData();
+    
+    if (totalHolders > 0) {
+      // Prepare batch insert
+      const snapshots = [
+        { constellation: 'all', holderCount: totalHolders },
+        ...Object.entries(holdersByConstellation).map(([c, count]) => ({
+          constellation: c,
+          holderCount: count,
+        })),
+      ];
+      
+      insertHolderSnapshotsBatch(snapshots);
+      logger.info('Recorded holder snapshots', { totalHolders, constellations: Object.keys(holdersByConstellation).length });
+    }
+  }
+  
+  // Get historical data based on time range
+  // 1H = last 24 hours (hourly data), 1D = last 30 days (daily data), 1W = last 90 days (weekly data)
+  let hoursBack: number;
+  if (timeRange === '1H') {
+    hoursBack = 24;
+  } else if (timeRange === '1D') {
+    hoursBack = 24 * 30; // 30 days
+  } else {
+    hoursBack = 24 * 90; // 90 days for 1W
+  }
+  const history = getHolderSnapshots(constellation, hoursBack, 200);
+  
+  // Get current holder count
+  const latestSnapshot = getLatestHolderSnapshot(constellation);
+  const currentHolders = latestSnapshot?.holder_count || 0;
+  
+  // Convert to response format
+  const historyData = history.map(snapshot => ({
+    timestamp: new Date(snapshot.created_at).getTime(),
+    holderCount: snapshot.holder_count,
+  }));
+  
+  return NextResponse.json({
+    success: true,
+    data: {
+      constellation,
+      currentHolders,
+      history: historyData,
+      lastUpdated: latestSnapshot?.created_at || new Date().toISOString(),
+    },
+  });
+});

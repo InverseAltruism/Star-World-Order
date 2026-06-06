@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import Link from 'next/link';
 import { monad } from '@/lib/wagmi';
+import { truncateAddress } from '@/lib/format';
 import NotificationBell from './NotificationBell';
 import MessageIcon from './MessageIcon';
 
@@ -226,7 +227,7 @@ export default function WalletConnect() {
               className="text-[10px] sm:text-xs text-[#44ff88] bg-[#1a1a2e] px-2 sm:px-3 py-2 border-2 border-[#2a2a4e] flex items-center gap-2 smooth-transition hover:border-[#44ff88] hover-lift whitespace-nowrap cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-[#44ff88] animate-pulse" />
-              {address.slice(0, 6)}...{address.slice(-4)}
+              {truncateAddress(address)}
               <span className={`text-[8px] transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}>▼</span>
             </button>
 

@@ -4,158 +4,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import { ADMIN_WALLET_ADDRESS } from '@/lib/config';
+import { truncateAddress } from '@/lib/format';
+import type {
+  HealthData,
+  Notification,
+  Raffle,
+  RaffleStats,
+  UserData,
+  WinnerDetails,
+  DatabaseStats,
+} from './tabs/types';
+import HealthTab from './tabs/HealthTab';
+import NotificationsTab from './tabs/NotificationsTab';
+import RafflesTab from './tabs/RafflesTab';
+import UsersTab from './tabs/UsersTab';
+import DatabaseTab from './tabs/DatabaseTab';
 
 // Admin wallet address from config
 const ADMIN_WALLET = ADMIN_WALLET_ADDRESS;
 
-interface CacheStats {
-  nftCache: { entries: number; oldestEntry: number | null };
-  activityCache: { entries: number; oldestEntry: number | null };
-  transactionCache: { entries: number; oldestEntry: number | null };
-  floorPriceCache: { entries: number; oldestEntry: number | null };
-  totalEntries: number;
-}
-
-interface HealthData {
-  status: string;
-  timestamp: string;
-  environment: string;
-  cacheStats: CacheStats;
-  blockvisionApiConfigured: boolean;
-}
-
-interface Notification {
-  id: number;
-  wallet_address: string;
-  type: string;
-  title: string;
-  message: string;
-  link: string | null;
-  icon: string;
-  is_read: number;
-  created_at: string;
-}
-
-interface Raffle {
-  id: string;
-  name: string;
-  description: string;
-  prize_description: string;
-  prize_image_url: string | null;
-  status: 'active' | 'ended' | 'drawn' | 'cancelled';
-  start_time: string;
-  end_time: string;
-  winner_address: string | null;
-  winner_drawn_at: string | null;
-  winner_draw_seed: string | null;
-  discord_bonus_enabled: number;
-  require_x: number;
-  require_discord: number;
-  tweet_url: string | null;
-  is_public: number;
-  created_at: string;
-}
-
-interface RaffleStats {
-  participants: number;
-  totalTickets: number;
-}
-
-interface UserData {
-  wallet_address: string;
-  display_name: string | null;
-  bio: string | null;
-  created_at: string;
-  updated_at: string;
-  discord_username: string | null;
-  discord_user_id: string | null;
-  x_username: string | null;
-  x_user_id: string | null;
-  total_xp: number;
-  level: number;
-}
-
-interface WinnerDetails {
-  wallet_address: string;
-  display_name: string | null;
-  bio: string | null;
-  discord_username: string | null;
-  discord_user_id: string | null;
-  x_username: string | null;
-  x_user_id: string | null;
-  total_xp: number;
-  level: number;
-  created_at: string;
-  // Raffle context
-  raffle_name?: string;
-  raffle_prize?: string;
-  raffle_date?: string | null;
-}
-
-interface DatabaseStats {
-  users: number;
-  notifications: number;
-  chatMessages: number;
-  raffles: number;
-  raffleEntries: number;
-  friends: number;
-  directMessages: number;
-  voiceSessions: number;
-  socialConnections: number;
-}
-
 // Admin tab type
 type AdminTab = 'health' | 'notifications' | 'users' | 'raffles' | 'database';
-
-/**
- * Cleanup Card Component with dropdown time period selector
- */
-function CleanupCard({
-  icon,
-  title,
-  color,
-  options,
-  onCleanup,
-  useDays = false,
-}: {
-  icon: string;
-  title: string;
-  color: string;
-  options: Array<{ label: string; hours?: number; days?: number }>;
-  onCleanup: (value: number) => void;
-  useDays?: boolean;
-}) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  
-  const handleCleanup = () => {
-    const option = options[selectedIndex];
-    const value = useDays ? option.days! : option.hours!;
-    onCleanup(value);
-  };
-  
-  return (
-    <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-      <h4 className="text-xs mb-2" style={{ color }}>{icon} {title}</h4>
-      <div className="flex gap-2 mb-3">
-        <select
-          value={selectedIndex}
-          onChange={(e) => setSelectedIndex(parseInt(e.target.value))}
-          className="flex-1 bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-[10px] text-white cursor-pointer"
-        >
-          {options.map((opt, idx) => (
-            <option key={idx} value={idx}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-      <button
-        onClick={handleCleanup}
-        className="pixel-btn text-[10px] w-full"
-      >
-        CLEANUP ({options[selectedIndex].label})
-      </button>
-    </div>
-  );
-}
 
 /**
  * Admin Content Component
@@ -194,12 +63,6 @@ export default function AdminContent() {
   const [userNotifications, setUserNotifications] = useState<Notification[]>([]);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   
-  // Notification history state
-  const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
-  const [notificationHistoryTotal, setNotificationHistoryTotal] = useState(0);
-  const [isLoadingNotificationHistory, setIsLoadingNotificationHistory] = useState(false);
-  const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
-  
   // User database state
   const [users, setUsers] = useState<UserData[]>([]);
   const [userCount, setUserCount] = useState(0);
@@ -225,8 +88,7 @@ export default function AdminContent() {
   const [raffleTweetUrl, setRaffleTweetUrl] = useState('');
   const [raffleIsPublic, setRaffleIsPublic] = useState(false);
   const [selectedRaffleStats, setSelectedRaffleStats] = useState<{ [key: string]: RaffleStats }>({});
-  const [showDrawnRaffles, setShowDrawnRaffles] = useState(false);
-  
+
   // Winner details modal state
   const [selectedWinner, setSelectedWinner] = useState<WinnerDetails | null>(null);
   const [isLoadingWinnerDetails, setIsLoadingWinnerDetails] = useState(false);
@@ -488,79 +350,8 @@ export default function AdminContent() {
         success: data.success,
         message: data.success ? 'Old notifications cleaned up!' : data.error,
       });
-      // Refresh notification history after cleanup
-      if (data.success) {
-        await fetchNotificationHistory();
-      }
     } catch (error) {
       setActionResult({ success: false, message: 'Failed to cleanup notifications' });
-    }
-  };
-
-  /**
-   * Fetch notification history (all notifications)
-   */
-  const fetchNotificationHistory = useCallback(async () => {
-    if (!isAuthenticated) return;
-    
-    setIsLoadingNotificationHistory(true);
-    try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return;
-
-      const response = await fetch('/api/admin?action=allNotifications&limit=100', {
-        headers: { 'x-admin-auth': authHeader },
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setAllNotifications(data.notifications || []);
-        setNotificationHistoryTotal(data.totalCount || 0);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notification history:', error);
-    } finally {
-      setIsLoadingNotificationHistory(false);
-    }
-  }, [isAuthenticated, getAuthHeader]);
-
-  /**
-   * Update an existing notification
-   */
-  const updateNotificationAction = async () => {
-    if (!editingNotification) return;
-    
-    try {
-      const authHeader = await getAuthHeader();
-      if (!authHeader) return;
-
-      const response = await fetch('/api/admin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-auth': authHeader,
-        },
-        body: JSON.stringify({
-          action: 'updateNotification',
-          notificationId: editingNotification.id,
-          title: editingNotification.title,
-          message: editingNotification.message,
-          type: editingNotification.type,
-          icon: editingNotification.icon,
-          link: editingNotification.link,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setActionResult({ success: true, message: 'Notification updated!' });
-        setEditingNotification(null);
-        await fetchNotificationHistory();
-      } else {
-        setActionResult({ success: false, message: data.error || 'Failed to update notification' });
-      }
-    } catch (error) {
-      setActionResult({ success: false, message: 'Failed to update notification' });
     }
   };
 
@@ -957,15 +748,13 @@ export default function AdminContent() {
   // Fetch data based on active tab
   useEffect(() => {
     if (isAuthenticated) {
-      if (activeTab === 'notifications') {
-        fetchNotificationHistory();
-      } else if (activeTab === 'users') {
+      if (activeTab === 'users') {
         fetchUsers();
       } else if (activeTab === 'database') {
         fetchDbStats();
       }
     }
-  }, [isAuthenticated, activeTab, fetchNotificationHistory, fetchUsers, fetchDbStats]);
+  }, [isAuthenticated, activeTab, fetchUsers, fetchDbStats]);
 
   // Clear action result after 5 seconds
   useEffect(() => {
@@ -1014,7 +803,7 @@ export default function AdminContent() {
             This wallet is not authorized for admin access.
           </p>
           <p className="text-gray-600 text-[10px] font-mono">
-            Connected: {address?.slice(0, 6)}...{address?.slice(-4)}
+            Connected: {address ? truncateAddress(address) : '...'}
           </p>
         </div>
       </div>
@@ -1047,7 +836,7 @@ export default function AdminContent() {
           </button>
           
           <p className="text-gray-600 text-[10px] mt-4 font-mono">
-            Wallet: {address?.slice(0, 6)}...{address?.slice(-4)}
+            Wallet: {address ? truncateAddress(address) : '...'}
           </p>
         </div>
       </div>
@@ -1244,887 +1033,98 @@ export default function AdminContent() {
 
       {/* Health Status - only show when activeTab is 'health' */}
       {activeTab === 'health' && (
-      <div className="pixel-card p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[#44ff88] text-sm tracking-wider">🏥 SYSTEM HEALTH</h2>
-          <button
-            onClick={fetchHealthData}
-            disabled={isLoadingHealth}
-            className="pixel-btn text-[10px] !px-3 !py-1"
-          >
-            {isLoadingHealth ? '...' : 'REFRESH'}
-          </button>
-        </div>
-        
-        {healthData && (
-          <div className="space-y-4">
-            {/* Status */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
-                <p className="text-[#44ff88] text-sm font-bold">✓ {healthData.status.toUpperCase()}</p>
-                <p className="text-gray-500 text-[10px]">Status</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
-                <p className="text-[#9966ff] text-sm font-bold">{healthData.environment.toUpperCase()}</p>
-                <p className="text-gray-500 text-[10px]">Environment</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
-                <p className={`text-sm font-bold ${healthData.blockvisionApiConfigured ? 'text-[#44ff88]' : 'text-[#ff4466]'}`}>
-                  {healthData.blockvisionApiConfigured ? '✓ YES' : '✗ NO'}
-                </p>
-                <p className="text-gray-500 text-[10px]">BlockVision API</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e]">
-                <p className="text-[#ffd700] text-sm font-bold">{healthData.cacheStats.totalEntries}</p>
-                <p className="text-gray-500 text-[10px]">Cache Entries</p>
-              </div>
-            </div>
-
-            {/* Cache Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#0a0a15] p-3 rounded-lg">
-                <p className="text-white text-xs font-bold">{healthData.cacheStats.nftCache.entries}</p>
-                <p className="text-gray-500 text-[10px]">NFT Cache</p>
-                <p className="text-gray-600 text-[9px]">{formatTime(healthData.cacheStats.nftCache.oldestEntry)}</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg">
-                <p className="text-white text-xs font-bold">{healthData.cacheStats.activityCache.entries}</p>
-                <p className="text-gray-500 text-[10px]">Activity Cache</p>
-                <p className="text-gray-600 text-[9px]">{formatTime(healthData.cacheStats.activityCache.oldestEntry)}</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg">
-                <p className="text-white text-xs font-bold">{healthData.cacheStats.transactionCache.entries}</p>
-                <p className="text-gray-500 text-[10px]">Transaction Cache</p>
-                <p className="text-gray-600 text-[9px]">{formatTime(healthData.cacheStats.transactionCache.oldestEntry)}</p>
-              </div>
-              <div className="bg-[#0a0a15] p-3 rounded-lg">
-                <p className="text-white text-xs font-bold">{healthData.cacheStats.floorPriceCache.entries}</p>
-                <p className="text-gray-500 text-[10px]">Floor Price Cache</p>
-                <p className="text-gray-600 text-[9px]">{formatTime(healthData.cacheStats.floorPriceCache.oldestEntry)}</p>
-              </div>
-            </div>
-
-            {/* Cache Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={clearCaches}
-                className="pixel-btn text-xs bg-[#ff4466] border-[#ff6688_#aa2244_#aa2244_#ff6688]"
-              >
-                🗑️ CLEAR ALL CACHES
-              </button>
-            </div>
-            
-            <p className="text-gray-500 text-[10px]">
-              ⚠️ Clearing caches will force fresh API calls. Use if Treasury shows stale/no data.
-            </p>
-          </div>
-        )}
-      </div>
+        <HealthTab
+          healthData={healthData}
+          isLoadingHealth={isLoadingHealth}
+          fetchHealthData={fetchHealthData}
+          clearCaches={clearCaches}
+          formatTime={formatTime}
+        />
       )}
 
       {/* Notification Management - only show when activeTab is 'notifications' */}
       {activeTab === 'notifications' && (
-      <div className="pixel-card p-6 mb-6">
-        <h2 className="text-[#9966ff] text-sm tracking-wider mb-4">🔔 NOTIFICATION MANAGEMENT</h2>
-        
-        {/* Global Notification Toggle */}
-        <div className="mb-4 bg-[#0a0a15] p-3 rounded-lg border-2 border-[#9966ff]">
-          <label className="flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isGlobalNotification}
-              onChange={(e) => {
-                setIsGlobalNotification(e.target.checked);
-                if (e.target.checked) {
-                  // Clear target wallet when enabling global mode
-                  setTargetWallet('');
-                }
-              }}
-              className="w-4 h-4 mr-3"
-            />
-            <div>
-              <span className="text-[#ffd700] text-xs font-bold">🌐 Send to All Users</span>
-              <p className="text-gray-500 text-[10px] mt-1">
-                Enable this to create a global notification visible to everyone
-              </p>
-            </div>
-          </label>
-        </div>
-        
-        {/* Target Wallet (disabled when global is enabled) */}
-        {!isGlobalNotification && (
-          <div className="mb-4">
-            <label className="text-gray-400 text-xs block mb-2">Target Wallet Address</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={targetWallet}
-                onChange={(e) => setTargetWallet(e.target.value)}
-                placeholder="0x..."
-                className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded px-3 py-2 text-xs text-white focus:border-[#9966ff] outline-none"
-              />
-              <button
-                onClick={fetchUserNotifications}
-                disabled={!targetWallet || isLoadingNotifications}
-                className="pixel-btn text-[10px] !px-3"
-              >
-                {isLoadingNotifications ? '...' : 'FETCH'}
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {isGlobalNotification && (
-          <div className="mb-4 bg-[#ffd700]/10 border border-[#ffd700] rounded-lg p-3">
-            <p className="text-[#ffd700] text-xs">
-              ⚠️ <strong>Global Mode Active</strong> - This notification will be visible to all users
-            </p>
-          </div>
-        )}
-
-        {/* Create Notification Form */}
-        <div className="bg-[#0a0a15] p-4 rounded-lg mb-4">
-          <h3 className="text-[#ffd700] text-xs mb-3">Create Notification</h3>
-          
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-gray-500 text-[10px] block mb-1">Type</label>
-              <select
-                value={notificationType}
-                onChange={(e) => setNotificationType(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-              >
-                <option value="system">System</option>
-                <option value="quest">Quest</option>
-                <option value="achievement">Achievement</option>
-                <option value="social">Social</option>
-                <option value="governance">Governance</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-gray-500 text-[10px] block mb-1">Icon</label>
-              <input
-                type="text"
-                value={notificationIcon}
-                onChange={(e) => setNotificationIcon(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-              />
-            </div>
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Title</label>
-            <input
-              type="text"
-              value={notificationTitle}
-              onChange={(e) => setNotificationTitle(e.target.value)}
-              placeholder="Notification title"
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-            />
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Message</label>
-            <textarea
-              value={notificationMessage}
-              onChange={(e) => setNotificationMessage(e.target.value)}
-              placeholder="Notification message"
-              rows={2}
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white resize-none"
-            />
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Link (optional)</label>
-            <input
-              type="text"
-              value={notificationLink}
-              onChange={(e) => setNotificationLink(e.target.value)}
-              placeholder="/profile or https://..."
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-            />
-          </div>
-          
-          <button
-            onClick={createNotification}
-            disabled={(!isGlobalNotification && !targetWallet) || !notificationTitle || !notificationMessage}
-            className="pixel-btn pixel-btn-gold text-xs w-full"
-          >
-            📨 SEND NOTIFICATION
-          </button>
-        </div>
-
-        {/* User's Notifications List */}
-        {userNotifications.length > 0 && (
-          <div className="bg-[#0a0a15] p-4 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[#ffd700] text-xs">User Notifications ({userNotifications.length})</h3>
-            </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {userNotifications.map((notification) => (
-                <div 
-                  key={notification.id}
-                  className={`flex items-start gap-2 p-2 rounded border ${
-                    notification.is_read ? 'border-[#2a2a4e] opacity-60' : 'border-[#ffd700]/30 bg-[#ffd700]/5'
-                  }`}
-                >
-                  <span className="text-sm">{notification.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-[10px] font-bold truncate">{notification.title}</p>
-                    <p className="text-gray-400 text-[9px] truncate">{notification.message}</p>
-                    <p className="text-gray-600 text-[8px]">
-                      {new Date(notification.created_at).toLocaleString()} • {notification.type}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => deleteNotification(notification.id)}
-                    className="text-[#ff4466] text-xs hover:text-[#ff6688]"
-                  >
-                    ✗
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Cleanup Button */}
-        <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
-          <button
-            onClick={cleanupNotifications}
-            className="pixel-btn text-[10px]"
-          >
-            🧹 CLEANUP OLD NOTIFICATIONS (30+ days)
-          </button>
-        </div>
-      </div>
+        <NotificationsTab
+          isGlobalNotification={isGlobalNotification}
+          setIsGlobalNotification={setIsGlobalNotification}
+          targetWallet={targetWallet}
+          setTargetWallet={setTargetWallet}
+          fetchUserNotifications={fetchUserNotifications}
+          isLoadingNotifications={isLoadingNotifications}
+          notificationType={notificationType}
+          setNotificationType={setNotificationType}
+          notificationIcon={notificationIcon}
+          setNotificationIcon={setNotificationIcon}
+          notificationTitle={notificationTitle}
+          setNotificationTitle={setNotificationTitle}
+          notificationMessage={notificationMessage}
+          setNotificationMessage={setNotificationMessage}
+          notificationLink={notificationLink}
+          setNotificationLink={setNotificationLink}
+          createNotification={createNotification}
+          userNotifications={userNotifications}
+          deleteNotification={deleteNotification}
+          cleanupNotifications={cleanupNotifications}
+        />
       )}
 
       {/* Raffle Management - only show when activeTab is 'raffles' */}
       {activeTab === 'raffles' && (
-      <div className="pixel-card p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-[#ff6ec7] text-sm tracking-wider">🎰 RAFFLE MANAGEMENT</h2>
-          <button
-            onClick={fetchRaffles}
-            disabled={isLoadingRaffles}
-            className="pixel-btn text-[10px] !px-3 !py-1"
-          >
-            {isLoadingRaffles ? '...' : 'REFRESH'}
-          </button>
-        </div>
-        
-        {/* Create New Raffle Form */}
-        <div className="bg-[#0a0a15] p-4 rounded-lg mb-4">
-          <h3 className="text-[#ffd700] text-xs mb-3">Create New Raffle</h3>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-gray-500 text-[10px] block mb-1">Name *</label>
-              <input
-                type="text"
-                value={raffleName}
-                onChange={(e) => setRaffleName(e.target.value)}
-                placeholder="Cosmic Giveaway #1"
-                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="text-gray-500 text-[10px] block mb-1">End Time *</label>
-              <input
-                type="datetime-local"
-                value={raffleEndTime}
-                onChange={(e) => setRaffleEndTime(e.target.value)}
-                className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-              />
-            </div>
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Prize Description *</label>
-            <input
-              type="text"
-              value={rafflePrize}
-              onChange={(e) => setRafflePrize(e.target.value)}
-              placeholder="1 Star Skrumpey NFT"
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-            />
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Description (optional)</label>
-            <textarea
-              value={raffleDescription}
-              onChange={(e) => setRaffleDescription(e.target.value)}
-              placeholder="Enter for a chance to win..."
-              rows={2}
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white resize-none"
-            />
-          </div>
-          
-          <div className="mb-3">
-            <label className="text-gray-500 text-[10px] block mb-1">Prize Image URL (optional)</label>
-            <input
-              type="text"
-              value={rafflePrizeImage}
-              onChange={(e) => setRafflePrizeImage(e.target.value)}
-              placeholder="https://..."
-              className="w-full bg-[#1a1a2e] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-            />
-          </div>
-          
-          {/* Public Raffle Toggle */}
-          <div className="mb-3 p-3 bg-[#ffd700]/10 rounded border-2 border-[#ffd700]/50">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={raffleIsPublic}
-                onChange={(e) => setRaffleIsPublic(e.target.checked)}
-                className="w-4 h-4 mr-3"
-              />
-              <div>
-                <span className="text-[#ffd700] text-xs font-bold">🌐 PUBLIC SKRUMPEY RAFFLE</span>
-                <p className="text-gray-400 text-[9px] mt-1">
-                  Allow ALL Skrumpey holders to participate (not just Star holders)
-                </p>
-              </div>
-            </label>
-            {raffleIsPublic && (
-              <div className="mt-3 p-2 bg-black/30 rounded text-[9px]">
-                <p className="text-[#44ff88] font-bold mb-1">⚖️ ENTRY CALCULATION:</p>
-                <p className="text-gray-300">• 🐸 Each regular Skrumpey: <span className="text-gray-400">1 entry</span></p>
-                <p className="text-gray-300 mt-1">• ⭐ Star holders get: <span className="text-[#ffd700] font-bold">5 base + tier bonus</span></p>
-                <p className="text-gray-400 text-[8px] ml-2">(Star Forged: +6, Warden: +7, Lord: +8, Emperor: +9)</p>
-                <p className="text-gray-500 text-[8px] mt-1 italic">Example: 4 regular + 1 Star = 4 + 6 = 10 entries</p>
-              </div>
-            )}
-          </div>
-          
-          {/* Social Requirements Section */}
-          <div className="mb-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4e]">
-            <h4 className="text-[#9966ff] text-[10px] mb-2">📱 SOCIAL REQUIREMENTS (Mandatory to Enter)</h4>
-            
-            <div className="space-y-2">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={raffleRequireX}
-                  onChange={(e) => setRaffleRequireX(e.target.checked)}
-                  className="w-4 h-4 mr-2"
-                />
-                <span className="text-gray-400 text-xs">Require X (Twitter) connection</span>
-              </label>
-              
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={raffleRequireDiscord}
-                  onChange={(e) => setRaffleRequireDiscord(e.target.checked)}
-                  className="w-4 h-4 mr-2"
-                />
-                <span className="text-gray-400 text-xs">Require Discord connection</span>
-              </label>
-            </div>
-          </div>
-          
-          {/* Engagement Bonus Section */}
-          <div className="mb-3 p-3 bg-[#1a1a2e] rounded border border-[#2a2a4e]">
-            <h4 className="text-[#44ff88] text-[10px] mb-2">🎁 BONUS ENTRY OPTIONS</h4>
-            
-            <div className="space-y-2">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={raffleDiscordBonus}
-                  onChange={(e) => setRaffleDiscordBonus(e.target.checked)}
-                  className="w-4 h-4 mr-2"
-                />
-                <span className="text-gray-400 text-xs">Discord Bonus (+1 entry for Discord members)</span>
-              </label>
-              
-              <div>
-                <label className="text-gray-500 text-[10px] block mb-1">
-                  Tweet URL for Like & RT Bonus (+1 entry)
-                </label>
-                <input
-                  type="text"
-                  value={raffleTweetUrl}
-                  onChange={(e) => setRaffleTweetUrl(e.target.value)}
-                  placeholder="https://x.com/StrWorldOrder/status/..."
-                  className="w-full bg-[#0a0a15] border border-[#2a2a4e] rounded px-2 py-1.5 text-xs text-white"
-                />
-                <p className="text-gray-600 text-[9px] mt-1">
-                  Users who like & retweet this tweet get +1 bonus entry
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <button
-            onClick={createRaffle}
-            disabled={!raffleName || !rafflePrize || !raffleEndTime}
-            className="pixel-btn pixel-btn-gold text-xs w-full"
-          >
-            🎰 CREATE RAFFLE
-          </button>
-        </div>
-        
-        {/* Drawn Raffles Quick View */}
-        {drawnRaffles.length > 0 && (
-          <div className="mb-6 p-4 bg-[#ffd700]/10 rounded-lg border-2 border-[#ffd700]/30">
-            <h3 className="text-[#ffd700] text-xs mb-3">🏆 RAFFLE WINNERS ({drawnRaffles.length})</h3>
-            <p className="text-gray-500 text-[9px] mb-2">Click on a winner to see full details</p>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {drawnRaffles.map((raffle) => (
-                <div 
-                  key={raffle.id} 
-                  className="flex items-center justify-between p-2 bg-black/30 rounded hover:bg-black/50 cursor-pointer transition-colors"
-                  onClick={() => fetchWinnerDetails(raffle)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-[10px] font-bold truncate">{raffle.name}</p>
-                    <p className="text-gray-400 text-[9px] truncate">{raffle.prize_description}</p>
-                  </div>
-                  <div className="text-right ml-2">
-                    <p className="text-[#ffd700] text-[10px] font-mono hover:text-[#ffea80] transition-colors">
-                      {raffle.winner_address?.slice(0, 6)}...{raffle.winner_address?.slice(-4)} →
-                    </p>
-                    <p className="text-gray-500 text-[8px]">
-                      {raffle.winner_drawn_at ? new Date(raffle.winner_drawn_at).toLocaleDateString() : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent opening modal when copying
-                      if (raffle.winner_address) {
-                        navigator.clipboard.writeText(raffle.winner_address);
-                        setActionResult({ success: true, message: 'Winner address copied!' });
-                      }
-                    }}
-                    className="ml-2 text-[#00ffff] text-xs hover:text-[#44ffff]"
-                    title="Copy winner address"
-                  >
-                    📋
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* Existing Raffles */}
-        <div className="space-y-3">
-          <h3 className="text-[#ffd700] text-xs">Active & Recent Raffles ({raffles.length})</h3>
-          
-          {raffles.length === 0 ? (
-            <p className="text-gray-500 text-xs text-center py-4">No raffles yet</p>
-          ) : (
-            raffles.map((raffle) => {
-              const stats = selectedRaffleStats[raffle.id];
-              const isEnded = new Date(raffle.end_time) <= new Date();
-              const canDraw = raffle.status === 'active' && isEnded && !raffle.winner_address;
-              
-              return (
-                <div 
-                  key={raffle.id}
-                  className={`p-4 rounded-lg border ${
-                    raffle.status === 'active' && !isEnded
-                      ? 'bg-[#44ff88]/10 border-[#44ff88]'
-                      : raffle.status === 'drawn'
-                      ? 'bg-[#ffd700]/10 border-[#ffd700]'
-                      : 'bg-[#0a0a15] border-[#2a2a4e]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h4 className="text-white text-sm font-bold">{raffle.name}</h4>
-                      <p className="text-gray-400 text-[10px]">{raffle.prize_description}</p>
-                      {/* Show additional info (description) below prize */}
-                      {raffle.description && (
-                        <p className="text-gray-500 text-[9px] mt-1 italic">{raffle.description}</p>
-                      )}
-                      {/* Show requirements */}
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        {raffle.is_public === 1 && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-[#ffd700]/20 text-[#ffd700] rounded border border-[#ffd700]">
-                            🌐 PUBLIC (⭐5+tier, 🐸x1)
-                          </span>
-                        )}
-                        {raffle.require_x === 1 && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-black/50 text-gray-300 rounded border border-gray-600">
-                            𝕏 Required
-                          </span>
-                        )}
-                        {raffle.require_discord === 1 && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-[#5865F2]/30 text-[#7289DA] rounded border border-[#5865F2]">
-                            Discord Required
-                          </span>
-                        )}
-                        {raffle.tweet_url && (
-                          <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded border border-[#44ff88]">
-                            RT Bonus
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      raffle.status === 'active' && !isEnded
-                        ? 'bg-[#44ff88]/20 text-[#44ff88]'
-                        : raffle.status === 'drawn'
-                        ? 'bg-[#ffd700]/20 text-[#ffd700]'
-                        : raffle.status === 'cancelled'
-                        ? 'bg-[#ff4466]/20 text-[#ff4466]'
-                        : 'bg-gray-500/20 text-gray-400'
-                    }`}>
-                      {raffle.status === 'active' && isEnded ? 'ENDED' : raffle.status.toUpperCase()}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-                    <div className="bg-[#0a0a15] rounded p-2">
-                      <p className="text-[#9966ff] text-sm font-bold">{stats?.participants || 0}</p>
-                      <p className="text-gray-600 text-[9px]">Participants</p>
-                    </div>
-                    <div className="bg-[#0a0a15] rounded p-2">
-                      <p className="text-[#00ffff] text-sm font-bold">{stats?.totalTickets || 0}</p>
-                      <p className="text-gray-600 text-[9px]">Tickets</p>
-                    </div>
-                    <div className="bg-[#0a0a15] rounded p-2">
-                      <p className="text-white text-[9px]">
-                        {new Date(raffle.end_time).toLocaleDateString()}
-                      </p>
-                      <p className="text-gray-600 text-[9px]">End Date</p>
-                    </div>
-                  </div>
-                  
-                  {raffle.winner_address && (
-                    <div className="bg-[#ffd700]/10 rounded p-2 mb-3">
-                      <p className="text-[#ffd700] text-[10px]">
-                        🏆 Winner: {raffle.winner_address.slice(0, 6)}...{raffle.winner_address.slice(-4)}
-                      </p>
-                      {raffle.winner_draw_seed && (
-                        <p className="text-gray-500 text-[8px] mt-1 font-mono break-all">
-                          Seed: {raffle.winner_draw_seed}
-                        </p>
-                      )}
-                      {raffle.winner_drawn_at && (
-                        <p className="text-gray-600 text-[8px]">
-                          Drawn: {new Date(raffle.winner_drawn_at).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {canDraw && (
-                      <button
-                        onClick={() => drawRaffleWinner(raffle.id)}
-                        className="pixel-btn pixel-btn-gold text-[10px] flex-1"
-                      >
-                        🎲 DRAW WINNER
-                      </button>
-                    )}
-                    {raffle.status === 'active' && !raffle.winner_address && (
-                      <button
-                        onClick={() => cancelRaffleAction(raffle.id)}
-                        className="pixel-btn text-[10px] bg-[#ff4466]"
-                      >
-                        ✗ CANCEL
-                      </button>
-                    )}
-                    <button
-                      onClick={() => exportRaffleCSV(raffle.id, raffle.name)}
-                      className="pixel-btn text-[10px]"
-                      title="Download participant list as CSV"
-                    >
-                      📥 CSV
-                    </button>
-                    <a
-                      href="/raffle"
-                      target="_blank"
-                      className="pixel-btn text-[10px]"
-                    >
-                      👁️ VIEW
-                    </a>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-        
-        {/* Tier Reference */}
-        <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
-          <h4 className="text-gray-400 text-xs mb-2">Entry Tiers Reference:</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[9px]">
-            <div className="bg-[#ffd700]/10 rounded p-2 text-center">
-              <p className="text-[#ffd700] font-bold">COSMIC EMPEROR</p>
-              <p className="text-gray-400">10+ Stars = 4 entries</p>
-            </div>
-            <div className="bg-[#ff00ff]/10 rounded p-2 text-center">
-              <p className="text-[#ff00ff] font-bold">STAR LORD</p>
-              <p className="text-gray-400">5+ Stars = 3 entries</p>
-            </div>
-            <div className="bg-[#00ffff]/10 rounded p-2 text-center">
-              <p className="text-[#00ffff] font-bold">COSMIC WARDEN</p>
-              <p className="text-gray-400">2+ Stars = 2 entries</p>
-            </div>
-            <div className="bg-[#9966ff]/10 rounded p-2 text-center">
-              <p className="text-[#9966ff] font-bold">STAR FORGED</p>
-              <p className="text-gray-400">1 Star = 1 entry</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        <RafflesTab
+          fetchRaffles={fetchRaffles}
+          isLoadingRaffles={isLoadingRaffles}
+          raffleName={raffleName}
+          setRaffleName={setRaffleName}
+          raffleEndTime={raffleEndTime}
+          setRaffleEndTime={setRaffleEndTime}
+          rafflePrize={rafflePrize}
+          setRafflePrize={setRafflePrize}
+          raffleDescription={raffleDescription}
+          setRaffleDescription={setRaffleDescription}
+          rafflePrizeImage={rafflePrizeImage}
+          setRafflePrizeImage={setRafflePrizeImage}
+          raffleIsPublic={raffleIsPublic}
+          setRaffleIsPublic={setRaffleIsPublic}
+          raffleRequireX={raffleRequireX}
+          setRaffleRequireX={setRaffleRequireX}
+          raffleRequireDiscord={raffleRequireDiscord}
+          setRaffleRequireDiscord={setRaffleRequireDiscord}
+          raffleDiscordBonus={raffleDiscordBonus}
+          setRaffleDiscordBonus={setRaffleDiscordBonus}
+          raffleTweetUrl={raffleTweetUrl}
+          setRaffleTweetUrl={setRaffleTweetUrl}
+          createRaffle={createRaffle}
+          drawnRaffles={drawnRaffles}
+          fetchWinnerDetails={fetchWinnerDetails}
+          setActionResult={setActionResult}
+          raffles={raffles}
+          selectedRaffleStats={selectedRaffleStats}
+          drawRaffleWinner={drawRaffleWinner}
+          cancelRaffleAction={cancelRaffleAction}
+          exportRaffleCSV={exportRaffleCSV}
+        />
       )}
 
       {/* Users Tab - only show when activeTab is 'users' */}
       {activeTab === 'users' && (
-        <div className="pixel-card p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[#00ffff] text-sm tracking-wider">👥 USER DATABASE</h2>
-            <button
-              onClick={() => fetchUsers(userSearchQuery)}
-              disabled={isLoadingUsers}
-              className="pixel-btn text-[10px] !px-3 !py-1"
-            >
-              {isLoadingUsers ? '...' : 'REFRESH'}
-            </button>
-          </div>
-
-          {/* Search */}
-          <div className="mb-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-                placeholder="Search by wallet, display name, or social username..."
-                className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded px-3 py-2 text-xs text-white focus:border-[#00ffff] outline-none"
-                onKeyDown={(e) => e.key === 'Enter' && fetchUsers(userSearchQuery)}
-              />
-              <button
-                onClick={() => fetchUsers(userSearchQuery)}
-                className="pixel-btn text-[10px] !px-4"
-              >
-                🔍
-              </button>
-            </div>
-          </div>
-
-          <p className="text-gray-500 text-[10px] mb-3">Total: {userCount} users</p>
-
-          {/* Users Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-[10px]">
-              <thead>
-                <tr className="border-b border-[#2a2a4e]">
-                  <th className="text-left p-2 text-[#ffd700]">Wallet</th>
-                  <th className="text-left p-2 text-[#ffd700]">Display Name</th>
-                  <th className="text-left p-2 text-[#ffd700]">𝕏 Twitter</th>
-                  <th className="text-left p-2 text-[#ffd700]">Discord</th>
-                  <th className="text-center p-2 text-[#ffd700]">Level</th>
-                  <th className="text-center p-2 text-[#ffd700]">XP</th>
-                  <th className="text-left p-2 text-[#ffd700]">Joined</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.wallet_address} className="border-b border-[#2a2a4e]/50 hover:bg-[#2a2a4e]/20">
-                    <td className="p-2 font-mono text-gray-300">
-                      {user.wallet_address.slice(0, 6)}...{user.wallet_address.slice(-4)}
-                    </td>
-                    <td className="p-2 text-white">{user.display_name || '-'}</td>
-                    <td className="p-2">
-                      {user.x_username ? (
-                        <a 
-                          href={`https://x.com/${user.x_username}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#00ffff] hover:underline"
-                        >
-                          @{user.x_username}
-                        </a>
-                      ) : (
-                        <span className="text-gray-600">-</span>
-                      )}
-                    </td>
-                    <td className="p-2 text-[#7289DA]">{user.discord_username || <span className="text-gray-600">-</span>}</td>
-                    <td className="p-2 text-center text-[#9966ff] font-bold">{user.level}</td>
-                    <td className="p-2 text-center text-gray-400">{user.total_xp.toLocaleString()}</td>
-                    <td className="p-2 text-gray-500">{new Date(user.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-500">No users found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <UsersTab
+          fetchUsers={fetchUsers}
+          isLoadingUsers={isLoadingUsers}
+          userSearchQuery={userSearchQuery}
+          setUserSearchQuery={setUserSearchQuery}
+          userCount={userCount}
+          users={users}
+        />
       )}
 
       {/* Database Tab - only show when activeTab is 'database' */}
       {activeTab === 'database' && (
-        <div className="space-y-6">
-          {/* Database Stats */}
-          <div className="pixel-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[#ffd700] text-sm tracking-wider">📊 DATABASE STATISTICS</h2>
-              <button
-                onClick={fetchDbStats}
-                disabled={isLoadingDbStats}
-                className="pixel-btn text-[10px] !px-3 !py-1"
-              >
-                {isLoadingDbStats ? '...' : 'REFRESH'}
-              </button>
-            </div>
-
-            {dbStats && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#00ffff] text-xl font-bold">{dbStats.users}</p>
-                  <p className="text-gray-500 text-[10px]">Users</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#9966ff] text-xl font-bold">{dbStats.notifications}</p>
-                  <p className="text-gray-500 text-[10px]">Notifications</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#44ff88] text-xl font-bold">{dbStats.chatMessages}</p>
-                  <p className="text-gray-500 text-[10px]">Chat Messages</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#ff6ec7] text-xl font-bold">{dbStats.raffles}</p>
-                  <p className="text-gray-500 text-[10px]">Raffles</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#ffd700] text-xl font-bold">{dbStats.raffleEntries}</p>
-                  <p className="text-gray-500 text-[10px]">Raffle Entries</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#00ffff] text-xl font-bold">{dbStats.friends}</p>
-                  <p className="text-gray-500 text-[10px]">Friend Relations</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#9966ff] text-xl font-bold">{dbStats.directMessages}</p>
-                  <p className="text-gray-500 text-[10px]">Direct Messages</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#44ff88] text-xl font-bold">{dbStats.voiceSessions}</p>
-                  <p className="text-gray-500 text-[10px]">Voice Sessions</p>
-                </div>
-                <div className="bg-[#0a0a15] p-3 rounded-lg border border-[#2a2a4e] text-center">
-                  <p className="text-[#ff6ec7] text-xl font-bold">{dbStats.socialConnections}</p>
-                  <p className="text-gray-500 text-[10px]">Social Connections</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Database Cleanup Tools */}
-          <div className="pixel-card p-6">
-            <h2 className="text-[#ff4466] text-sm tracking-wider mb-4">🧹 DATABASE CLEANUP TOOLS</h2>
-            <p className="text-gray-500 text-[10px] mb-4">
-              ⚠️ These actions permanently delete data. Use with caution!
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Chat Messages Cleanup */}
-              <CleanupCard
-                icon="💬"
-                title="Chat Messages"
-                color="#44ff88"
-                options={[
-                  { label: '1 Day', hours: 24 },
-                  { label: '3 Days', hours: 72 },
-                  { label: '7 Days', hours: 168 },
-                  { label: '14 Days', hours: 336 },
-                  { label: '30 Days', hours: 720 },
-                ]}
-                onCleanup={(hours) => runCleanupAction('cleanupChatMessages', { olderThanHours: hours })}
-              />
-
-              {/* Online Presence Cleanup */}
-              <div className="bg-[#0a0a15] p-4 rounded-lg border border-[#2a2a4e]">
-                <h4 className="text-[#9966ff] text-xs mb-2">👤 Online Presence</h4>
-                <p className="text-gray-500 text-[9px] mb-3">Delete stale presence records (10+ minutes old)</p>
-                <button
-                  onClick={() => runCleanupAction('cleanupOnlinePresence', { olderThanMinutes: 10 })}
-                  className="pixel-btn text-[10px] w-full"
-                >
-                  CLEANUP PRESENCE
-                </button>
-              </div>
-
-              {/* Direct Messages Cleanup */}
-              <CleanupCard
-                icon="✉️"
-                title="Direct Messages"
-                color="#00ffff"
-                options={[
-                  { label: '7 Days', days: 7 },
-                  { label: '14 Days', days: 14 },
-                  { label: '30 Days', days: 30 },
-                  { label: '60 Days', days: 60 },
-                  { label: '90 Days', days: 90 },
-                ]}
-                onCleanup={(days) => runCleanupAction('cleanupDirectMessages', { olderThanDays: days })}
-                useDays
-              />
-
-              {/* Notifications Cleanup */}
-              <CleanupCard
-                icon="🔔"
-                title="Notifications"
-                color="#ffd700"
-                options={[
-                  { label: '7 Days', days: 7 },
-                  { label: '14 Days', days: 14 },
-                  { label: '30 Days', days: 30 },
-                  { label: '60 Days', days: 60 },
-                  { label: '90 Days', days: 90 },
-                ]}
-                onCleanup={(days) => runCleanupAction('cleanupNotifications', { olderThanDays: days })}
-                useDays
-              />
-
-              {/* Raffle Views Cleanup */}
-              <CleanupCard
-                icon="🎰"
-                title="Raffle Views"
-                color="#ff6ec7"
-                options={[
-                  { label: '7 Days', days: 7 },
-                  { label: '14 Days', days: 14 },
-                  { label: '30 Days', days: 30 },
-                  { label: '60 Days', days: 60 },
-                  { label: '90 Days', days: 90 },
-                ]}
-                onCleanup={(days) => runCleanupAction('cleanupRaffleResultViews', { olderThanDays: days })}
-                useDays
-              />
-
-              {/* Forum Content Cleanup */}
-              <CleanupCard
-                icon="💭"
-                title="Forum Threads"
-                color="#9966ff"
-                options={[
-                  { label: '30 Days', days: 30 },
-                  { label: '60 Days', days: 60 },
-                  { label: '90 Days', days: 90 },
-                  { label: '180 Days', days: 180 },
-                  { label: '365 Days', days: 365 },
-                ]}
-                onCleanup={(days) => runCleanupAction('cleanupForumThreads', { olderThanDays: days })}
-                useDays
-              />
-            </div>
-          </div>
-        </div>
+        <DatabaseTab
+          fetchDbStats={fetchDbStats}
+          isLoadingDbStats={isLoadingDbStats}
+          dbStats={dbStats}
+          runCleanupAction={runCleanupAction}
+        />
       )}
 
       {/* Quick Actions */}
@@ -2168,7 +1168,7 @@ export default function AdminContent() {
       {/* Footer */}
       <div className="text-center mt-8">
         <p className="text-gray-600 text-[10px]">
-          Admin: {address?.slice(0, 6)}...{address?.slice(-4)} • 
+          Admin: {address ? truncateAddress(address) : '...'} •
           Last refresh: {healthData?.timestamp ? new Date(healthData.timestamp).toLocaleTimeString() : 'N/A'}
         </p>
       </div>

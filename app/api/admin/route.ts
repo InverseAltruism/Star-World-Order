@@ -8,7 +8,8 @@
  * Default: 0x1ceC3a47c47314DE00b5Ff059dB5f3035e566582
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { clearAllBlockVisionCaches, getAllCacheStats } from '@/lib/blockvision';
 import { clearTreasuryCache } from '@/app/api/treasury/route';
 import { verifyAdminAccess } from '@/lib/adminAuth';
@@ -33,6 +34,7 @@ import {
   getRaffleWinnerDetails,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { consolidateAllCompanionMemories } from '@/lib/sanctuary/memoryConsolidation';
 
 /**
  * GET /api/admin
@@ -40,7 +42,7 @@ import { logger } from '@/lib/logger';
  * Get admin dashboard data (health status, cache stats, etc.)
  * Requires admin authentication
  */
-export async function GET(request: NextRequest) {
+export const GET = route({ error: 'Internal server error' }, async (request) => {
   const auth = await verifyAdminAccess(request);
   if (!auth.valid) {
     return NextResponse.json(
@@ -49,129 +51,121 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get('action');
 
-    // Get overall health status
-    if (!action || action === 'health') {
-      const cacheStats = getAllCacheStats();
-      
-      return NextResponse.json({
-        success: true,
-        data: {
-          status: 'healthy',
-          timestamp: new Date().toISOString(),
-          environment: process.env.NEXT_PUBLIC_ENV_MODE || 'unknown',
-          cacheStats,
-          blockvisionApiConfigured: !!process.env.BLOCKVISION_API,
-        },
-      });
-    }
-
-    // Get notifications for a specific wallet
-    if (action === 'notifications') {
-      const walletAddress = searchParams.get('wallet');
-      if (!walletAddress) {
-        return NextResponse.json(
-          { success: false, error: 'Wallet address required' },
-          { status: 400 }
-        );
-      }
-
-      const notifications = getNotifications(walletAddress, { limit: 100 });
-      return NextResponse.json({
-        success: true,
-        notifications,
-      });
-    }
-
-    // Get all notifications (notification history)
-    if (action === 'allNotifications') {
-      const limit = parseInt(searchParams.get('limit') || '100', 10);
-      const offset = parseInt(searchParams.get('offset') || '0', 10);
-      const type = searchParams.get('type') as NotificationType | null;
-      
-      const notifications = getAllNotifications({ 
-        limit, 
-        offset, 
-        type: type || undefined 
-      });
-      const totalCount = getNotificationCount();
-      
-      return NextResponse.json({
-        success: true,
-        notifications,
-        totalCount,
-      });
-    }
-
-    // Get all users with social connections
-    if (action === 'users') {
-      const limit = parseInt(searchParams.get('limit') || '100', 10);
-      const offset = parseInt(searchParams.get('offset') || '0', 10);
-      const search = searchParams.get('search') || undefined;
-      
-      const users = getAllUsersWithSocialConnections({ limit, offset, search });
-      const totalCount = getUserCount();
-      
-      return NextResponse.json({
-        success: true,
-        users,
-        totalCount,
-      });
-    }
-
-    // Get database statistics
-    if (action === 'dbStats') {
-      const stats = getDatabaseStats();
-      
-      return NextResponse.json({
-        success: true,
-        stats,
-      });
-    }
-
-    // Get drawn raffles with winners
-    if (action === 'drawnRaffles') {
-      const limit = parseInt(searchParams.get('limit') || '20', 10);
-      const raffles = getDrawnRaffles(limit);
-      
-      return NextResponse.json({
-        success: true,
-        raffles,
-      });
-    }
-
-    // Get raffle winner details (full user info)
-    if (action === 'winnerDetails') {
-      const walletAddress = searchParams.get('wallet');
-      if (!walletAddress) {
-        return NextResponse.json(
-          { success: false, error: 'Wallet address required' },
-          { status: 400 }
-        );
-      }
-
-      const winnerDetails = getRaffleWinnerDetails(walletAddress);
-      return NextResponse.json({
-        success: true,
-        winner: winnerDetails,
-      });
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Unknown action' },
-      { status: 400 }
-    );
-  } catch (error) {
-    logger.error('Admin API GET error:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+  // Get overall health status
+  if (!action || action === 'health') {
+    const cacheStats = getAllCacheStats();
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NEXT_PUBLIC_ENV_MODE || 'unknown',
+        cacheStats,
+        blockvisionApiConfigured: !!process.env.BLOCKVISION_API,
+      },
+    });
   }
-}
+
+  // Get notifications for a specific wallet
+  if (action === 'notifications') {
+    const walletAddress = searchParams.get('wallet');
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address required' },
+        { status: 400 }
+      );
+    }
+
+    const notifications = getNotifications(walletAddress, { limit: 100 });
+    return NextResponse.json({
+      success: true,
+      notifications,
+    });
+  }
+
+  // Get all notifications (notification history)
+  if (action === 'allNotifications') {
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const type = searchParams.get('type') as NotificationType | null;
+    
+    const notifications = getAllNotifications({ 
+      limit, 
+      offset, 
+      type: type || undefined 
+    });
+    const totalCount = getNotificationCount();
+    
+    return NextResponse.json({
+      success: true,
+      notifications,
+      totalCount,
+    });
+  }
+
+  // Get all users with social connections
+  if (action === 'users') {
+    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const search = searchParams.get('search') || undefined;
+    
+    const users = getAllUsersWithSocialConnections({ limit, offset, search });
+    const totalCount = getUserCount();
+    
+    return NextResponse.json({
+      success: true,
+      users,
+      totalCount,
+    });
+  }
+
+  // Get database statistics
+  if (action === 'dbStats') {
+    const stats = getDatabaseStats();
+    
+    return NextResponse.json({
+      success: true,
+      stats,
+    });
+  }
+
+  // Get drawn raffles with winners
+  if (action === 'drawnRaffles') {
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const raffles = getDrawnRaffles(limit);
+    
+    return NextResponse.json({
+      success: true,
+      raffles,
+    });
+  }
+
+  // Get raffle winner details (full user info)
+  if (action === 'winnerDetails') {
+    const walletAddress = searchParams.get('wallet');
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address required' },
+        { status: 400 }
+      );
+    }
+
+    const winnerDetails = getRaffleWinnerDetails(walletAddress);
+    return NextResponse.json({
+      success: true,
+      winner: winnerDetails,
+    });
+  }
+
+  return NextResponse.json(
+    { success: false, error: 'Unknown action' },
+    { status: 400 }
+  );
+});
 
 /**
  * POST /api/admin
@@ -179,7 +173,7 @@ export async function GET(request: NextRequest) {
  * Perform admin actions (clear cache, create notifications, etc.)
  * Requires admin authentication
  */
-export async function POST(request: NextRequest) {
+export const POST = route({ error: 'Internal server error' }, async (request) => {
   const auth = await verifyAdminAccess(request);
   if (!auth.valid) {
     return NextResponse.json(
@@ -188,233 +182,248 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  try {
-    const body = await request.json();
-    const { action } = body;
+  const body = await request.json();
+  const { action } = body;
 
-    // Clear all BlockVision caches and Treasury cache
-    if (action === 'clearCache') {
-      const result = clearAllBlockVisionCaches();
-      clearTreasuryCache(); // Also clear the Treasury API cache
-      logger.info('Admin: Cleared all caches', result);
-      return NextResponse.json({
-        success: true,
-        message: 'All caches cleared',
-        data: result,
-      });
-    }
-
-    // Create a notification for a user
-    if (action === 'createNotification') {
-      const { walletAddress, type, title, message, link, icon } = body;
-      
-      if (!walletAddress || !type || !title || !message) {
-        return NextResponse.json(
-          { success: false, error: 'Missing required fields: walletAddress, type, title, message' },
-          { status: 400 }
-        );
-      }
-
-      const validTypes: NotificationType[] = ['quest', 'achievement', 'system', 'social', 'governance'];
-      if (!validTypes.includes(type)) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid notification type' },
-          { status: 400 }
-        );
-      }
-
-      const notification = createNotification(walletAddress, {
-        type,
-        title,
-        message,
-        link,
-        icon,
-      });
-
-      logger.info('Admin: Created notification', { walletAddress, type, title });
-      return NextResponse.json({
-        success: true,
-        notification,
-      });
-    }
-
-    // Delete a notification
-    if (action === 'deleteNotification') {
-      const { notificationId } = body;
-      if (!notificationId) {
-        return NextResponse.json(
-          { success: false, error: 'Notification ID required' },
-          { status: 400 }
-        );
-      }
-
-      deleteNotification(notificationId);
-      logger.info('Admin: Deleted notification', { notificationId });
-      return NextResponse.json({
-        success: true,
-        message: 'Notification deleted',
-      });
-    }
-
-    // Mark all notifications as read for a user
-    if (action === 'markAllRead') {
-      const { walletAddress } = body;
-      if (!walletAddress) {
-        return NextResponse.json(
-          { success: false, error: 'Wallet address required' },
-          { status: 400 }
-        );
-      }
-
-      markAllNotificationsRead(walletAddress);
-      logger.info('Admin: Marked all notifications read', { walletAddress });
-      return NextResponse.json({
-        success: true,
-        message: 'All notifications marked as read',
-      });
-    }
-
-    // Cleanup old notifications
-    if (action === 'cleanupNotifications') {
-      cleanupOldNotifications();
-      logger.info('Admin: Cleaned up old notifications');
-      return NextResponse.json({
-        success: true,
-        message: 'Old notifications cleaned up',
-      });
-    }
-
-    // Broadcast notification to all Star holders (or specific wallets)
-    if (action === 'broadcastNotification') {
-      const { walletAddresses, type, title, message, link, icon } = body;
-      
-      if (!walletAddresses || !Array.isArray(walletAddresses) || walletAddresses.length === 0) {
-        return NextResponse.json(
-          { success: false, error: 'walletAddresses array required' },
-          { status: 400 }
-        );
-      }
-
-      if (!type || !title || !message) {
-        return NextResponse.json(
-          { success: false, error: 'Missing required fields: type, title, message' },
-          { status: 400 }
-        );
-      }
-
-      const notifications = walletAddresses.map((wallet: string) => {
-        return createNotification(wallet, {
-          type,
-          title,
-          message,
-          link,
-          icon,
-        });
-      });
-
-      logger.info('Admin: Broadcast notification', { 
-        recipientCount: walletAddresses.length,
-        type,
-        title,
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Notification sent to ${walletAddresses.length} wallets`,
-        notifications,
-      });
-    }
-
-    // Update an existing notification
-    if (action === 'updateNotification') {
-      const { notificationId, title, message, type, icon, link } = body;
-      
-      if (!notificationId) {
-        return NextResponse.json(
-          { success: false, error: 'Notification ID required' },
-          { status: 400 }
-        );
-      }
-
-      const notification = updateNotification(notificationId, {
-        title,
-        message,
-        type,
-        icon,
-        link,
-      });
-
-      if (!notification) {
-        return NextResponse.json(
-          { success: false, error: 'Failed to update notification' },
-          { status: 400 }
-        );
-      }
-
-      logger.info('Admin: Updated notification', { notificationId });
-      return NextResponse.json({
-        success: true,
-        notification,
-      });
-    }
-
-    // Cleanup chat messages
-    if (action === 'cleanupChatMessages') {
-      const { olderThanHours = 24 } = body;
-      const deleted = cleanupChatMessages(olderThanHours);
-      logger.info('Admin: Cleaned up chat messages', { deleted, olderThanHours });
-      return NextResponse.json({
-        success: true,
-        message: `Deleted ${deleted} chat messages older than ${olderThanHours} hours`,
-        deleted,
-      });
-    }
-
-    // Cleanup online presence
-    if (action === 'cleanupOnlinePresence') {
-      const { olderThanMinutes = 10 } = body;
-      const deleted = cleanupOnlinePresence(olderThanMinutes);
-      logger.info('Admin: Cleaned up online presence', { deleted, olderThanMinutes });
-      return NextResponse.json({
-        success: true,
-        message: `Deleted ${deleted} stale presence records older than ${olderThanMinutes} minutes`,
-        deleted,
-      });
-    }
-
-    // Cleanup direct messages
-    if (action === 'cleanupDirectMessages') {
-      const { olderThanDays = 90 } = body;
-      const deleted = cleanupDirectMessages(olderThanDays);
-      logger.info('Admin: Cleaned up direct messages', { deleted, olderThanDays });
-      return NextResponse.json({
-        success: true,
-        message: `Deleted ${deleted} direct messages older than ${olderThanDays} days`,
-        deleted,
-      });
-    }
-
-    // Cleanup raffle result views
-    if (action === 'cleanupRaffleResultViews') {
-      const { olderThanDays = 30 } = body;
-      const deleted = cleanupRaffleResultViews(olderThanDays);
-      logger.info('Admin: Cleaned up raffle result views', { deleted, olderThanDays });
-      return NextResponse.json({
-        success: true,
-        message: `Deleted ${deleted} raffle result views older than ${olderThanDays} days`,
-        deleted,
-      });
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Unknown action' },
-      { status: 400 }
-    );
-  } catch (error) {
-    logger.error('Admin API POST error:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+  // Clear all BlockVision caches and Treasury cache
+  if (action === 'clearCache') {
+    const result = clearAllBlockVisionCaches();
+    clearTreasuryCache(); // Also clear the Treasury API cache
+    logger.info('Admin: Cleared all caches', result);
+    return NextResponse.json({
+      success: true,
+      message: 'All caches cleared',
+      data: result,
+    });
   }
-}
+
+  // Create a notification for a user
+  if (action === 'createNotification') {
+    const { walletAddress, type, title, message, link, icon } = body;
+    
+    if (!walletAddress || !type || !title || !message) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: walletAddress, type, title, message' },
+        { status: 400 }
+      );
+    }
+
+    const validTypes: NotificationType[] = ['quest', 'achievement', 'system', 'social', 'governance'];
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid notification type' },
+        { status: 400 }
+      );
+    }
+
+    const notification = createNotification(walletAddress, {
+      type,
+      title,
+      message,
+      link,
+      icon,
+    });
+
+    logger.info('Admin: Created notification', { walletAddress, type, title });
+    return NextResponse.json({
+      success: true,
+      notification,
+    });
+  }
+
+  // Delete a notification
+  if (action === 'deleteNotification') {
+    const { notificationId } = body;
+    if (!notificationId) {
+      return NextResponse.json(
+        { success: false, error: 'Notification ID required' },
+        { status: 400 }
+      );
+    }
+
+    deleteNotification(notificationId);
+    logger.info('Admin: Deleted notification', { notificationId });
+    return NextResponse.json({
+      success: true,
+      message: 'Notification deleted',
+    });
+  }
+
+  // Mark all notifications as read for a user
+  if (action === 'markAllRead') {
+    const { walletAddress } = body;
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address required' },
+        { status: 400 }
+      );
+    }
+
+    markAllNotificationsRead(walletAddress);
+    logger.info('Admin: Marked all notifications read', { walletAddress });
+    return NextResponse.json({
+      success: true,
+      message: 'All notifications marked as read',
+    });
+  }
+
+  // Cleanup old notifications
+  if (action === 'cleanupNotifications') {
+    cleanupOldNotifications();
+    logger.info('Admin: Cleaned up old notifications');
+    return NextResponse.json({
+      success: true,
+      message: 'Old notifications cleaned up',
+    });
+  }
+
+  // Broadcast notification to all Star holders (or specific wallets)
+  if (action === 'broadcastNotification') {
+    const { walletAddresses, type, title, message, link, icon } = body;
+    
+    if (!walletAddresses || !Array.isArray(walletAddresses) || walletAddresses.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'walletAddresses array required' },
+        { status: 400 }
+      );
+    }
+
+    if (!type || !title || !message) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: type, title, message' },
+        { status: 400 }
+      );
+    }
+
+    const notifications = walletAddresses.map((wallet: string) => {
+      return createNotification(wallet, {
+        type,
+        title,
+        message,
+        link,
+        icon,
+      });
+    });
+
+    logger.info('Admin: Broadcast notification', { 
+      recipientCount: walletAddresses.length,
+      type,
+      title,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Notification sent to ${walletAddresses.length} wallets`,
+      notifications,
+    });
+  }
+
+  // Update an existing notification
+  if (action === 'updateNotification') {
+    const { notificationId, title, message, type, icon, link } = body;
+    
+    if (!notificationId) {
+      return NextResponse.json(
+        { success: false, error: 'Notification ID required' },
+        { status: 400 }
+      );
+    }
+
+    const notification = updateNotification(notificationId, {
+      title,
+      message,
+      type,
+      icon,
+      link,
+    });
+
+    if (!notification) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to update notification' },
+        { status: 400 }
+      );
+    }
+
+    logger.info('Admin: Updated notification', { notificationId });
+    return NextResponse.json({
+      success: true,
+      notification,
+    });
+  }
+
+  // Cleanup chat messages
+  if (action === 'cleanupChatMessages') {
+    const { olderThanHours = 24 } = body;
+    const deleted = cleanupChatMessages(olderThanHours);
+    logger.info('Admin: Cleaned up chat messages', { deleted, olderThanHours });
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${deleted} chat messages older than ${olderThanHours} hours`,
+      deleted,
+    });
+  }
+
+  // Cleanup online presence
+  if (action === 'cleanupOnlinePresence') {
+    const { olderThanMinutes = 10 } = body;
+    const deleted = cleanupOnlinePresence(olderThanMinutes);
+    logger.info('Admin: Cleaned up online presence', { deleted, olderThanMinutes });
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${deleted} stale presence records older than ${olderThanMinutes} minutes`,
+      deleted,
+    });
+  }
+
+  // Cleanup direct messages
+  if (action === 'cleanupDirectMessages') {
+    const { olderThanDays = 90 } = body;
+    const deleted = cleanupDirectMessages(olderThanDays);
+    logger.info('Admin: Cleaned up direct messages', { deleted, olderThanDays });
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${deleted} direct messages older than ${olderThanDays} days`,
+      deleted,
+    });
+  }
+
+  // Consolidate companion chat memories (weekly batch job)
+  if (action === 'consolidateChatMemories') {
+    const {
+      duplicateSimilarityThreshold,
+      topicClusterThreshold,
+      feelingDecayAfterDays,
+    } = body;
+    const stats = consolidateAllCompanionMemories({
+      duplicateSimilarityThreshold:
+        typeof duplicateSimilarityThreshold === 'number' ? duplicateSimilarityThreshold : undefined,
+      topicClusterThreshold:
+        typeof topicClusterThreshold === 'number' ? topicClusterThreshold : undefined,
+      feelingDecayAfterDays:
+        typeof feelingDecayAfterDays === 'number' ? feelingDecayAfterDays : undefined,
+    });
+    logger.info('Admin: Consolidated companion chat memories', { ...stats });
+    return NextResponse.json({
+      success: true,
+      message: `Scanned ${stats.companionsScanned} companions / ${stats.memoriesScanned} memories — merged ${stats.merged}, decayed ${stats.decayed}`,
+      stats,
+    });
+  }
+
+  // Cleanup raffle result views
+  if (action === 'cleanupRaffleResultViews') {
+    const { olderThanDays = 30 } = body;
+    const deleted = cleanupRaffleResultViews(olderThanDays);
+    logger.info('Admin: Cleaned up raffle result views', { deleted, olderThanDays });
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${deleted} raffle result views older than ${olderThanDays} days`,
+      deleted,
+    });
+  }
+
+  return NextResponse.json(
+    { success: false, error: 'Unknown action' },
+    { status: 400 }
+  );
+});

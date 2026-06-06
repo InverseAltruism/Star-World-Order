@@ -1,0 +1,30 @@
+# Cosmic Casino — halmos symbolic-execution config.
+#
+# Pairs with `contracts/casino/test/CosmicFlipHalmos.t.sol`. Halmos runs the
+# `check_*` functions on `CosmicFlipHalmosTest` as symbolic properties (vs the
+# concrete fuzz tests in `CosmicFlipUnit.t.sol` / `CosmicFlipCommitReplay.t.sol`).
+#
+# Invoke:
+#   halmos --contract CosmicFlipHalmosTest
+#
+# Halmos reads `foundry.toml` for compiler config (solc 0.8.24, optimizer, etc.)
+# and these settings extend that with symbolic-execution-specific knobs.
+
+[global]
+# Match the symbolic test contract by name.
+contract = "CosmicFlipHalmosTest"
+
+# Bound loop unrolling. The Cosmic Flip lifecycle (placeBet → settleBet →
+# placeBet') has no on-chain loops; the small default loop bound is enough
+# and keeps verification times sub-minute.
+loop = 2
+
+# keccak256 is modelled as an injective uninterpreted function. This is
+# essential for the commit-replay proofs: `commit == keccak(seed)` must be
+# treated as 1-to-1 so halmos can reason about commit uniqueness.
+solver-timeout-assertion = 60000
+solver-timeout-branching = 1000
+
+# Storage layout — generic mode lets halmos handle the dynamic mapping
+# (commitUsed) without per-slot hints.
+storage-layout = "generic"

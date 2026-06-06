@@ -1,0 +1,88 @@
+name: Casino Keeper Health Monitor
+
+# Polls /api/casino/health every 5 minutes and pages Telegram when the
+# keeper is offline for ≥2 consecutive checks. Heals automatically when
+# the keeper returns to online. State is persisted between runs via
+# actions/cache so the consecutive-offline counter survives across
+# scheduled invocations.
+#
+# Acceptance criteria (from task SWO_CASINO_KEEPER_HEALTH_MONITOR):
+#   (a) cron configured — see `schedule:` below
+#   (b) killing the keeper produces a Telegram alert within ~10 min
+#       (2 × 5-min interval) — see lib/casino/keeperHealthMonitor.ts
+#   (c) restart heals the alert — same logic
+#
+# Configuration:
+#   - Set the CASINO_HEALTH_URL repo variable to the deployed endpoint
+#     (e.g. https://swo.example.com/api/casino/health).
+#   - Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID as repo secrets.
+#   - All values are optional for testing: with no Telegram secrets the
+#     monitor still polls and logs but cannot deliver alerts.
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub Actions cron uses UTC and may delay
+    # scheduled runs during high-load periods, but the ≥2-consecutive-check
+    # design already absorbs short skew.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize runs so a slow execution doesn't fight a fresh one over
+  # the cached state file.
+  group: casino-keeper-health
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    name: poll /api/casino/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install minimal deps (tsx)
+        run: npm install --no-save tsx@4
+
+      - name: Restore monitor state
+        id: state-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: monitoring/.keeper-state.json
+          key: casino-keeper-state-v1
+
+      - name: Run health check
+        env:
+          CASINO_HEALTH_URL: ${{ vars.CASINO_HEALTH_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx tsx scripts/casino/keeperHealthMonitor.ts
+
+      # Always save state, even when the script exits non-zero (offline +
+      # telegram-send-failed), so the consecutive counter keeps advancing.
+      # The cache key is static so each save overwrites the prior entry.
+      - name: Save monitor state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: monitoring/.keeper-state.json
+          key: casino-keeper-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Upload health log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: casino-keeper-health-log-${{ github.run_id }}
+          path: monitoring/casino_keeper_health.log
+          if-no-files-found: ignore
+          retention-days: 14

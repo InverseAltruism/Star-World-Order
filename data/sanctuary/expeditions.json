@@ -1,0 +1,186 @@
+{
+  "$comment": "Sanctuary multi-step expedition seed data. Loaded by lib/sanctuary/expeditions.ts as ExpeditionDefinition[]. Each expedition is a small branching narrative an NPC unlocks for the player. The npcSource field maps to a quest source via game/config/questSourceMap.ts; both V2 (cosmic placeholder) and V3 (Forgotten Memories) overlays render the same data.",
+  "season": "spring-2026",
+  "expeditions": [
+    {
+      "id": "expedition-observatory-comet-watch",
+      "title": "The Comet's Tail",
+      "description": "Astris has spotted an unscheduled comet streaking the southern sky. She needs another set of eyes — and steady hands at the lens.",
+      "npcSource": "observatory",
+      "startStepId": "comet-arrive",
+      "rewards": {
+        "xp": 80,
+        "bond": 6.0,
+        "trait": "Stargazer"
+      },
+      "steps": [
+        {
+          "id": "comet-arrive",
+          "narrative": "The Observatory dome is open to a sliver of velvet sky. Astris is bent over the great refractor, hair pulled back, fingers tight on the focus knob. \"You came. Good. The tail is fading and I can't take both readings alone.\"",
+          "choices": [
+            {
+              "id": "offer-lens",
+              "label": "\"I'll take the lens. Tell me what to track.\"",
+              "nextStepId": "comet-track",
+              "tone": "earnest"
+            },
+            {
+              "id": "offer-log",
+              "label": "\"Hand me the logbook — I'll write what you call.\"",
+              "nextStepId": "comet-log",
+              "tone": "diligent"
+            }
+          ]
+        },
+        {
+          "id": "comet-track",
+          "narrative": "You bend to the eyepiece. The comet is a slow blue smear against pinholes of starlight. \"Hold steady,\" Astris murmurs. \"If we lose the tail's centerline we lose the whole night.\" The dome creaks; the field begins to drift.",
+          "choices": [
+            {
+              "id": "compensate-drift",
+              "label": "Counter-rotate the lens to follow the drift.",
+              "nextStepId": "comet-finale",
+              "tone": "skilled"
+            },
+            {
+              "id": "call-out",
+              "label": "Call out coordinates and let Astris correct.",
+              "nextStepId": "comet-finale",
+              "tone": "trusting"
+            }
+          ]
+        },
+        {
+          "id": "comet-log",
+          "narrative": "Astris recites in clipped bursts and you scratch them down: declination, magnitude, tail length. Halfway through, the ink in your pen runs thin. \"Don't stop,\" she says without looking up. \"Numbers first, neatness later.\"",
+          "choices": [
+            {
+              "id": "switch-pen",
+              "label": "Swap to charcoal and keep transcribing.",
+              "nextStepId": "comet-finale",
+              "tone": "resourceful"
+            },
+            {
+              "id": "abbreviate",
+              "label": "Shorten every entry to keep pace with her count.",
+              "nextStepId": "comet-finale",
+              "tone": "pragmatic"
+            }
+          ]
+        },
+        {
+          "id": "comet-finale",
+          "narrative": "The comet's tail thins to a thread, then a memory. Astris straightens, eyes shining. \"We caught it. The whole arc.\" She holds the logbook against her chest. The dome falls quiet around the two of you, and the southern sky settles.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "share-credit",
+              "label": "\"You did the hard part. I just held the line.\"",
+              "outcome": "success",
+              "tone": "humble"
+            },
+            {
+              "id": "claim-credit",
+              "label": "\"Couldn't have done it without me.\"",
+              "outcome": "partial",
+              "tone": "boastful"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "expedition-forge-ember-trial",
+      "title": "Ember Trial",
+      "description": "Pyrix is testing a new alloy and won't trust the bellows to anyone but a steady hand. Help him pull a clean ingot from the Aura Forge.",
+      "npcSource": "forge",
+      "startStepId": "forge-arrive",
+      "rewards": {
+        "xp": 100,
+        "bond": 7.0,
+        "trait": "Ironheart"
+      },
+      "steps": [
+        {
+          "id": "forge-arrive",
+          "narrative": "Heat hits you like a wall. Pyrix is shoulder-deep in the forge's red mouth, sleeves rolled, sweat bright on his brow. \"On time,\" he grunts. \"The crucible's hot. Pick: bellows, or hammer.\"",
+          "choices": [
+            {
+              "id": "take-bellows",
+              "label": "\"Bellows. I can keep a rhythm.\"",
+              "nextStepId": "forge-bellows",
+              "tone": "rhythm"
+            },
+            {
+              "id": "take-hammer",
+              "label": "\"Hammer. I'll strike where you point.\"",
+              "nextStepId": "forge-hammer",
+              "tone": "brave"
+            }
+          ]
+        },
+        {
+          "id": "forge-bellows",
+          "narrative": "You haul on the leather grips — long, slow, deep. The flames lift to a clean white roar. Pyrix nods approval, then snaps: \"Now faster. Faster than feels safe.\" The crucible glows past orange, into something close to dawn.",
+          "choices": [
+            {
+              "id": "trust-pyrix",
+              "label": "Trust him and pump harder.",
+              "nextStepId": "forge-finale",
+              "tone": "trusting"
+            },
+            {
+              "id": "hold-steady",
+              "label": "Hold the rhythm — don't risk overheat.",
+              "nextStepId": "forge-finale",
+              "tone": "cautious"
+            }
+          ]
+        },
+        {
+          "id": "forge-hammer",
+          "narrative": "Pyrix pulls the ingot. It pulses like something alive. \"Three strikes,\" he says. \"First high, second flat, third — listen for the right note. Don't crack it.\" He sets it on the anvil and steps back.",
+          "choices": [
+            {
+              "id": "strike-confident",
+              "label": "Strike confidently — finish all three before doubt creeps in.",
+              "nextStepId": "forge-finale",
+              "tone": "decisive"
+            },
+            {
+              "id": "strike-careful",
+              "label": "Take the third strike slow and listen for the note.",
+              "nextStepId": "forge-finale",
+              "tone": "patient"
+            }
+          ]
+        },
+        {
+          "id": "forge-finale",
+          "narrative": "The ingot quenches with a hiss that sounds almost like a sigh. Pyrix lifts it: dark, even, the grain running true. \"Clean pour,\" he says, and that from him is almost a hymn. He sets the ingot in your hands. It is warm. It is yours, briefly, before it becomes the Sanctuary's.",
+          "isFinal": true,
+          "choices": [
+            {
+              "id": "return-ingot",
+              "label": "Return the ingot — \"Forge it into something we both need.\"",
+              "outcome": "success",
+              "tone": "selfless"
+            },
+            {
+              "id": "keep-shard",
+              "label": "Snap a shard off for yourself before handing it back.",
+              "outcome": "partial",
+              "tone": "selfish"
+            },
+            {
+              "id": "drop-ingot",
+              "label": "Fumble it — your hands are still shaking from the heat.",
+              "outcome": "failure",
+              "tone": "rattled"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

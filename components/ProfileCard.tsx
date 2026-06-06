@@ -3,33 +3,29 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDAOAccess } from '@/lib/hooks/useDAOAccess';
 import { useDemoMode } from '@/lib/contexts/DemoModeContext';
-import { STAR_TRAIT_VARIANTS, StarTraitVariant, getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { STAR_TRAIT_VARIANTS, StarTraitVariant } from '@/lib/starSkrumpey';
 import { STAR_CONSTELLATION_MAP } from '@/data/starConstellationData';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
-import SocialConnect from './SocialConnect';
+import SkrumpeyImage, { useSkrumpeyImage } from './SkrumpeyImage';
+import { useAuthHeaders } from './profile/hooks/useAuthHeaders';
+import { useProfileEdit } from './profile/hooks/useProfileEdit';
+import { useFriends } from './profile/hooks/useFriends';
+import { useMessages } from './profile/hooks/useMessages';
+import { useNotifications } from './profile/hooks/useNotifications';
+import { useRaffleHistory } from './profile/hooks/useRaffleHistory';
+import MessagesTab from './profile/tabs/MessagesTab';
+import AchievementsTab from './profile/tabs/AchievementsTab';
+import SettingsTab from './profile/tabs/SettingsTab';
+import FriendsTab from './profile/tabs/FriendsTab';
+import CollectionTab from './profile/tabs/CollectionTab';
+import RafflesTab from './profile/tabs/RafflesTab';
+import { ACHIEVEMENTS, type Achievement, type AchievementCheckData } from './profile/achievements';
+import type { SkrumpeyDisplayData } from './profile/types';
+import { getVariantTextStyle } from '@/lib/skrumpeyVariantStyles';
 
 /**
- * Get level title based on Star Skrumpey holdings count
- */
-function getLevelTitle(holdingsCount: number): string {
-  if (holdingsCount >= 10) return 'COSMIC EMPEROR';
-  if (holdingsCount >= 5) return 'STAR LORD';
-  if (holdingsCount >= 2) return 'COSMIC WARDEN';
-  return 'STAR FORGED';
-}
-
-/**
- * Get level color based on holdings count
- */
-function getLevelColor(holdingsCount: number): string {
-  if (holdingsCount >= 10) return '#ffd700'; // Gold - Cosmic Emperor
-  if (holdingsCount >= 5) return '#ff00ff'; // Magenta - Star Lord
-  if (holdingsCount >= 2) return '#00ffff'; // Cyan - Cosmic Warden
-  return '#9966ff'; // Purple - Star Forged
-}
-
-/**
- * Calculate level number based on holdings and STAR points
+ * Calculate level number based on holdings and STAR points (used internally for
+ * achievement checks only — not displayed).
  */
 function calculateLevel(starCount: number, starPoints: number = 0): number {
   const nftContribution = starCount * 10;
@@ -38,284 +34,17 @@ function calculateLevel(starCount: number, starPoints: number = 0): number {
 }
 
 /**
- * Interface defining the structure for Skrumpey NFT display data
- * Used in collection grid components and the inspect modal
- */
-interface SkrumpeyDisplayData {
-  id: number;
-  name: string;
-  hasStar: boolean;
-  rarity: string;
-  starVariant?: StarTraitVariant;
-}
-
-/**
- * Quest and XP types for profile display
- */
-interface UserQuestProgress {
-  id: number;
-  wallet_address: string;
-  quest_id: string;
-  status: 'available' | 'in_progress' | 'completed' | 'claimed';
-  progress: number;
-  started_at: string | null;
-  completed_at: string | null;
-  claimed_at: string | null;
-  created_at: string;
-}
-
-interface QuestWithProgress {
-  id: string;
-  name: string;
-  description: string;
-  xp_reward: number;
-  quest_type: 'daily' | 'weekly' | 'one_time' | 'urgent';
-  category: 'social' | 'trading' | 'governance' | 'community' | 'general';
-  requirements_json: string | null;
-  is_active: number;
-  priority: number;
-  icon: string;
-  created_at: string;
-  expires_at: string | null;
-  userProgress: UserQuestProgress | null;
-  canClaim: boolean;
-}
-
-interface UserXPData {
-  id: number;
-  wallet_address: string;
-  total_xp: number;
-  level: number;
-  currentLevelXP: number;
-  requiredForNextLevel: number;
-  percentage: number;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Friend data interface
- */
-interface FriendWithProfileData {
-  id: number;
-  user_address: string;
-  friend_address: string;
-  status: 'pending' | 'accepted' | 'blocked';
-  created_at: string;
-  updated_at: string;
-  display_name?: string;
-  bio?: string;
-}
-
-/**
- * Conversation data interface
- */
-interface ConversationData {
-  other_address: string;
-  other_display_name?: string;
-  last_message: string;
-  last_message_at: string;
-  unread_count: number;
-  is_sender: boolean;
-}
-
-/**
- * Direct message data interface
- */
-interface DirectMessageData {
-  id: number;
-  sender_address: string;
-  recipient_address: string;
-  message: string;
-  is_read: number;
-  created_at: string;
-  sender_display_name?: string;
-  recipient_display_name?: string;
-}
-
-/**
- * Notification data interface
- */
-interface NotificationData {
-  id: number;
-  wallet_address: string;
-  type: 'quest' | 'achievement' | 'system' | 'social' | 'governance';
-  title: string;
-  message: string;
-  link: string | null;
-  icon: string;
-  is_read: number;
-  created_at: string;
-}
-
-/**
- * Raffle history data interface
- */
-interface RaffleHistoryEntry {
-  id: number;
-  raffle_id: string;
-  wallet_address: string;
-  tier: string;
-  entries_count: number;
-  discord_bonus: number;
-  engagement_bonus: number;
-  star_count: number;
-  entered_at: string;
-  won: boolean;
-  hasViewed?: boolean; // Whether user has viewed this raffle result
-  raffle: {
-    id: string;
-    name: string;
-    description: string;
-    status: 'active' | 'ended' | 'drawn' | 'cancelled';
-    prize_description: string;
-    prize_image_url: string | null;
-    start_time: string;
-    end_time: string;
-    winner_address: string | null;
-    winner_drawn_at: string | null;
-    winner_draw_seed: string | null;
-  };
-}
-
-/**
- * Achievement/Badge definitions
- * All constellations for "Gotta Catch 'Em All" badge (excluding Prime which is 1 of 1)
- */
-const COLLECTIBLE_CONSTELLATIONS = [
-  'aether', 'spectra', 'solveil', 'nebulu', 'chroma', 
-  'rose', 'monflare', 'auracore', 'parallel'
-] as const;
-
-interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  check: (data: AchievementCheckData) => boolean;
-}
-
-interface AchievementCheckData {
-  starCount: number;
-  uniqueConstellations: string[];
-  constellationCounts: Record<string, number>;
-  hasPrime: boolean;
-  level: number;
-}
-
-/**
- * Available achievements
- */
-const ACHIEVEMENTS: Achievement[] = [
-  {
-    id: 'star_forged',
-    name: 'Star Forged',
-    description: 'Hold at least 1 Star Skrumpey',
-    icon: '⭐',
-    color: '#9966ff',
-    check: (data) => data.starCount >= 1,
-  },
-  {
-    id: 'cosmic_warden',
-    name: 'Cosmic Warden',
-    description: 'Hold 2 or more Star Skrumpeys',
-    icon: '🌟',
-    color: '#00ffff',
-    check: (data) => data.starCount >= 2,
-  },
-  {
-    id: 'star_lord',
-    name: 'Star Lord',
-    description: 'Hold 5 or more Star Skrumpeys',
-    icon: '👑',
-    color: '#ff00ff',
-    check: (data) => data.starCount >= 5,
-  },
-  {
-    id: 'cosmic_emperor',
-    name: 'Cosmic Emperor',
-    description: 'Hold 10 or more Star Skrumpeys',
-    icon: '🏆',
-    color: '#ffd700',
-    check: (data) => data.starCount >= 10,
-  },
-  {
-    id: 'gotta_catch_em_all',
-    name: 'Gotta Catch Em All!',
-    description: 'Collect all 9 constellation types (excluding Prime)',
-    icon: '🔮',
-    color: '#ff6ec7',
-    check: (data) => {
-      const collected = COLLECTIBLE_CONSTELLATIONS.filter(c => 
-        data.uniqueConstellations.includes(c)
-      );
-      return collected.length >= COLLECTIBLE_CONSTELLATIONS.length;
-    },
-  },
-  {
-    id: 'prime_holder',
-    name: 'The Prime',
-    description: 'Hold the legendary 1/1 Prime Star Skrumpey',
-    icon: '💎',
-    color: '#ffd700',
-    check: (data) => data.hasPrime,
-  },
-  {
-    id: 'constellation_explorer',
-    name: 'Constellation Explorer',
-    description: 'Collect at least 3 different constellation types',
-    icon: '🔭',
-    color: '#9966ff',
-    check: (data) => data.uniqueConstellations.length >= 3,
-  },
-  {
-    id: 'cosmic_collector',
-    name: 'Cosmic Collector',
-    description: 'Collect at least 5 different constellation types',
-    icon: '🌌',
-    color: '#44ff88',
-    check: (data) => data.uniqueConstellations.length >= 5,
-  },
-  {
-    id: 'constellation_master',
-    name: 'Constellation Master',
-    description: 'Hold 3 or more Star Skrumpeys of the same constellation',
-    icon: '✨',
-    color: '#ff6ec7',
-    check: (data) => Object.values(data.constellationCounts).some(count => count >= 3),
-  },
-];
-
-/**
  * Skrumpey Inspect Modal - Shows detailed view of an NFT
  */
 function SkrumpeyInspectModal({
   skrumpey,
   onClose,
-  getVariantColor,
-  getVariantTextStyle,
 }: {
   skrumpey: SkrumpeyDisplayData;
   onClose: () => void;
-  getVariantColor: (variant?: string) => string;
-  getVariantTextStyle: (variant?: string) => React.CSSProperties;
 }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(skrumpey.id, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Reset load state and try GIF (for galaxy background NFTs)
-      setImageLoaded(false);
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
+  const { imageUrl, imageLoaded, imageError, setImageLoaded, handleImageError } =
+    useSkrumpeyImage(skrumpey.id);
 
   // Close modal on escape key
   useEffect(() => {
@@ -430,148 +159,9 @@ function SkrumpeyInspectModal({
             </div>
           )}
 
-          {/* Stats Placeholder */}
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#2a2a4e]">
-            <div className="text-center">
-              <p className="text-[#9966ff] text-xs sm:text-sm">LVL</p>
-              <p className="text-white text-[10px] sm:text-xs">1</p>
-            </div>
-            <div className="text-center border-x border-[#2a2a4e]">
-              <p className="text-[#44ff88] text-xs sm:text-sm">XP</p>
-              <p className="text-white text-[10px] sm:text-xs">0</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[#ff6ec7] text-xs sm:text-sm">RANK</p>
-              <p className="text-white text-[10px] sm:text-xs">—</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Profile Avatar Component with fallback
- */
-function ProfileAvatar({ tokenId }: { tokenId: number }) {
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Try GIF on first error (for galaxy background NFTs)
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
-
-  if (imageError) {
-    return (
-      <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
-        🐸
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-[#ffd700]">
-      <img
-        src={imageUrl}
-        alt={`Skrumpey #${tokenId}`}
-        className="w-full h-full object-cover"
-        onError={handleImageError}
-      />
-    </div>
-  );
-}
-
-/**
- * NFT Image Component with loading and error states
- */
-function NFTImage({ tokenId, hasStar, name }: { tokenId: number; hasStar: boolean; name: string }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      // Reset load state and try GIF (for galaxy background NFTs)
-      setImageLoaded(false);
-      setUseGif(true);
-    } else {
-      // Show placeholder after trying both extensions
-      setImageError(true);
-    }
-  };
-
-  return (
-    <div className={`w-full aspect-square rounded-lg mb-3 overflow-hidden relative smooth-transition hover-lift ${
-      hasStar 
-        ? 'bg-gradient-to-br from-[#9966ff]/30 to-[#ffd700]/30' 
-        : 'bg-[#0a0a15]'
-    }`}>
-      {/* Show placeholder while loading or on error */}
-      {(!imageLoaded || imageError) && (
-        <div className="absolute inset-0 flex items-center justify-center text-4xl">
-          <span className="animate-pixel-float" style={{ animationDelay: `${tokenId % 3 * 0.3}s` }}>
-            🐸
-          </span>
-        </div>
-      )}
-      
-      {/* Actual NFT image */}
-      {!imageError && (
-        <img
-          src={imageUrl}
-          alt={name}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            imageLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={() => setImageLoaded(true)}
-          onError={handleImageError}
-          loading="lazy"
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * Avatar Picker Image Component - Simplified image for avatar selection modal
- */
-function AvatarPickerImage({ tokenId }: { tokenId: number }) {
-  const [imageError, setImageError] = useState(false);
-  const [useGif, setUseGif] = useState(false);
-  const imageUrl = getSkrumpeyImageUrl(tokenId, useGif);
-
-  const handleImageError = () => {
-    if (!useGif) {
-      setUseGif(true);
-    } else {
-      setImageError(true);
-    }
-  };
-
-  if (imageError) {
-    return (
-      <div className="w-full h-full bg-gradient-to-br from-[#9966ff] to-[#ffd700] flex items-center justify-center text-2xl">
-        🐸
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={imageUrl}
-      alt={`Skrumpey #${tokenId}`}
-      className="w-full h-full object-cover"
-      onError={handleImageError}
-    />
   );
 }
 
@@ -583,242 +173,88 @@ function AvatarPickerImage({ tokenId }: { tokenId: number }) {
 export default function ProfileCard() {
   const { address, ownedSkrumpeys, starSkrumpeys, isConnected } = useDAOAccess();
   const { isDemoMode } = useDemoMode();
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileSuccess, setProfileSuccess] = useState(false);
   const [selectedSkrumpey, setSelectedSkrumpey] = useState<SkrumpeyDisplayData | null>(null);
   const [tokenMetadata, setTokenMetadata] = useState<Record<number, { constellation?: StarTraitVariant }>>({});
-  const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
-  const [isEditingBadges, setIsEditingBadges] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
-  
-  // Avatar selection state
-  const [avatarTokenId, setAvatarTokenId] = useState<number | null>(null);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
-  
+
   // Tab navigation state - includes all sections
-  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'quests' | 'raffles'>('settings');
-  
-  // Friends system state
-  const [friends, setFriends] = useState<FriendWithProfileData[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<FriendWithProfileData[]>([]);
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
-  
-  // Messaging system state
-  const [conversations, setConversations] = useState<ConversationData[]>([]);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<DirectMessageData[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [newMessage, setNewMessage] = useState('');
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  
-  // All notifications state
-  const [allNotifications, setAllNotifications] = useState<NotificationData[]>([]);
-  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
-  
-  // Quest system state
-  const [quests, setQuests] = useState<QuestWithProgress[]>([]);
-  const [userXP, setUserXP] = useState<UserXPData | null>(null);
-  const [isLoadingQuests, setIsLoadingQuests] = useState(false);
-  const [questClaimingId, setQuestClaimingId] = useState<string | null>(null);
-  
-  // Raffle history state
-  const [raffleHistory, setRaffleHistory] = useState<RaffleHistoryEntry[]>([]);
-  const [isLoadingRaffles, setIsLoadingRaffles] = useState(false);
-  const [unviewedWonCount, setUnviewedWonCount] = useState(0); // Count of unviewed won raffles from API
-  
+  const [activeSection, setActiveSection] = useState<'settings' | 'friends' | 'messages' | 'collection' | 'achievements' | 'raffles'>('settings');
+
   // Close modal handler
   const closeModal = useCallback(() => {
     setSelectedSkrumpey(null);
   }, []);
 
-  const getAuthenticatedJsonHeaders = useCallback(async () => {
-    if (!address) {
-      return null;
-    }
-    const walletAuthHeader = await getWalletAuthHeader(address);
-    if (!walletAuthHeader) {
-      return null;
-    }
-    return {
-      'Content-Type': 'application/json',
-      'x-wallet-auth': walletAuthHeader,
-    };
-  }, [address]);
-  
-  // Fetch friends data
-  const fetchFriends = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingFriends(true);
-    try {
-      const [friendsRes, pendingRes] = await Promise.all([
-        fetch(`/api/friends?address=${address}&type=all`),
-        fetch(`/api/friends?address=${address}&type=pending`),
-      ]);
-      
-      const friendsData = await friendsRes.json();
-      const pendingData = await pendingRes.json();
-      
-      if (friendsData.success) {
-        setFriends(friendsData.friends || []);
-      }
-      if (pendingData.success) {
-        setPendingRequests(pendingData.pending || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch friends:', error);
-    } finally {
-      setIsLoadingFriends(false);
-    }
-  }, [address]);
-  
-  // Fetch conversations
-  const fetchConversations = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingMessages(true);
-    try {
-      const response = await fetch(`/api/messages?address=${address}&type=conversations`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setConversations(data.conversations || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  }, [address]);
-  
-  // Fetch chat messages for selected conversation
-  const fetchChatMessages = useCallback(async (otherAddress: string) => {
-    if (!address) return;
-    
-    setIsLoadingMessages(true);
-    try {
-      const response = await fetch(`/api/messages?address=${address}&type=conversation&otherAddress=${otherAddress}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setChatMessages(data.messages || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch chat messages:', error);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  }, [address]);
-  
-  // Fetch all notifications
-  const fetchAllNotifications = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingNotifications(true);
-    try {
-      const response = await fetch(`/api/notifications?address=${address}&limit=50`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setAllNotifications(data.notifications || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    } finally {
-      setIsLoadingNotifications(false);
-    }
-  }, [address]);
-  
-  // Fetch quests and user XP
-  const fetchQuestsAndXP = useCallback(async () => {
-    if (!address) return;
-    
-    setIsLoadingQuests(true);
-    try {
-      const response = await fetch(`/api/quests?address=${address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setQuests(data.quests || []);
-        setUserXP(data.userXP || null);
-      }
-    } catch (error) {
-      console.error('Failed to fetch quests:', error);
-    } finally {
-      setIsLoadingQuests(false);
-    }
-  }, [address]);
-  
-  // Fetch raffle history
-  // markAsViewed: when true, also marks won raffles as viewed after fetching
-  const fetchRaffleHistory = useCallback(async (markAsViewed = false) => {
-    if (!address) return;
-    
-    setIsLoadingRaffles(true);
-    try {
-      const response = await fetch(`/api/raffle?type=history&address=${address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const entries = data.entries || [];
-        setRaffleHistory(entries);
-        setUnviewedWonCount(data.unviewedWonCount || 0);
-        
-        // Mark won raffles as viewed if requested (when user clicks on raffles tab)
-        if (markAsViewed) {
-          const unviewedWonRaffles = entries.filter((r: RaffleHistoryEntry) => r.won && !r.hasViewed);
-          if (unviewedWonRaffles.length > 0) {
-            const headers = await getAuthenticatedJsonHeaders();
-            if (!headers) {
-              return;
-            }
-            // Mark asynchronously without blocking
-            Promise.allSettled(
-              unviewedWonRaffles.map((entry: RaffleHistoryEntry) =>
-                fetch('/api/raffle', {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify({
-                    action: 'markViewed',
-                    walletAddress: address,
-                    raffleId: entry.raffle_id,
-                  }),
-                })
-              )
-            ).then(() => {
-              // Reset the count locally after marking
-              setUnviewedWonCount(0);
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch raffle history:', error);
-    } finally {
-      setIsLoadingRaffles(false);
-    }
-  }, [address, getAuthenticatedJsonHeaders]);
-  
-  // Fetch raffle history on mount to show badge in tab navigation
-  useEffect(() => {
-    if (address) {
-      fetchRaffleHistory(false); // Don't mark as viewed on initial mount
-    }
-  }, [address, fetchRaffleHistory]);
-  
+  const getAuthenticatedJsonHeaders = useAuthHeaders(address);
+
+  // Profile-edit cluster (display name / bio / badges / avatar + load + saves)
+  const {
+    displayName,
+    setDisplayName,
+    bio,
+    setBio,
+    isEditingProfile,
+    setIsEditingProfile,
+    isSavingProfile,
+    profileError,
+    setProfileError,
+    profileSuccess,
+    selectedBadges,
+    setSelectedBadges,
+    isEditingBadges,
+    setIsEditingBadges,
+    avatarTokenId,
+    showAvatarPicker,
+    setShowAvatarPicker,
+    isSavingAvatar,
+    handleSaveProfile,
+    handleSaveAvatar,
+    handleSaveBadges,
+  } = useProfileEdit(address, isDemoMode, getAuthenticatedJsonHeaders);
+
+  // Friends system (state + fetch + actions)
+  const {
+    friends,
+    pendingRequests,
+    isLoadingFriends,
+    fetchFriends,
+    handleFriendAction,
+  } = useFriends(address);
+
+  // Messaging system (state + fetch + send + selected-chat effect)
+  const {
+    conversations,
+    selectedChat,
+    setSelectedChat,
+    chatMessages,
+    isLoadingMessages,
+    newMessage,
+    setNewMessage,
+    isSendingMessage,
+    fetchConversations,
+    handleSendMessage,
+  } = useMessages(address);
+
+  // All notifications (state + fetch)
+  const {
+    allNotifications,
+    isLoadingNotifications,
+    fetchAllNotifications,
+  } = useNotifications(address);
+
+  // Raffle history (state + fetch + tab-badge mount effect)
+  const {
+    raffleHistory,
+    isLoadingRaffles,
+    unviewedWonCount,
+    fetchRaffleHistory,
+  } = useRaffleHistory(address, getAuthenticatedJsonHeaders);
+
   // Load data when section changes
   useEffect(() => {
     if (!address) return;
     
     switch (activeSection) {
-      case 'quests':
-        fetchQuestsAndXP();
-        break;
       case 'friends':
         fetchFriends();
         break;
@@ -831,15 +267,8 @@ export default function ProfileCard() {
         fetchRaffleHistory(true);
         break;
     }
-  }, [activeSection, address, fetchQuestsAndXP, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
-  
-  // Load chat when selected
-  useEffect(() => {
-    if (selectedChat && address) {
-      fetchChatMessages(selectedChat);
-    }
-  }, [selectedChat, address, fetchChatMessages]);
-  
+  }, [activeSection, address, fetchFriends, fetchConversations, fetchAllNotifications, fetchRaffleHistory]);
+
   // Check URL params for tab and chat selection
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -847,7 +276,7 @@ export default function ProfileCard() {
       const tab = params.get('tab');
       const chat = params.get('chat');
       
-      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'quests' || tab === 'raffles') {
+      if (tab === 'settings' || tab === 'friends' || tab === 'messages' || tab === 'collection' || tab === 'achievements' || tab === 'raffles') {
         setActiveSection(tab);
       }
       if (chat) {
@@ -855,276 +284,42 @@ export default function ProfileCard() {
         setActiveSection('messages');
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  // Handle sending a message
-  const handleSendMessage = async () => {
-    if (!address || !selectedChat || !newMessage.trim() || isSendingMessage) return;
-    
-    setIsSendingMessage(true);
-    try {
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderAddress: address,
-          recipientAddress: selectedChat,
-          message: newMessage.trim(),
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        setNewMessage('');
-        // Refresh messages
-        await fetchChatMessages(selectedChat);
-        await fetchConversations();
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-    } finally {
-      setIsSendingMessage(false);
-    }
-  };
-  
-  // Handle friend request action
-  const handleFriendAction = async (targetAddress: string, action: string) => {
-    if (!address) return;
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/friends', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          targetAddress,
-          action,
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Refresh friends list
-        await fetchFriends();
-      }
-    } catch (error) {
-      console.error('Failed to process friend action:', error);
-    }
-  };
-  
-  // Claim quest reward handler
-  const handleClaimQuest = async (questId: string) => {
-    if (!address || questClaimingId) return;
-    
-    setQuestClaimingId(questId);
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'claim',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        // Update user XP
-        setUserXP(data.userXP);
-        // Refresh quests to update status
-        await fetchQuestsAndXP();
-      }
-    } catch (error) {
-      console.error('Failed to claim quest:', error);
-    } finally {
-      setQuestClaimingId(null);
-    }
-  };
-  
-  // Complete quest handler (for quests that can be auto-completed)
-  const handleCompleteQuest = async (questId: string) => {
-    if (!address) return;
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/quests', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          questId,
-          action: 'complete',
-        }),
-      });
-      
-      const data = await response.json();
-      if (data.success) {
-        await fetchQuestsAndXP();
-      }
-    } catch (error) {
-      console.error('Failed to complete quest:', error);
-    }
-  };
 
   // Fetch metadata for owned tokens to get real constellation data
   useEffect(() => {
-    if (starSkrumpeys.length > 0) {
-      const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
-      fetch(`/api/metadata?tokenIds=${tokenIds}`)
-        .then(res => {
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then(data => {
-          if (data.success && data.metadata && typeof data.metadata === 'object') {
-            const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
-            for (const [id, meta] of Object.entries(data.metadata)) {
-              // Validate the metadata structure before using
-              if (meta && typeof meta === 'object' && 'constellation' in meta) {
-                const constellation = (meta as Record<string, unknown>).constellation;
-                if (typeof constellation === 'string' || constellation === undefined) {
-                  metaMap[parseInt(id, 10)] = { constellation: constellation as StarTraitVariant | undefined };
-                }
+    if (starSkrumpeys.length === 0) return;
+    let cancelled = false;
+    const tokenIds = starSkrumpeys.map(t => t.tokenId).join(',');
+    fetch(`/api/metadata?tokenIds=${tokenIds}`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled) return;
+        if (data.success && data.metadata && typeof data.metadata === 'object') {
+          const metaMap: Record<number, { constellation?: StarTraitVariant }> = {};
+          for (const [id, meta] of Object.entries(data.metadata)) {
+            // Validate the metadata structure before using
+            if (meta && typeof meta === 'object' && 'constellation' in meta) {
+              const constellation = (meta as Record<string, unknown>).constellation;
+              if (typeof constellation === 'string' || constellation === undefined) {
+                metaMap[parseInt(id, 10)] = { constellation: constellation as StarTraitVariant | undefined };
               }
             }
-            setTokenMetadata(metaMap);
           }
-        })
-        .catch(console.error);
-    }
+          setTokenMetadata(metaMap);
+        }
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
   }, [starSkrumpeys]);
-
-  // Load profile on mount
-  useEffect(() => {
-    if (address) {
-      fetch(`/api/profile?address=${address}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.profile) {
-            setDisplayName(data.profile.display_name || '');
-            setBio(data.profile.bio || '');
-            // Load avatar token ID from avatar_url field (stored as string number)
-            if (data.profile.avatar_url) {
-              const tokenId = parseInt(data.profile.avatar_url, 10);
-              if (!isNaN(tokenId)) {
-                setAvatarTokenId(tokenId);
-              }
-            }
-            // Load displayed badges from database
-            if (data.profile.displayed_badges) {
-              try {
-                const badges = JSON.parse(data.profile.displayed_badges);
-                if (Array.isArray(badges)) {
-                  setSelectedBadges(badges);
-                }
-              } catch (e) {
-                console.error('Failed to parse displayed badges:', e);
-              }
-            }
-          }
-        })
-        .catch(console.error);
-    }
-  }, [address]);
-
-  const handleSaveProfile = async () => {
-    if (!address) return;
-    
-    // Prevent profile updates in demo mode
-    if (isDemoMode) {
-      setProfileError('Profile updates are disabled in Demo Mode. Connect your wallet to save changes.');
-      return;
-    }
-    
-    setIsSavingProfile(true);
-    setProfileError(null);
-    setProfileSuccess(false);
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        setProfileError('Wallet signature required to save profile');
-        return;
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          displayName: displayName.trim(),
-          bio: bio.trim(),
-          isDemoMode: false, // Explicitly indicate this is not a demo mode request
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setProfileSuccess(true);
-        setIsEditingProfile(false);
-        setTimeout(() => setProfileSuccess(false), 3000);
-      } else {
-        setProfileError(data.error || 'Failed to save profile');
-      }
-    } catch (error) {
-      setProfileError('Network error. Please try again.');
-      console.error('Failed to save profile:', error);
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
-
-  // Save avatar selection
-  const handleSaveAvatar = async (tokenId: number) => {
-    if (!address || isDemoMode) return;
-    
-    setIsSavingAvatar(true);
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          avatarTokenId: tokenId,
-          isDemoMode: false,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setAvatarTokenId(tokenId);
-        setShowAvatarPicker(false);
-      }
-    } catch (error) {
-      console.error('Failed to save avatar:', error);
-    } finally {
-      setIsSavingAvatar(false);
-    }
-  };
 
   // Get the token ID to display as avatar
   // Priority: 1) User selected avatar, 2) First Star Skrumpey
@@ -1221,117 +416,9 @@ export default function ProfileCard() {
     return isEditingBadges ? 'DONE' : 'DISPLAY';
   };
 
-  // Save displayed badges to profile
-  const handleSaveBadges = async () => {
-    if (!address) return;
-    
-    // Prevent badge updates in demo mode
-    if (isDemoMode) {
-      // Silently revert to editing mode - user shouldn't be able to save in demo
-      return;
-    }
-    
-    try {
-      const headers = await getAuthenticatedJsonHeaders();
-      if (!headers) {
-        return;
-      }
-
-      const response = await fetch('/api/profile', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          walletAddress: address,
-          displayedBadges: selectedBadges,
-          isDemoMode: false, // Explicitly indicate this is not a demo mode request
-        }),
-      });
-      
-      if (response.ok) {
-        setIsEditingBadges(false);
-      }
-    } catch (error) {
-      console.error('Failed to save badges:', error);
-    }
-  };
-
   if (!isConnected) {
     return null;
   }
-
-  // Get color for star variant (solid color for CSS color property)
-  // Rare traits (monflare, auracore, parallel, prime) have special distinct colors
-  const getVariantColor = (variant?: string): string => {
-    const colors: Record<string, string> = {
-      // Common traits
-      aether: '#87CEEB',      // Light blue
-      spectra: '#40E0D0',     // Turquoise (primary from gradient)
-      solveil: '#FFD93D',     // Bright warm yellow (solar/sun-like)
-      nebulu: '#9966ff',      // Purple
-      chroma: '#DDA0DD',      // Light purple (primary from gradient)
-      rose: '#FFB6C1',        // Pink
-      // Rare traits - more distinctive colors
-      monflare: '#BF5FFF',    // Bright purple/magenta glow
-      auracore: '#FFB347',    // Warm golden-orange (distinct from solveil)
-      parallel: '#00CED1',    // Dark cyan (blue-green primary)
-      prime: '#FFD700',       // Pure gold for legendary
-    };
-    return colors[variant || ''] || '#ffd700';
-  };
-
-  // Get variant gradient for background
-  // Rare traits have special gradients to make them stand out
-  const getVariantGradient = (variant?: string): string => {
-    const gradients: Record<string, string> = {
-      spectra: 'linear-gradient(90deg, #40E0D0, #87CEEB, #9966ff, #ffd700)',
-      chroma: 'linear-gradient(180deg, #DDA0DD, #9966ff)',
-      // Rare trait gradients
-      monflare: 'linear-gradient(135deg, #9933FF, #BF5FFF, #E066FF)', // Purple glow gradient
-      auracore: 'linear-gradient(135deg, #FF8C00, #FFB347, #FFD700)', // Golden glow gradient
-      parallel: 'linear-gradient(90deg, #20B2AA, #00CED1, #4169E1)', // Blue-green to blue gradient
-      prime: 'linear-gradient(135deg, #FFD700, #FFF8DC, #FFD700, #DAA520)', // Legendary gold shimmer
-    };
-    return gradients[variant || ''] || getVariantColor(variant);
-  };
-
-  // Check if variant has a gradient (including rare traits)
-  const isGradientVariant = (variant?: string): boolean => {
-    return variant === 'spectra' || variant === 'chroma' || 
-           variant === 'parallel' || variant === 'monflare' || 
-           variant === 'auracore' || variant === 'prime';
-  };
-
-  // Check if variant is a rare trait (for special styling)
-  const isRareVariant = (variant?: string): boolean => {
-    return variant === 'monflare' || variant === 'auracore' || 
-           variant === 'parallel' || variant === 'prime';
-  };
-
-  // Get text style for variant - handles both solid colors and gradients
-  // Rare variants get gradient text with glow effects
-  const getVariantTextStyle = (variant?: string): React.CSSProperties => {
-    if (isGradientVariant(variant)) {
-      const baseStyle: React.CSSProperties = {
-        display: 'inline-block', // Required for gradient text to render properly
-        background: getVariantGradient(variant),
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        color: 'transparent', // Fallback for non-webkit browsers
-      };
-      // Add text shadow glow for rare variants
-      if (isRareVariant(variant)) {
-        const glowColor = getVariantColor(variant);
-        return {
-          ...baseStyle,
-          textShadow: `0 0 10px ${glowColor}80, 0 0 20px ${glowColor}40`,
-          filter: 'brightness(1.1)',
-        };
-      }
-      return baseStyle;
-    }
-    return { color: getVariantColor(variant) };
-  };
 
   return (
     <div className="space-y-6">
@@ -1365,7 +452,7 @@ export default function ProfileCard() {
           {/* Avatar - Use selected Star Skrumpey as profile picture */}
           <div className="relative group">
             {displayAvatarTokenId ? (
-              <ProfileAvatar tokenId={displayAvatarTokenId} />
+              <SkrumpeyImage variant="avatar" tokenId={displayAvatarTokenId} />
             ) : (
               <div className="w-20 h-20 bg-gradient-to-br from-[#9966ff] to-[#ffd700] rounded-lg flex items-center justify-center text-3xl">
                 🐸
@@ -1400,51 +487,16 @@ export default function ProfileCard() {
         </div>
         
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-2 border-t-2 border-[#2a2a4e] pt-3 sm:pt-4">
-          <div className="text-center smooth-transition hover-lift animate-slide-in-up animate-delay-1">
-            <p className="text-[#ffd700] text-base sm:text-lg">{starSkrumpeys.length}</p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">STAR SKRUMPEYS</p>
-          </div>
-          <div className="text-center border-x-2 border-[#2a2a4e] smooth-transition hover-lift animate-slide-in-up animate-delay-2">
-            <p style={{ color: getLevelColor(starSkrumpeys.length) }} className="text-base sm:text-lg">
-              LVL {userXP?.level ?? calculateLevel(starSkrumpeys.length)}
-            </p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide leading-tight">LEVEL</p>
-          </div>
-          <div className="text-center flex flex-col justify-center smooth-transition hover-lift animate-slide-in-up animate-delay-3">
-            <p className="text-[#44ff88] text-[10px] sm:text-xs font-bold leading-tight">
-              {userXP?.total_xp ?? 0} XP
-            </p>
-            <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">EXPERIENCE</p>
-          </div>
+        <div className="border-t-2 border-[#2a2a4e] pt-3 sm:pt-4 text-center smooth-transition animate-slide-in-up animate-delay-1">
+          <p className="text-[#ffd700] text-xl sm:text-2xl">{starSkrumpeys.length}</p>
+          <p className="text-gray-500 text-[9px] sm:text-xs tracking-wide">STAR SKRUMPEYS</p>
         </div>
-        
-        {/* XP Progress Bar */}
-        {userXP && (
-          <div className="mt-3 pt-3 border-t-2 border-[#2a2a4e]">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-gray-400 text-[9px]">XP PROGRESS</span>
-              <span className="text-[#44ff88] text-[9px]">
-                {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
-              </span>
-            </div>
-            <div className="h-2 bg-[#1a1a2e] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
-                style={{ 
-                  width: `${userXP.percentage}%`,
-                  boxShadow: '0 0 10px #44ff8880',
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Section Tab Navigation */}
       {/* Section Tab Navigation - Mobile optimized */}
       <div className="flex gap-1 sm:gap-2 justify-center flex-wrap animate-slide-in-up px-2 sm:px-0 mt-2 sm:mt-0">
-        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'quests', 'raffles'] as const).map((section) => {
+        {(['settings', 'friends', 'messages', 'collection', 'achievements', 'raffles'] as const).map((section) => {
           const isActive = activeSection === section;
           const icons: Record<string, string> = { 
             settings: '⚙️', 
@@ -1452,7 +504,6 @@ export default function ProfileCard() {
             messages: '💬',
             collection: '🎨', 
             achievements: '🏆', 
-            quests: '📜',
             raffles: '🎰'
           };
           const labels: Record<string, string> = { 
@@ -1461,7 +512,6 @@ export default function ProfileCard() {
             messages: 'Messages',
             collection: 'Collection', 
             achievements: 'Achievements', 
-            quests: 'Quests',
             raffles: 'Raffles'
           };
           // Short labels for small screens
@@ -1471,7 +521,6 @@ export default function ProfileCard() {
             messages: 'Msgs',
             collection: 'NFTs', 
             achievements: 'Achv', 
-            quests: 'Qst',
             raffles: 'Raff'
           };
           
@@ -1506,1080 +555,92 @@ export default function ProfileCard() {
 
       {/* Settings Section */}
       {activeSection === 'settings' && (
-        <>
-          {/* Profile Edit Box */}
-          <div className="pixel-card p-6 animate-slide-in-up">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[#9966ff] text-sm tracking-wider">
-                PROFILE SETTINGS
-              </h3>
-              {!isEditingProfile && (
-                <button
-                  onClick={() => setIsEditingProfile(true)}
-                  disabled={isDemoMode}
-                  className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={isDemoMode ? 'Editing disabled in Demo Mode' : 'Edit profile'}
-                >
-                  {isDemoMode ? '🔒 EDIT' : 'EDIT'}
-                </button>
-              )}
-            </div>
-        
-        {isEditingProfile ? (
-          <div className="space-y-4">
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-2">Display Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Enter your display name (3-20 characters)"
-                maxLength={20}
-                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-gray-400 text-[10px] block mb-2">Bio</label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Tell us about yourself (max 200 characters)"
-                maxLength={200}
-                rows={3}
-                className="w-full bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[11px] focus:border-[#ffd700] focus:outline-none resize-none"
-              />
-              <p className="text-gray-600 text-xs mt-1">{bio.length}/200 characters</p>
-            </div>
-            
-            {profileError && (
-              <p className="text-[#ff4466] text-[10px] bg-[#ff4466]/10 px-3 py-2 rounded">
-                ⚠️ {profileError}
-              </p>
-            )}
-            
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveProfile}
-                disabled={isSavingProfile}
-                className="pixel-btn pixel-btn-gold text-[10px] !px-4 disabled:opacity-50"
-              >
-                {isSavingProfile ? 'SAVING...' : 'SAVE'}
-              </button>
-              <button
-                onClick={() => {
-                  setIsEditingProfile(false);
-                  setProfileError(null);
-                }}
-                className="pixel-btn text-[10px] !px-4"
-              >
-                CANCEL
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div>
-              <p className="text-gray-500 text-[9px]">Display Name</p>
-              <p className="text-white text-[11px]">{displayName || 'Not set'}</p>
-            </div>
-            {bio && (
-              <div>
-                <p className="text-gray-500 text-[9px]">Bio</p>
-                <p className="text-gray-300 text-[10px] leading-relaxed">{bio}</p>
-              </div>
-            )}
-            {profileSuccess && (
-              <p className="text-[#44ff88] text-[10px] bg-[#44ff88]/10 px-3 py-2 rounded">
-                ✓ Profile saved successfully!
-              </p>
-            )}
-            
-            {/* Social Connections - Inside Profile Settings */}
-            <div className="pt-4 mt-4 border-t border-[#2a2a4e]">
-              <p className="text-gray-500 text-[9px] mb-3">Social Connections</p>
-              <SocialConnect />
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Notification Settings */}
-      <NotificationSettingsCard walletAddress={address || ''} isDemoMode={isDemoMode} />
-        </>
+        <SettingsTab
+          address={address}
+          isDemoMode={isDemoMode}
+          displayName={displayName}
+          setDisplayName={setDisplayName}
+          bio={bio}
+          setBio={setBio}
+          isEditingProfile={isEditingProfile}
+          setIsEditingProfile={setIsEditingProfile}
+          isSavingProfile={isSavingProfile}
+          profileError={profileError}
+          setProfileError={setProfileError}
+          profileSuccess={profileSuccess}
+          handleSaveProfile={handleSaveProfile}
+          notificationSettings={
+            <NotificationSettingsCard walletAddress={address || ''} isDemoMode={isDemoMode} />
+          }
+        />
       )}
 
       {/* Friends Section */}
       {activeSection === 'friends' && (
-        <>
-          {/* Pending Friend Requests */}
-          {pendingRequests.length > 0 && (
-            <div className="pixel-card p-4 animate-slide-in-up border-2 border-[#ff6ec7]">
-              <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
-                👋 PENDING REQUESTS ({pendingRequests.length})
-              </h3>
-              <div className="space-y-2">
-                {pendingRequests.map((request) => (
-                  <div 
-                    key={request.id}
-                    className="flex items-center justify-between p-3 bg-[#0a0a15] rounded-lg border border-[#2a2a4e]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#2a2a4e] flex items-center justify-center text-lg">
-                        🐸
-                      </div>
-                      <div>
-                        <p className="text-white text-xs font-bold">
-                          {request.display_name || `${request.user_address.slice(0, 6)}...${request.user_address.slice(-4)}`}
-                        </p>
-                        <p className="text-gray-500 text-[9px]">Wants to be your friend</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleFriendAction(request.user_address, 'accept')}
-                        className="pixel-btn pixel-btn-gold text-[9px] !px-3 !py-1"
-                      >
-                        ✓
-                      </button>
-                      <button
-                        onClick={() => handleFriendAction(request.user_address, 'decline')}
-                        className="pixel-btn text-[9px] !px-3 !py-1"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Friends List */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#00ffff] text-sm tracking-wider mb-4 flex items-center gap-2">
-              👥 SWO FRIENDS ({friends.length})
-            </h3>
-            
-            {isLoadingFriends ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="text-2xl animate-spin">⭐</span>
-              </div>
-            ) : friends.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <span className="text-4xl mb-2 opacity-50">👥</span>
-                <p className="text-gray-500 text-xs text-center">No friends yet</p>
-                <p className="text-gray-600 text-[10px] text-center mt-1">
-                  Visit the Members page to send friend requests
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {friends.map((friend) => {
-                  const friendAddress = friend.user_address === address?.toLowerCase() 
-                    ? friend.friend_address 
-                    : friend.user_address;
-                  const friendName = friend.display_name || `${friendAddress.slice(0, 6)}...${friendAddress.slice(-4)}`;
-                  
-                  return (
-                    <div 
-                      key={friend.id}
-                      className="flex items-center justify-between p-3 bg-[#0a0a15] rounded-lg border border-[#2a2a4e] hover:border-[#00ffff]/50 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#2a2a4e] flex items-center justify-center text-lg">
-                          🐸
-                        </div>
-                        <div>
-                          <p className="text-white text-xs font-bold">{friendName}</p>
-                          <p className="text-gray-500 text-[9px] font-mono">{friendAddress.slice(0, 10)}...</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedChat(friendAddress);
-                            setActiveSection('messages');
-                          }}
-                          className="pixel-btn text-[9px] !px-3 !py-1"
-                          title="Send Message"
-                        >
-                          💬
-                        </button>
-                        <button
-                          onClick={() => handleFriendAction(friendAddress, 'remove')}
-                          className="pixel-btn text-[9px] !px-3 !py-1 opacity-50 hover:opacity-100"
-                          title="Remove Friend"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
+        <FriendsTab
+          address={address}
+          friends={friends}
+          pendingRequests={pendingRequests}
+          isLoadingFriends={isLoadingFriends}
+          handleFriendAction={handleFriendAction}
+          setSelectedChat={setSelectedChat}
+          setActiveSection={setActiveSection}
+        />
       )}
 
       {/* Messages Section */}
       {activeSection === 'messages' && (
-        <>
-          {/* Messages Container */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#00ffff] text-sm tracking-wider mb-4 flex items-center gap-2">
-              💬 MESSAGES
-            </h3>
-            
-            <div className="flex flex-col sm:flex-row gap-4 min-h-[400px]">
-              {/* Conversations List */}
-              <div className="w-full sm:w-1/3 border-b sm:border-b-0 sm:border-r border-[#2a2a4e] pb-4 sm:pb-0 sm:pr-4">
-                <p className="text-gray-500 text-[9px] mb-2">CONVERSATIONS</p>
-                {isLoadingMessages ? (
-                  <div className="flex items-center justify-center py-8">
-                    <span className="text-xl animate-spin">⭐</span>
-                  </div>
-                ) : conversations.length === 0 ? (
-                  <div className="text-center py-8">
-                    <span className="text-2xl opacity-50">💬</span>
-                    <p className="text-gray-500 text-[10px] mt-2">No conversations</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                    {conversations.map((convo) => {
-                      const isSelected = selectedChat === convo.other_address;
-                      const displayName = convo.other_display_name || `${convo.other_address.slice(0, 6)}...`;
-                      
-                      return (
-                        <button
-                          key={convo.other_address}
-                          onClick={() => setSelectedChat(convo.other_address)}
-                          className={`w-full text-left p-2 rounded transition-all ${
-                            isSelected 
-                              ? 'bg-[#00ffff]/20 border border-[#00ffff]' 
-                              : 'hover:bg-[#1a1a2e]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-[#2a2a4e] flex items-center justify-center text-sm">
-                              🐸
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <p className={`text-[10px] font-bold truncate ${isSelected ? 'text-[#00ffff]' : 'text-white'}`}>
-                                  {displayName}
-                                </p>
-                                {convo.unread_count > 0 && (
-                                  <span className="min-w-[16px] h-[16px] flex items-center justify-center text-[9px] font-bold text-white bg-[#00ffff] rounded-full px-1">
-                                    {convo.unread_count}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-gray-500 text-[9px] truncate">
-                                {convo.is_sender && 'You: '}{convo.last_message}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Chat Area */}
-              <div className="flex-1 flex flex-col">
-                {selectedChat ? (
-                  <>
-                    {/* Chat Header */}
-                    <div className="pb-3 mb-3 border-b border-[#2a2a4e]">
-                      <p className="text-white text-xs font-bold">
-                        {conversations.find(c => c.other_address === selectedChat)?.other_display_name || 
-                         `${selectedChat.slice(0, 6)}...${selectedChat.slice(-4)}`}
-                      </p>
-                      <p className="text-gray-500 text-[9px] font-mono">{selectedChat}</p>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto space-y-2 max-h-[300px] mb-3">
-                      {chatMessages.length === 0 ? (
-                        <div className="text-center py-8">
-                          <p className="text-gray-500 text-[10px]">Start the conversation!</p>
-                        </div>
-                      ) : (
-                        chatMessages.map((msg) => {
-                          const isSent = msg.sender_address === address?.toLowerCase();
-                          return (
-                            <div 
-                              key={msg.id}
-                              className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div 
-                                className={`max-w-[80%] p-2 rounded-lg ${
-                                  isSent 
-                                    ? 'bg-[#00ffff]/20 border border-[#00ffff]/50' 
-                                    : 'bg-[#2a2a4e]'
-                                }`}
-                              >
-                                <p className="text-white text-[10px] break-words">{msg.message}</p>
-                                <p className="text-gray-500 text-[8px] mt-1">
-                                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* Message Input */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                        placeholder="Type a message..."
-                        maxLength={2000}
-                        className="flex-1 bg-[#0a0a15] border-2 border-[#2a2a4e] rounded-lg px-3 py-2 text-white text-[10px] focus:border-[#00ffff] focus:outline-none"
-                        disabled={isSendingMessage}
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || isSendingMessage}
-                        className="pixel-btn text-[10px] !px-4 disabled:opacity-50"
-                      >
-                        {isSendingMessage ? '...' : '→'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className="text-4xl opacity-50">💬</span>
-                    <p className="text-gray-500 text-xs mt-2">Select a conversation</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* All Notifications */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#ffd700] text-sm tracking-wider mb-4 flex items-center gap-2">
-              🔔 ALL NOTIFICATIONS
-            </h3>
-            
-            {isLoadingNotifications ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="text-2xl animate-spin">⭐</span>
-              </div>
-            ) : allNotifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 px-4">
-                <span className="text-4xl mb-2 opacity-50">🔔</span>
-                <p className="text-gray-500 text-xs text-center">No notifications yet</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {allNotifications.map((notification) => {
-                  const isUnread = notification.is_read === 0;
-                  const typeColors: Record<string, string> = {
-                    quest: '#ffd700',
-                    achievement: '#ff6ec7',
-                    system: '#00ffff',
-                    social: '#9966ff',
-                    governance: '#44ff88',
-                  };
-                  const color = typeColors[notification.type] || '#ffd700';
-                  
-                  return (
-                    <div
-                      key={notification.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
-                        isUnread 
-                          ? 'bg-[#1a1a2e]/50 border-[#2a2a4e]' 
-                          : 'bg-[#0a0a15] border-[#1a1a2e] opacity-60'
-                      }`}
-                    >
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
-                        style={{ 
-                          backgroundColor: `${color}20`,
-                          border: `1px solid ${color}40`,
-                        }}
-                      >
-                        {notification.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`text-xs font-bold truncate ${isUnread ? 'text-white' : 'text-gray-400'}`}>
-                            {notification.title}
-                          </h4>
-                          {isUnread && (
-                            <span 
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: color }}
-                            />
-                          )}
-                        </div>
-                        <p className="text-gray-400 text-[10px] line-clamp-2 mt-0.5">
-                          {notification.message}
-                        </p>
-                        <p className="text-gray-600 text-[9px] mt-1">
-                          {new Date(notification.created_at).toLocaleDateString()} at{' '}
-                          {new Date(notification.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </>
+        <MessagesTab
+          address={address}
+          conversations={conversations}
+          selectedChat={selectedChat}
+          setSelectedChat={setSelectedChat}
+          chatMessages={chatMessages}
+          isLoadingMessages={isLoadingMessages}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          isSendingMessage={isSendingMessage}
+          handleSendMessage={handleSendMessage}
+          allNotifications={allNotifications}
+          isLoadingNotifications={isLoadingNotifications}
+        />
       )}
 
       {/* My Collection Section */}
       {activeSection === 'collection' && (
-        <>
-          {/* Star Trait Legend - Collection Section */}
-          {starSkrumpeys.length > 0 && (
-            <div className="pixel-card p-4 animate-slide-in-up">
-              <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 text-center animate-glow-pulse">
-                STAR CONSTELLATIONS
-              </h3>
-              <div className="flex flex-wrap justify-center gap-2">
-                {STAR_TRAIT_VARIANTS.map((variant, index) => {
-                  // Use displaySkrumpeys which has the correct fetched IPFS metadata
-                  const hasVariant = displaySkrumpeys.some(s => s.hasStar && s.starVariant === variant);
-                  return (
-                    <div 
-                      key={variant}
-                      className={`px-2 py-1 rounded text-xs border smooth-transition hover-lift ${
-                        hasVariant 
-                          ? 'border-[#ffd700] bg-[#ffd700]/20' 
-                          : 'border-[#2a2a4e] bg-[#1a1a2e] opacity-40'
-                      }`}
-                      style={{ 
-                        ...(hasVariant ? getVariantTextStyle(variant) : { color: '#666' }),
-                        animationDelay: `${index * 0.05}s`
-                      }}
-                    >
-                      {variant.toUpperCase()}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Demo Data Notice - Collection Section */}
-          {showDemoData && (
-            <div className="text-center">
-              <p className="text-gray-500 text-xs bg-[#1a1a2e] inline-block px-3 py-1 rounded border border-[#2a2a4e]">
-                📋 Showing demo data - Connect wallet with Skrumpeys to see your collection
-              </p>
-            </div>
-          )}
-
-          {/* NFT Collection Grid */}
-          <div className="pixel-card p-4 sm:p-6 animate-slide-in-up">
-            <h3 className="text-[#ffd700] text-xs sm:text-sm tracking-wider mb-3 sm:mb-4 text-center animate-glow-pulse">
-              YOUR COLLECTION
-            </h3>
-            <p className="text-gray-500 text-[8px] text-center mb-3 sm:mb-4">
-              Click on a Skrumpey to inspect
-            </p>
-            
-            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-4">
-              {finalDisplaySkrumpeys.map((nft, index) => (
-                <div 
-                  key={nft.id}
-                  onClick={() => setSelectedSkrumpey(nft)}
-                  className={`relative p-3 sm:p-4 rounded-lg border-2 smooth-transition hover:scale-105 cursor-pointer animate-slide-in-up animate-delay-${(index % 6) + 1} min-h-[44px] ${
-                    nft.hasStar 
-                      ? 'border-[#ffd700] bg-gradient-to-br from-[#1a1a2e] to-[#2a1a4a] shadow-[0_0_20px_rgba(255,215,0,0.3)] hover:shadow-[0_0_30px_rgba(255,215,0,0.5)]' 
-                      : 'border-[#2a2a4e] bg-[#1a1a2e] hover:border-[#3a3a5e]'
-                  }`}
-                >
-                  {/* Star badge */}
-                  {nft.hasStar && (
-                    <div className="absolute -top-2 -right-2 text-lg sm:text-xl animate-pixel-pulse animate-star-rotate z-10">
-                      ⭐
-                    </div>
-                  )}
-                  
-                  {/* NFT Image */}
-                  <NFTImage 
-                    tokenId={nft.id} 
-                    hasStar={nft.hasStar}
-                    name={nft.name}
-                  />
-                  
-                  {/* NFT Info */}
-                  <p className={`text-[9px] sm:text-[10px] font-bold tracking-wide truncate ${
-                    nft.hasStar ? 'text-[#ffd700]' : 'text-gray-300'
-                  }`}>
-                    {nft.name}
-                  </p>
-                  <p className="text-[10px] sm:text-xs truncate">
-                    <span style={getVariantTextStyle(nft.starVariant)}>
-                      {nft.rarity}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-            
-            {/* Empty state */}
-            {finalDisplaySkrumpeys.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-[10px]">No Skrumpeys found in this wallet</p>
-              </div>
-            )}
-          </div>
-        </>
+        <CollectionTab
+          starSkrumpeys={starSkrumpeys}
+          displaySkrumpeys={displaySkrumpeys}
+          finalDisplaySkrumpeys={finalDisplaySkrumpeys}
+          showDemoData={showDemoData}
+          setSelectedSkrumpey={setSelectedSkrumpey}
+        />
       )}
 
       {/* Achievements Section */}
       {activeSection === 'achievements' && (
-        <>
-          {/* Achievement Badges */}
-          <div className="pixel-card p-6 animate-slide-in-up">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[#9966ff] text-sm tracking-wider">
-            ACHIEVEMENTS ({unlockedAchievements.length}/{ACHIEVEMENTS.length})
-          </h3>
-          {unlockedAchievements.length > 0 && (
-            <button
-              onClick={() => {
-                if (isEditingBadges) {
-                  handleSaveBadges();
-                } else {
-                  setIsEditingBadges(true);
-                }
-              }}
-              disabled={isDemoMode}
-              className="pixel-btn text-[10px] !px-3 !py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isDemoMode ? 'Badge editing disabled in Demo Mode' : undefined}
-            >
-              {getBadgeButtonText()}
-            </button>
-          )}
-        </div>
-        
-        {/* Selected Badges Display */}
-        {selectedBadges.length > 0 && !isEditingBadges && (
-          <div className="mb-4 p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
-            <p className="text-[#ffd700] text-[9px] mb-2 text-center">DISPLAYED BADGES</p>
-            <div className="flex justify-center gap-3">
-              {selectedBadges.map(badgeId => {
-                const badge = ACHIEVEMENTS.find(a => a.id === badgeId);
-                if (!badge) return null;
-                return (
-                  <div 
-                    key={badgeId}
-                    className="flex flex-col items-center"
-                    title={badge.description}
-                  >
-                    <div 
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg border-2"
-                      style={{ 
-                        backgroundColor: `${badge.color}20`,
-                        borderColor: badge.color,
-                        boxShadow: `0 0 10px ${badge.color}40`,
-                      }}
-                    >
-                      {badge.icon}
-                    </div>
-                    <p className="text-[8px] mt-1" style={{ color: badge.color }}>
-                      {badge.name.split(' ')[0]}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        
-        {/* All Achievements Grid */}
-        <div className="grid grid-cols-4 gap-3">
-          {ACHIEVEMENTS.map((achievement) => {
-            const isUnlocked = unlockedAchievements.some(a => a.id === achievement.id);
-            const isSelected = selectedBadges.includes(achievement.id);
-            
-            const handleClick = () => {
-              if (isEditingBadges && isUnlocked) {
-                toggleBadge(achievement.id);
-              } else {
-                setSelectedAchievement(achievement);
-              }
-            };
-            
-            return (
-              <div 
-                key={achievement.id}
-                onClick={handleClick}
-                className={`flex flex-col items-center p-2 rounded-lg cursor-pointer group ${
-                  isSelected && isEditingBadges ? 'bg-[#2a2a4e] ring-2 ring-[#ffd700]' : ''
-                }`}
-                style={{
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                <div 
-                  className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 ${
-                    isUnlocked 
-                      ? 'group-hover:scale-110 group-hover:border-[3px]' 
-                      : 'opacity-30 grayscale'
-                  }`}
-                  style={{ 
-                    backgroundColor: isUnlocked ? `${achievement.color}20` : '#333',
-                    borderColor: isUnlocked ? achievement.color : '#444',
-                    boxShadow: isUnlocked ? `0 0 10px ${achievement.color}40` : 'none',
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  {isUnlocked ? achievement.icon : '🔒'}
-                </div>
-                <p 
-                  className={`text-[8px] mt-1 text-center leading-tight ${isUnlocked ? 'group-hover:font-bold' : ''}`}
-                  style={{ 
-                    color: isUnlocked ? achievement.color : '#666',
-                    transition: 'all 0.3s ease',
-                  }}
-                >
-                  {achievement.name}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Helper text */}
-        {isEditingBadges ? (
-          <p className="text-gray-500 text-[9px] text-center mt-3">
-            Click on unlocked badges to select up to 3 for display
-          </p>
-        ) : (
-          <p className="text-gray-500 text-[9px] text-center mt-3">
-            Click on any badge to view details
-          </p>
-        )}
-        
-        {/* Gotta Catch Em All Progress - Show when user has at least one Star Skrumpey */}
-        {starSkrumpeys.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-[#2a2a4e]">
-            <p className="text-[#ff6ec7] text-[9px] mb-2 text-center">
-              CONSTELLATION PROGRESS ({uniqueConstellations.filter(c => c !== 'prime').length}/{COLLECTIBLE_CONSTELLATIONS.length})
-            </p>
-            <div className="flex flex-wrap justify-center gap-1">
-              {COLLECTIBLE_CONSTELLATIONS.map(constellation => {
-                const hasIt = uniqueConstellations.includes(constellation);
-                return (
-                  <span 
-                    key={constellation}
-                    className={`text-[8px] px-2 py-1 rounded border ${
-                      hasIt 
-                        ? 'border-[#44ff88] bg-[#44ff88]/20 text-[#44ff88]' 
-                        : 'border-[#333] bg-[#1a1a2e] text-[#666]'
-                    }`}
-                  >
-                    {constellation.toUpperCase()}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Achievement Detail Modal */}
-      {selectedAchievement && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in overflow-hidden"
-          onClick={() => setSelectedAchievement(null)}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-          
-          {/* Modal Content - with overscroll containment */}
-          <div 
-            className="relative z-10 w-full max-w-xs pixel-card p-6 animate-slide-in-up text-center overscroll-contain"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedAchievement(null)}
-              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white rounded-lg hover:bg-[#2a2a4e] smooth-transition"
-            >
-              ✕
-            </button>
-            
-            {(() => {
-              const isUnlocked = unlockedAchievements.some(a => a.id === selectedAchievement.id);
-              return (
-                <>
-                  {/* Achievement Icon */}
-                  <div 
-                    className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-4xl border-3 mb-4 animate-pixel-pulse"
-                    style={{ 
-                      backgroundColor: `${selectedAchievement.color}20`,
-                      borderColor: selectedAchievement.color,
-                      boxShadow: `0 0 30px ${selectedAchievement.color}60`,
-                    }}
-                  >
-                    {isUnlocked ? selectedAchievement.icon : '🔒'}
-                  </div>
-                  
-                  {/* Achievement Name */}
-                  <h3 
-                    className="text-lg font-bold mb-2"
-                    style={{ color: selectedAchievement.color }}
-                  >
-                    {selectedAchievement.name}
-                  </h3>
-                  
-                  {/* Achievement Description */}
-                  <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                    {selectedAchievement.description}
-                  </p>
-                  
-                  {/* Status */}
-                  <div 
-                    className={`inline-block px-4 py-2 rounded-lg text-xs font-bold border-2 ${
-                      isUnlocked ? '' : 'opacity-60'
-                    }`}
-                    style={{
-                      backgroundColor: isUnlocked ? `${selectedAchievement.color}20` : '#1a1a2e',
-                      borderColor: isUnlocked ? selectedAchievement.color : '#444',
-                      color: isUnlocked ? selectedAchievement.color : '#666',
-                    }}
-                  >
-                    {isUnlocked ? '✓ UNLOCKED' : '🔒 LOCKED'}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-        </>
-      )}
-
-      {/* Quests Section */}
-      {activeSection === 'quests' && (
-        <>
-          {/* XP Overview Card */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#44ff88] text-sm tracking-wider mb-4 text-center">
-              ⚡ EXPERIENCE POINTS
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
-                <p className="text-[#44ff88] text-xl font-bold">{userXP?.total_xp || 0}</p>
-                <p className="text-gray-500 text-[10px]">TOTAL XP</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
-                <p className="text-[#ffd700] text-xl font-bold">{userXP?.level || 1}</p>
-                <p className="text-gray-500 text-[10px]">LEVEL</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
-                <p className="text-[#9966ff] text-xl font-bold">
-                  {quests.filter(q => q.userProgress?.status === 'claimed').length}
-                </p>
-                <p className="text-gray-500 text-[10px]">COMPLETED</p>
-              </div>
-            </div>
-            
-            {/* Level Progress */}
-            {userXP && (
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-gray-400 text-[9px]">Level {userXP.level} → {userXP.level + 1}</span>
-                  <span className="text-[#44ff88] text-[9px]">
-                    {userXP.currentLevelXP} / {userXP.requiredForNextLevel} XP
-                  </span>
-                </div>
-                <div className="h-3 bg-[#1a1a2e] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#44ff88] to-[#00ffff] rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${userXP.percentage}%`,
-                      boxShadow: '0 0 10px #44ff8880',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Quest Lists by Type */}
-          {isLoadingQuests ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4 animate-spin">⭐</div>
-              <p className="text-[#ffd700] text-xs">Loading quests...</p>
-            </div>
-          ) : (
-            <>
-              {/* Urgent Quests */}
-              {quests.filter(q => q.quest_type === 'urgent').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up border-2 border-[#ff6ec7]">
-                  <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    🚨 URGENT QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'urgent').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* One-Time Quests */}
-              {quests.filter(q => q.quest_type === 'one_time').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#ffd700] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    ⭐ ONE-TIME QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'one_time').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Daily Quests */}
-              {quests.filter(q => q.quest_type === 'daily').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#00ffff] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    📅 DAILY QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'daily').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Weekly Quests */}
-              {quests.filter(q => q.quest_type === 'weekly').length > 0 && (
-                <div className="pixel-card p-4 animate-slide-in-up">
-                  <h3 className="text-[#9966ff] text-sm tracking-wider mb-3 flex items-center gap-2">
-                    📆 WEEKLY QUESTS
-                  </h3>
-                  <div className="space-y-2">
-                    {quests.filter(q => q.quest_type === 'weekly').map(quest => (
-                      <QuestItem 
-                        key={quest.id} 
-                        quest={quest} 
-                        onClaim={handleClaimQuest}
-                        onComplete={handleCompleteQuest}
-                        isClaiming={questClaimingId === quest.id}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* No Quests State */}
-              {quests.length === 0 && (
-                <div className="pixel-card p-8 text-center animate-slide-in-up">
-                  <div className="text-4xl mb-4">📜</div>
-                  <p className="text-gray-400 text-sm">No quests available</p>
-                  <p className="text-gray-500 text-xs mt-2">Check back later for new quests!</p>
-                </div>
-              )}
-            </>
-          )}
-        </>
+        <AchievementsTab
+          unlockedAchievements={unlockedAchievements}
+          uniqueConstellations={uniqueConstellations}
+          starSkrumpeys={starSkrumpeys}
+          selectedBadges={selectedBadges}
+          isEditingBadges={isEditingBadges}
+          setIsEditingBadges={setIsEditingBadges}
+          handleSaveBadges={handleSaveBadges}
+          getBadgeButtonText={getBadgeButtonText}
+          toggleBadge={toggleBadge}
+          isDemoMode={isDemoMode}
+          selectedAchievement={selectedAchievement}
+          setSelectedAchievement={setSelectedAchievement}
+        />
       )}
 
       {/* Raffle History Section */}
       {activeSection === 'raffles' && (
-        <>
-          {/* Raffle History Stats */}
-          <div className="pixel-card p-4 animate-slide-in-up">
-            <h3 className="text-[#ff6ec7] text-sm tracking-wider mb-4 text-center">
-              🎰 RAFFLE HISTORY
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#9966ff]/30">
-                <p className="text-[#9966ff] text-xl font-bold">{raffleHistory.length}</p>
-                <p className="text-gray-500 text-[10px]">ENTERED</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#ffd700]/30">
-                <p className="text-[#ffd700] text-xl font-bold">{raffleHistory.filter(r => r.won).length}</p>
-                <p className="text-gray-500 text-[10px]">WON</p>
-              </div>
-              <div className="text-center p-3 bg-[#0a0a15] rounded-lg border border-[#44ff88]/30">
-                <p className="text-[#44ff88] text-xl font-bold">
-                  {raffleHistory.reduce((acc, r) => acc + r.entries_count, 0)}
-                </p>
-                <p className="text-gray-500 text-[10px]">TOTAL TICKETS</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Raffle List */}
-          {isLoadingRaffles ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4 animate-spin">⭐</div>
-              <p className="text-[#ffd700] text-xs">Loading raffle history...</p>
-            </div>
-          ) : raffleHistory.length === 0 ? (
-            <div className="pixel-card p-8 text-center animate-slide-in-up">
-              <div className="text-4xl mb-4">🎰</div>
-              <p className="text-gray-400 text-sm">No raffle entries yet</p>
-              <p className="text-gray-500 text-xs mt-2">Enter a raffle to see your history here!</p>
-              <a href="/raffle" className="pixel-btn pixel-btn-gold text-xs mt-4 inline-block">
-                VIEW RAFFLES
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-3 animate-slide-in-up">
-              {raffleHistory.map((entry) => {
-                const isWinner = entry.won;
-                const isActive = entry.raffle.status === 'active';
-                const isDrawn = entry.raffle.status === 'drawn';
-                const isEnded = new Date(entry.raffle.end_time) <= new Date();
-                
-                let statusColor = '#2a2a4e';
-                let statusText = 'ENTERED';
-                let statusBg = 'bg-[#2a2a4e]';
-                
-                if (isWinner) {
-                  statusColor = '#ffd700';
-                  statusText = '🏆 WON';
-                  statusBg = 'bg-[#ffd700]/20';
-                } else if (isDrawn) {
-                  statusColor = '#ff4466';
-                  statusText = 'NOT WON';
-                  statusBg = 'bg-[#ff4466]/10';
-                } else if (isActive && !isEnded) {
-                  statusColor = '#44ff88';
-                  statusText = 'ACTIVE';
-                  statusBg = 'bg-[#44ff88]/20';
-                } else if (isEnded && !isDrawn) {
-                  statusColor = '#9966ff';
-                  statusText = 'PENDING DRAW';
-                  statusBg = 'bg-[#9966ff]/20';
-                }
-                
-                return (
-                  <div 
-                    key={entry.id}
-                    className={`pixel-card p-4 ${
-                      isWinner 
-                        ? 'border-2 border-[#ffd700] shadow-[0_0_20px_rgba(255,215,0,0.3)]' 
-                        : ''
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className={`text-sm font-bold ${isWinner ? 'text-[#ffd700]' : 'text-white'}`}>
-                          {entry.raffle.name}
-                        </h4>
-                        <p className="text-gray-400 text-[10px]">{entry.raffle.prize_description}</p>
-                      </div>
-                      <span 
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusBg}`}
-                        style={{ color: statusColor }}
-                      >
-                        {statusText}
-                      </span>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#00ffff] text-sm font-bold">{entry.entries_count}</p>
-                        <p className="text-gray-600 text-[8px]">Tickets</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#9966ff] text-[10px] font-bold uppercase">{entry.tier.replace('_', ' ')}</p>
-                        <p className="text-gray-600 text-[8px]">Tier</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-[#44ff88] text-sm font-bold">{entry.star_count}</p>
-                        <p className="text-gray-600 text-[8px]">Stars</p>
-                      </div>
-                      <div className="bg-[#0a0a15] rounded p-2">
-                        <p className="text-gray-300 text-[9px]">
-                          {new Date(entry.entered_at).toLocaleDateString()}
-                        </p>
-                        <p className="text-gray-600 text-[8px]">Entered</p>
-                      </div>
-                    </div>
-                    
-                    {/* Bonuses */}
-                    {/* Bonuses - only show Like & RT now */}
-                    {entry.engagement_bonus > 0 && (
-                      <div className="flex gap-2 mb-2">
-                        <span className="text-[8px] px-1.5 py-0.5 bg-[#44ff88]/20 text-[#44ff88] rounded">
-                          +{entry.engagement_bonus} Like & RT
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Winner Info for Won Raffles */}
-                    {isWinner && entry.raffle.winner_drawn_at && (
-                      <div className="bg-[#ffd700]/10 rounded p-2 mt-2 border border-[#ffd700]/30">
-                        <p className="text-[#ffd700] text-[10px] text-center">
-                          🎉 Congratulations! You won this raffle!
-                        </p>
-                        <p className="text-gray-500 text-[8px] text-center mt-1">
-                          Drawn on {new Date(entry.raffle.winner_drawn_at).toLocaleString()}
-                        </p>
-                        <p className="text-gray-400 text-[8px] text-center mt-2 italic">
-                          Prizes will be sent manually. If we need any info from you, we will reach out.
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Raffle End Info */}
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#2a2a4e]">
-                      <p className="text-gray-500 text-[9px]">
-                        {isEnded 
-                          ? `Ended: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
-                          : `Ends: ${new Date(entry.raffle.end_time).toLocaleDateString()}`
-                        }
-                      </p>
-                      {isActive && !isEnded && (
-                        <a 
-                          href="/raffle" 
-                          className="text-[#00ffff] text-[9px] hover:underline"
-                        >
-                          View Raffle →
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+        <RafflesTab
+          raffleHistory={raffleHistory}
+          isLoadingRaffles={isLoadingRaffles}
+        />
       )}
 
       {/* Avatar Picker Modal */}
@@ -2639,7 +700,7 @@ export default function ProfileCard() {
                       
                       {/* NFT Image */}
                       <div className="w-full aspect-square rounded overflow-hidden mb-2">
-                        <AvatarPickerImage tokenId={star.tokenId} />
+                        <SkrumpeyImage variant="picker" tokenId={star.tokenId} />
                       </div>
                       
                       {/* Token Info */}
@@ -2672,122 +733,8 @@ export default function ProfileCard() {
         <SkrumpeyInspectModal
           skrumpey={selectedSkrumpey}
           onClose={closeModal}
-          getVariantColor={getVariantColor}
-          getVariantTextStyle={getVariantTextStyle}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Quest Item Component
- * Displays a single quest with progress and claim button
- */
-function QuestItem({ 
-  quest, 
-  onClaim, 
-  onComplete,
-  isClaiming 
-}: { 
-  quest: QuestWithProgress; 
-  onClaim: (questId: string) => void;
-  onComplete: (questId: string) => void;
-  isClaiming: boolean;
-}) {
-  const status = quest.userProgress?.status || 'available';
-  const isClaimed = status === 'claimed';
-  const canClaim = quest.canClaim;
-  
-  // Get status color and text
-  const getStatusDisplay = () => {
-    switch (status) {
-      case 'claimed':
-        return { text: 'CLAIMED', color: '#44ff88', icon: '✓' };
-      case 'completed':
-        return { text: 'READY TO CLAIM', color: '#ffd700', icon: '🎁' };
-      case 'in_progress':
-        return { text: 'IN PROGRESS', color: '#00ffff', icon: '⏳' };
-      default:
-        return { text: 'AVAILABLE', color: '#9966ff', icon: '○' };
-    }
-  };
-  
-  const statusDisplay = getStatusDisplay();
-  
-  return (
-    <div 
-      className={`p-3 rounded-lg border-2 transition-all ${
-        isClaimed 
-          ? 'bg-[#44ff88]/10 border-[#44ff88]/30 opacity-60' 
-          : canClaim
-          ? 'bg-[#ffd700]/10 border-[#ffd700] animate-glow-pulse'
-          : 'bg-[#0a0a15] border-[#2a2a4e] hover:border-[#3a3a5e]'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {/* Quest Icon */}
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
-          style={{ 
-            backgroundColor: `${statusDisplay.color}20`,
-            border: `2px solid ${statusDisplay.color}50`,
-          }}
-        >
-          {quest.icon}
-        </div>
-        
-        {/* Quest Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <h4 className={`text-xs font-bold truncate ${isClaimed ? 'text-gray-400' : 'text-white'}`}>
-              {quest.name}
-            </h4>
-            <span 
-              className="text-[9px] px-2 py-0.5 rounded border flex-shrink-0"
-              style={{ 
-                color: statusDisplay.color,
-                borderColor: statusDisplay.color,
-                backgroundColor: `${statusDisplay.color}10`,
-              }}
-            >
-              {statusDisplay.icon} {statusDisplay.text}
-            </span>
-          </div>
-          
-          <p className="text-gray-400 text-[10px] mb-2 leading-relaxed">
-            {quest.description}
-          </p>
-          
-          <div className="flex items-center justify-between">
-            {/* XP Reward */}
-            <span className="text-[#44ff88] text-[10px] font-bold">
-              +{quest.xp_reward} XP
-            </span>
-            
-            {/* Action Button */}
-            {canClaim && !isClaimed && (
-              <button
-                onClick={() => onClaim(quest.id)}
-                disabled={isClaiming}
-                className="pixel-btn pixel-btn-gold text-[9px] !px-3 !py-1 disabled:opacity-50"
-              >
-                {isClaiming ? '...' : 'CLAIM'}
-              </button>
-            )}
-            
-            {/* Mark Complete Button (for manual completion) */}
-            {status === 'available' && !canClaim && (
-              <button
-                onClick={() => onComplete(quest.id)}
-                className="pixel-btn text-[9px] !px-3 !py-1"
-              >
-                MARK DONE
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="8" height="10" viewBox="0 0 8 10" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!-- Single sleepy Z. Use as a drifting particle while is_sleeping=1. -->
+  <rect width="8" height="10" fill="none"/>
+  <g fill="#88ccff">
+    <rect x="1" y="1" width="6" height="2"/>
+    <rect x="5" y="3" width="2" height="1"/>
+    <rect x="4" y="4" width="2" height="1"/>
+    <rect x="3" y="5" width="2" height="1"/>
+    <rect x="2" y="6" width="2" height="1"/>
+    <rect x="1" y="7" width="6" height="2"/>
+  </g>
+  <!-- Inner highlight on diagonal -->
+  <g fill="#bbe6ff">
+    <rect x="2" y="1" width="1" height="1"/>
+    <rect x="2" y="8" width="1" height="1"/>
+  </g>
+</svg>

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { getSkrumpeyImageUrl } from '@/lib/starSkrumpey';
+import { getVariantColor } from '@/lib/skrumpeyVariantStyles';
+import { truncateAddress } from '@/lib/format';
 
 // Treasury wallet address
 const TREASURY_ADDRESS = '0xa209cfb0c8abdf5e3e3e7f4628214bdb597d55af';
@@ -42,32 +44,6 @@ interface TreasuryData {
   estimatedNFTValueMON: string;
   recentActivities: TreasuryActivity[];
   lastUpdated: string;
-}
-
-/**
- * Get variant color for constellation
- */
-function getVariantColor(variant?: string): string {
-  const colors: Record<string, string> = {
-    aether: '#87CEEB',
-    spectra: '#40E0D0',
-    solveil: '#FFD93D',
-    nebulu: '#9966ff',
-    chroma: '#DDA0DD',
-    rose: '#FFB6C1',
-    monflare: '#BF5FFF',
-    auracore: '#FFB347',
-    parallel: '#00CED1',
-    prime: '#FFD700',
-  };
-  return colors[variant || ''] || '#ffd700';
-}
-
-/**
- * Truncate address for display
- */
-function truncateAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 /**
@@ -595,8 +571,7 @@ function ActivityItem({
   formatTime: (timestamp: number) => string;
 }) {
   const isIncoming = activity.type === 'nft_in' || activity.type === 'mon_in';
-  const shortHash = activity.transactionHash ? 
-    `${activity.transactionHash.slice(0, 6)}...${activity.transactionHash.slice(-4)}` : '';
+  const shortHash = activity.transactionHash ? truncateAddress(activity.transactionHash) : '';
   
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#2a2a4e] last:border-0 smooth-transition hover:bg-[#1a1a2e]/50 hover:px-2 group">

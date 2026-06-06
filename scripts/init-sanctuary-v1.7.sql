@@ -1,0 +1,15 @@
+-- Star Sanctuary — V1.7 Schema: Per-companion XP and level (Training Grounds)
+-- Run from lib/db.ts initializeSanctuary()
+--
+-- The columns `xp` and `level` on sanctuary_companions are added via ALTER TABLE
+-- in initializeSanctuary() (see lib/db.ts). ALTER TABLE with IF NOT EXISTS is
+-- not portable across SQLite versions, so the migration is handled in JS with
+-- a try/catch pattern matching the rest of the codebase.
+--
+-- Companion-level XP thresholds (see calculateCompanionLevel in lib/db.ts):
+--   Level 1: 0-99 XP
+--   Level 2: 100-299 XP
+--   Level 3: 300-599 XP
+--   Level 4: 600-999 XP
+--   Level 5: 1000-1499 XP
+--   Level 6+: 1500+ XP (cap reached)

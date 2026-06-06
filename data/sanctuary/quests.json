@@ -1,0 +1,88 @@
+{
+  "$comment": "Sanctuary quest seed data. Maps to the sanctuary_quests SQLite table (see scripts/init-sanctuary-v1.5.sql and lib/db.ts). The requirement_type field maps to an NPC source via game/config/questSourceMap.ts; that source resolves to NPC name + zone + room defined in game/config/npcDefinitions.ts (V2) and game/v3/config/npcDefinitionsV3.ts (V3). The same rows drive the QuestDialog overlay for both renderers.",
+  "season": "spring-2026",
+  "daily_quests": [
+    {
+      "title": "Sunrise Watch",
+      "description": "Astris is charting dawn-light over the lattice. Visit the Observatory to log a sunrise reading.",
+      "quest_type": "daily",
+      "requirement_type": "observatory",
+      "requirement_count": 1,
+      "reward_xp": 15,
+      "reward_bond": 1.0,
+      "reward_trait": null
+    },
+    {
+      "title": "Morning Steam",
+      "description": "Ember keeps the Hot Springs at the perfect simmer. Soak with your companion to start the day warm.",
+      "quest_type": "daily",
+      "requirement_type": "springs",
+      "requirement_count": 1,
+      "reward_xp": 15,
+      "reward_bond": 1.0,
+      "reward_trait": null
+    },
+    {
+      "title": "Daily Drill",
+      "description": "Valor wants every Skrumpey to break a sweat. Run a single drill at the Training Grounds.",
+      "quest_type": "daily",
+      "requirement_type": "training",
+      "requirement_count": 1,
+      "reward_xp": 15,
+      "reward_bond": 1.0,
+      "reward_trait": null
+    },
+    {
+      "title": "Pantry Run",
+      "description": "Chef Cosmo needs a taster for today's special. Pop into the Nebula Kitchen for a sample.",
+      "quest_type": "daily",
+      "requirement_type": "kitchen",
+      "requirement_count": 1,
+      "reward_xp": 15,
+      "reward_bond": 1.0,
+      "reward_trait": null
+    },
+    {
+      "title": "Stacks Patrol",
+      "description": "The Lorekeeper noticed a few books out of place. Browse the Cosmic Library to help reshelve.",
+      "quest_type": "daily",
+      "requirement_type": "library",
+      "requirement_count": 1,
+      "reward_xp": 15,
+      "reward_bond": 1.0,
+      "reward_trait": null
+    }
+  ],
+  "weekly_quests": [
+    {
+      "title": "Trial by Fire",
+      "description": "Pyrix is tempering a new alloy and needs help working the bellows. Visit the Aura Forge five times this week.",
+      "quest_type": "weekly",
+      "requirement_type": "forge",
+      "requirement_count": 5,
+      "reward_xp": 90,
+      "reward_bond": 7.0,
+      "reward_trait": "Ironheart"
+    },
+    {
+      "title": "Lullaby Marathon",
+      "description": "Somnia is mapping the slow tides of sleep. Drop by Dream Hollow five times to dream alongside her.",
+      "quest_type": "weekly",
+      "requirement_type": "dream",
+      "requirement_count": 5,
+      "reward_xp": 80,
+      "reward_bond": 6.0,
+      "reward_trait": "Dreamwalker"
+    },
+    {
+      "title": "Botanical Survey",
+      "description": "Flora is cataloguing star-blooms before the seasonal fade. Help survey the Star Garden five times this week.",
+      "quest_type": "weekly",
+      "requirement_type": "garden",
+      "requirement_count": 5,
+      "reward_xp": 70,
+      "reward_bond": 5.0,
+      "reward_trait": "Greenthumb"
+    }
+  ]
+}

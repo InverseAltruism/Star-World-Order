@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!-- 4-point sparkle. Use rotating CSS animation for a twinkle. -->
+  <rect width="8" height="8" fill="none"/>
+  <g fill="#fff2c0">
+    <rect x="3" y="0" width="2" height="8"/>
+    <rect x="0" y="3" width="8" height="2"/>
+  </g>
+  <g fill="#ffd070">
+    <rect x="3" y="1" width="2" height="1"/>
+    <rect x="3" y="6" width="2" height="1"/>
+    <rect x="1" y="3" width="1" height="2"/>
+    <rect x="6" y="3" width="1" height="2"/>
+  </g>
+  <rect x="3" y="3" width="2" height="2" fill="#ffffff"/>
+</svg>

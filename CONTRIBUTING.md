@@ -19,6 +19,11 @@ Thank you for your interest in contributing to the Star World Order (SWO) projec
 8. **Push to your fork**: `git push origin feature/your-feature-name`
 9. **Create a Pull Request targeting the `dev` branch**
 
+> **Pre-submit checks failing with "Mirror validation FAILED"?** See
+> [`docs/runbooks/SWO_PR_MIRROR_VALIDATION_FAILED.md`](docs/runbooks/SWO_PR_MIRROR_VALIDATION_FAILED.md)
+> for the root-cause taxonomy (missing type exports, case-sensitive import paths,
+> undeployed-module references, test env gaps, dirty-mirror baselines) and fix recipes.
+
 ### Important: PR Target Branch
 
 ⚠️ **All pull requests must target the `dev` branch, not `main`.**

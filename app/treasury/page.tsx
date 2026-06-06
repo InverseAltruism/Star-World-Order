@@ -1,4 +1,3 @@
-import Header from '@/components/Header';
 import TreasuryContent from './TreasuryContent';
 
 export const metadata = {
@@ -9,7 +8,6 @@ export const metadata = {
 export default function TreasuryPage() {
   return (
     <div className="min-h-screen">
-      <Header />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <TreasuryContent />
       </main>

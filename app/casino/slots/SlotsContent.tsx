@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import AccessGate from '@/components/AccessGate';
+import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import { truncateAddress } from '@/lib/format';
 
 // ============================================================================
 // Types
@@ -555,7 +556,7 @@ function RecentGames({ games }: RecentGamesProps) {
               <div className="flex items-center gap-2">
                 <span>{patternInfo?.emoji || '⭐'}</span>
                 <span className="text-gray-400 text-xs font-mono">
-                  {game.playerAddress.slice(0, 6)}...{game.playerAddress.slice(-4)}
+                  {truncateAddress(game.playerAddress)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -821,7 +822,15 @@ export default function SlotsContent() {
       {/* Header */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-3xl animate-star-rotate">⭐</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/casino/skrumpey-dealer-excited.png"
+            alt="Star Skrumpey dealer"
+            width={48}
+            height={48}
+            style={{ imageRendering: 'pixelated' }}
+            data-testid="slots-dealer-art"
+          />
           <h1 className="text-xl sm:text-2xl text-[#ffd700] pixel-glow-gold tracking-wider">
             STAR FORGE
           </h1>
@@ -835,7 +844,7 @@ export default function SlotsContent() {
         </p>
       </div>
       
-      <AccessGate
+      <CasinoAccessGate
         title="STAR FORGE LOCKED"
         message="Only Star Skrumpey holders may play Star Forge."
       >
@@ -987,7 +996,7 @@ export default function SlotsContent() {
             </span>
           </div>
         </div>
-      </AccessGate>
+      </CasinoAccessGate>
       
       {/* CSS for scan line animation */}
       <style jsx global>{`

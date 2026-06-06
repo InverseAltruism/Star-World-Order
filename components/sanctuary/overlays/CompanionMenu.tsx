@@ -1,0 +1,352 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import EventBus from '@/components/sanctuary/EventBus';
+import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
+import {
+  emitCompanionVfx,
+  vfxKindForInteractAction,
+  type CompanionInteractAction,
+} from '@/lib/sanctuary/vfxEvents';
+import {
+  crossedBondMilestones,
+  highestMilestone,
+  readLastCelebratedMilestone,
+  writeLastCelebratedMilestone,
+} from '@/lib/sanctuary/bondMilestones';
+
+type InteractAction = CompanionInteractAction;
+
+interface MenuPosition {
+  x: number;
+  y: number;
+}
+
+interface FloatingText {
+  id: number;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
+interface ReactionEffect {
+  type: InteractAction;
+  x: number;
+  y: number;
+}
+
+const ACTIONS: { action: InteractAction; icon: string; label: string; angle: number }[] = [
+  { action: 'pet', icon: '🐾', label: 'Pet', angle: -90 },
+  { action: 'feed', icon: '🍎', label: 'Feed', angle: -210 },
+  { action: 'talk', icon: '💬', label: 'Talk', angle: -330 },
+];
+
+// Mobile-friendly radial spacing — buttons are 56 px wide (≥44 px tap target),
+// so the orbit must keep ≥36 px gap between centers on small screens.
+const RADIAL_DISTANCE = 64;
+
+let floatingId = 0;
+
+export default function CompanionMenu({
+  walletAddress,
+  tokenId,
+  onInteracted,
+}: {
+  walletAddress: string | undefined;
+  tokenId: number | null;
+  onInteracted?: () => void;
+}) {
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  const [interacting, setInteracting] = useState<InteractAction | null>(null);
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
+  const [reaction, setReaction] = useState<ReactionEffect | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [busyOnQuest, setBusyOnQuest] = useState(false);
+  const [busyNotice, setBusyNotice] = useState<MenuPosition | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const openMenu = useCallback((payload: { screenX: number; screenY: number }) => {
+    if (busyOnQuest) {
+      setBusyNotice({ x: payload.screenX, y: payload.screenY });
+      setTimeout(() => setBusyNotice(null), 1600);
+      return;
+    }
+    // Clamp menu inside the viewport so the radial cluster stays tappable on
+    // small phones. Each button is 56 px (radius 28) at distance RADIAL_DISTANCE
+    // from center, plus an 8 px safety margin so the button never clips the edge.
+    const margin = RADIAL_DISTANCE + 28 + 8;
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 768;
+    const x = Math.min(Math.max(payload.screenX, margin), Math.max(margin, w - margin));
+    const y = Math.min(Math.max(payload.screenY, margin), Math.max(margin, h - margin));
+    setMenuPos({ x, y });
+    setVisible(true);
+  }, [busyOnQuest]);
+
+  useEffect(() => {
+    const onAway = (data: { away: boolean }) => {
+      setBusyOnQuest(!!data?.away);
+    };
+    EventBus.on('companion-away', onAway);
+    return () => {
+      EventBus.off('companion-away', onAway);
+    };
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setVisible(false);
+    setTimeout(() => setMenuPos(null), 200);
+  }, []);
+
+  useEffect(() => {
+    EventBus.on('companion-clicked', openMenu);
+    return () => {
+      EventBus.off('companion-clicked', openMenu);
+    };
+  }, [openMenu]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        closeMenu();
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClick);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [visible, closeMenu]);
+
+  const addFloatingText = useCallback((text: string, color: string, x: number, y: number) => {
+    const id = ++floatingId;
+    setFloatingTexts((prev) => [...prev, { id, text, color, x, y }]);
+    setTimeout(() => {
+      setFloatingTexts((prev) => prev.filter((ft) => ft.id !== id));
+    }, 1200);
+  }, []);
+
+  const triggerReaction = useCallback((action: InteractAction, x: number, y: number) => {
+    setReaction({ type: action, x, y });
+    setTimeout(() => setReaction(null), 800);
+
+    // Publish through the shared VFX contract so V3 (and any future
+    // listener — analytics, replay capture, etc.) can render its own
+    // sprite-sheet effect. V2 keeps its inline emoji rendering above.
+    const kind = vfxKindForInteractAction(action);
+    if (kind) {
+      emitCompanionVfx(EventBus, { kind, x, y, durationMs: 800, source: action });
+    }
+  }, []);
+
+  const handleAction = useCallback(async (action: InteractAction) => {
+    if (!walletAddress || tokenId === null || interacting) return;
+
+    if (action === 'talk') {
+      EventBus.emit('companion-chat-open');
+      closeMenu();
+      return;
+    }
+
+    setInteracting(action);
+    const pos = menuPos!;
+
+    try {
+      const walletAuthHeader = await getWalletAuthHeader(walletAddress);
+      if (!walletAuthHeader) {
+        setInteracting(null);
+        return;
+      }
+
+      const res = await fetch('/api/sanctuary/companion/interact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-wallet-auth': walletAuthHeader,
+        },
+        body: JSON.stringify({ walletAddress, token_id: tokenId, action }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        triggerReaction(action, pos.x, pos.y);
+
+        const companion = data.companion;
+        if (companion) {
+          addFloatingText(`+${(companion.bond_gained ?? 2).toFixed(0)} Bond`, '#ff66aa', pos.x - 20, pos.y - 40);
+          addFloatingText(`+${companion.xp_gained ?? 5} XP`, '#ffd700', pos.x + 20, pos.y - 55);
+        } else {
+          addFloatingText('+2 Bond', '#ff66aa', pos.x - 20, pos.y - 40);
+          addFloatingText('+5 XP', '#ffd700', pos.x + 20, pos.y - 55);
+        }
+
+        // [SWO_V2_COMPANION_BOND_MILESTONE_CELEBRATE]: detect upward bond
+        // crossings of [25, 50, 75, 100] and fire one `heart` VFX burst per
+        // threshold per companion. The persisted watermark is shared with
+        // the Companion screen via localStorage so a celebration in one
+        // surface won't replay in the other.
+        if (companion && typeof tokenId === 'number') {
+          const nextBond = typeof companion.bond_score === 'number'
+            ? companion.bond_score
+            : null;
+          const gained = typeof companion.bond_gained === 'number'
+            ? companion.bond_gained
+            : 0;
+          const prevBond = nextBond !== null ? nextBond - gained : null;
+          const lastCelebrated = readLastCelebratedMilestone(tokenId);
+          const top = highestMilestone(
+            crossedBondMilestones(prevBond, nextBond, lastCelebrated),
+          );
+          if (top !== null) {
+            emitCompanionVfx(EventBus, {
+              kind: 'heart',
+              x: pos.x,
+              y: pos.y,
+              durationMs: 2200,
+              source: `bond-milestone-${top}`,
+            });
+            writeLastCelebratedMilestone(tokenId, top);
+          }
+        }
+
+        EventBus.emit('companion-interacted', { action, companion: data.companion });
+        onInteracted?.();
+
+        if (data.companion?.mood) {
+          EventBus.emit('companion-mood', data.companion.mood);
+        }
+      }
+    } catch {
+      // Silently fail — in-world interaction shouldn't block gameplay
+    } finally {
+      setInteracting(null);
+      closeMenu();
+    }
+  }, [walletAddress, tokenId, interacting, menuPos, triggerReaction, addFloatingText, closeMenu, onInteracted]);
+
+  if (busyNotice && !menuPos) {
+    return (
+      <div className="absolute inset-0 z-30 pointer-events-none">
+        <div
+          className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2 bg-black/90 border border-[#9966ff]/60 rounded px-2 py-1 animate-pulse"
+          style={{ left: busyNotice.x, top: busyNotice.y - 36 }}
+        >
+          <span className="text-[7px] text-[#9966ff] font-['Press_Start_2P'] uppercase tracking-wider">
+            💤 On Quest
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!menuPos) return null;
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 z-30 pointer-events-none">
+      {/* Radial menu */}
+      <div
+        className={`absolute pointer-events-auto transition-all duration-200 ${
+          visible ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
+        }`}
+        style={{ left: menuPos.x, top: menuPos.y, transform: 'translate(-50%, -50%)' }}
+      >
+        {/* Center indicator */}
+        <div className="absolute w-3 h-3 rounded-full bg-[#ffd700]/40 border border-[#ffd700]/60 -translate-x-1/2 -translate-y-1/2" />
+
+        {/* Action buttons */}
+        {ACTIONS.map(({ action, icon, label, angle }) => {
+          const rad = (angle * Math.PI) / 180;
+          const bx = Math.cos(rad) * RADIAL_DISTANCE;
+          const by = Math.sin(rad) * RADIAL_DISTANCE;
+          const isActive = interacting === action;
+
+          return (
+            <button
+              key={action}
+              onClick={() => handleAction(action)}
+              disabled={interacting !== null}
+              className={`
+                absolute w-14 h-14 min-w-[44px] min-h-[44px] -translate-x-1/2 -translate-y-1/2 rounded-full
+                flex flex-col items-center justify-center
+                bg-black/90 border-2 transition-all duration-150
+                touch-manipulation select-none
+                ${isActive
+                  ? 'border-[#ffd700] shadow-[0_0_12px_rgba(255,215,0,0.5)] scale-110'
+                  : 'border-[#00f7ff]/50 hover:border-[#ffd700] hover:shadow-[0_0_8px_rgba(255,215,0,0.3)] hover:scale-110'
+                }
+                disabled:opacity-40 disabled:cursor-not-allowed
+              `}
+              style={{ left: bx, top: by }}
+            >
+              <span className="text-base leading-none">{isActive ? '⏳' : icon}</span>
+              <span className="text-[6px] text-gray-400 mt-0.5 font-['Press_Start_2P']">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Reaction effects */}
+      {reaction && (
+        <div
+          className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2"
+          style={{ left: reaction.x, top: reaction.y }}
+        >
+          {reaction.type === 'pet' && (
+            <div className="companion-reaction-sparkle">
+              {['✨', '⭐', '💛', '✨'].map((s, i) => (
+                <span
+                  key={i}
+                  className="absolute text-sm animate-ping"
+                  style={{
+                    left: `${Math.cos((i * Math.PI) / 2) * 20}px`,
+                    top: `${Math.sin((i * Math.PI) / 2) * 20}px`,
+                    animationDelay: `${i * 100}ms`,
+                    animationDuration: '600ms',
+                  }}
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+          {reaction.type === 'feed' && (
+            <div className="companion-reaction-bounce">
+              <span className="text-2xl inline-block animate-bounce">🍎</span>
+            </div>
+          )}
+          {reaction.type === 'talk' && (
+            <div className="companion-reaction-bubble">
+              <div className="bg-white/90 rounded-full px-2 py-1 text-sm border border-[#00f7ff]/40 shadow-[0_0_8px_rgba(0,247,255,0.3)] animate-pulse">
+                💬
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Floating text */}
+      {floatingTexts.map((ft) => (
+        <span
+          key={ft.id}
+          className="absolute text-xs font-['Press_Start_2P'] pointer-events-none companion-floating-text"
+          style={{
+            left: ft.x,
+            top: ft.y,
+            color: ft.color,
+            textShadow: `0 0 6px ${ft.color}`,
+          }}
+        >
+          {ft.text}
+        </span>
+      ))}
+    </div>
+  );
+}

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!--
+    Focus ring ornament. Drawn around a focused button via background-image
+    on a wrapper or :focus-visible pseudo. 9-slice with corner star ornaments.
+    Slice=6, width=6.
+  -->
+  <rect width="20" height="20" fill="none"/>
+  <!-- ring outline (gold) -->
+  <rect x="2" y="0" width="16" height="1" fill="#ffd070"/>
+  <rect x="2" y="19" width="16" height="1" fill="#ffd070"/>
+  <rect x="0" y="2" width="1" height="16" fill="#ffd070"/>
+  <rect x="19" y="2" width="1" height="16" fill="#ffd070"/>
+  <!-- corner stars (4-pixel cross) -->
+  <g fill="#fff2c0">
+    <!-- top-left star -->
+    <rect x="1" y="0" width="1" height="1"/>
+    <rect x="0" y="1" width="1" height="1"/>
+    <rect x="2" y="1" width="1" height="1"/>
+    <rect x="1" y="2" width="1" height="1"/>
+    <!-- top-right star -->
+    <rect x="18" y="0" width="1" height="1"/>
+    <rect x="17" y="1" width="1" height="1"/>
+    <rect x="19" y="1" width="1" height="1"/>
+    <rect x="18" y="2" width="1" height="1"/>
+    <!-- bottom-left -->
+    <rect x="1" y="17" width="1" height="1"/>
+    <rect x="0" y="18" width="1" height="1"/>
+    <rect x="2" y="18" width="1" height="1"/>
+    <rect x="1" y="19" width="1" height="1"/>
+    <!-- bottom-right -->
+    <rect x="18" y="17" width="1" height="1"/>
+    <rect x="17" y="18" width="1" height="1"/>
+    <rect x="19" y="18" width="1" height="1"/>
+    <rect x="18" y="19" width="1" height="1"/>
+  </g>
+</svg>

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
+import { fontVariables } from './fonts';
+import SiteChrome from '@/components/SiteChrome';
 
 export const metadata: Metadata = {
   title: 'Star World Order | Skrumpey DAO',
@@ -12,21 +14,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // suppressHydrationWarning on <html>: the inline boot script below sets
+  // documentElement.dataset.crt from localStorage before React hydrates, so the
+  // <html> attributes legitimately differ between server and client. This only
+  // suppresses the warning one level deep (the <html> element's own attributes).
   return (
-    <html lang="en">
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
       <head>
-        {/* 
-          Note: Using external font link as fallback. For production optimization,
-          consider using next/font/google when build environment supports it.
-          The CSS provides Courier New as fallback for the pixel font.
-        */}
-        <link 
-          href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" 
-          rel="stylesheet"
+        {/* Apply persisted CRT preference before paint (no flash). See A5 / CrtToggle. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var v=localStorage.getItem('swo-crt');if(v){document.documentElement.dataset.crt=v;}}catch(e){}})();",
+          }}
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <SiteChrome>{children}</SiteChrome>
+        </Providers>
       </body>
     </html>
   );

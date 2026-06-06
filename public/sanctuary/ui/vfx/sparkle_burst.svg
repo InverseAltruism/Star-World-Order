@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!-- Larger 4-point sparkle burst with cyan accent for very-happy / play action. -->
+  <rect width="12" height="12" fill="none"/>
+  <!-- Outer cross arms (gold) -->
+  <g fill="#ffd070">
+    <rect x="5" y="0" width="2" height="12"/>
+    <rect x="0" y="5" width="12" height="2"/>
+  </g>
+  <!-- Inner halo (warm white) -->
+  <g fill="#fff2c0">
+    <rect x="5" y="2" width="2" height="8"/>
+    <rect x="2" y="5" width="8" height="2"/>
+    <rect x="4" y="4" width="4" height="4"/>
+  </g>
+  <!-- Diagonal cyan dust pixels -->
+  <g fill="#88e0ff" opacity="0.85">
+    <rect x="2" y="2" width="1" height="1"/>
+    <rect x="9" y="2" width="1" height="1"/>
+    <rect x="2" y="9" width="1" height="1"/>
+    <rect x="9" y="9" width="1" height="1"/>
+  </g>
+  <!-- Specular center -->
+  <rect x="5" y="5" width="2" height="2" fill="#ffffff"/>
+</svg>

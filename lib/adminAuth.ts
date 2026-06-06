@@ -1,6 +1,7 @@
 import { verifyMessage } from 'viem';
 import { ADMIN_WALLET_ADDRESS } from './config';
 import { logger } from './logger';
+import { claimAdminNonce, pruneExpiredAdminNonces } from './db';
 
 export interface AdminAuthResult {
   valid: boolean;
@@ -9,15 +10,8 @@ export interface AdminAuthResult {
 }
 
 const NONCE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
-const usedNonces = new Map<string, number>();
-
-function pruneExpiredNonces(now: number): void {
-  for (const [nonce, expiresAt] of usedNonces.entries()) {
-    if (expiresAt <= now) {
-      usedNonces.delete(nonce);
-    }
-  }
-}
+const PRUNE_INTERVAL_MS = 60 * 1000;   // best-effort GC once a minute
+let lastPruneAt = 0;
 
 function parseAuthHeader(authHeader: string): { address: string; timestamp: string; signature: string } | null {
   const [address, timestamp, signature] = authHeader.split(':');
@@ -50,16 +44,18 @@ export async function verifyAdminAccess(request: Request): Promise<AdminAuthResu
     }
 
     const now = Date.now();
-    pruneExpiredNonces(now);
+    if (now - lastPruneAt > PRUNE_INTERVAL_MS) {
+      lastPruneAt = now;
+      try {
+        pruneExpiredAdminNonces(now);
+      } catch (err) {
+        logger.warn('Admin auth: nonce prune failed', { error: String(err) });
+      }
+    }
 
     const timestampNum = Number.parseInt(parsed.timestamp, 10);
     if (Number.isNaN(timestampNum) || Math.abs(now - timestampNum) > NONCE_EXPIRY_MS) {
       return { valid: false, error: 'Authentication expired' };
-    }
-
-    const nonce = `${normalizedAddress}:${parsed.timestamp}`;
-    if (usedNonces.has(nonce)) {
-      return { valid: false, error: 'Authentication already used' };
     }
 
     const message = getSignedMessage(parsed.timestamp);
@@ -73,11 +69,18 @@ export async function verifyAdminAccess(request: Request): Promise<AdminAuthResu
       return { valid: false, error: 'Invalid signature' };
     }
 
-    usedNonces.set(nonce, now + NONCE_EXPIRY_MS);
+    // Claim the nonce atomically — only succeeds the first time.
+    // Keyed on (address, timestamp) so each signed timestamp can be used once,
+    // matching the original in-memory semantics.
+    const nonce = `${normalizedAddress}:${parsed.timestamp}`;
+    const claimed = claimAdminNonce(nonce, now + NONCE_EXPIRY_MS);
+    if (!claimed) {
+      return { valid: false, error: 'Authentication already used' };
+    }
+
     return { valid: true, adminAddress: normalizedAddress };
   } catch (error) {
     logger.error('Admin auth: authentication error', { error: String(error) });
     return { valid: false, error: 'Authentication failed' };
   }
 }
-

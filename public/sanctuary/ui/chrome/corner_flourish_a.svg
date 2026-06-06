@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges" image-rendering="pixelated">
+  <!--
+    Decorative top-left corner flourish: small star with a curl tail.
+    Use as ::before/::after on chromed panels. Mirror via transform: scaleX(-1).
+  -->
+  <rect width="16" height="16" fill="none"/>
+  <!-- star core -->
+  <g fill="#ffd070">
+    <rect x="3" y="2" width="2" height="2"/>
+    <rect x="2" y="3" width="1" height="1"/>
+    <rect x="5" y="3" width="1" height="1"/>
+    <rect x="3" y="5" width="2" height="1"/>
+  </g>
+  <!-- bright star center -->
+  <rect x="3" y="3" width="2" height="2" fill="#fff2c0"/>
+  <!-- curl tail toward inside -->
+  <g fill="#9966ff">
+    <rect x="6" y="4" width="1" height="1"/>
+    <rect x="7" y="5" width="1" height="1"/>
+    <rect x="8" y="6" width="1" height="1"/>
+    <rect x="9" y="7" width="1" height="1"/>
+  </g>
+  <!-- soft dust pixels -->
+  <g fill="#bb88ff" opacity="0.7">
+    <rect x="11" y="9" width="1" height="1"/>
+    <rect x="13" y="11" width="1" height="1"/>
+    <rect x="10" y="12" width="1" height="1"/>
+  </g>
+</svg>

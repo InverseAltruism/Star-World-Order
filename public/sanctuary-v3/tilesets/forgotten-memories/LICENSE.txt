@@ -1,0 +1,31 @@
+Forgotten Memories 32x32 Tileset
+================================
+
+Author: Immunity (https://immunitys.itch.io/fm32x32)
+Version: 1.0
+Status: in development on the author's itch page
+
+Permission to use this tileset in Star World Order
+---------------------------------------------------
+Confirmed by the SWO project owner on 2026-04-25 that this pack is being used
+under the author's free / open distribution terms (the itch.io page lists a
+"name-your-own-price" download with $0 minimum, and the author's notes treat
+the pack as freely shareable). Any future formal license terms posted by the
+author will supersede this note.
+
+Files used in this project (unmodified, copied as-is):
+  tileset.png             (2048x2048, 32x32 grid base terrain)
+  trees.png               (1024x1024)
+  trees_separated.png     (560x640)
+  props.png               (1024x1024)
+  water_6frames.png       (1024x1024, 6-frame animated water)
+
+Credits in-game
+---------------
+The Sanctuary V3 in-game Credits screen lists Immunity by name with a link
+to the original itch.io page.
+
+If you are Immunity and would like the credit phrasing changed, the link
+removed, or use of these tiles in this project to be discontinued, please
+contact the SWO project at the contact addresses on https://starworldorder.com
+and we will comply.

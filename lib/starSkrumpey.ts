@@ -169,18 +169,19 @@ export interface OwnedToken {
 // Must be configured in .env.local before production deployment
 export const SKRUMPEY_CONTRACT_ADDRESS: string | undefined = process.env.NEXT_PUBLIC_SKRUMPEY_CONTRACT;
 
-// IPFS base URL for Skrumpey images
+// IPFS base URL for Skrumpey images (fallback only)
 export const SKRUMPEY_IPFS_BASE = 'https://ipfs-proxy.magiceden.dev/ipfs/bafybeig6jmjboqpx6puv4joxgzrzraqy7jdh63kf4dx6mupxhsl6lhr3cu';
 
 /**
- * Get the IPFS image URL for a Skrumpey token
- * @param tokenId - The token ID of the Skrumpey NFT
- * @param isGif - Whether to use .gif extension (for galaxy background NFTs)
- * @returns The full IPFS URL for the NFT image
+ * Get the image URL for a Skrumpey token.
+ * Prefers self-hosted assets at /assets/skrumpey/{id}.png.
+ * Falls back to IPFS proxy for GIF variants.
  */
 export function getSkrumpeyImageUrl(tokenId: number, isGif: boolean = false): string {
-  const extension = isGif ? 'gif' : 'png';
-  return `${SKRUMPEY_IPFS_BASE}/${tokenId}.${extension}`;
+  if (isGif) {
+    return `${SKRUMPEY_IPFS_BASE}/${tokenId}.gif`;
+  }
+  return `/assets/skrumpey/${tokenId}.png`;
 }
 
 // Development access override - only works in development mode
@@ -557,39 +558,9 @@ export async function checkSkrumpeyOwnership(address: string): Promise<{ hasSkru
     return { hasSkrumpey: false, balance: 0 };
   }
 
-  const skrumpeyContractLower = SKRUMPEY_CONTRACT_ADDRESS.toLowerCase();
-
-  // Try Magic Eden API first (more reliable and uses our API key)
-  try {
-    const { fetchUserCollections } = await import('./magiceden');
-    const collections = await fetchUserCollections(address);
-    
-    // Check if Skrumpey collection is in the user's collections
-    const skrumpeyCollection = collections.collections.find(
-      c => c.contract.toLowerCase() === skrumpeyContractLower
-    );
-    
-    if (skrumpeyCollection) {
-      const balance = skrumpeyCollection.ownedCount;
-      logger.info('Checked Skrumpey ownership via Magic Eden API', {
-        address: address.slice(0, 10) + '...',
-        balance,
-      });
-      return { hasSkrumpey: balance > 0, balance };
-    }
-    
-    logger.debug('No Skrumpey collection found in Magic Eden response', {
-      address: address.slice(0, 10) + '...',
-      collectionsFound: collections.collections.length,
-    });
-  } catch (error) {
-    logger.debug('Magic Eden API check failed, falling back to RPC', {
-      address: address.slice(0, 10) + '...',
-      error: String(error),
-    });
-  }
-
-  // Fallback to RPC balanceOf check
+  // Magic Eden dropped Monad / EVM NFT support, so the previous ME-first
+  // path always 503s and wastes ~20s on retries before the RPC fallback
+  // runs. Skip directly to the on-chain balanceOf check.
   try {
     const client = await getResilientClient();
 

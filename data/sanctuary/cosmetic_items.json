@@ -1,0 +1,565 @@
+{
+  "$schema_version": "1.0.0",
+  "spec_id": "SWO_SHARED_COSMETIC_ITEM_DESIGN",
+  "description": "Canonical cosmetic catalog for Star Sanctuary. This JSON is the shared source of truth consumed by (a) the V2.x shop seed loader (lib/db.ts), (b) the V2 cosmic-palette sprite generator (public/sanctuary/cosmetics/), and (c) the V3 Forgotten-Memories-palette sprite generator (public/sanctuary-v3/cosmetics/). The shop schema currently supports the 'hat' | 'accessory' | 'background' | 'animation' categories and 'common' | 'uncommon' | 'rare' | 'legendary' rarities; the 'floor' and 'seasonal' categories and the 'epic' rarity used here require the V2.3 schema migration tracked separately as SWO_V2_3_SHOP_CATEGORY_EXPANSION.",
+  "categories": ["hat", "accessory", "background", "floor", "animation", "seasonal"],
+  "rarities": ["common", "uncommon", "rare", "epic"],
+  "price_range_star": { "min": 10, "max": 50 },
+  "level_range": { "min": 0, "max": 15 },
+  "asset_paths": {
+    "v2_root": "/sanctuary/cosmetics",
+    "v3_root": "/sanctuary-v3/cosmetics",
+    "v2_palette_ref": "docs/SANCTUARY_STYLE_DOCTRINE.md#2-color-system",
+    "v3_palette_ref": "public/sanctuary-v3/palettes/forgotten-memories.txt"
+  },
+  "sprite_dimensions": {
+    "hat": "16x12 (anchored above 32x32 companion head)",
+    "accessory": "16x16 (anchored at companion neck/chest)",
+    "background": "320x180 (room backdrop, tileable horizontally)",
+    "floor": "32x32 (tileable in both axes)",
+    "animation": "particle/effect overlay, 64x64 sheet of 4 frames at 16x16",
+    "seasonal": "varies by sub-type, see per-item pixel_art_spec.dimensions"
+  },
+  "items": [
+    {
+      "item_key": "hat_acorn_cap",
+      "name": "Acorn Cap",
+      "category": "hat",
+      "rarity": "common",
+      "star_cost": 10,
+      "level_required": 0,
+      "description": "A tiny acorn cap, perfect for forest strolls.",
+      "asset_key": "hat_acorn_cap",
+      "pixel_art_spec": {
+        "dimensions": "16x12",
+        "anchor": "bottom-center on companion head",
+        "v2_palette": ["#9966ff base", "#ffd700 stem", "#e8e0ff highlight"],
+        "v3_palette": ["#825e48 cap", "#52513d stem", "#928977 highlight"],
+        "motif": "rounded acorn cap with a single stem nub on top",
+        "notes": "Silhouette must read at 1:1; no anti-aliasing."
+      }
+    },
+    {
+      "item_key": "hat_star_beanie",
+      "name": "Star Beanie",
+      "category": "hat",
+      "rarity": "common",
+      "star_cost": 12,
+      "level_required": 1,
+      "description": "A cozy beanie embroidered with a single bright star.",
+      "asset_key": "hat_star_beanie",
+      "pixel_art_spec": {
+        "dimensions": "16x12",
+        "anchor": "bottom-center on companion head",
+        "v2_palette": ["#4488ff body", "#ffd700 star", "#e8e0ff trim"],
+        "v3_palette": ["#3e526a body", "#ab7923 star", "#928977 trim"],
+        "motif": "snug beanie with a 3x3 four-point star embroidered on the front cuff",
+        "notes": "Cuff is 1px lighter than body to suggest folded knit."
+      }
+    },
+    {
+      "item_key": "hat_witch_hat",
+      "name": "Witch Hat",
+      "category": "hat",
+      "rarity": "uncommon",
+      "star_cost": 18,
+      "level_required": 3,
+      "description": "A pointed hat that hums faintly with arcane energy.",
+      "asset_key": "hat_witch_hat",
+      "pixel_art_spec": {
+        "dimensions": "16x14",
+        "anchor": "bottom-center on companion head",
+        "v2_palette": ["#1a1a2e body", "#9966ff brim", "#ffd700 buckle"],
+        "v3_palette": ["#2c2133 body", "#5b6772 brim", "#ab7923 buckle"],
+        "motif": "tall conical hat with curled tip; wide brim flares 2px past the head",
+        "notes": "Tip droops 1px to feel jaunty; faint 1px shimmer dot near tip in V2 only."
+      }
+    },
+    {
+      "item_key": "hat_party_horn",
+      "name": "Party Horn",
+      "category": "hat",
+      "rarity": "uncommon",
+      "star_cost": 20,
+      "level_required": 3,
+      "description": "A festive striped party hat with a tiny pom-pom.",
+      "asset_key": "hat_party_horn",
+      "pixel_art_spec": {
+        "dimensions": "16x14",
+        "anchor": "bottom-center, slight 2px right tilt",
+        "v2_palette": ["#ff66aa primary stripe", "#66bbff alt stripe", "#ffd700 pom"],
+        "v3_palette": ["#a16e25 primary stripe", "#4c8d9d alt stripe", "#c0af83 pom"],
+        "motif": "cone with three diagonal stripes; 3x3 pom-pom on the apex",
+        "notes": "Tilt rendered into the sprite (not via runtime rotation) to keep edges crisp."
+      }
+    },
+    {
+      "item_key": "hat_explorer_visor",
+      "name": "Explorer's Visor",
+      "category": "hat",
+      "rarity": "rare",
+      "star_cost": 28,
+      "level_required": 5,
+      "description": "A weathered visor stitched from old star-charts.",
+      "asset_key": "hat_explorer_visor",
+      "pixel_art_spec": {
+        "dimensions": "16x10",
+        "anchor": "front-center over brow",
+        "v2_palette": ["#9c7b4f leather", "#ffd700 buckle", "#e8e0ff inner lining"],
+        "v3_palette": ["#9c7b4f leather", "#ab7923 buckle", "#c0af83 inner lining"],
+        "motif": "low-slung visor with side strap; 1px buckle on right",
+        "notes": "No top, sits low so eyes still read at 32px display."
+      }
+    },
+    {
+      "item_key": "hat_gold_crown",
+      "name": "Gold Crown",
+      "category": "hat",
+      "rarity": "rare",
+      "star_cost": 35,
+      "level_required": 7,
+      "description": "Worn by the rulers of forgotten constellations.",
+      "asset_key": "hat_gold_crown",
+      "pixel_art_spec": {
+        "dimensions": "16x10",
+        "anchor": "bottom-center on companion head",
+        "v2_palette": ["#ffd700 gold", "#ff66aa gem", "#e8e0ff highlight"],
+        "v3_palette": ["#ab7923 gold", "#8c3329 gem", "#c0af83 highlight"],
+        "motif": "three-spike crown band, center spike taller, single gem in front",
+        "notes": "Gem uses a single 2x2 cluster with one highlight pixel."
+      }
+    },
+    {
+      "item_key": "hat_cosmic_halo",
+      "name": "Cosmic Halo",
+      "category": "hat",
+      "rarity": "epic",
+      "star_cost": 42,
+      "level_required": 10,
+      "description": "A floating ring of starlight that orbits the wearer.",
+      "asset_key": "hat_cosmic_halo",
+      "pixel_art_spec": {
+        "dimensions": "20x8",
+        "anchor": "floats 2px above the companion head, no contact",
+        "v2_palette": ["#e8e0ff core ring", "#b088ff outer glow", "#ffd700 sparkle"],
+        "v3_palette": ["#928977 core ring", "#86677c outer glow", "#ab7923 sparkle"],
+        "motif": "thin elliptical ring; 1px glow halo; 4 sparkle pixels evenly spaced on the ring",
+        "notes": "Should pair with anim_star_sparkle if both equipped — ring stays stationary, sparkles orbit."
+      }
+    },
+    {
+      "item_key": "hat_nebula_crown",
+      "name": "Nebula Crown",
+      "category": "hat",
+      "rarity": "epic",
+      "star_cost": 50,
+      "level_required": 13,
+      "description": "A crown spun from raw nebula dust. Only the boldest dare wear it.",
+      "asset_key": "hat_nebula_crown",
+      "pixel_art_spec": {
+        "dimensions": "20x14",
+        "anchor": "bottom-center on companion head",
+        "v2_palette": ["#b088ff dust", "#ff66aa swirl", "#e8e0ff core jewels", "#ffd700 ring base"],
+        "v3_palette": ["#86677c dust", "#a16e25 swirl", "#928977 core jewels", "#ab7923 ring base"],
+        "motif": "wide crown with five rising tendrils of nebula dust; three jewel pixels along the band",
+        "notes": "Tendrils animate via anim layer if available; static base is 14 tall."
+      }
+    },
+    {
+      "item_key": "acc_star_pendant",
+      "name": "Star Pendant",
+      "category": "accessory",
+      "rarity": "common",
+      "star_cost": 10,
+      "level_required": 0,
+      "description": "A simple pendant carved from meteorite glass.",
+      "asset_key": "acc_star_pendant",
+      "pixel_art_spec": {
+        "dimensions": "10x14",
+        "anchor": "neck/chest center, hangs 2px below chin",
+        "v2_palette": ["#e8e0ff star", "#9966ff cord"],
+        "v3_palette": ["#928977 star", "#5f4848 cord"],
+        "motif": "1px cord forming a U-shape with a 4x4 four-point star at the bottom",
+        "notes": "Star is the focal point; cord is single-pixel only."
+      }
+    },
+    {
+      "item_key": "acc_comet_scarf",
+      "name": "Comet Scarf",
+      "category": "accessory",
+      "rarity": "common",
+      "star_cost": 14,
+      "level_required": 1,
+      "description": "A long scarf with a flowing comet-tail pattern.",
+      "asset_key": "acc_comet_scarf",
+      "pixel_art_spec": {
+        "dimensions": "16x12",
+        "anchor": "wraps around neck, two trailing ends drift right",
+        "v2_palette": ["#66bbff fabric", "#e8e0ff sparkle", "#ffd700 tail accent"],
+        "v3_palette": ["#4c8d9d fabric", "#c0af83 sparkle", "#ab7923 tail accent"],
+        "motif": "scarf with two trailing tails of decreasing width; 3 scattered sparkle pixels along the tails",
+        "notes": "Tail tips taper to 1px to suggest motion."
+      }
+    },
+    {
+      "item_key": "acc_moon_glasses",
+      "name": "Moon Glasses",
+      "category": "accessory",
+      "rarity": "uncommon",
+      "star_cost": 22,
+      "level_required": 3,
+      "description": "Tinted spectacles that filter even the brightest sun.",
+      "asset_key": "acc_moon_glasses",
+      "pixel_art_spec": {
+        "dimensions": "14x6",
+        "anchor": "across the eyes (overrides eye reflections)",
+        "v2_palette": ["#1a1a2e lens", "#ffd700 frame", "#e8e0ff glint"],
+        "v3_palette": ["#2c2133 lens", "#ab7923 frame", "#c0af83 glint"],
+        "motif": "two round lenses connected by a 2px bridge; one 1px glint on the upper-right of each lens",
+        "notes": "Render order: above eye layer; do not draw lens fill where it would clip outside head silhouette."
+      }
+    },
+    {
+      "item_key": "acc_aura_ribbon",
+      "name": "Aura Ribbon",
+      "category": "accessory",
+      "rarity": "uncommon",
+      "star_cost": 25,
+      "level_required": 4,
+      "description": "A ribbon woven from threads of pure aura.",
+      "asset_key": "acc_aura_ribbon",
+      "pixel_art_spec": {
+        "dimensions": "12x10",
+        "anchor": "tied at companion crown, bow falls to the right",
+        "v2_palette": ["#ff66aa ribbon", "#e8e0ff aura wisp"],
+        "v3_palette": ["#86677c ribbon", "#928977 aura wisp"],
+        "motif": "small bow on top with two streamers; faint 1px wisp pixels float beside the streamers",
+        "notes": "Aura wisp pixels appear only in V2; V3 omits the wisp."
+      }
+    },
+    {
+      "item_key": "acc_nebula_collar",
+      "name": "Nebula Collar",
+      "category": "accessory",
+      "rarity": "rare",
+      "star_cost": 35,
+      "level_required": 6,
+      "description": "A collar that shimmers with swirling cosmic gases.",
+      "asset_key": "acc_nebula_collar",
+      "pixel_art_spec": {
+        "dimensions": "16x6",
+        "anchor": "wraps around neck base",
+        "v2_palette": ["#9966ff base", "#b088ff swirl 1", "#66bbff swirl 2", "#ffd700 stud"],
+        "v3_palette": ["#5f4848 base", "#86677c swirl 1", "#4c8d9d swirl 2", "#ab7923 stud"],
+        "motif": "thick collar with two interleaved diagonal swirls and a single front stud",
+        "notes": "Swirls are 1px wide; alternate the two swirl colors every other pixel for shimmer feel."
+      }
+    },
+    {
+      "item_key": "acc_eclipse_pendant",
+      "name": "Eclipse Pendant",
+      "category": "accessory",
+      "rarity": "epic",
+      "star_cost": 45,
+      "level_required": 10,
+      "description": "Forged during a total eclipse. Pulses with shadow-light.",
+      "asset_key": "acc_eclipse_pendant",
+      "pixel_art_spec": {
+        "dimensions": "10x14",
+        "anchor": "neck/chest center, hangs 2px below chin",
+        "v2_palette": ["#1a1a2e core", "#ffd700 corona ring", "#ff66aa flare"],
+        "v3_palette": ["#2c2133 core", "#ab7923 corona ring", "#8c3329 flare"],
+        "motif": "1px cord with a 6x6 black disc surrounded by a 1px golden corona; one 1px flare offset top-left",
+        "notes": "Corona is full ring (no gaps) so it reads as eclipse, not a hole."
+      }
+    },
+    {
+      "item_key": "bg_starfield",
+      "name": "Starfield",
+      "category": "background",
+      "rarity": "common",
+      "star_cost": 10,
+      "level_required": 0,
+      "description": "A peaceful field of distant pinprick stars.",
+      "asset_key": "bg_starfield",
+      "pixel_art_spec": {
+        "dimensions": "320x180",
+        "anchor": "fills room backdrop, tileable horizontally",
+        "v2_palette": ["#0a0a1a deep base", "#1a1a2e mid", "#e8e0ff stars", "#b088ff dim stars"],
+        "v3_palette": ["#2c2133 deep base", "#432b30 mid", "#928977 stars", "#86677c dim stars"],
+        "motif": "scattered 1px stars at low density (~50 per 320x180); 5-pixel cluster every ~80px for variety",
+        "notes": "No nebula clouds — keep it minimal so it pairs with any companion."
+      }
+    },
+    {
+      "item_key": "bg_soft_aurora",
+      "name": "Soft Aurora",
+      "category": "background",
+      "rarity": "uncommon",
+      "star_cost": 20,
+      "level_required": 2,
+      "description": "Pale curtains of green and pink light drifting overhead.",
+      "asset_key": "bg_soft_aurora",
+      "pixel_art_spec": {
+        "dimensions": "320x180",
+        "anchor": "fills room backdrop, tileable horizontally",
+        "v2_palette": ["#0a0a1a base", "#44ddbb aurora green", "#ff66aa aurora pink", "#e8e0ff stars"],
+        "v3_palette": ["#2c2133 base", "#508e87 aurora green", "#86677c aurora pink", "#928977 stars"],
+        "motif": "two vertical wavy curtains (one green, one pink) that drift left-right; 30 background stars",
+        "notes": "Curtains use 8 alpha-stepped vertical bands rendered with palette dithering, no true alpha."
+      }
+    },
+    {
+      "item_key": "bg_cosmic_dawn",
+      "name": "Cosmic Dawn",
+      "category": "background",
+      "rarity": "uncommon",
+      "star_cost": 25,
+      "level_required": 4,
+      "description": "The first warm light of a galactic morning.",
+      "asset_key": "bg_cosmic_dawn",
+      "pixel_art_spec": {
+        "dimensions": "320x180",
+        "anchor": "fills room backdrop, tileable horizontally",
+        "v2_palette": ["#1a1a2e top", "#ffaa44 amber band", "#ff66aa rose band", "#ffd700 sun disc"],
+        "v3_palette": ["#2c2133 top", "#ab7923 amber band", "#8c3329 rose band", "#a16e25 sun disc"],
+        "motif": "horizontal bands fading from indigo top to amber bottom; small 8x8 sun disc on the right horizon",
+        "notes": "Bands are 12px tall each; dithering for transitions, no true gradients."
+      }
+    },
+    {
+      "item_key": "bg_nebula_drift",
+      "name": "Nebula Drift",
+      "category": "background",
+      "rarity": "rare",
+      "star_cost": 35,
+      "level_required": 7,
+      "description": "Slow-rolling clouds of cyan and violet stardust.",
+      "asset_key": "bg_nebula_drift",
+      "pixel_art_spec": {
+        "dimensions": "320x180",
+        "anchor": "fills room backdrop, tileable horizontally",
+        "v2_palette": ["#0a0a1a base", "#66bbff cyan cloud", "#9966ff violet cloud", "#e8e0ff stars"],
+        "v3_palette": ["#2c2133 base", "#4c8d9d cyan cloud", "#5f4848 violet cloud", "#928977 stars"],
+        "motif": "three overlapping cloud blobs (two cyan, one violet) with dithered edges; 60 background stars",
+        "notes": "Edges dithered 1px; no hard cloud silhouettes."
+      }
+    },
+    {
+      "item_key": "bg_galaxy_swirl",
+      "name": "Galaxy Swirl",
+      "category": "background",
+      "rarity": "epic",
+      "star_cost": 50,
+      "level_required": 12,
+      "description": "A full spiral galaxy spinning lazily behind your companion.",
+      "asset_key": "bg_galaxy_swirl",
+      "pixel_art_spec": {
+        "dimensions": "320x180",
+        "anchor": "centered behind companion, fills backdrop",
+        "v2_palette": ["#0a0a1a base", "#b088ff outer arm", "#e8e0ff inner core", "#ffd700 core glow", "#ff66aa accent star"],
+        "v3_palette": ["#2c2133 base", "#86677c outer arm", "#c0af83 inner core", "#ab7923 core glow", "#8c3329 accent star"],
+        "motif": "two-arm logarithmic spiral, ~120px diameter, centered; 80 background stars",
+        "notes": "Arms are 2px wide tapering to 1px; core is a 6px disc with 8px glow halo."
+      }
+    },
+    {
+      "item_key": "floor_grass_tile",
+      "name": "Grass Tile",
+      "category": "floor",
+      "rarity": "common",
+      "star_cost": 10,
+      "level_required": 0,
+      "description": "Soft starlit grass underfoot.",
+      "asset_key": "floor_grass_tile",
+      "pixel_art_spec": {
+        "dimensions": "32x32",
+        "anchor": "tileable both axes",
+        "v2_palette": ["#44ff88 grass primary", "#44ddbb grass secondary", "#0a0a1a shadow"],
+        "v3_palette": ["#5e6431 grass primary", "#525726 grass secondary", "#432b30 shadow"],
+        "motif": "scattered 2-3px grass tufts with subtle 1px shadow underneath each tuft",
+        "notes": "Edges must seam without visible repetition; verify by tiling 4x4 in preview."
+      }
+    },
+    {
+      "item_key": "floor_starwood_planks",
+      "name": "Starwood Planks",
+      "category": "floor",
+      "rarity": "common",
+      "star_cost": 15,
+      "level_required": 1,
+      "description": "Polished planks cut from a fallen star tree.",
+      "asset_key": "floor_starwood_planks",
+      "pixel_art_spec": {
+        "dimensions": "32x32",
+        "anchor": "tileable both axes",
+        "v2_palette": ["#9c7b4f wood mid", "#825e48 wood dark", "#c0af83 wood highlight", "#ffd700 star fleck"],
+        "v3_palette": ["#9c7b4f wood mid", "#825e48 wood dark", "#c0af83 wood highlight", "#ab7923 star fleck"],
+        "motif": "three horizontal planks (10/12/10 px) with 1px dark seams; 1-2 gold flecks per tile to suggest starwood",
+        "notes": "Vary plank widths so 4x4 tiles do not look perfectly grid-aligned."
+      }
+    },
+    {
+      "item_key": "floor_crystal_marble",
+      "name": "Crystal Marble",
+      "category": "floor",
+      "rarity": "uncommon",
+      "star_cost": 25,
+      "level_required": 4,
+      "description": "Cool marble veined with luminous crystal threads.",
+      "asset_key": "floor_crystal_marble",
+      "pixel_art_spec": {
+        "dimensions": "32x32",
+        "anchor": "tileable both axes",
+        "v2_palette": ["#e8e0ff base", "#b088ff vein", "#66bbff highlight"],
+        "v3_palette": ["#928977 base", "#86677c vein", "#7fb7bd highlight"],
+        "motif": "polished slab with 2-3 thin veins meandering corner-to-corner; one bright pixel per vein",
+        "notes": "Veins must continue when tiled — design them to enter and exit at consistent edge positions."
+      }
+    },
+    {
+      "item_key": "floor_nebula_glass",
+      "name": "Nebula Glass",
+      "category": "floor",
+      "rarity": "rare",
+      "star_cost": 35,
+      "level_required": 8,
+      "description": "Translucent panels poured from cooled nebula vapor.",
+      "asset_key": "floor_nebula_glass",
+      "pixel_art_spec": {
+        "dimensions": "32x32",
+        "anchor": "tileable both axes",
+        "v2_palette": ["#1a1a2e base", "#9966ff swirl", "#66bbff swirl alt", "#e8e0ff sparkle"],
+        "v3_palette": ["#2c2133 base", "#5f4848 swirl", "#4c8d9d swirl alt", "#928977 sparkle"],
+        "motif": "deep panel with two interleaving swirls and 4-5 1px sparkle pixels",
+        "notes": "Sparkle positions stay fixed (no animation in floor layer)."
+      }
+    },
+    {
+      "item_key": "floor_constellation_mosaic",
+      "name": "Constellation Mosaic",
+      "category": "floor",
+      "rarity": "epic",
+      "star_cost": 50,
+      "level_required": 13,
+      "description": "A floor mosaic depicting a complete constellation map.",
+      "asset_key": "floor_constellation_mosaic",
+      "pixel_art_spec": {
+        "dimensions": "64x64",
+        "anchor": "tileable both axes (larger tile to preserve mosaic motif)",
+        "v2_palette": ["#0a0a1a base", "#ffd700 star nodes", "#e8e0ff star halo", "#9966ff connecting lines"],
+        "v3_palette": ["#2c2133 base", "#ab7923 star nodes", "#928977 star halo", "#5f4848 connecting lines"],
+        "motif": "10 star nodes connected by 1px lines forming two recognizable constellation shapes per tile",
+        "notes": "This is the only 64x64 floor — engine must accept either 32 or 64 px tile sizes for floors."
+      }
+    },
+    {
+      "item_key": "anim_gentle_bob",
+      "name": "Gentle Bob",
+      "category": "animation",
+      "rarity": "common",
+      "star_cost": 12,
+      "level_required": 0,
+      "description": "A soft up-and-down bob, like floating on calm water.",
+      "asset_key": "anim_gentle_bob",
+      "pixel_art_spec": {
+        "dimensions": "behavior-only — no sprite sheet",
+        "anchor": "applies to companion root transform",
+        "v2_palette": [],
+        "v3_palette": [],
+        "motif": "shift companion sprite +1/-1px on Y over a 60-frame loop (30 up, 30 down)",
+        "notes": "Implementation is a transform tween, not a sprite. Spec retained here for catalog completeness."
+      }
+    },
+    {
+      "item_key": "anim_star_sparkle",
+      "name": "Star Sparkle",
+      "category": "animation",
+      "rarity": "uncommon",
+      "star_cost": 20,
+      "level_required": 3,
+      "description": "Tiny sparkles burst around the companion at random.",
+      "asset_key": "anim_star_sparkle",
+      "pixel_art_spec": {
+        "dimensions": "64x16 sprite sheet (4 frames at 16x16)",
+        "anchor": "spawned at random offset within 24x24 box around companion center",
+        "v2_palette": ["#ffd700 core", "#e8e0ff halo"],
+        "v3_palette": ["#ab7923 core", "#928977 halo"],
+        "motif": "4-frame sparkle: 1px → 4-point star → 6-point star → fade",
+        "notes": "Particle lifetime ~30 frames; spawn rate 1 per second."
+      }
+    },
+    {
+      "item_key": "anim_aurora_dance",
+      "name": "Aurora Dance",
+      "category": "animation",
+      "rarity": "rare",
+      "star_cost": 35,
+      "level_required": 7,
+      "description": "Aurora ribbons twirl rhythmically around the companion.",
+      "asset_key": "anim_aurora_dance",
+      "pixel_art_spec": {
+        "dimensions": "128x32 sprite sheet (4 frames at 32x32)",
+        "anchor": "wraps around companion at chest height",
+        "v2_palette": ["#44ddbb aurora teal", "#ff66aa aurora rose", "#e8e0ff highlight"],
+        "v3_palette": ["#508e87 aurora teal", "#86677c aurora rose", "#928977 highlight"],
+        "motif": "two ribbon strands (teal + rose) that swap depth across 4 frames, rotating around companion",
+        "notes": "Loop length 90 frames; alpha simulated via dither, not true alpha."
+      }
+    },
+    {
+      "item_key": "anim_constellation_burst",
+      "name": "Constellation Burst",
+      "category": "animation",
+      "rarity": "epic",
+      "star_cost": 50,
+      "level_required": 12,
+      "description": "Periodic bursts of constellation glyphs orbit the companion.",
+      "asset_key": "anim_constellation_burst",
+      "pixel_art_spec": {
+        "dimensions": "192x48 sprite sheet (6 frames at 32x48)",
+        "anchor": "orbits companion in a 64-px radius",
+        "v2_palette": ["#ffd700 glyph", "#e8e0ff connector", "#9966ff aura"],
+        "v3_palette": ["#ab7923 glyph", "#928977 connector", "#5f4848 aura"],
+        "motif": "each frame shows a different 5-star constellation glyph fading in then orbiting",
+        "notes": "Burst once every 8 seconds; do not overlap with other equipped animations."
+      }
+    },
+    {
+      "item_key": "seasonal_spring_petals",
+      "name": "Spring Petals",
+      "category": "seasonal",
+      "rarity": "rare",
+      "star_cost": 30,
+      "level_required": 5,
+      "description": "Drifting cherry-blossom petals — available only during the Spring window.",
+      "asset_key": "seasonal_spring_petals",
+      "pixel_art_spec": {
+        "dimensions": "64x64 sprite sheet (4 frames at 16x16) plus full-room overlay 320x180",
+        "anchor": "petal particles drift from top of room toward bottom-right",
+        "v2_palette": ["#ff88aa petal", "#ff66aa petal shadow", "#e8e0ff highlight"],
+        "v3_palette": ["#a57660 petal", "#86677c petal shadow", "#c0af83 highlight"],
+        "motif": "4-frame swaying 3x3 petal; spawned at low density across the backdrop",
+        "notes": "Availability gated by SEASONAL_WINDOWS.spring (March 20 – April 30) — see SWO_V2_3_SHOP_CATEGORY_EXPANSION."
+      }
+    },
+    {
+      "item_key": "seasonal_winter_snow",
+      "name": "Winter Snow",
+      "category": "seasonal",
+      "rarity": "rare",
+      "star_cost": 30,
+      "level_required": 5,
+      "description": "Soft starlit snowfall — available only during the Winter window.",
+      "asset_key": "seasonal_winter_snow",
+      "pixel_art_spec": {
+        "dimensions": "64x64 sprite sheet (4 frames at 16x16) plus full-room overlay 320x180",
+        "anchor": "snowflake particles drift from top of room straight down with slight sway",
+        "v2_palette": ["#e8e0ff snow", "#66bbff cool tint", "#0a0a1a void"],
+        "v3_palette": ["#928977 snow", "#7fb7bd cool tint", "#2c2133 void"],
+        "motif": "4-frame 3x3 snowflake (rotation by quarter-turn each frame); ground accumulation row at the very bottom of overlay",
+        "notes": "Availability gated by SEASONAL_WINDOWS.winter (December 1 – February 14)."
+      }
+    }
+  ]
+}

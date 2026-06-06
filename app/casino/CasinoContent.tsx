@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import AccessGate from '@/components/AccessGate';
+import CasinoAccessGate from '@/components/casino/CasinoAccessGate';
+import { isCasinoMainnetLive } from '@/lib/casino/addresses';
 
 // ============================================================================
 // Types
@@ -34,6 +35,16 @@ interface CasinoStats {
 // Constants
 // ============================================================================
 
+// The three games backed by on-chain casino contracts (Cosmic Flip,
+// Gravity Dice, Constellation Climb). They are wired to Monad mainnet
+// (chain 143) and flip from "coming soon" to "live" the moment the operator
+// activates the mainnet gate (see `isCasinoMainnetLive()` in
+// `lib/casino/addresses.ts`) once mainnet bets have settled. No code change is
+// needed to go live — only the `NEXT_PUBLIC_CASINO_MAINNET_LIVE` env flag.
+const ON_CHAIN_GAME_STATUS: GameInfo['status'] = isCasinoMainnetLive()
+  ? 'live'
+  : 'coming_soon';
+
 const GAMES: GameInfo[] = [
   {
     id: 'starforge',
@@ -53,13 +64,39 @@ const GAMES: GameInfo[] = [
     name: 'Cosmic Flip',
     description: 'Classic heads or tails with 2x payout. Simple, fast, and provably fair.',
     emoji: '🪙',
-    status: 'coming_soon',
+    status: ON_CHAIN_GAME_STATUS,
     path: '/casino/coinflip',
     minBet: '10 MON',
     maxWin: '1,000 MON',
     rtp: '98%',
     color: '#00ffff',
     glowColor: 'rgba(0, 255, 255, 0.5)',
+  },
+  {
+    id: 'dice',
+    name: 'Gravity Dice',
+    description: 'Roll the dice and predict high or low. Adjustable odds for risk takers.',
+    emoji: '🎲',
+    status: ON_CHAIN_GAME_STATUS,
+    path: '/casino/dice',
+    minBet: '5 MON',
+    maxWin: '500 MON',
+    rtp: '99%',
+    color: '#44ff88',
+    glowColor: 'rgba(68, 255, 136, 0.5)',
+  },
+  {
+    id: 'constellation-climb',
+    name: 'Constellation Climb',
+    description: 'Hi-lo card climb — call the next star higher or lower and cash out before you bust.',
+    emoji: '🌌',
+    status: ON_CHAIN_GAME_STATUS,
+    path: '/casino/constellation-climb',
+    minBet: '5 MON',
+    maxWin: 'Streak Multiplier',
+    rtp: '97%',
+    color: '#9966ff',
+    glowColor: 'rgba(153, 102, 255, 0.5)',
   },
   {
     id: 'roulette',
@@ -73,19 +110,6 @@ const GAMES: GameInfo[] = [
     rtp: '97.3%',
     color: '#ff00ff',
     glowColor: 'rgba(255, 0, 255, 0.5)',
-  },
-  {
-    id: 'dice',
-    name: 'Gravity Dice',
-    description: 'Roll the dice and predict high or low. Adjustable odds for risk takers.',
-    emoji: '🎲',
-    status: 'coming_soon',
-    path: '/casino/dice',
-    minBet: '5 MON',
-    maxWin: '500 MON',
-    rtp: '99%',
-    color: '#44ff88',
-    glowColor: 'rgba(68, 255, 136, 0.5)',
   },
 ];
 
@@ -298,59 +322,6 @@ function CasinoStatsBar({ stats }: CasinoStatsBarProps) {
   );
 }
 
-// ============================================================================
-// Entrance Animation Component
-// ============================================================================
-
-function CasinoEntrance({ onEnter }: { onEnter: () => void }) {
-  const [isAnimating, setIsAnimating] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAnimating(false);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!isAnimating) {
-      const enterTimer = setTimeout(onEnter, 500);
-      return () => clearTimeout(enterTimer);
-    }
-  }, [isAnimating, onEnter]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-      <div className={`text-center transition-all duration-1000 ${isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-110'}`}>
-        {/* Casino doors opening animation */}
-        <div className="relative">
-          <div className="flex">
-            <div 
-              className={`w-32 h-48 bg-gradient-to-r from-[#1a0033] to-[#2a0044] border-4 border-[#ffd700] transition-transform duration-1000 ${isAnimating ? 'translate-x-0' : '-translate-x-full'}`}
-              style={{ transformOrigin: 'left center' }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <span className="text-[#ffd700] text-4xl">★</span>
-              </div>
-            </div>
-            <div 
-              className={`w-32 h-48 bg-gradient-to-l from-[#1a0033] to-[#2a0044] border-4 border-[#ffd700] transition-transform duration-1000 ${isAnimating ? 'translate-x-0' : 'translate-x-full'}`}
-              style={{ transformOrigin: 'right center' }}
-            >
-              <div className="h-full flex items-center justify-center">
-                <span className="text-[#ffd700] text-4xl">★</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <p className="mt-8 text-[#9966ff] text-sm animate-pulse tracking-wider">
-          ENTERING THE COSMIC CASINO...
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================================
 // Main Casino Content Component
@@ -358,7 +329,6 @@ function CasinoEntrance({ onEnter }: { onEnter: () => void }) {
 
 export default function CasinoContent() {
   const { isConnected } = useAccount();
-  const [showEntrance, setShowEntrance] = useState(true);
   const [stats, setStats] = useState<CasinoStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -390,14 +360,6 @@ export default function CasinoContent() {
     fetchStats();
   }, [fetchStats]);
 
-  const handleEntranceComplete = useCallback(() => {
-    setShowEntrance(false);
-  }, []);
-
-  // Show entrance animation on first visit
-  if (showEntrance) {
-    return <CasinoEntrance onEnter={handleEntranceComplete} />;
-  }
 
   return (
     <div className="min-h-screen py-8 px-4">
@@ -420,7 +382,7 @@ export default function CasinoContent() {
         {/* Jackpot Ticker */}
         <JackpotTicker jackpots={stats?.activeJackpots || []} />
 
-        <AccessGate
+        <CasinoAccessGate
           title="CASINO ACCESS RESTRICTED"
           message="Only Star Skrumpey holders may enter the Cosmic Casino."
         >
@@ -462,7 +424,21 @@ export default function CasinoContent() {
               </span>
             </div>
           </div>
-        </AccessGate>
+        </CasinoAccessGate>
+
+        {/* Casino Footer */}
+        <footer className="mt-10 pt-6 border-t border-[#2a2a4e] text-center">
+          <p className="text-gray-500 text-[10px] mb-2 tracking-wider">
+            ✦ 18+ ONLY · PLAY RESPONSIBLY ✦
+          </p>
+          <Link
+            href="/casino/responsible-gaming"
+            className="text-[#9966ff] hover:text-[#ff00ff] text-xs underline transition-colors"
+            data-testid="casino-footer-responsible-gaming-link"
+          >
+            Responsible Gaming
+          </Link>
+        </footer>
       </div>
 
       {/* CSS Animations */}

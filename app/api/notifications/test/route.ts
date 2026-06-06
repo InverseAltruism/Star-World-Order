@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { createNotification, NotificationType } from '@/lib/db';
 import { verifyAdminAccess } from '@/lib/adminAuth';
 
@@ -17,111 +18,103 @@ import { verifyAdminAccess } from '@/lib/adminAuth';
  * If testType is 'all', creates one notification of each type.
  * Otherwise creates a single notification of the specified type.
  */
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await verifyAdminAccess(request);
-    if (!auth.valid) {
-      return NextResponse.json(
-        { success: false, error: auth.error },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { walletAddress, testType = 'all' } = body;
-    
-    if (!walletAddress) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet address required' },
-        { status: 400 }
-      );
-    }
-
-    const notifications: Array<{
-      type: NotificationType;
-      title: string;
-      message: string;
-      icon: string;
-      link?: string;
-    }> = [];
-
-    // Define sample notifications for each type
-    const sampleNotifications = {
-      quest: {
-        type: 'quest' as NotificationType,
-        title: '🎯 New Quest Available!',
-        message: 'Complete the "Welcome to SWO" quest to earn 100 XP!',
-        icon: '🎯',
-        link: '/profile',
-      },
-      achievement: {
-        type: 'achievement' as NotificationType,
-        title: '🏆 Achievement Unlocked!',
-        message: 'You\'ve earned the "Star Forged" badge for holding a Star Skrumpey!',
-        icon: '🏆',
-        link: '/profile',
-      },
-      system: {
-        type: 'system' as NotificationType,
-        title: '📢 System Update',
-        message: 'New features have been added to the Treasury page. Check it out!',
-        icon: '📢',
-        link: '/treasury',
-      },
-      social: {
-        type: 'social' as NotificationType,
-        title: '👋 New Member Joined',
-        message: 'A new Star holder has joined the community. Welcome them in the Hangout!',
-        icon: '👋',
-        link: '/hangout',
-      },
-      governance: {
-        type: 'governance' as NotificationType,
-        title: '🗳️ New Proposal',
-        message: 'Proposal #42 "Treasury Diversification" is now open for voting.',
-        icon: '🗳️',
-        link: '/dao',
-      },
-    };
-
-    if (testType === 'all') {
-      // Create one of each type
-      Object.values(sampleNotifications).forEach(notification => {
-        notifications.push(notification);
-      });
-    } else if (sampleNotifications[testType as keyof typeof sampleNotifications]) {
-      notifications.push(sampleNotifications[testType as keyof typeof sampleNotifications]);
-    } else {
-      return NextResponse.json(
-        { success: false, error: 'Invalid test type. Use: all, quest, achievement, system, social, or governance' },
-        { status: 400 }
-      );
-    }
-
-    // Create the notifications
-    const createdNotifications = notifications.map(notification => {
-      return createNotification(walletAddress, {
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        icon: notification.icon,
-        link: notification.link,
-      });
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Created ${createdNotifications.length} test notification(s)`,
-      notifications: createdNotifications,
-    });
-  } catch (error) {
-    console.error('Error creating test notifications:', error);
+export const POST = route({ error: 'Failed to create test notifications' }, async (request) => {
+  const auth = await verifyAdminAccess(request);
+  if (!auth.valid) {
     return NextResponse.json(
-      { success: false, error: 'Failed to create test notifications' },
-      { status: 500 }
+      { success: false, error: auth.error },
+      { status: 401 }
     );
   }
-}
+
+  const body = await request.json();
+  const { walletAddress, testType = 'all' } = body;
+  
+  if (!walletAddress) {
+    return NextResponse.json(
+      { success: false, error: 'Wallet address required' },
+      { status: 400 }
+    );
+  }
+
+  const notifications: Array<{
+    type: NotificationType;
+    title: string;
+    message: string;
+    icon: string;
+    link?: string;
+  }> = [];
+
+  // Define sample notifications for each type
+  const sampleNotifications = {
+    quest: {
+      type: 'quest' as NotificationType,
+      title: '🎯 New Quest Available!',
+      message: 'Complete the "Welcome to SWO" quest to earn 100 XP!',
+      icon: '🎯',
+      link: '/profile',
+    },
+    achievement: {
+      type: 'achievement' as NotificationType,
+      title: '🏆 Achievement Unlocked!',
+      message: 'You\'ve earned the "Star Forged" badge for holding a Star Skrumpey!',
+      icon: '🏆',
+      link: '/profile',
+    },
+    system: {
+      type: 'system' as NotificationType,
+      title: '📢 System Update',
+      message: 'New features have been added to the Treasury page. Check it out!',
+      icon: '📢',
+      link: '/treasury',
+    },
+    social: {
+      type: 'social' as NotificationType,
+      title: '👋 New Member Joined',
+      message: 'A new Star holder has joined the community. Welcome them in the Hangout!',
+      icon: '👋',
+      link: '/hangout',
+    },
+    governance: {
+      type: 'governance' as NotificationType,
+      title: '🗳️ New Proposal',
+      message: 'Proposal #42 "Treasury Diversification" is now open for voting.',
+      icon: '🗳️',
+      link: '/dao',
+    },
+  };
+
+  if (testType === 'all') {
+    // Create one of each type
+    Object.values(sampleNotifications).forEach(notification => {
+      notifications.push(notification);
+    });
+  } else if (sampleNotifications[testType as keyof typeof sampleNotifications]) {
+    notifications.push(sampleNotifications[testType as keyof typeof sampleNotifications]);
+  } else {
+    return NextResponse.json(
+      { success: false, error: 'Invalid test type. Use: all, quest, achievement, system, social, or governance' },
+      { status: 400 }
+    );
+  }
+
+  // Create the notifications
+  const createdNotifications = notifications.map(notification => {
+    return createNotification(walletAddress, {
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      icon: notification.icon,
+      link: notification.link,
+    });
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: `Created ${createdNotifications.length} test notification(s)`,
+    notifications: createdNotifications,
+  });
+});
 
 /**
  * GET /api/notifications/test

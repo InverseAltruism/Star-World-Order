@@ -1,0 +1,14 @@
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+
+# Foundry deps (installed via `forge install`; see README.md for restore steps)
+lib/
+
+# Coverage
+lcov.info
+coverage/
+
+# NOTE: `deployments/<chainId>.json` is intentionally NOT ignored — it's
+# the canonical record of on-chain addresses and must be committed.

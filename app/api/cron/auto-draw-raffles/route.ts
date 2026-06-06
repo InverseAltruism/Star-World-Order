@@ -17,6 +17,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import {
   getRafflesNeedingDraw,
   drawRaffleWinner,
@@ -27,20 +28,23 @@ import { getResilientClient } from '@/lib/rpcClient';
 import { validateCronSecret } from '@/lib/cronAuth';
 
 /**
- * Get a recent block hash from the blockchain for randomness seed
+ * Fetch a recent block hash as optional additional entropy.
+ * Returns undefined if the chain is unreachable — drawRaffleWinner
+ * uses server-side CSPRNG as its primary entropy source, so this
+ * is supplementary, not required.
  */
-async function getBlockHash(): Promise<string> {
+async function getBlockHash(): Promise<string | undefined> {
   try {
     const client = await getResilientClient();
     const block = await client.getBlock({ blockTag: 'latest' });
-    return block.hash || `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    return block.hash || undefined;
   } catch (error) {
-    logger.warn('Failed to get block hash, using fallback', { error: String(error) });
-    return `fallback-${Date.now()}-${Math.random().toString(36)}`;
+    logger.warn('Failed to get block hash, draw will use server-side entropy only', { error: String(error) });
+    return undefined;
   }
 }
 
-export async function GET(request: Request) {
+export const GET = route({ error: 'Failed to auto-draw raffles' }, async (request) => {
   const auth = validateCronSecret(request, 'auto-draw-raffles');
   if (!auth.valid) {
     return NextResponse.json(
@@ -49,98 +53,90 @@ export async function GET(request: Request) {
     );
   }
 
-  try {
-    logger.info('Cron job started: auto-draw-raffles');
-    
-    // Get raffles that need to be drawn
-    const rafflesToDraw = getRafflesNeedingDraw();
-    
-    if (rafflesToDraw.length === 0) {
-      logger.info('No raffles need to be drawn');
-      return NextResponse.json({
-        success: true,
-        message: 'No raffles need to be drawn',
-        rafflesDrawn: 0,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    
-    logger.info(`Found ${rafflesToDraw.length} raffle(s) to draw`, {
-      raffleIds: rafflesToDraw.map(r => r.id),
-    });
-    
-    // Get a block hash for randomness
-    const blockHash = await getBlockHash();
-    
-    // Draw each raffle
-    const results: Array<{
-      raffleId: string;
-      raffleName: string;
-      success: boolean;
-      winner?: string;
-      error?: string;
-    }> = [];
-    
-    for (const raffle of rafflesToDraw) {
-      // Check if raffle has entries
-      const entries = getRaffleEntries(raffle.id);
-      
-      if (entries.length === 0) {
-        logger.info(`Raffle ${raffle.id} has no entries, skipping draw`, {
-          raffleName: raffle.name,
-        });
-        results.push({
-          raffleId: raffle.id,
-          raffleName: raffle.name,
-          success: false,
-          error: 'No entries in raffle',
-        });
-        continue;
-      }
-      
-      // Draw the winner
-      const drawResult = drawRaffleWinner(raffle.id, blockHash);
-      
-      if (drawResult.success) {
-        logger.info(`Raffle ${raffle.id} drawn successfully`, {
-          raffleName: raffle.name,
-          winner: drawResult.winner?.wallet_address.slice(0, 10) + '...',
-          seed: drawResult.seed,
-        });
-        results.push({
-          raffleId: raffle.id,
-          raffleName: raffle.name,
-          success: true,
-          winner: drawResult.winner?.wallet_address,
-        });
-      } else {
-        logger.error(`Failed to draw raffle ${raffle.id}`, {
-          raffleName: raffle.name,
-          error: drawResult.error,
-        });
-        results.push({
-          raffleId: raffle.id,
-          raffleName: raffle.name,
-          success: false,
-          error: drawResult.error,
-        });
-      }
-    }
-    
-    const successCount = results.filter(r => r.success).length;
-    
+  logger.info('Cron job started: auto-draw-raffles');
+  
+  // Get raffles that need to be drawn
+  const rafflesToDraw = getRafflesNeedingDraw();
+  
+  if (rafflesToDraw.length === 0) {
+    logger.info('No raffles need to be drawn');
     return NextResponse.json({
       success: true,
-      message: `Drew ${successCount} of ${rafflesToDraw.length} raffle(s)`,
-      rafflesDrawn: successCount,
-      results,
+      message: 'No raffles need to be drawn',
+      rafflesDrawn: 0,
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    logger.error('Cron job failed: auto-draw-raffles', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to auto-draw raffles' },
-      { status: 500 }
-    );
   }
-}
+  
+  logger.info(`Found ${rafflesToDraw.length} raffle(s) to draw`, {
+    raffleIds: rafflesToDraw.map(r => r.id),
+  });
+  
+  // Get a block hash for randomness
+  const blockHash = await getBlockHash();
+  
+  // Draw each raffle
+  const results: Array<{
+    raffleId: string;
+    raffleName: string;
+    success: boolean;
+    winner?: string;
+    error?: string;
+  }> = [];
+  
+  for (const raffle of rafflesToDraw) {
+    // Check if raffle has entries
+    const entries = getRaffleEntries(raffle.id);
+    
+    if (entries.length === 0) {
+      logger.info(`Raffle ${raffle.id} has no entries, skipping draw`, {
+        raffleName: raffle.name,
+      });
+      results.push({
+        raffleId: raffle.id,
+        raffleName: raffle.name,
+        success: false,
+        error: 'No entries in raffle',
+      });
+      continue;
+    }
+    
+    // Draw the winner
+    const drawResult = drawRaffleWinner(raffle.id, blockHash);
+    
+    if (drawResult.success) {
+      logger.info(`Raffle ${raffle.id} drawn successfully`, {
+        raffleName: raffle.name,
+        winner: drawResult.winner?.wallet_address.slice(0, 10) + '...',
+        seed: drawResult.seed,
+      });
+      results.push({
+        raffleId: raffle.id,
+        raffleName: raffle.name,
+        success: true,
+        winner: drawResult.winner?.wallet_address,
+      });
+    } else {
+      logger.error(`Failed to draw raffle ${raffle.id}`, {
+        raffleName: raffle.name,
+        error: drawResult.error,
+      });
+      results.push({
+        raffleId: raffle.id,
+        raffleName: raffle.name,
+        success: false,
+        error: drawResult.error,
+      });
+    }
+  }
+  
+  const successCount = results.filter(r => r.success).length;
+  
+  return NextResponse.json({
+    success: true,
+    message: `Drew ${successCount} of ${rafflesToDraw.length} raffle(s)`,
+    rafflesDrawn: successCount,
+    results,
+    timestamp: new Date().toISOString(),
+  });
+});

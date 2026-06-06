@@ -14,7 +14,8 @@
  * - offset: Offset for pagination (default 0)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import {
   getConversations,
   getConversation,
@@ -28,251 +29,220 @@ import {
   areFriends,
 } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { truncateAddress } from '@/lib/format';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const address = searchParams.get('address');
-    const type = searchParams.get('type') || 'conversations';
-    const otherAddress = searchParams.get('otherAddress');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+export const GET = route({ error: 'Failed to fetch messages' }, async (request) => {
+  const { searchParams } = new URL(request.url);
+  const address = searchParams.get('address');
+  const type = searchParams.get('type') || 'conversations';
+  const otherAddress = searchParams.get('otherAddress');
+  const limit = parseInt(searchParams.get('limit') || '50', 10);
+  const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    if (!address) {
-      return NextResponse.json(
-        { success: false, error: 'Address is required' },
-        { status: 400 }
-      );
+  if (!address) {
+    return NextResponse.json(
+      { success: false, error: 'Address is required' },
+      { status: 400 }
+    );
+  }
+
+  switch (type) {
+    case 'conversations': {
+      const conversations = getConversations(address);
+      const unreadTotal = getUnreadMessageCount(address);
+      return NextResponse.json({
+        success: true,
+        conversations,
+        unreadTotal,
+      });
     }
 
-    switch (type) {
-      case 'conversations': {
-        const conversations = getConversations(address);
-        const unreadTotal = getUnreadMessageCount(address);
-        return NextResponse.json({
-          success: true,
-          conversations,
-          unreadTotal,
-        });
-      }
-
-      case 'conversation': {
-        if (!otherAddress) {
-          return NextResponse.json(
-            { success: false, error: 'otherAddress is required for conversation' },
-            { status: 400 }
-          );
-        }
-        
-        const messages = getConversation(address, otherAddress, limit, offset);
-        
-        // Mark messages as read when fetching conversation
-        markMessagesAsRead(address, otherAddress);
-        
-        return NextResponse.json({
-          success: true,
-          messages,
-          hasMore: messages.length === limit,
-        });
-      }
-
-      case 'unread': {
-        const count = getUnreadMessageCount(address);
-        return NextResponse.json({
-          success: true,
-          unreadCount: count,
-        });
-      }
-
-      default:
+    case 'conversation': {
+      if (!otherAddress) {
         return NextResponse.json(
-          { success: false, error: 'Invalid type parameter' },
+          { success: false, error: 'otherAddress is required for conversation' },
           { status: 400 }
         );
-    }
-  } catch (error) {
-    logger.error('Messages API GET error:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch messages' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { senderAddress, recipientAddress, message } = body;
-
-    if (!senderAddress || !recipientAddress || !message) {
-      return NextResponse.json(
-        { success: false, error: 'senderAddress, recipientAddress, and message are required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate message length
-    const trimmedMessage = message.trim();
-    if (trimmedMessage.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Message cannot be empty' },
-        { status: 400 }
-      );
-    }
-
-    if (trimmedMessage.length > 2000) {
-      return NextResponse.json(
-        { success: false, error: 'Message too long (max 2000 characters)' },
-        { status: 400 }
-      );
-    }
-
-    // Check if users are friends (optional - can allow non-friend messaging)
-    const friendsCheck = areFriends(senderAddress, recipientAddress);
-    if (!friendsCheck) {
-      // For now, allow messaging non-friends but could restrict in future
-      logger.debug('Message sent to non-friend', { sender: senderAddress, recipient: recipientAddress });
-    }
-
-    const result = sendDirectMessage(senderAddress, recipientAddress, trimmedMessage);
-    
-    if (!result) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to send message (user may be blocked)' },
-        { status: 400 }
-      );
-    }
-
-    // Create notification for the recipient
-    const senderProfile = getUserProfile(senderAddress);
-    const senderName = senderProfile?.display_name || `${senderAddress.slice(0, 6)}...${senderAddress.slice(-4)}`;
-    
-    // Truncate message for notification preview
-    const messagePreview = trimmedMessage.length > 50 
-      ? trimmedMessage.substring(0, 50) + '...' 
-      : trimmedMessage;
-    
-    createNotification(recipientAddress, {
-      type: 'social',
-      title: `Message from ${senderName}`,
-      message: messagePreview,
-      link: `/profile?tab=messages&chat=${senderAddress}`,
-      icon: '💬',
-    });
-
-    logger.info('Direct message sent', { 
-      from: senderAddress.slice(0, 10), 
-      to: recipientAddress.slice(0, 10),
-      messageLength: trimmedMessage.length,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: result,
-    });
-  } catch (error) {
-    logger.error('Messages API POST error:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to send message' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { walletAddress, action, messageId, senderAddress } = body;
-
-    if (!walletAddress || !action) {
-      return NextResponse.json(
-        { success: false, error: 'walletAddress and action are required' },
-        { status: 400 }
-      );
-    }
-
-    const auth = await verifyWalletAccess(request, walletAddress);
-    if (!auth.valid) {
-      return NextResponse.json(
-        { success: false, error: auth.error },
-        { status: 401 }
-      );
-    }
-
-    switch (action) {
-      case 'markRead': {
-        if (messageId) {
-          markMessageAsRead(messageId);
-        } else if (senderAddress) {
-          markMessagesAsRead(walletAddress, senderAddress);
-        } else {
-          return NextResponse.json(
-            { success: false, error: 'messageId or senderAddress is required' },
-            { status: 400 }
-          );
-        }
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Messages marked as read',
-        });
       }
+      
+      const messages = getConversation(address, otherAddress, limit, offset);
+      
+      // Mark messages as read when fetching conversation
+      markMessagesAsRead(address, otherAddress);
+      
+      return NextResponse.json({
+        success: true,
+        messages,
+        hasMore: messages.length === limit,
+      });
+    }
 
-      default:
+    case 'unread': {
+      const count = getUnreadMessageCount(address);
+      return NextResponse.json({
+        success: true,
+        unreadCount: count,
+      });
+    }
+
+    default:
+      return NextResponse.json(
+        { success: false, error: 'Invalid type parameter' },
+        { status: 400 }
+      );
+  }
+});
+
+export const POST = route({ error: 'Failed to send message' }, async (request) => {
+  const body = await request.json();
+  const { senderAddress, recipientAddress, message } = body;
+
+  if (!senderAddress || !recipientAddress || !message) {
+    return NextResponse.json(
+      { success: false, error: 'senderAddress, recipientAddress, and message are required' },
+      { status: 400 }
+    );
+  }
+
+  // Validate message length
+  const trimmedMessage = message.trim();
+  if (trimmedMessage.length === 0) {
+    return NextResponse.json(
+      { success: false, error: 'Message cannot be empty' },
+      { status: 400 }
+    );
+  }
+
+  if (trimmedMessage.length > 2000) {
+    return NextResponse.json(
+      { success: false, error: 'Message too long (max 2000 characters)' },
+      { status: 400 }
+    );
+  }
+
+  // Check if users are friends (optional - can allow non-friend messaging)
+  const friendsCheck = areFriends(senderAddress, recipientAddress);
+  if (!friendsCheck) {
+    // For now, allow messaging non-friends but could restrict in future
+    logger.debug('Message sent to non-friend', { sender: senderAddress, recipient: recipientAddress });
+  }
+
+  const result = sendDirectMessage(senderAddress, recipientAddress, trimmedMessage);
+  
+  if (!result) {
+    return NextResponse.json(
+      { success: false, error: 'Failed to send message (user may be blocked)' },
+      { status: 400 }
+    );
+  }
+
+  // Create notification for the recipient
+  const senderProfile = getUserProfile(senderAddress);
+  const senderName = senderProfile?.display_name || truncateAddress(senderAddress);
+  
+  // Truncate message for notification preview
+  const messagePreview = trimmedMessage.length > 50 
+    ? trimmedMessage.substring(0, 50) + '...' 
+    : trimmedMessage;
+  
+  createNotification(recipientAddress, {
+    type: 'social',
+    title: `Message from ${senderName}`,
+    message: messagePreview,
+    link: `/profile?tab=messages&chat=${senderAddress}`,
+    icon: '💬',
+  });
+
+  logger.info('Direct message sent', { 
+    from: senderAddress.slice(0, 10), 
+    to: recipientAddress.slice(0, 10),
+    messageLength: trimmedMessage.length,
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: result,
+  });
+});
+
+export const PATCH = route({ error: 'Failed to update messages' }, async (request) => {
+  const body = await request.json();
+  const { walletAddress, action, messageId, senderAddress } = body;
+
+  if (!walletAddress || !action) {
+    return NextResponse.json(
+      { success: false, error: 'walletAddress and action are required' },
+      { status: 400 }
+    );
+  }
+
+  const auth = await verifyWalletAccess(request, walletAddress);
+  if (!auth.valid) {
+    return NextResponse.json(
+      { success: false, error: auth.error },
+      { status: 401 }
+    );
+  }
+
+  switch (action) {
+    case 'markRead': {
+      if (messageId) {
+        markMessageAsRead(messageId);
+      } else if (senderAddress) {
+        markMessagesAsRead(walletAddress, senderAddress);
+      } else {
         return NextResponse.json(
-          { success: false, error: 'Invalid action' },
+          { success: false, error: 'messageId or senderAddress is required' },
           { status: 400 }
         );
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Messages marked as read',
+      });
     }
-  } catch (error) {
-    logger.error('Messages API PATCH error:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to update messages' },
-      { status: 500 }
-    );
-  }
-}
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const messageId = searchParams.get('id');
-    const senderAddress = searchParams.get('senderAddress');
-
-    if (!messageId || !senderAddress) {
+    default:
       return NextResponse.json(
-        { success: false, error: 'id and senderAddress are required' },
+        { success: false, error: 'Invalid action' },
         { status: 400 }
       );
-    }
+  }
+});
 
-    const auth = await verifyWalletAccess(request, senderAddress);
-    if (!auth.valid) {
-      return NextResponse.json(
-        { success: false, error: auth.error },
-        { status: 401 }
-      );
-    }
+export const DELETE = route({ error: 'Failed to delete message' }, async (request) => {
+  const { searchParams } = new URL(request.url);
+  const messageId = searchParams.get('id');
+  const senderAddress = searchParams.get('senderAddress');
 
-    const success = deleteMessage(parseInt(messageId, 10), senderAddress);
-    
-    if (!success) {
-      return NextResponse.json(
-        { success: false, error: 'Message not found or not authorized to delete' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Message deleted',
-    });
-  } catch (error) {
-    logger.error('Messages API DELETE error:', { error: String(error) });
+  if (!messageId || !senderAddress) {
     return NextResponse.json(
-      { success: false, error: 'Failed to delete message' },
-      { status: 500 }
+      { success: false, error: 'id and senderAddress are required' },
+      { status: 400 }
     );
   }
-}
+
+  const auth = await verifyWalletAccess(request, senderAddress);
+  if (!auth.valid) {
+    return NextResponse.json(
+      { success: false, error: auth.error },
+      { status: 401 }
+    );
+  }
+
+  const success = deleteMessage(parseInt(messageId, 10), senderAddress);
+  
+  if (!success) {
+    return NextResponse.json(
+      { success: false, error: 'Message not found or not authorized to delete' },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: 'Message deleted',
+  });
+});

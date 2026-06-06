@@ -1,115 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAccount } from 'wagmi';
 import WalletConnect from '@/components/WalletConnect';
 import Image from 'next/image';
 import { getWalletAuthHeader } from '@/lib/clientWalletAuth';
-
-// Types
-interface HolderTierInfo {
-  minStars: number;
-  entries: number;
-  name: string;
-}
-
-interface HolderTiers {
-  cosmic_emperor: HolderTierInfo;
-  star_lord: HolderTierInfo;
-  cosmic_warden: HolderTierInfo;
-  star_forged: HolderTierInfo;
-}
-
-interface Raffle {
-  id: string;
-  name: string;
-  description: string;
-  prize_description: string;
-  prize_image_url: string | null;
-  status: 'active' | 'ended' | 'drawn' | 'cancelled';
-  created_by: string;
-  start_time: string;
-  end_time: string;
-  winner_address: string | null;
-  winner_drawn_at: string | null;
-  winner_draw_seed: string | null;
-  discord_bonus_enabled: number;
-  require_x: number;
-  require_discord: number;
-  tweet_url: string | null;
-  is_public: number;
-  userEntry?: RaffleEntry | null;
-}
-
-interface RaffleEntry {
-  id: number;
-  raffle_id: string;
-  wallet_address: string;
-  tier: string;
-  entries_count: number;
-  discord_bonus: number;
-  engagement_bonus: number;
-  star_count: number;
-  entered_at: string;
-  display_name?: string;
-}
-
-interface SocialConnections {
-  hasDiscord: boolean;
-  hasX: boolean;
-  discord?: { username: string; platform_user_id: string };
-  x?: { username: string; platform_user_id: string };
-}
-
-interface RaffleStats {
-  participants: number;
-  totalTickets: number;
-}
-
-interface UserTier {
-  tier: string;
-  entries: number;
-  name: string;
-  minStars?: number;
-  breakdown?: string;
-  regularSkrumpeys?: number;
-  starBonus?: number;
-  totalSkrumpeys?: number;
-}
+import { truncateAddress } from '@/lib/format';
+import type { Raffle, SocialConnections } from './types';
+import { useRaffles } from './useRaffles';
 
 // Tier colors and styles
-const TIER_STYLES: Record<string, { color: string; bgColor: string; borderColor: string; glow: string }> = {
-  cosmic_emperor: {
-    color: '#ffd700',
-    bgColor: 'rgba(255, 215, 0, 0.15)',
-    borderColor: '#ffd700',
-    glow: '0 0 20px rgba(255, 215, 0, 0.4)',
-  },
-  star_lord: {
-    color: '#ff00ff',
-    bgColor: 'rgba(255, 0, 255, 0.15)',
-    borderColor: '#ff00ff',
-    glow: '0 0 20px rgba(255, 0, 255, 0.4)',
-  },
-  cosmic_warden: {
-    color: '#00ffff',
-    bgColor: 'rgba(0, 255, 255, 0.15)',
-    borderColor: '#00ffff',
-    glow: '0 0 20px rgba(0, 255, 255, 0.4)',
-  },
-  star_forged: {
-    color: '#9966ff',
-    bgColor: 'rgba(153, 102, 255, 0.15)',
-    borderColor: '#9966ff',
-    glow: '0 0 20px rgba(153, 102, 255, 0.4)',
-  },
-  skrumpey_holder: {
-    color: '#44ff88',
-    bgColor: 'rgba(68, 255, 136, 0.15)',
-    borderColor: '#44ff88',
-    glow: '0 0 20px rgba(68, 255, 136, 0.4)',
-  },
-};
 
 // Format time remaining
 function formatTimeRemaining(endTime: string): string {
@@ -155,393 +55,8 @@ function CountdownTimer({ endTime }: { endTime: string }) {
   );
 }
 
-// Win Animation Component
-// Win Animation Component - shown when winner visits raffle page after draw
-function WinAnimation({ raffleName, prizeName, onClose }: { raffleName?: string; prizeName?: string; onClose: () => void }) {
-  const [stars, setStars] = useState<Array<{ 
-    id: number; 
-    x: number; 
-    y: number; 
-    size: number; 
-    delay: number;
-    dirX: number;
-    dirY: number;
-  }>>([]);
-  
-  useEffect(() => {
-    // Generate flying stars with pre-calculated directions
-    const newStars = Array.from({ length: 50 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 20 + 10,
-      delay: Math.random() * 2,
-      dirX: (Math.random() - 0.5) * 400, // -200 to 200
-      dirY: (Math.random() - 0.5) * 400, // -200 to 200
-    }));
-    setStars(newStars);
-  }, []);
-  
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 overflow-hidden" onClick={onClose}>
-      {/* Flying stars - using CSS custom properties for animation */}
-      {stars.map((star) => (
-        <div
-          key={star.id}
-          className="absolute star-fly-animation"
-          style={{
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            fontSize: `${star.size}px`,
-            animationDelay: `${star.delay}s`,
-            // Use CSS custom properties for animation targets
-            '--tx': `${star.dirX}px`,
-            '--ty': `${star.dirY}px`,
-          } as React.CSSProperties}
-        >
-          ⭐
-        </div>
-      ))}
-      
-      {/* Main content */}
-      <div className="relative z-10 text-center animate-bounce-in max-w-md mx-4">
-        <div className="text-8xl mb-6 animate-spin-slow">🏆</div>
-        <h1 className="text-4xl sm:text-6xl font-bold text-[#ffd700] mb-4 pixel-glow-gold animate-pulse">
-          YOU WON!
-        </h1>
-        {raffleName && (
-          <p className="text-xl sm:text-2xl text-[#ff6ec7] mb-2">
-            {raffleName}
-          </p>
-        )}
-        {prizeName && (
-          <div className="bg-[#ffd700]/20 border-2 border-[#ffd700] rounded-lg p-4 mb-4 mx-4">
-            <p className="text-[#ffd700] text-sm mb-1">🎁 YOUR PRIZE</p>
-            <p className="text-white text-lg font-bold">{prizeName}</p>
-          </div>
-        )}
-        <p className="text-xl text-[#44ff88] mb-6">
-          🌟 Congratulations, Star Champion! 🌟
-        </p>
-        <p className="text-gray-400 text-xs mb-2 italic">
-          Prizes will be sent manually. We&apos;ll reach out if we need any info from you.
-        </p>
-        <p className="text-gray-500 text-sm">Click anywhere to continue</p>
-      </div>
-      
-      <style jsx>{`
-        @keyframes fly-star {
-          0% {
-            transform: translate(0, 0) rotate(0deg) scale(0);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          100% {
-            transform: translate(var(--tx, 100px), var(--ty, 100px)) rotate(720deg) scale(0);
-            opacity: 0;
-          }
-        }
-        .star-fly-animation {
-          animation: fly-star 3s ease-out infinite;
-        }
-        @keyframes bounce-in {
-          0% { transform: scale(0); opacity: 0; }
-          50% { transform: scale(1.1); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-bounce-in {
-          animation: bounce-in 0.5s ease-out forwards;
-        }
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// Lose Animation Component
-function LoseAnimation({ onClose }: { onClose: () => void }) {
-  // Pre-calculate star positions and properties
-  const [fallingStars] = useState(() => 
-    Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: Math.random() * 15 + 10,
-      delay: Math.random() * 3,
-      duration: Math.random() * 2 + 3,
-    }))
-  );
-
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 overflow-hidden" onClick={onClose}>
-      {/* Falling stars (sad) */}
-      <div className="absolute inset-0 overflow-hidden">
-        {fallingStars.map((star) => (
-          <div
-            key={star.id}
-            className="absolute animate-fall-star"
-            style={{
-              left: `${star.left}%`,
-              top: `-20px`,
-              fontSize: `${star.size}px`,
-              animationDelay: `${star.delay}s`,
-              animationDuration: `${star.duration}s`,
-              opacity: 0.5,
-            }}
-          >
-            ⭐
-          </div>
-        ))}
-      </div>
-      
-      {/* Main content */}
-      <div className="relative z-10 text-center animate-fade-in">
-        <div className="text-8xl mb-8 animate-wobble">😢</div>
-        <h1 className="text-4xl sm:text-6xl font-bold text-[#9966ff] mb-4">
-          Not This Time...
-        </h1>
-        <p className="text-xl text-gray-400 mb-4">
-          The stars weren&apos;t aligned this round
-        </p>
-        <p className="text-[#ffd700] text-lg mb-8">
-          ✨ Keep entering for more chances! ✨
-        </p>
-        <p className="text-gray-500 text-sm">Click anywhere to continue</p>
-      </div>
-      
-      <style jsx>{`
-        @keyframes fall-star {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0.5;
-          }
-          100% {
-            transform: translateY(100vh) rotate(360deg);
-            opacity: 0;
-          }
-        }
-        .animate-fall-star {
-          animation: fall-star linear infinite;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
-        }
-        @keyframes wobble {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(-10deg); }
-          75% { transform: rotate(10deg); }
-        }
-        .animate-wobble {
-          animation: wobble 2s ease-in-out infinite;
-        }
-      `}</style>
-    </div>
-  );
-}
-
-// Animation configuration constants
-const ENTRY_ANIMATION_DURATION_MS = 4000;
-
-// Entry Confirmation Animation with lottery-style flying tickets
-function EntryConfirmation({ entries, tier, raffleName, onClose }: { entries: number; tier: string; raffleName: string; onClose: () => void }) {
-  const style = TIER_STYLES[tier] || TIER_STYLES.star_forged;
-  
-  // Generate flying tickets based on entry count
-  // Tickets fly outward from center to random positions
-  const [flyingTickets] = useState(() => 
-    Array.from({ length: Math.min(entries * 3, 30) }, (_, i) => {
-      const startX = 50 + (Math.random() - 0.5) * 20; // Start near center
-      const startY = 110; // Start from below
-      const endX = Math.random() * 100;
-      const endY = Math.random() * 40; // End in upper half
-      return {
-        id: i,
-        startX,
-        startY,
-        // Calculate displacement (can be negative for flying left/up)
-        deltaX: endX - startX,
-        deltaY: endY - startY,
-        rotation: Math.random() * 720 - 360,
-        delay: Math.random() * 0.5,
-        duration: 0.8 + Math.random() * 0.4,
-        size: 16 + Math.random() * 16,
-      };
-    })
-  );
-  
-  // Sparkle effects
-  const [sparkles] = useState(() =>
-    Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      delay: Math.random() * 2,
-      size: 8 + Math.random() * 12,
-    }))
-  );
-  
-  useEffect(() => {
-    const timer = setTimeout(onClose, ENTRY_ANIMATION_DURATION_MS);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-  
-  return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 animate-fade-in overflow-hidden" onClick={onClose}>
-      {/* Flying tickets animation */}
-      {flyingTickets.map((ticket) => (
-        <div
-          key={ticket.id}
-          className="absolute ticket-fly-animation pointer-events-none"
-          style={{
-            left: `${ticket.startX}%`,
-            top: `${ticket.startY}%`,
-            fontSize: `${ticket.size}px`,
-            '--endX': `${ticket.deltaX}vw`,
-            '--endY': `${ticket.deltaY}vh`,
-            '--rotation': `${ticket.rotation}deg`,
-            animationDelay: `${ticket.delay}s`,
-            animationDuration: `${ticket.duration}s`,
-          } as React.CSSProperties}
-        >
-          🎟️
-        </div>
-      ))}
-      
-      {/* Sparkle effects */}
-      {sparkles.map((sparkle) => (
-        <div
-          key={sparkle.id}
-          className="absolute sparkle-animation pointer-events-none"
-          style={{
-            left: `${sparkle.x}%`,
-            top: `${sparkle.y}%`,
-            fontSize: `${sparkle.size}px`,
-            animationDelay: `${sparkle.delay}s`,
-          }}
-        >
-          ✨
-        </div>
-      ))}
-      
-      {/* Main content card */}
-      <div 
-        className="text-center p-8 rounded-xl border-2 animate-scale-in max-w-sm mx-4 relative z-10"
-        style={{ 
-          backgroundColor: style.bgColor, 
-          borderColor: style.borderColor,
-          boxShadow: `${style.glow}, 0 0 60px ${style.borderColor}40`,
-        }}
-      >
-        {/* Animated ticket stack */}
-        <div className="relative h-20 mb-4">
-          <div className="ticket-stack-animation">
-            {Array.from({ length: Math.min(entries, 4) }, (_, i) => (
-              <span 
-                key={i} 
-                className="absolute text-5xl ticket-drop-animation"
-                style={{ 
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  animationDelay: `${i * 0.15}s`,
-                  top: `${i * 4}px`,
-                  opacity: 1 - (i * 0.15),
-                }}
-              >
-                🎟️
-              </span>
-            ))}
-          </div>
-        </div>
-        
-        <h2 className="text-2xl font-bold mb-2 animate-pulse" style={{ color: style.color }}>
-          YOU&apos;RE IN!
-        </h2>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-3xl font-bold text-white ticket-count-animation">+{entries}</span>
-          <span className="text-white text-lg">Ticket{entries > 1 ? 's' : ''}</span>
-        </div>
-        <p className="text-gray-400 text-sm mb-1">
-          {TIER_STYLES[tier] ? tier.replace('_', ' ').toUpperCase() : 'STAR FORGED'}
-        </p>
-        <p className="text-[#ff6ec7] text-xs">
-          for &quot;{raffleName}&quot;
-        </p>
-        <p className="text-gray-500 text-[10px] mt-4">Click anywhere to continue</p>
-      </div>
-      
-      <style jsx>{`
-        @keyframes scale-in {
-          0% { transform: scale(0); opacity: 0; }
-          50% { transform: scale(1.1); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.2s ease-out forwards;
-        }
-        @keyframes ticket-fly {
-          0% {
-            transform: translate(0, 0) rotate(0deg) scale(0);
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          100% {
-            transform: translate(var(--endX), var(--endY)) rotate(var(--rotation)) scale(0.5);
-            opacity: 0;
-          }
-        }
-        .ticket-fly-animation {
-          animation: ticket-fly ease-out forwards;
-        }
-        @keyframes sparkle {
-          0%, 100% { opacity: 0; transform: scale(0); }
-          50% { opacity: 1; transform: scale(1); }
-        }
-        .sparkle-animation {
-          animation: sparkle 1.5s ease-in-out infinite;
-        }
-        @keyframes ticket-drop {
-          0% { transform: translateX(-50%) translateY(-30px) rotate(-10deg); opacity: 0; }
-          60% { transform: translateX(-50%) translateY(5px) rotate(5deg); opacity: 1; }
-          100% { transform: translateX(-50%) translateY(0) rotate(0deg); opacity: 1; }
-        }
-        .ticket-drop-animation {
-          animation: ticket-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        @keyframes count-pop {
-          0% { transform: scale(0); }
-          50% { transform: scale(1.3); }
-          100% { transform: scale(1); }
-        }
-        .ticket-count-animation {
-          animation: count-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
-          transform: scale(0);
-        }
-      `}</style>
-    </div>
-  );
-}
+import { WinAnimation, LoseAnimation, EntryConfirmation } from './RaffleOverlays';
+import { TIER_STYLES } from './tierStyles';
 
 // Tier Badge Component
 function TierBadge({ tier, small = false }: { tier: string; small?: boolean }) {
@@ -593,202 +108,32 @@ function getMissingSocialRequirements(
 // Main Raffle Content Component
 export default function RaffleContent() {
   const { address, isConnected } = useAccount();
-  
-  // Types for extended raffle data
-  interface ActiveRaffleData {
-    raffle: Raffle;
-    entries: RaffleEntry[];
-    stats: RaffleStats;
-    userEntry: RaffleEntry | null;
-    socialConnections: SocialConnections | null;
-    userTier: UserTier | null;
-  }
-  
-  // State - now supporting multiple active raffles
-  const [activeRaffles, setActiveRaffles] = useState<ActiveRaffleData[]>([]);
-  const [pastRaffles, setPastRaffles] = useState<Raffle[]>([]);
-  const [userTier, setUserTier] = useState<UserTier | null>(null);
-  const [holderTiers, setHolderTiers] = useState<HolderTiers | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Data layer (fetch-driven state + result animations) lives in the hook.
+  const {
+    activeRaffles,
+    pastRaffles,
+    userTier,
+    holderTiers,
+    isLoading,
+    error,
+    setError,
+    userSocialConnections,
+    showWinAnimation,
+    setShowWinAnimation,
+    showLoseAnimation,
+    setShowLoseAnimation,
+    winAnimationData,
+    refetch,
+  } = useRaffles(address);
+
+  // Action-driven / pure-UI state
   const [enteringRaffleId, setEnteringRaffleId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [userSocialConnections, setUserSocialConnections] = useState<SocialConnections | null>(null);
-  
-  // Tab state for switching between Active Raffles and History
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
-  
-  // Animation states
-  const [showWinAnimation, setShowWinAnimation] = useState(false);
-  const [showLoseAnimation, setShowLoseAnimation] = useState(false);
   const [showEntryConfirmation, setShowEntryConfirmation] = useState(false);
   const [entryConfirmData, setEntryConfirmData] = useState<{ entries: number; tier: string; raffleName: string } | null>(null);
-  const [winAnimationData, setWinAnimationData] = useState<{ raffleName: string; prizeName: string } | null>(null);
   const [showTierBreakdown, setShowTierBreakdown] = useState(false);
-  
-  /**
-   * Helper function to check and show win/lose animation for a drawn raffle
-   * Returns true if animation was triggered (to avoid showing multiple animations)
-   */
-  const checkAndShowResultAnimation = async (
-    raffleData: { raffle: Raffle; userEntry: RaffleEntry | null; hasViewedResult: boolean },
-    userAddress: string
-  ): Promise<boolean> => {
-    // Only show animation for drawn raffles the user entered and hasn't viewed yet
-    if (raffleData.raffle.status !== 'drawn' || !raffleData.userEntry || raffleData.hasViewedResult) {
-      return false;
-    }
-    
-    const isWinner = raffleData.raffle.winner_address?.toLowerCase() === userAddress.toLowerCase();
-    
-    if (isWinner) {
-      setWinAnimationData({
-        raffleName: raffleData.raffle.name,
-        prizeName: raffleData.raffle.prize_description,
-      });
-      setShowWinAnimation(true);
-    } else {
-      setShowLoseAnimation(true);
-    }
-    
-    // Mark as viewed so animation only shows once
-    const walletAuthHeader = await getWalletAuthHeader(userAddress);
-    if (!walletAuthHeader) {
-      return true;
-    }
 
-    await fetch('/api/raffle', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-wallet-auth': walletAuthHeader,
-      },
-      body: JSON.stringify({
-        action: 'markViewed',
-        walletAddress: userAddress,
-        raffleId: raffleData.raffle.id,
-      }),
-    });
-    
-    return true;
-  };
-
-  // Fetch ALL active and past raffles
-  const fetchRaffles = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      
-      // Fetch both active and past raffles
-      const [activeRes, pastRes] = await Promise.all([
-        fetch(`/api/raffle?type=active${address ? `&address=${address}` : ''}`),
-        fetch(`/api/raffle?type=past${address ? `&address=${address}` : ''}`),
-      ]);
-      
-      const activeData = await activeRes.json();
-      const pastData = await pastRes.json();
-      
-      // Track if we've shown an animation to avoid showing multiple
-      let animationShown = false;
-      
-      // Always set past raffles for the History tab
-      if (pastData.success) {
-        setPastRaffles(pastData.raffles || []);
-        setHolderTiers(pastData.holderTiers);
-        
-        // Check past (drawn) raffles for win/lose animation - this is where most
-        // drawn raffles will be since they move from "active" to "past" after auto-draw
-        if (address && pastData.raffles) {
-          for (const raffle of pastData.raffles) {
-            // Only check drawn raffles where user has an entry
-            if (raffle.status === 'drawn' && raffle.userEntry) {
-              // Fetch full details to get hasViewedResult
-              const detailRes = await fetch(`/api/raffle?id=${raffle.id}&address=${address}`);
-              const detailData = await detailRes.json();
-              
-              if (detailData.success && !animationShown) {
-                animationShown = await checkAndShowResultAnimation(
-                  {
-                    raffle: detailData.raffle,
-                    userEntry: detailData.userEntry,
-                    hasViewedResult: detailData.hasViewedResult,
-                  },
-                  address
-                );
-              }
-              
-              // Only show one animation per page load
-              if (animationShown) break;
-            }
-          }
-        }
-      }
-      
-      if (activeData.success && activeData.raffles.length > 0) {
-        // Fetch detailed data for ALL active raffles
-        const raffleDetailsPromises = activeData.raffles.map(async (raffle: Raffle) => {
-          const detailRes = await fetch(`/api/raffle?id=${raffle.id}${address ? `&address=${address}` : ''}`);
-          const detailData = await detailRes.json();
-          
-          if (detailData.success) {
-            // Store social connections for later use
-            if (detailData.socialConnections) {
-              setUserSocialConnections(detailData.socialConnections);
-            }
-            
-            // Check for winner animation (only show once per drawn raffle)
-            // Note: This handles edge case where raffle was drawn but still in "active" list briefly
-            if (!animationShown && address) {
-              animationShown = await checkAndShowResultAnimation(
-                {
-                  raffle: detailData.raffle,
-                  userEntry: detailData.userEntry,
-                  hasViewedResult: detailData.hasViewedResult,
-                },
-                address
-              );
-            }
-            
-            return {
-              raffle: detailData.raffle,
-              entries: detailData.entries || [],
-              stats: detailData.stats || { participants: 0, totalTickets: 0 },
-              userEntry: detailData.userEntry,
-              socialConnections: detailData.socialConnections,
-              userTier: detailData.userTier,
-            } as ActiveRaffleData;
-          }
-          return null;
-        });
-        
-        const raffleDetails = (await Promise.all(raffleDetailsPromises)).filter((r): r is ActiveRaffleData => r !== null);
-        setActiveRaffles(raffleDetails);
-        
-        // Set user tier from any raffle response
-        if (activeData.raffles.length > 0) {
-          const firstDetailRes = await fetch(`/api/raffle?id=${activeData.raffles[0].id}${address ? `&address=${address}` : ''}`);
-          const firstDetailData = await firstDetailRes.json();
-          if (firstDetailData.success) {
-            setUserTier(firstDetailData.userTier);
-            setHolderTiers(firstDetailData.holderTiers);
-            if (firstDetailData.socialConnections) {
-              setUserSocialConnections(firstDetailData.socialConnections);
-            }
-          }
-        }
-      } else {
-        setActiveRaffles([]);
-      }
-    } catch (err) {
-      console.error('Error fetching raffles:', err);
-      setError('Failed to load raffles');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [address]);
-  
-  useEffect(() => {
-    fetchRaffles();
-  }, [fetchRaffles]);
-  
   // Enter a specific raffle with optional engagement bonus
   const handleEnterRaffle = async (raffleId: string, raffleName: string, engagementBonus = false) => {
     if (!address) return;
@@ -824,7 +169,7 @@ export default function RaffleContent() {
         setShowEntryConfirmation(true);
         
         // Refresh data
-        await fetchRaffles();
+        await refetch();
       } else {
         setError(data.error || 'Failed to enter raffle');
       }
@@ -1218,7 +563,7 @@ export default function RaffleContent() {
           <div className="bg-[#ffd700]/10 border border-[#ffd700] rounded-lg p-4 mb-4 text-center">
             <p className="text-[#ffd700] text-xs mb-2">🏆 WINNER 🏆</p>
             <p className="text-white text-lg font-bold">
-              {activeRaffle.winner_address.slice(0, 6)}...{activeRaffle.winner_address.slice(-4)}
+              {truncateAddress(activeRaffle.winner_address)}
             </p>
             {address && activeRaffle.winner_address.toLowerCase() === address.toLowerCase() && (
               <p className="text-[#44ff88] text-sm mt-2 animate-pulse">
@@ -1555,7 +900,7 @@ export default function RaffleContent() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 text-xs font-mono">
-                        {entry.display_name || `${entry.wallet_address.slice(0, 6)}...${entry.wallet_address.slice(-4)}`}
+                        {entry.display_name || truncateAddress(entry.wallet_address)}
                       </span>
                       <TierBadge tier={entry.tier} small />
                     </div>

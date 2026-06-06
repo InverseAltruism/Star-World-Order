@@ -1,0 +1,19 @@
+{
+  "name": "SWO Casino — Bankroll MON balance < 10% of INITIAL_DEPOSIT",
+  "type": "BLOCK",
+  "network": "monad-testnet",
+  "addresses": ["0x33C5B6a95e71611F5dC821A74DDAD0F746fF2dFf"],
+  "paused": false,
+  "_notes": "INITIAL_DEPOSIT was 2e16 wei (deploy-testnet.sh CASINO_INITIAL_DEPOSIT default = 20000000000000000). 10% threshold = 2e15 wei. Defender Block Monitor cannot directly evaluate `balance() < 2e15` — it watches events/calls. Strategy: this Monitor fires on every Withdrawn / GamePayout event (the only outflow paths) and the autotask reads bankroll.balance() via the Defender RPC relayer. If balance < threshold, alert is forwarded to Telegram. If above threshold, action returns early (no Telegram noise).",
+  "abi": "[{\"type\":\"event\",\"name\":\"Withdrawn\",\"inputs\":[{\"name\":\"to\",\"type\":\"address\",\"indexed\":true},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false}]},{\"type\":\"event\",\"name\":\"GamePayout\",\"inputs\":[{\"name\":\"game\",\"type\":\"address\",\"indexed\":true},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false}]},{\"type\":\"function\",\"name\":\"balance\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\"}]",
+  "eventConditions": [
+    { "eventSignature": "Withdrawn(address,uint256)" },
+    { "eventSignature": "GamePayout(address,address,uint256)" }
+  ],
+  "alertThreshold": { "amount": 1, "windowSeconds": 60 },
+  "notificationChannels": ["swo-casino-telegram-webhook"],
+  "alertMessageSubject": "SWO Casino: bankroll balance below 10% of INITIAL_DEPOSIT",
+  "alertMessageBody": "Bankroll MON balance has dropped below 2e15 wei (10% of the 2e16 wei seed). Top up via deposit() or pause if drawdown is anomalous.",
+  "thresholdWei": "2000000000000000",
+  "initialDepositWei": "20000000000000000"
+}

@@ -8,6 +8,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { 
   STAR_SKRUMPEY_IDS, 
   SKRUMPEY_CONTRACT_ADDRESS,
@@ -117,111 +118,103 @@ async function fetchAllHolders(): Promise<Map<string, number[]>> {
   }
 }
 
-export async function GET() {
-  try {
-    // Check cache first
-    const now = Date.now();
-    if (memberHolderCache && (now - memberHolderCache.timestamp < CACHE_TTL)) {
-      logger.debug('Returning cached holder data');
-      return NextResponse.json({
-        success: true,
-        members: memberHolderCache.data,
-        totalMembers: memberHolderCache.data.length,
-        totalStarSkrumpeys: memberHolderCache.data.reduce((sum, m) => sum + m.count, 0),
-        cached: true,
-        timestamp: new Date(memberHolderCache.timestamp).toISOString(),
-      });
-    }
-
-    // Fetch fresh data
-    const holderMap = await fetchAllHolders();
-    
-    // Batch fetch all user profiles at once (performance optimization)
-    const allAddresses = Array.from(holderMap.keys());
-    const profilesMap = getUserProfilesBatch(allAddresses);
-    
-    // Batch fetch all token metadata from database (most efficient source)
-    const allTokenIds = Array.from(holderMap.values()).flat();
-    const metadataMap = getStarSkrumpeyMetadataBatch(allTokenIds);
-    
-    // Transform to member data with enriched profile info
-    const members: MemberData[] = [];
-    
-    for (const [address, tokenIds] of holderMap.entries()) {
-      // Get user profile from the batch lookup
-      const profile = profilesMap.get(address.toLowerCase());
-      
-      // Get star variants from database metadata (most accurate source), with fallback to static map
-      const starVariants = tokenIds
-        .map(id => metadataMap.get(id)?.constellation || getStarVariantForTokenId(id))
-        .filter((v): v is NonNullable<typeof v> => v !== undefined && v !== null);
-      
-      // Calculate level based on holdings
-      const level = calculateLevel(tokenIds.length);
-      
-      // Parse displayed badges from profile
-      let displayedBadges: string[] | undefined;
-      if (profile?.displayed_badges) {
-        try {
-          const parsed = JSON.parse(profile.displayed_badges);
-          if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-            displayedBadges = parsed;
-          }
-        } catch (e) {
-          // Log parsing errors for debugging
-          logger.warn('Failed to parse displayed_badges', { 
-            address, 
-            error: String(e),
-          });
-        }
-      }
-      
-      // Get avatar token ID from profile (stored in avatar_url field as string number)
-      let avatarTokenId: number | undefined;
-      if (profile?.avatar_url) {
-        const parsed = parseInt(profile.avatar_url, 10);
-        if (!isNaN(parsed) && tokenIds.includes(parsed)) {
-          // Only use if user still owns this token
-          avatarTokenId = parsed;
-        }
-      }
-      
-      members.push({
-        address,
-        tokenIds: tokenIds.sort((a, b) => a - b),
-        starVariants: [...new Set(starVariants)], // Unique variants
-        count: tokenIds.length,
-        displayName: profile?.display_name || undefined,
-        bio: profile?.bio || undefined,
-        level,
-        lastSeen: profile?.updated_at,
-        displayedBadges,
-        avatarTokenId,
-      });
-    }
-    
-    // Sort by count (descending), then by address
-    members.sort((a, b) => {
-      if (b.count !== a.count) return b.count - a.count;
-      return a.address.localeCompare(b.address);
-    });
-
-    // Update cache
-    setMemberHolderCache(members);
-
+export const GET = route({ error: 'Failed to fetch members data' }, async () => {
+  // Check cache first
+  const now = Date.now();
+  if (memberHolderCache && (now - memberHolderCache.timestamp < CACHE_TTL)) {
+    logger.debug('Returning cached holder data');
     return NextResponse.json({
       success: true,
-      members,
-      totalMembers: members.length,
-      totalStarSkrumpeys: members.reduce((sum, m) => sum + m.count, 0),
-      cached: false,
-      timestamp: new Date().toISOString(),
+      members: memberHolderCache.data,
+      totalMembers: memberHolderCache.data.length,
+      totalStarSkrumpeys: memberHolderCache.data.reduce((sum, m) => sum + m.count, 0),
+      cached: true,
+      timestamp: new Date(memberHolderCache.timestamp).toISOString(),
     });
-  } catch (error) {
-    console.error('Failed to get members:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch members data' },
-      { status: 500 }
-    );
   }
-}
+
+  // Fetch fresh data
+  const holderMap = await fetchAllHolders();
+  
+  // Batch fetch all user profiles at once (performance optimization)
+  const allAddresses = Array.from(holderMap.keys());
+  const profilesMap = getUserProfilesBatch(allAddresses);
+  
+  // Batch fetch all token metadata from database (most efficient source)
+  const allTokenIds = Array.from(holderMap.values()).flat();
+  const metadataMap = getStarSkrumpeyMetadataBatch(allTokenIds);
+  
+  // Transform to member data with enriched profile info
+  const members: MemberData[] = [];
+  
+  for (const [address, tokenIds] of holderMap.entries()) {
+    // Get user profile from the batch lookup
+    const profile = profilesMap.get(address.toLowerCase());
+    
+    // Get star variants from database metadata (most accurate source), with fallback to static map
+    const starVariants = tokenIds
+      .map(id => metadataMap.get(id)?.constellation || getStarVariantForTokenId(id))
+      .filter((v): v is NonNullable<typeof v> => v !== undefined && v !== null);
+    
+    // Calculate level based on holdings
+    const level = calculateLevel(tokenIds.length);
+    
+    // Parse displayed badges from profile
+    let displayedBadges: string[] | undefined;
+    if (profile?.displayed_badges) {
+      try {
+        const parsed = JSON.parse(profile.displayed_badges);
+        if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+          displayedBadges = parsed;
+        }
+      } catch (e) {
+        // Log parsing errors for debugging
+        logger.warn('Failed to parse displayed_badges', { 
+          address, 
+          error: String(e),
+        });
+      }
+    }
+    
+    // Get avatar token ID from profile (stored in avatar_url field as string number)
+    let avatarTokenId: number | undefined;
+    if (profile?.avatar_url) {
+      const parsed = parseInt(profile.avatar_url, 10);
+      if (!isNaN(parsed) && tokenIds.includes(parsed)) {
+        // Only use if user still owns this token
+        avatarTokenId = parsed;
+      }
+    }
+    
+    members.push({
+      address,
+      tokenIds: tokenIds.sort((a, b) => a - b),
+      starVariants: [...new Set(starVariants)], // Unique variants
+      count: tokenIds.length,
+      displayName: profile?.display_name || undefined,
+      bio: profile?.bio || undefined,
+      level,
+      lastSeen: profile?.updated_at,
+      displayedBadges,
+      avatarTokenId,
+    });
+  }
+  
+  // Sort by count (descending), then by address
+  members.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.address.localeCompare(b.address);
+  });
+
+  // Update cache
+  setMemberHolderCache(members);
+
+  return NextResponse.json({
+    success: true,
+    members,
+    totalMembers: members.length,
+    totalStarSkrumpeys: members.reduce((sum, m) => sum + m.count, 0),
+    cached: false,
+    timestamp: new Date().toISOString(),
+  });
+});
