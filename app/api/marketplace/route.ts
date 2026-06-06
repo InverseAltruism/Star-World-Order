@@ -16,6 +16,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { SKRUMPEY_CONTRACT_ADDRESS, STAR_SKRUMPEY_IDS, isStarSkrumpeyId } from '@/lib/starSkrumpey';
 import { getStarSkrumpeyMetadataBatch, getConstellationDistribution, getTraitDistribution } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -266,84 +267,76 @@ function generateTestData(): MarketplaceData {
 /**
  * Main GET handler - Returns database-powered analytics
  */
-export async function GET(request: Request) {
-  try {
-    // Check for test mode (dev only - useful for visual verification)
-    const { searchParams } = new URL(request.url);
-    const isTestMode = searchParams.get('test') === 'true';
-    
-    if (isTestMode && process.env.NODE_ENV === 'development') {
-      logger.debug('Returning test marketplace data');
-      return NextResponse.json({
-        success: true,
-        data: generateTestData(),
-        cached: false,
-        testMode: true,
-      });
-    }
-    
-    // Check cache first
-    const now = Date.now();
-    if (marketplaceCache && (now - marketplaceCache.timestamp < CACHE_TTL)) {
-      logger.debug('Returning cached marketplace data');
-      return NextResponse.json({
-        success: true,
-        data: marketplaceCache.data,
-        cached: true,
-      });
-    }
-
-    
-    // Database-powered analytics (no API calls needed)
-    const constellationDist = getConstellationDistribution();
-    const auraDist = getTraitDistribution('aura');
-    const backgroundDist = getTraitDistribution('background');
-    const formDist = getTraitDistribution('form');
-    
-    // Convert constellation distribution to ConstellationFloor format
-    const constellationFloors: ConstellationFloor[] = Object.entries(constellationDist).map(([constellation, count]) => ({
-      constellation,
-      floorPrice: 0, // No Magic Eden data available
-      count,
-      listedCount: 0, // No Magic Eden data available
-    }));
-    
-    const marketplaceData: MarketplaceData = {
-      overallFloor: 0, // No Magic Eden data
-      constellationFloors,
-      floorChartHourly: [], // No Magic Eden data
-      floorChartDaily: [], // No Magic Eden data
-      topSales: [], // No Magic Eden data
-      recentSales: [], // No Magic Eden data
-      activeListings: [], // No Magic Eden data
-      totalListed: 0, // No Magic Eden data
-      totalUnlisted: STAR_SKRUMPEY_IDS.length,
-      lastUpdated: new Date().toISOString(),
-      // New database-powered analytics
-      constellationDistribution: constellationDist,
-      traitDistribution: {
-        aura: auraDist,
-        background: backgroundDist,
-        form: formDist,
-      },
-    };
-    
-    // Update cache
-    marketplaceCache = {
-      data: marketplaceData,
-      timestamp: now,
-    };
-
+export const GET = route({ error: 'Failed to fetch marketplace data' }, async (request) => {
+  // Check for test mode (dev only - useful for visual verification)
+  const { searchParams } = new URL(request.url);
+  const isTestMode = searchParams.get('test') === 'true';
+  
+  if (isTestMode && process.env.NODE_ENV === 'development') {
+    logger.debug('Returning test marketplace data');
     return NextResponse.json({
       success: true,
-      data: marketplaceData,
+      data: generateTestData(),
       cached: false,
+      testMode: true,
     });
-  } catch (error) {
-    logger.error('Failed to get marketplace data:', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch marketplace data' },
-      { status: 500 }
-    );
   }
-}
+  
+  // Check cache first
+  const now = Date.now();
+  if (marketplaceCache && (now - marketplaceCache.timestamp < CACHE_TTL)) {
+    logger.debug('Returning cached marketplace data');
+    return NextResponse.json({
+      success: true,
+      data: marketplaceCache.data,
+      cached: true,
+    });
+  }
+
+  
+  // Database-powered analytics (no API calls needed)
+  const constellationDist = getConstellationDistribution();
+  const auraDist = getTraitDistribution('aura');
+  const backgroundDist = getTraitDistribution('background');
+  const formDist = getTraitDistribution('form');
+  
+  // Convert constellation distribution to ConstellationFloor format
+  const constellationFloors: ConstellationFloor[] = Object.entries(constellationDist).map(([constellation, count]) => ({
+    constellation,
+    floorPrice: 0, // No Magic Eden data available
+    count,
+    listedCount: 0, // No Magic Eden data available
+  }));
+  
+  const marketplaceData: MarketplaceData = {
+    overallFloor: 0, // No Magic Eden data
+    constellationFloors,
+    floorChartHourly: [], // No Magic Eden data
+    floorChartDaily: [], // No Magic Eden data
+    topSales: [], // No Magic Eden data
+    recentSales: [], // No Magic Eden data
+    activeListings: [], // No Magic Eden data
+    totalListed: 0, // No Magic Eden data
+    totalUnlisted: STAR_SKRUMPEY_IDS.length,
+    lastUpdated: new Date().toISOString(),
+    // New database-powered analytics
+    constellationDistribution: constellationDist,
+    traitDistribution: {
+      aura: auraDist,
+      background: backgroundDist,
+      form: formDist,
+    },
+  };
+  
+  // Update cache
+  marketplaceCache = {
+    data: marketplaceData,
+    timestamp: now,
+  };
+
+  return NextResponse.json({
+    success: true,
+    data: marketplaceData,
+    cached: false,
+  });
+});

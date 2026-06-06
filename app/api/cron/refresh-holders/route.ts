@@ -18,6 +18,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { route } from '@/lib/api/route';
 import { 
   insertHolderSnapshotsBatch, 
   getLatestHolderSnapshot,
@@ -125,7 +126,7 @@ async function fetchCurrentHolderData(): Promise<{
   }
 }
 
-export async function GET(request: Request) {
+export const GET = route({ error: 'Failed to refresh holder data' }, async (request) => {
   const auth = validateCronSecret(request, 'refresh-holders');
   if (!auth.valid) {
     return NextResponse.json(
@@ -134,83 +135,75 @@ export async function GET(request: Request) {
     );
   }
 
-  try {
-    logger.info('Cron job started: refresh-holders');
+  logger.info('Cron job started: refresh-holders');
+  
+  // Check when we last refreshed to avoid too-frequent updates
+  const lastSnapshot = getLatestHolderSnapshot('all');
+  const now = Date.now();
+  
+  if (lastSnapshot) {
+    const lastRefreshTime = new Date(lastSnapshot.created_at).getTime();
+    const timeSinceLastRefresh = now - lastRefreshTime;
     
-    // Check when we last refreshed to avoid too-frequent updates
-    const lastSnapshot = getLatestHolderSnapshot('all');
-    const now = Date.now();
-    
-    if (lastSnapshot) {
-      const lastRefreshTime = new Date(lastSnapshot.created_at).getTime();
-      const timeSinceLastRefresh = now - lastRefreshTime;
+    if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL_MS) {
+      const minutesRemaining = Math.ceil((MIN_REFRESH_INTERVAL_MS - timeSinceLastRefresh) / 60000);
+      logger.info('Skipping refresh - too soon since last update', { 
+        minutesRemaining,
+        lastRefresh: lastSnapshot.created_at,
+      });
       
-      if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL_MS) {
-        const minutesRemaining = Math.ceil((MIN_REFRESH_INTERVAL_MS - timeSinceLastRefresh) / 60000);
-        logger.info('Skipping refresh - too soon since last update', { 
-          minutesRemaining,
-          lastRefresh: lastSnapshot.created_at,
-        });
-        
-        return NextResponse.json({
-          success: true,
-          skipped: true,
-          message: `Skipped - last refresh was ${Math.floor(timeSinceLastRefresh / 60000)} minutes ago. Minimum interval is ${MIN_REFRESH_INTERVAL_MS / 60000} minutes.`,
-          lastRefresh: lastSnapshot.created_at,
-          nextRefreshAvailable: new Date(lastRefreshTime + MIN_REFRESH_INTERVAL_MS).toISOString(),
-        });
-      }
-    }
-    
-    // Fetch current holder data from blockchain
-    logger.info('Fetching holder data from blockchain...');
-    const { totalHolders, holdersByConstellation, holderAddresses } = await fetchCurrentHolderData();
-    
-    if (totalHolders === 0) {
-      logger.warn('No holders found - possible RPC issue');
       return NextResponse.json({
-        success: false,
-        error: 'Failed to fetch holder data from blockchain',
-      }, { status: 500 });
+        success: true,
+        skipped: true,
+        message: `Skipped - last refresh was ${Math.floor(timeSinceLastRefresh / 60000)} minutes ago. Minimum interval is ${MIN_REFRESH_INTERVAL_MS / 60000} minutes.`,
+        lastRefresh: lastSnapshot.created_at,
+        nextRefreshAvailable: new Date(lastRefreshTime + MIN_REFRESH_INTERVAL_MS).toISOString(),
+      });
     }
-    
-    // Prepare and insert holder snapshots
-    const snapshots = [
-      { constellation: 'all', holderCount: totalHolders },
-      ...Object.entries(holdersByConstellation).map(([c, count]) => ({
-        constellation: c,
-        holderCount: count,
-      })),
-    ];
-    
-    insertHolderSnapshotsBatch(snapshots);
-    
-    logger.info('Recorded holder snapshots', { 
-      totalHolders, 
-      constellations: Object.keys(holdersByConstellation).length,
-      snapshotsRecorded: snapshots.length,
-    });
-    
-    // Cleanup old snapshots (keep last 7 days)
-    cleanupOldHolderSnapshots();
-    logger.info('Cleaned up old holder snapshots');
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Holder data refreshed successfully',
-      data: {
-        totalHolders,
-        uniqueWallets: holderAddresses.length,
-        constellationCounts: holdersByConstellation,
-        snapshotsRecorded: snapshots.length,
-        timestamp: new Date().toISOString(),
-      },
-    });
-  } catch (error) {
-    logger.error('Cron job failed: refresh-holders', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to refresh holder data' },
-      { status: 500 }
-    );
   }
-}
+  
+  // Fetch current holder data from blockchain
+  logger.info('Fetching holder data from blockchain...');
+  const { totalHolders, holdersByConstellation, holderAddresses } = await fetchCurrentHolderData();
+  
+  if (totalHolders === 0) {
+    logger.warn('No holders found - possible RPC issue');
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch holder data from blockchain',
+    }, { status: 500 });
+  }
+  
+  // Prepare and insert holder snapshots
+  const snapshots = [
+    { constellation: 'all', holderCount: totalHolders },
+    ...Object.entries(holdersByConstellation).map(([c, count]) => ({
+      constellation: c,
+      holderCount: count,
+    })),
+  ];
+  
+  insertHolderSnapshotsBatch(snapshots);
+  
+  logger.info('Recorded holder snapshots', { 
+    totalHolders, 
+    constellations: Object.keys(holdersByConstellation).length,
+    snapshotsRecorded: snapshots.length,
+  });
+  
+  // Cleanup old snapshots (keep last 7 days)
+  cleanupOldHolderSnapshots();
+  logger.info('Cleaned up old holder snapshots');
+  
+  return NextResponse.json({
+    success: true,
+    message: 'Holder data refreshed successfully',
+    data: {
+      totalHolders,
+      uniqueWallets: holderAddresses.length,
+      constellationCounts: holdersByConstellation,
+      snapshotsRecorded: snapshots.length,
+      timestamp: new Date().toISOString(),
+    },
+  });
+});

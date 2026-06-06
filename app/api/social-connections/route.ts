@@ -1,13 +1,14 @@
 /**
  * Social Connections API Route
- * 
+ *
  * GET /api/social-connections?wallet=0x... - Get social connections for a wallet
  * DELETE /api/social-connections - Remove a social connection
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/db';
 import { verifyWalletAccess } from '@/lib/walletAuth';
+import { route } from '@/lib/api/route';
 
 export interface SocialConnectionRecord {
   id: number;
@@ -33,128 +34,112 @@ function isValidWalletAddress(address: string): boolean {
  * Authenticated owner gets full connection details.
  * Non-owner / unauthenticated callers get boolean flags only.
  */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const walletAddress = searchParams.get('wallet');
+export const GET = route({ error: 'Failed to get social connections' }, async (request) => {
+  const { searchParams } = new URL(request.url);
+  const walletAddress = searchParams.get('wallet');
 
-    if (!walletAddress) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet address is required' },
-        { status: 400 }
-      );
-    }
+  if (!walletAddress) {
+    return NextResponse.json(
+      { success: false, error: 'Wallet address is required' },
+      { status: 400 }
+    );
+  }
 
-    if (!isValidWalletAddress(walletAddress)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid wallet address format' },
-        { status: 400 }
-      );
-    }
+  if (!isValidWalletAddress(walletAddress)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid wallet address format' },
+      { status: 400 }
+    );
+  }
 
-    const auth = await verifyWalletAccess(request, walletAddress);
-    const isOwner = auth.valid;
+  const auth = await verifyWalletAccess(request, walletAddress);
+  const isOwner = auth.valid;
 
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT id, wallet_address, platform, platform_user_id, username,
-             display_name, avatar_url, connected_at, updated_at
-      FROM social_connections
-      WHERE wallet_address = ?
-      ORDER BY platform
-    `);
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    SELECT id, wallet_address, platform, platform_user_id, username,
+           display_name, avatar_url, connected_at, updated_at
+    FROM social_connections
+    WHERE wallet_address = ?
+    ORDER BY platform
+  `);
 
-    const connections = stmt.all(walletAddress.toLowerCase()) as SocialConnectionRecord[];
+  const connections = stmt.all(walletAddress.toLowerCase()) as SocialConnectionRecord[];
 
-    if (isOwner) {
-      const result = {
-        discord: connections.find(c => c.platform === 'discord') || null,
-        x: connections.find(c => c.platform === 'x') || null,
-      };
-
-      return NextResponse.json({
-        success: true,
-        connections: result,
-      });
-    }
+  if (isOwner) {
+    const result = {
+      discord: connections.find(c => c.platform === 'discord') || null,
+      x: connections.find(c => c.platform === 'x') || null,
+    };
 
     return NextResponse.json({
       success: true,
-      connections: {
-        discord: connections.some(c => c.platform === 'discord'),
-        x: connections.some(c => c.platform === 'x'),
-      },
+      connections: result,
     });
-  } catch (err) {
-    console.error('Failed to get social connections:', err);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get social connections' },
-      { status: 500 }
-    );
   }
-}
+
+  return NextResponse.json({
+    success: true,
+    connections: {
+      discord: connections.some(c => c.platform === 'discord'),
+      x: connections.some(c => c.platform === 'x'),
+    },
+  });
+});
 
 /**
  * DELETE - Remove a social connection
  */
-export async function DELETE(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { walletAddress, platform } = body;
+export const DELETE = route({ error: 'Failed to delete social connection' }, async (request) => {
+  const body = await request.json();
+  const { walletAddress, platform } = body;
 
-    if (!walletAddress || !platform) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet address and platform are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!isValidWalletAddress(walletAddress)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid wallet address format' },
-        { status: 400 }
-      );
-    }
-
-    if (!['discord', 'x'].includes(platform)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid platform' },
-        { status: 400 }
-      );
-    }
-
-    const auth = await verifyWalletAccess(request, walletAddress);
-    if (!auth.valid) {
-      return NextResponse.json(
-        { success: false, error: auth.error },
-        { status: 401 }
-      );
-    }
-
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      DELETE FROM social_connections 
-      WHERE wallet_address = ? AND platform = ?
-    `);
-    
-    const result = stmt.run(walletAddress.toLowerCase(), platform);
-
-    if (result.changes === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Connection not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `${platform} connection removed successfully`,
-    });
-  } catch (err) {
-    console.error('Failed to delete social connection:', err);
+  if (!walletAddress || !platform) {
     return NextResponse.json(
-      { success: false, error: 'Failed to delete social connection' },
-      { status: 500 }
+      { success: false, error: 'Wallet address and platform are required' },
+      { status: 400 }
     );
   }
-}
+
+  if (!isValidWalletAddress(walletAddress)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid wallet address format' },
+      { status: 400 }
+    );
+  }
+
+  if (!['discord', 'x'].includes(platform)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid platform' },
+      { status: 400 }
+    );
+  }
+
+  const auth = await verifyWalletAccess(request, walletAddress);
+  if (!auth.valid) {
+    return NextResponse.json(
+      { success: false, error: auth.error },
+      { status: 401 }
+    );
+  }
+
+  const db = getDatabase();
+  const stmt = db.prepare(`
+    DELETE FROM social_connections
+    WHERE wallet_address = ? AND platform = ?
+  `);
+
+  const result = stmt.run(walletAddress.toLowerCase(), platform);
+
+  if (result.changes === 0) {
+    return NextResponse.json(
+      { success: false, error: 'Connection not found' },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: `${platform} connection removed successfully`,
+  });
+});

@@ -5,7 +5,7 @@
  * POST /api/raffle - Enter a raffle or admin actions
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
   getRaffles,
   getActiveRaffles,
@@ -34,6 +34,7 @@ import { verifyAdminAccess } from '@/lib/adminAuth';
 import { verifyWalletAccess } from '@/lib/walletAuth';
 import { checkStarOwnershipBatched, checkSkrumpeyOwnership } from '@/lib/starSkrumpey';
 import { getResilientClient } from '@/lib/rpcClient';
+import { route } from '@/lib/api/route';
 
 /**
  * Auto-draw any ended raffles that need to be drawn
@@ -84,243 +85,235 @@ async function autoDrawEndedRaffles(): Promise<void> {
  * - address: User's wallet address (for entry status or history)
  * - export: 'csv' to export raffle entries as CSV (admin only, requires id)
  */
-export async function GET(request: NextRequest) {
-  try {
-    // Auto-draw any ended raffles before fetching
-    await autoDrawEndedRaffles();
+export const GET = route({ error: 'Failed to fetch raffles' }, async (request) => {
+  // Auto-draw any ended raffles before fetching
+  await autoDrawEndedRaffles();
+  
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  const type = searchParams.get('type') || 'all';
+  const address = searchParams.get('address');
+  const exportFormat = searchParams.get('export');
+  
+  // Handle user raffle history
+  if (type === 'history' && address) {
+    const entries = getUserRaffleEntries(address);
     
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    const type = searchParams.get('type') || 'all';
-    const address = searchParams.get('address');
-    const exportFormat = searchParams.get('export');
+    // Add hasViewed flag for each won raffle
+    const entriesWithViewedStatus = entries.map(entry => ({
+      ...entry,
+      // Only check hasViewed for raffles the user won
+      hasViewed: entry.won ? hasViewedRaffleResult(entry.raffle_id, address) : true,
+    }));
     
-    // Handle user raffle history
-    if (type === 'history' && address) {
-      const entries = getUserRaffleEntries(address);
-      
-      // Add hasViewed flag for each won raffle
-      const entriesWithViewedStatus = entries.map(entry => ({
-        ...entry,
-        // Only check hasViewed for raffles the user won
-        hasViewed: entry.won ? hasViewedRaffleResult(entry.raffle_id, address) : true,
-      }));
-      
-      // Count unviewed won raffles
-      const unviewedWonCount = entriesWithViewedStatus.filter(e => e.won && !e.hasViewed).length;
-      
-      return NextResponse.json({
-        success: true,
-        entries: entriesWithViewedStatus,
-        unviewedWonCount,
-      });
+    // Count unviewed won raffles
+    const unviewedWonCount = entriesWithViewedStatus.filter(e => e.won && !e.hasViewed).length;
+    
+    return NextResponse.json({
+      success: true,
+      entries: entriesWithViewedStatus,
+      unviewedWonCount,
+    });
+  }
+  
+  // Handle CSV export (admin only)
+  if (exportFormat === 'csv' && id) {
+    const auth = await verifyAdminAccess(request);
+    if (!auth.valid) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
     }
-    
-    // Handle CSV export (admin only)
-    if (exportFormat === 'csv' && id) {
-      const auth = await verifyAdminAccess(request);
-      if (!auth.valid) {
-        return NextResponse.json(
-          { success: false, error: auth.error },
-          { status: 401 }
-        );
-      }
 
-      const entries = getRaffleEntriesForExport(id);
-      const raffle = getRaffleById(id);
-      
-      if (!raffle) {
-        return NextResponse.json(
-          { success: false, error: 'Raffle not found' },
-          { status: 404 }
-        );
-      }
-      
-      // Generate CSV content
-      const csvHeaders = [
-        'Wallet Address',
-        'Display Name',
-        'Tier',
-        'Entries',
-        'Star Count',
-        'Engagement Bonus',
-        'Discord Bonus',
-        'Discord Username',
-        'X Username',
-        'Entered At',
-      ].join(',');
-      
-      // Helper to safely escape CSV values and prevent formula injection
-      const escapeCSVValue = (value: string | number): string => {
-        const strValue = String(value);
-        // Prefix with single quote if starts with potentially dangerous characters
-        // This prevents Excel/Sheets from interpreting as formula
-        const needsPrefix = /^[=+\-@\t\r]/.test(strValue);
-        // Also escape any existing quotes
-        const escaped = strValue.replace(/"/g, '""');
-        return needsPrefix ? `"'${escaped}"` : `"${escaped}"`;
-      };
-      
-      const csvRows = entries.map(entry => [
-        entry.wallet_address,
-        entry.display_name || '',
-        entry.tier,
-        entry.entries_count,
-        entry.star_count,
-        entry.engagement_bonus,
-        entry.discord_bonus,
-        entry.discord_username || '',
-        entry.x_username || '',
-        entry.entered_at,
-      ].map(v => escapeCSVValue(v)).join(','));
-      
-      const csvContent = [csvHeaders, ...csvRows].join('\n');
-      
-      return new NextResponse(csvContent, {
-        headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${raffle.name.replace(/[^a-z0-9]/gi, '_')}_participants.csv"`,
-        },
-      });
+    const entries = getRaffleEntriesForExport(id);
+    const raffle = getRaffleById(id);
+    
+    if (!raffle) {
+      return NextResponse.json(
+        { success: false, error: 'Raffle not found' },
+        { status: 404 }
+      );
     }
     
-    // Get specific raffle by ID
-    if (id) {
-      const raffle = getRaffleById(id);
-      if (!raffle) {
-        return NextResponse.json(
-          { success: false, error: 'Raffle not found' },
-          { status: 404 }
-        );
+    // Generate CSV content
+    const csvHeaders = [
+      'Wallet Address',
+      'Display Name',
+      'Tier',
+      'Entries',
+      'Star Count',
+      'Engagement Bonus',
+      'Discord Bonus',
+      'Discord Username',
+      'X Username',
+      'Entered At',
+    ].join(',');
+    
+    // Helper to safely escape CSV values and prevent formula injection
+    const escapeCSVValue = (value: string | number): string => {
+      const strValue = String(value);
+      // Prefix with single quote if starts with potentially dangerous characters
+      // This prevents Excel/Sheets from interpreting as formula
+      const needsPrefix = /^[=+\-@\t\r]/.test(strValue);
+      // Also escape any existing quotes
+      const escaped = strValue.replace(/"/g, '""');
+      return needsPrefix ? `"'${escaped}"` : `"${escaped}"`;
+    };
+    
+    const csvRows = entries.map(entry => [
+      entry.wallet_address,
+      entry.display_name || '',
+      entry.tier,
+      entry.entries_count,
+      entry.star_count,
+      entry.engagement_bonus,
+      entry.discord_bonus,
+      entry.discord_username || '',
+      entry.x_username || '',
+      entry.entered_at,
+    ].map(v => escapeCSVValue(v)).join(','));
+    
+    const csvContent = [csvHeaders, ...csvRows].join('\n');
+    
+    return new NextResponse(csvContent, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${raffle.name.replace(/[^a-z0-9]/gi, '_')}_participants.csv"`,
+      },
+    });
+  }
+  
+  // Get specific raffle by ID
+  if (id) {
+    const raffle = getRaffleById(id);
+    if (!raffle) {
+      return NextResponse.json(
+        { success: false, error: 'Raffle not found' },
+        { status: 404 }
+      );
+    }
+    
+    const entries = getRaffleEntries(id);
+    const stats = getRaffleTotalEntries(id);
+    
+    let userEntry = null;
+    let hasViewedResult = false;
+    let userTier = null;
+    let socialConnections = null;
+    
+    if (address) {
+      userEntry = getRaffleEntry(id, address);
+      
+      // Check if user has viewed result for drawn raffles
+      if (raffle.status === 'drawn') {
+        hasViewedResult = hasViewedRaffleResult(id, address);
       }
       
-      const entries = getRaffleEntries(id);
-      const stats = getRaffleTotalEntries(id);
-      
-      let userEntry = null;
-      let hasViewedResult = false;
-      let userTier = null;
-      let socialConnections = null;
-      
-      if (address) {
-        userEntry = getRaffleEntry(id, address);
+      // Get user's current tier and potential entries
+      try {
+        const ownedStars = await checkStarOwnershipBatched(address);
+        const starCount = ownedStars.length;
         
-        // Check if user has viewed result for drawn raffles
-        if (raffle.status === 'drawn') {
-          hasViewedResult = hasViewedRaffleResult(id, address);
-        }
-        
-        // Get user's current tier and potential entries
-        try {
-          const ownedStars = await checkStarOwnershipBatched(address);
-          const starCount = ownedStars.length;
+        if (raffle.is_public === 1) {
+          // Public raffle: fetch total Skrumpey balance
+          const { balance: totalSkrumpeyBalance } = await checkSkrumpeyOwnership(address);
+          const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
           
-          if (raffle.is_public === 1) {
-            // Public raffle: fetch total Skrumpey balance
-            const { balance: totalSkrumpeyBalance } = await checkSkrumpeyOwnership(address);
-            const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
-            
-            if (starCount > 0) {
-              // Star holder: regularSkrumpeys + 5 base + tier bonus
-              const tierInfo = calculateHolderTier(starCount);
-              if (tierInfo) {
-                const starBonus = 5 + tierInfo.entries;
-                const totalEntries = regularSkrumpeys + starBonus;
-                userTier = {
-                  tier: tierInfo.tier,
-                  entries: totalEntries,
-                  name: tierInfo.name,
-                  breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
-                  regularSkrumpeys,
-                  starBonus,
-                  totalSkrumpeys: totalSkrumpeyBalance,
-                };
-              }
-            } else if (regularSkrumpeys > 0) {
-              // Regular holder: 1 entry per Skrumpey
+          if (starCount > 0) {
+            // Star holder: regularSkrumpeys + 5 base + tier bonus
+            const tierInfo = calculateHolderTier(starCount);
+            if (tierInfo) {
+              const starBonus = 5 + tierInfo.entries;
+              const totalEntries = regularSkrumpeys + starBonus;
               userTier = {
-                tier: 'skrumpey_holder',
-                entries: regularSkrumpeys,
-                name: 'Skrumpey Holder',
-                breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+                tier: tierInfo.tier,
+                entries: totalEntries,
+                name: tierInfo.name,
+                breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
                 regularSkrumpeys,
+                starBonus,
                 totalSkrumpeys: totalSkrumpeyBalance,
               };
             }
-          } else {
-            // Standard raffle: just tier entries
-            const tierInfo = calculateHolderTier(starCount);
-            if (tierInfo) {
-              userTier = tierInfo;
-            }
+          } else if (regularSkrumpeys > 0) {
+            // Regular holder: 1 entry per Skrumpey
+            userTier = {
+              tier: 'skrumpey_holder',
+              entries: regularSkrumpeys,
+              name: 'Skrumpey Holder',
+              breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+              regularSkrumpeys,
+              totalSkrumpeys: totalSkrumpeyBalance,
+            };
           }
-        } catch (tierError) {
-          // Log error but don't fail - user might still be able to enter
-          logger.warn('Failed to calculate user tier for raffle', {
-            raffleId: id,
-            address: address.slice(0, 10) + '...',
-            error: String(tierError),
-          });
+        } else {
+          // Standard raffle: just tier entries
+          const tierInfo = calculateHolderTier(starCount);
+          if (tierInfo) {
+            userTier = tierInfo;
+          }
         }
-        
-        // Get user's social connections for requirement checking
-        socialConnections = checkSocialConnections(address);
+      } catch (tierError) {
+        // Log error but don't fail - user might still be able to enter
+        logger.warn('Failed to calculate user tier for raffle', {
+          raffleId: id,
+          address: address.slice(0, 10) + '...',
+          error: String(tierError),
+        });
       }
       
-      return NextResponse.json({
-        success: true,
-        raffle,
-        entries,
-        stats,
-        userEntry,
-        hasViewedResult,
-        userTier,
-        socialConnections,
-        holderTiers: HOLDER_TIERS,
-      });
-    }
-    
-    // Get raffles by type
-    let raffles;
-    switch (type) {
-      case 'active':
-        raffles = getActiveRaffles();
-        break;
-      case 'upcoming':
-        raffles = getUpcomingRaffles();
-        break;
-      case 'past':
-        raffles = getPastRaffles();
-        break;
-      default:
-        raffles = getRaffles();
-    }
-    
-    // Include user entry status if address provided
-    let rafflesWithUserStatus = raffles;
-    if (address) {
-      rafflesWithUserStatus = raffles.map(raffle => {
-        const userEntry = getRaffleEntry(raffle.id, address);
-        return {
-          ...raffle,
-          userEntry,
-        };
-      });
+      // Get user's social connections for requirement checking
+      socialConnections = checkSocialConnections(address);
     }
     
     return NextResponse.json({
       success: true,
-      raffles: rafflesWithUserStatus,
+      raffle,
+      entries,
+      stats,
+      userEntry,
+      hasViewedResult,
+      userTier,
+      socialConnections,
       holderTiers: HOLDER_TIERS,
     });
-  } catch (error) {
-    logger.error('Failed to fetch raffles', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch raffles' },
-      { status: 500 }
-    );
   }
-}
+  
+  // Get raffles by type
+  let raffles;
+  switch (type) {
+    case 'active':
+      raffles = getActiveRaffles();
+      break;
+    case 'upcoming':
+      raffles = getUpcomingRaffles();
+      break;
+    case 'past':
+      raffles = getPastRaffles();
+      break;
+    default:
+      raffles = getRaffles();
+  }
+  
+  // Include user entry status if address provided
+  let rafflesWithUserStatus = raffles;
+  if (address) {
+    rafflesWithUserStatus = raffles.map(raffle => {
+      const userEntry = getRaffleEntry(raffle.id, address);
+      return {
+        ...raffle,
+        userEntry,
+      };
+    });
+  }
+  
+  return NextResponse.json({
+    success: true,
+    raffles: rafflesWithUserStatus,
+    holderTiers: HOLDER_TIERS,
+  });
+});
 
 /**
  * POST /api/raffle
@@ -333,356 +326,348 @@ export async function GET(request: NextRequest) {
  * - cancel: Cancel raffle (admin only)
  * - markViewed: Mark raffle result as viewed
  */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { action, walletAddress } = body;
-    
-    if (!action) {
+export const POST = route({ error: 'Failed to process raffle action' }, async (request) => {
+  const body = await request.json();
+  const { action, walletAddress } = body;
+  
+  if (!action) {
+    return NextResponse.json(
+      { success: false, error: 'Action required' },
+      { status: 400 }
+    );
+  }
+
+  let authenticatedAdminAddress: string | undefined;
+  if (['create', 'draw', 'end', 'cancel'].includes(action)) {
+    const auth = await verifyAdminAccess(request);
+    if (!auth.valid) {
       return NextResponse.json(
-        { success: false, error: 'Action required' },
+        { success: false, error: auth.error },
+        { status: 401 }
+      );
+    }
+    authenticatedAdminAddress = auth.adminAddress;
+  }
+
+  if (['enter', 'markViewed'].includes(action)) {
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address required' },
         { status: 400 }
       );
     }
-
-    let authenticatedAdminAddress: string | undefined;
-    if (['create', 'draw', 'end', 'cancel'].includes(action)) {
-      const auth = await verifyAdminAccess(request);
-      if (!auth.valid) {
-        return NextResponse.json(
-          { success: false, error: auth.error },
-          { status: 401 }
-        );
-      }
-      authenticatedAdminAddress = auth.adminAddress;
+    const walletAuth = await verifyWalletAccess(request, walletAddress);
+    if (!walletAuth.valid) {
+      return NextResponse.json(
+        { success: false, error: walletAuth.error },
+        { status: 401 }
+      );
     }
-
-    if (['enter', 'markViewed'].includes(action)) {
-      if (!walletAddress) {
+  }
+  
+  // Handle different actions
+  switch (action) {
+    case 'enter': {
+      const { raffleId, discordBonus, engagementBonus } = body;
+      
+      if (!walletAddress || !raffleId) {
         return NextResponse.json(
-          { success: false, error: 'Wallet address required' },
+          { success: false, error: 'Wallet address and raffle ID required' },
           { status: 400 }
         );
       }
-      const walletAuth = await verifyWalletAccess(request, walletAddress);
-      if (!walletAuth.valid) {
+      
+      // Validate wallet address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
         return NextResponse.json(
-          { success: false, error: walletAuth.error },
-          { status: 401 }
+          { success: false, error: 'Invalid wallet address format' },
+          { status: 400 }
         );
       }
-    }
-    
-    // Handle different actions
-    switch (action) {
-      case 'enter': {
-        const { raffleId, discordBonus, engagementBonus } = body;
+      
+      // Check raffle exists and is active
+      const raffle = getRaffleById(raffleId);
+      if (!raffle) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle not found' },
+          { status: 404 }
+        );
+      }
+      
+      if (raffle.status !== 'active') {
+        return NextResponse.json(
+          { success: false, error: 'Raffle is not active' },
+          { status: 400 }
+        );
+      }
+      
+      // Check if raffle hasn't ended
+      if (new Date(raffle.end_time) <= new Date()) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle has ended' },
+          { status: 400 }
+        );
+      }
+      
+      // Check social requirements
+      const socialConnections = checkSocialConnections(walletAddress);
+      
+      if (raffle.require_x && !socialConnections.hasX) {
+        return NextResponse.json(
+          { success: false, error: 'X (Twitter) connection required for this raffle. Please connect your X account in your profile settings.' },
+          { status: 403 }
+        );
+      }
+      
+      if (raffle.require_discord && !socialConnections.hasDiscord) {
+        return NextResponse.json(
+          { success: false, error: 'Discord connection required for this raffle. Please connect your Discord account in your profile settings.' },
+          { status: 403 }
+        );
+      }
+      
+      // Check ownership based on raffle type
+      const isPublicRaffle = raffle.is_public === 1;
+      
+      // For public raffles: Check if user owns ANY Skrumpey
+      // For Star-only raffles: Check if user owns Star Skrumpeys
+      const ownedStars = await checkStarOwnershipBatched(walletAddress);
+      const starCount = ownedStars.length;
+      
+      // For public raffles, we need total Skrumpey balance to calculate entries
+      let totalSkrumpeyBalance = starCount; // Default to star count
+      
+      if (isPublicRaffle) {
+        // Fetch total Skrumpey balance from Magic Eden
+        const { hasSkrumpey, balance } = await checkSkrumpeyOwnership(walletAddress);
+        totalSkrumpeyBalance = balance;
         
-        if (!walletAddress || !raffleId) {
+        if (!hasSkrumpey && starCount === 0) {
           return NextResponse.json(
-            { success: false, error: 'Wallet address and raffle ID required' },
-            { status: 400 }
-          );
-        }
-        
-        // Validate wallet address format
-        if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-          return NextResponse.json(
-            { success: false, error: 'Invalid wallet address format' },
-            { status: 400 }
-          );
-        }
-        
-        // Check raffle exists and is active
-        const raffle = getRaffleById(raffleId);
-        if (!raffle) {
-          return NextResponse.json(
-            { success: false, error: 'Raffle not found' },
-            { status: 404 }
-          );
-        }
-        
-        if (raffle.status !== 'active') {
-          return NextResponse.json(
-            { success: false, error: 'Raffle is not active' },
-            { status: 400 }
-          );
-        }
-        
-        // Check if raffle hasn't ended
-        if (new Date(raffle.end_time) <= new Date()) {
-          return NextResponse.json(
-            { success: false, error: 'Raffle has ended' },
-            { status: 400 }
-          );
-        }
-        
-        // Check social requirements
-        const socialConnections = checkSocialConnections(walletAddress);
-        
-        if (raffle.require_x && !socialConnections.hasX) {
-          return NextResponse.json(
-            { success: false, error: 'X (Twitter) connection required for this raffle. Please connect your X account in your profile settings.' },
+            { success: false, error: 'You must own at least 1 Skrumpey NFT to enter this raffle' },
             { status: 403 }
           );
         }
-        
-        if (raffle.require_discord && !socialConnections.hasDiscord) {
+        // User has either Stars or regular Skrumpeys - they can enter
+      } else {
+        // Star-only raffle
+        if (starCount === 0) {
           return NextResponse.json(
-            { success: false, error: 'Discord connection required for this raffle. Please connect your Discord account in your profile settings.' },
+            { success: false, error: 'You must own at least 1 Star Skrumpey to enter' },
             { status: 403 }
           );
         }
-        
-        // Check ownership based on raffle type
-        const isPublicRaffle = raffle.is_public === 1;
-        
-        // For public raffles: Check if user owns ANY Skrumpey
-        // For Star-only raffles: Check if user owns Star Skrumpeys
-        const ownedStars = await checkStarOwnershipBatched(walletAddress);
-        const starCount = ownedStars.length;
-        
-        // For public raffles, we need total Skrumpey balance to calculate entries
-        let totalSkrumpeyBalance = starCount; // Default to star count
-        
-        if (isPublicRaffle) {
-          // Fetch total Skrumpey balance from Magic Eden
-          const { hasSkrumpey, balance } = await checkSkrumpeyOwnership(walletAddress);
-          totalSkrumpeyBalance = balance;
-          
-          if (!hasSkrumpey && starCount === 0) {
-            return NextResponse.json(
-              { success: false, error: 'You must own at least 1 Skrumpey NFT to enter this raffle' },
-              { status: 403 }
-            );
-          }
-          // User has either Stars or regular Skrumpeys - they can enter
-        } else {
-          // Star-only raffle
-          if (starCount === 0) {
-            return NextResponse.json(
-              { success: false, error: 'You must own at least 1 Star Skrumpey to enter' },
-              { status: 403 }
-            );
-          }
-        }
-        
-        // Enter raffle with total balance for proper entry calculation
-        const entry = enterRaffle({
-          raffleId,
-          walletAddress,
-          starCount,
-          totalSkrumpeyBalance,
-          discordBonus,
-          engagementBonus,
-        });
-        
-        if (!entry) {
-          return NextResponse.json(
-            { success: false, error: 'Failed to enter raffle' },
-            { status: 500 }
-          );
-        }
-        
-        // Determine tier info for response
-        let tierInfo = null;
-        const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
-        
-        if (isPublicRaffle) {
-          if (starCount > 0) {
-            // Star holders: regularSkrumpeys + 5 base + tier bonus
-            const holderTier = calculateHolderTier(starCount);
-            if (holderTier) {
-              const starBonus = 5 + holderTier.entries;
-              tierInfo = {
-                tier: holderTier.tier,
-                entries: entry.entries_count,
-                name: holderTier.name,
-                breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
-                regularSkrumpeys,
-                starBonus,
-              };
-            }
-          } else {
-            // Regular holders: 1 entry per Skrumpey
-            tierInfo = { 
-              tier: 'skrumpey_holder', 
+      }
+      
+      // Enter raffle with total balance for proper entry calculation
+      const entry = enterRaffle({
+        raffleId,
+        walletAddress,
+        starCount,
+        totalSkrumpeyBalance,
+        discordBonus,
+        engagementBonus,
+      });
+      
+      if (!entry) {
+        return NextResponse.json(
+          { success: false, error: 'Failed to enter raffle' },
+          { status: 500 }
+        );
+      }
+      
+      // Determine tier info for response
+      let tierInfo = null;
+      const regularSkrumpeys = Math.max(0, totalSkrumpeyBalance - starCount);
+      
+      if (isPublicRaffle) {
+        if (starCount > 0) {
+          // Star holders: regularSkrumpeys + 5 base + tier bonus
+          const holderTier = calculateHolderTier(starCount);
+          if (holderTier) {
+            const starBonus = 5 + holderTier.entries;
+            tierInfo = {
+              tier: holderTier.tier,
               entries: entry.entries_count,
-              name: 'Skrumpey Holder',
-              breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+              name: holderTier.name,
+              breakdown: `${regularSkrumpeys} regular + ${starBonus} star bonus`,
               regularSkrumpeys,
+              starBonus,
             };
           }
         } else {
-          tierInfo = calculateHolderTier(starCount);
+          // Regular holders: 1 entry per Skrumpey
+          tierInfo = { 
+            tier: 'skrumpey_holder', 
+            entries: entry.entries_count,
+            name: 'Skrumpey Holder',
+            breakdown: `${regularSkrumpeys} Skrumpey${regularSkrumpeys !== 1 ? 's' : ''}`,
+            regularSkrumpeys,
+          };
         }
-        
-        logger.info('User entered raffle', {
-          walletAddress: walletAddress.slice(0, 10) + '...',
-          raffleId,
-          isPublic: isPublicRaffle,
-          tier: tierInfo?.tier,
-          entries: entry.entries_count,
-          engagementBonus: entry.engagement_bonus,
-        });
-        
-        return NextResponse.json({
-          success: true,
-          entry,
-          tierInfo,
-          message: `You're in! ${entry.entries_count} ticket${entry.entries_count > 1 ? 's' : ''} added.`,
-        });
+      } else {
+        tierInfo = calculateHolderTier(starCount);
       }
       
-      case 'markViewed': {
-        const { raffleId } = body;
-        
-        if (!walletAddress || !raffleId) {
-          return NextResponse.json(
-            { success: false, error: 'Wallet address and raffle ID required' },
-            { status: 400 }
-          );
-        }
-        
-        markRaffleResultViewed(raffleId, walletAddress);
-        
-        return NextResponse.json({
-          success: true,
-        });
-      }
+      logger.info('User entered raffle', {
+        walletAddress: walletAddress.slice(0, 10) + '...',
+        raffleId,
+        isPublic: isPublicRaffle,
+        tier: tierInfo?.tier,
+        entries: entry.entries_count,
+        engagementBonus: entry.engagement_bonus,
+      });
       
-      // Admin actions
-      case 'create': {
-        const { 
-          name, description, prizeDescription, prizeImageUrl, startTime, endTime, 
-          discordBonusEnabled, requireX, requireDiscord, tweetUrl, isPublic 
-        } = body;
-        
-        if (!name || !description || !prizeDescription || !endTime) {
-          return NextResponse.json(
-            { success: false, error: 'Name, description, prize description, and end time required' },
-            { status: 400 }
-          );
-        }
-        
-        // Generate unique ID
-        const id = `raffle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        
-        const raffle = createRaffle({
-          id,
-          name,
-          description,
-          prizeDescription,
-          prizeImageUrl,
-          createdBy: authenticatedAdminAddress || walletAddress || 'admin',
-          startTime: startTime ? new Date(startTime) : new Date(),
-          endTime: new Date(endTime),
-          discordBonusEnabled,
-          requireX,
-          requireDiscord,
-          tweetUrl,
-          isPublic,
-        });
-        
-        logger.info('Raffle created', { 
-          raffleId: id, 
-          name,
-          isPublic: !!isPublic,
-          requireX: !!requireX,
-          requireDiscord: !!requireDiscord,
-          hasTweetUrl: !!tweetUrl,
-        });
-        
-        return NextResponse.json({
-          success: true,
-          raffle,
-        });
-      }
+      return NextResponse.json({
+        success: true,
+        entry,
+        tierInfo,
+        message: `You're in! ${entry.entries_count} ticket${entry.entries_count > 1 ? 's' : ''} added.`,
+      });
+    }
+    
+    case 'markViewed': {
+      const { raffleId } = body;
       
-      case 'draw': {
-        const { raffleId } = body;
-
-        if (!raffleId) {
-          return NextResponse.json(
-            { success: false, error: 'Raffle ID required' },
-            { status: 400 }
-          );
-        }
-
-        // Entropy is generated server-side inside drawRaffleWinner;
-        // no client-supplied seed is accepted.
-        const result = drawRaffleWinner(raffleId);
-        
-        if (!result.success) {
-          return NextResponse.json(
-            { success: false, error: result.error },
-            { status: 400 }
-          );
-        }
-        
-        logger.info('Raffle winner drawn', {
-          raffleId,
-          winner: result.winner?.wallet_address.slice(0, 10) + '...',
-          seed: result.seed,
-        });
-        
-        return NextResponse.json({
-          success: true,
-          winner: result.winner,
-          seed: result.seed,
-          raffle: getRaffleById(raffleId),
-        });
-      }
-      
-      case 'end': {
-        const { raffleId } = body;
-        
-        if (!raffleId) {
-          return NextResponse.json(
-            { success: false, error: 'Raffle ID required' },
-            { status: 400 }
-          );
-        }
-        
-        const success = endRaffle(raffleId);
-        
-        return NextResponse.json({
-          success,
-          raffle: getRaffleById(raffleId),
-        });
-      }
-      
-      case 'cancel': {
-        const { raffleId } = body;
-        
-        if (!raffleId) {
-          return NextResponse.json(
-            { success: false, error: 'Raffle ID required' },
-            { status: 400 }
-          );
-        }
-        
-        const success = cancelRaffle(raffleId);
-        
-        logger.info('Raffle cancelled', { raffleId });
-        
-        return NextResponse.json({
-          success,
-          raffle: getRaffleById(raffleId),
-        });
-      }
-      
-      default:
+      if (!walletAddress || !raffleId) {
         return NextResponse.json(
-          { success: false, error: 'Invalid action' },
+          { success: false, error: 'Wallet address and raffle ID required' },
           { status: 400 }
         );
+      }
+      
+      markRaffleResultViewed(raffleId, walletAddress);
+      
+      return NextResponse.json({
+        success: true,
+      });
     }
-  } catch (error) {
-    logger.error('Failed to process raffle action', { error: String(error) });
-    return NextResponse.json(
-      { success: false, error: 'Failed to process raffle action' },
-      { status: 500 }
-    );
+    
+    // Admin actions
+    case 'create': {
+      const { 
+        name, description, prizeDescription, prizeImageUrl, startTime, endTime, 
+        discordBonusEnabled, requireX, requireDiscord, tweetUrl, isPublic 
+      } = body;
+      
+      if (!name || !description || !prizeDescription || !endTime) {
+        return NextResponse.json(
+          { success: false, error: 'Name, description, prize description, and end time required' },
+          { status: 400 }
+        );
+      }
+      
+      // Generate unique ID
+      const id = `raffle-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      
+      const raffle = createRaffle({
+        id,
+        name,
+        description,
+        prizeDescription,
+        prizeImageUrl,
+        createdBy: authenticatedAdminAddress || walletAddress || 'admin',
+        startTime: startTime ? new Date(startTime) : new Date(),
+        endTime: new Date(endTime),
+        discordBonusEnabled,
+        requireX,
+        requireDiscord,
+        tweetUrl,
+        isPublic,
+      });
+      
+      logger.info('Raffle created', { 
+        raffleId: id, 
+        name,
+        isPublic: !!isPublic,
+        requireX: !!requireX,
+        requireDiscord: !!requireDiscord,
+        hasTweetUrl: !!tweetUrl,
+      });
+      
+      return NextResponse.json({
+        success: true,
+        raffle,
+      });
+    }
+    
+    case 'draw': {
+      const { raffleId } = body;
+
+      if (!raffleId) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle ID required' },
+          { status: 400 }
+        );
+      }
+
+      // Entropy is generated server-side inside drawRaffleWinner;
+      // no client-supplied seed is accepted.
+      const result = drawRaffleWinner(raffleId);
+      
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 400 }
+        );
+      }
+      
+      logger.info('Raffle winner drawn', {
+        raffleId,
+        winner: result.winner?.wallet_address.slice(0, 10) + '...',
+        seed: result.seed,
+      });
+      
+      return NextResponse.json({
+        success: true,
+        winner: result.winner,
+        seed: result.seed,
+        raffle: getRaffleById(raffleId),
+      });
+    }
+    
+    case 'end': {
+      const { raffleId } = body;
+      
+      if (!raffleId) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle ID required' },
+          { status: 400 }
+        );
+      }
+      
+      const success = endRaffle(raffleId);
+      
+      return NextResponse.json({
+        success,
+        raffle: getRaffleById(raffleId),
+      });
+    }
+    
+    case 'cancel': {
+      const { raffleId } = body;
+      
+      if (!raffleId) {
+        return NextResponse.json(
+          { success: false, error: 'Raffle ID required' },
+          { status: 400 }
+        );
+      }
+      
+      const success = cancelRaffle(raffleId);
+      
+      logger.info('Raffle cancelled', { raffleId });
+      
+      return NextResponse.json({
+        success,
+        raffle: getRaffleById(raffleId),
+      });
+    }
+    
+    default:
+      return NextResponse.json(
+        { success: false, error: 'Invalid action' },
+        { status: 400 }
+      );
   }
-}
+});
