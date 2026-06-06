@@ -39,7 +39,11 @@ env:
   # Pinned for reproducibility. Bumping this is deliberate: the anvil RPC
   # cache below is keyed on this number, so changing it forces exactly one
   # round-trip to the public RPC before subsequent runs replay from cache.
-  FORK_BLOCK: '5000000'
+  # NOTE: the public Monad RPC is NOT an archive node — it prunes historical
+  # state, and a too-old pin fails anvil genesis with "Block requested not
+  # found". If that error reappears, bump this to a recent block (head was
+  # ~36.62M when this was last set, 2026-06-07).
+  FORK_BLOCK: '36604992'
   MONAD_CHAIN_ID: '10143'
   CASINO_PROJECT: 'casino-connected'
   ANVIL_PORT: '8545'
