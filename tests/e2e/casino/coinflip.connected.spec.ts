@@ -27,6 +27,16 @@ const COSMIC_FLIP_ADDRESS: `0x${string}` =
   '0x064b8bfc03b23D2b525deD9d3969090347A21983';
 
 test.describe('@casino-connected /casino/coinflip', () => {
+  // Skip the STAR-64 boot overlay for the pre-connect specs too — the
+  // wallet-mocked specs get this via installWalletMock, but the bare
+  // `page.goto` interaction specs (side selector) would otherwise have
+  // every click intercepted by the fixed overlay.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem('swo-loading-seen', '1');
+    });
+  });
+
   test('renders Cosmic Flip page metadata + side selector pre-connect', async ({
     page,
   }) => {

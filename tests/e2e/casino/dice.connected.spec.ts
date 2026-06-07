@@ -19,6 +19,15 @@ const GRAVITY_DICE_ADDRESS: `0x${string}` =
   '0xAC023542A8168465EE4A1b3e8Ae0f58F36A6d84B';
 
 test.describe('@casino-connected /casino/dice', () => {
+  // Skip the STAR-64 boot overlay for the pre-connect specs too — the
+  // wallet-mocked specs get this via installWalletMock, but bare
+  // `page.goto` interaction specs would otherwise have clicks
+  // intercepted by the fixed overlay.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem('swo-loading-seen', '1');
+    });
+  });
   test('renders Gravity Dice page metadata + rollUnder slider', async ({
     page,
   }) => {
