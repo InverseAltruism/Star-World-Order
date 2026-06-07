@@ -49,6 +49,24 @@ function isWipPath(pathname: string): boolean {
   );
 }
 
+// Minimal dark 404 in the site's voice — middleware can't render
+// app/not-found.tsx, and rewriting to it breaks behind nginx (see below).
+const WIP_404_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>404 — Star World Order</title>
+<style>
+  body{margin:0;display:flex;align-items:center;justify-content:center;
+    min-height:100vh;background:#0a0a14;color:#e8e8ff;
+    font-family:monospace;text-align:center}
+  a{color:#9966ff}
+</style></head>
+<body><div>
+  <h1>404</h1>
+  <p>This sector of the cosmos isn&apos;t charted yet.</p>
+  <p><a href="/">⟵ back to Star World Order</a></p>
+</div></body></html>`;
+
 function countryFromRequest(req: NextRequest): string {
   const geoCountry = (req as unknown as { geo?: { country?: string } }).geo
     ?.country;
@@ -70,11 +88,16 @@ export function middleware(req: NextRequest) {
         { status: 404 },
       );
     }
-    // Rewrite to a path that doesn't exist so app/not-found.tsx renders
-    // with a real 404 status (mirrors the geo rewrite pattern below).
-    const url = req.nextUrl.clone();
-    url.pathname = '/__wip-hidden__';
-    return NextResponse.rewrite(url, { status: 404 });
+    // Serve the 404 directly. Do NOT use NextResponse.rewrite here: behind
+    // nginx the proxied Host is `localhost:3080` with x-forwarded-proto
+    // https, so Next classifies the rewrite target as an external origin
+    // and tries to proxy `https://localhost:3080/...` — a TLS handshake
+    // against a plain-HTTP port → EPROTO → 500. (The geo rewrite below has
+    // the same latent issue; it never fires while SWO_CASINO_GEO_MODE=log.)
+    return new NextResponse(WIP_404_HTML, {
+      status: 404,
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
   }
 
   const country = countryFromRequest(req);
