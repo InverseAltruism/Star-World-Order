@@ -163,6 +163,9 @@ jobs:
           # flows execute against the deterministic snapshot rather than
           # the upstream Monad RPC.
           NEXT_PUBLIC_CHAIN_ID: ${{ env.MONAD_CHAIN_ID }}
+          # The middleware WIP gate [SWO_WIP_PROD_GATE] 404s /casino outside
+          # dev mode — CI must run the app in dev mode like DEV does.
+          NEXT_PUBLIC_ENV_MODE: dev
           # The dapp reads NEXT_PUBLIC_MONAD_CHAIN_ID (lib/wagmi.ts) — without
           # it the wagmi config defaults to mainnet 143, whose casino registry
           # entry is gated behind NEXT_PUBLIC_CASINO_MAINNET_LIVE, so every
