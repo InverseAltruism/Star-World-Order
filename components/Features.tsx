@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import WalletConnect from './WalletConnect';
 import { Panel } from './ui';
+import { isProdMode } from '@/lib/config';
 
 type Feature = {
   icon: string;
@@ -13,15 +14,16 @@ type Feature = {
   color: string;
   href: string;
   external?: boolean;
+  dev?: boolean; // DEV-only (hidden in prod, mirrors SiteNav's flag)
 };
 
 const FEATURES: Feature[] = [
   { icon: 'skr_str_mon2', title: 'THE ORDER', description: 'Exclusive access & governance for Star holders', color: '#ffd700', href: '/dao' },
   { icon: 'monad_logo', title: 'MONAD REALM', description: 'Blazing-fast cosmic infrastructure', color: '#00ffff', href: 'https://monad.xyz', external: true },
-  { icon: '🪐', title: 'SANCTUARY', description: 'Adopt & raise your Skrumpey companion', color: '#9966ff', href: '/sanctuary' },
+  { icon: '🪐', title: 'SANCTUARY', description: 'Adopt & raise your Skrumpey companion', color: '#9966ff', href: '/sanctuary', dev: true },
   { icon: '💎', title: 'TREASURY', description: 'Collective DAO resources, on-chain', color: '#44ff88', href: '/treasury' },
   { icon: '💬', title: 'STAR COUNCIL', description: 'Hang with the gang in the lobby', color: '#ff7b00', href: '/hangout' },
-  { icon: '🎰', title: 'COSMIC CASINO', description: 'Provably-fair games among the stars', color: '#ff00ff', href: '/casino' },
+  { icon: '🎰', title: 'COSMIC CASINO', description: 'Provably-fair games among the stars', color: '#ff00ff', href: '/casino', dev: true },
 ];
 
 export default function Features() {
@@ -81,7 +83,7 @@ export default function Features() {
 
         {/* Feature launchpad — each card links to a real destination */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {FEATURES.map((f, i) => {
+          {FEATURES.filter((f) => !f.dev || !isProdMode()).map((f, i) => {
             const inner = (
               <Panel interactive className="h-full !p-6" style={{ ['--fc' as string]: f.color }}>
                 <div className="mb-4">{renderIcon(f)}</div>

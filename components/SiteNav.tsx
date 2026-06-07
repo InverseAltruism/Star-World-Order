@@ -28,8 +28,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'PLAY',
     accent: 'var(--color-purple)',
     items: [
-      { href: '/sanctuary', label: 'Sanctuary', icon: '🪐', desc: 'Raise your companion', accent: 'var(--color-feature-sanctuary)' },
-      { href: '/casino', label: 'Cosmic Casino', icon: '🎰', desc: 'Provably-fair games', accent: 'var(--color-feature-casino)' },
+      { href: '/sanctuary', label: 'Sanctuary', icon: '🪐', desc: 'Raise your companion', accent: 'var(--color-feature-sanctuary)', dev: true },
+      { href: '/casino', label: 'Cosmic Casino', icon: '🎰', desc: 'Provably-fair games', accent: 'var(--color-feature-casino)', dev: true },
       { href: '/raffle', label: 'Cosmic Raffle', icon: '🎟️', desc: 'Holder-tier raffles', accent: 'var(--color-feature-raffle)' },
       { href: '/starforge', label: 'Star Forge', icon: '🔨', desc: 'Forge the grid', accent: 'var(--color-feature-forge)', dev: true },
     ],
