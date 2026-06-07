@@ -29,6 +29,26 @@ import {
   normalizeCountry,
 } from '@/lib/casino/geo';
 
+// WIP surfaces hidden outside dev mode [SWO_WIP_PROD_GATE]. Sanctuary and
+// the casino are not launched yet: routes are incomplete and the features
+// don't fully work, so on prod they 404 (themed not-found page) and their
+// nav/landing entries are hidden via the `dev: true` item flag. The
+// sanctuary API is gated too — it lazily creates its schema in the prod DB
+// on first hit, which we don't want until launch. `/api/casino/*` (health
+// probe) stays reachable. Dev mode requires NEXT_PUBLIC_ENV_MODE=dev
+// (set in DEV/.env.local); prod runs with =prod via the systemd unit.
+const WIP_PREFIXES = ['/sanctuary', '/casino', '/api/sanctuary'];
+
+function isDevEnv(): boolean {
+  return process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'dev';
+}
+
+function isWipPath(pathname: string): boolean {
+  return WIP_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  );
+}
+
 function countryFromRequest(req: NextRequest): string {
   const geoCountry = (req as unknown as { geo?: { country?: string } }).geo
     ?.country;
@@ -41,6 +61,22 @@ function countryFromRequest(req: NextRequest): string {
 }
 
 export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (!isDevEnv() && isWipPath(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { success: false, error: 'Not found' },
+        { status: 404 },
+      );
+    }
+    // Rewrite to a path that doesn't exist so app/not-found.tsx renders
+    // with a real 404 status (mirrors the geo rewrite pattern below).
+    const url = req.nextUrl.clone();
+    url.pathname = '/__wip-hidden__';
+    return NextResponse.rewrite(url, { status: 404 });
+  }
+
   const country = countryFromRequest(req);
   const blocked = isBlockedCountry(country);
   const mode = modeFromEnv();
@@ -61,5 +97,9 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/casino/:path*'],
+  matcher: [
+    '/casino/:path*',
+    '/sanctuary/:path*',
+    '/api/sanctuary/:path*',
+  ],
 };

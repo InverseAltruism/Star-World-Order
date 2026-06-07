@@ -48,6 +48,16 @@ export async function installWalletMock(
   const chainId = options.chainId ?? DEFAULT_CHAIN_ID;
   const walletLabel = options.walletLabel ?? 'SWO Mock Wallet';
 
+  // Skip the STAR-64 boot/cartridge overlay (components/LoadingScreen.tsx).
+  // It renders fixed at zIndex 9999, only advances on a user click, and
+  // short-circuits when `sessionStorage["swo-loading-seen"]` is truthy —
+  // fresh Playwright contexts never have it, so without this every click in
+  // the connected specs is intercepted by the overlay. (visual.spec.ts sets
+  // the same key independently.)
+  await page.addInitScript(() => {
+    window.sessionStorage.setItem('swo-loading-seen', '1');
+  });
+
   await page.addInitScript(
     ({ address, chainId, walletLabel }) => {
       // Hex-encode the chain id without leading zeros (EIP-695).
@@ -271,6 +281,18 @@ export async function installRpcRoute(
 
   logQueues.set(page, []);
 
+  // Filter registry for the eth_newFilter / eth_getFilterChanges path.
+  // viem's watchContractEvent PREFERS installed filters when the node
+  // accepts eth_newFilter — and each of HiLo's three parallel
+  // subscriptions installs its own. Returning a shared id and ignoring
+  // the stored topics (the old behaviour) made the first poller drain
+  // the whole queue topic-blind, starving the other subscriptions —
+  // SessionCashedOut/StepPlayed logs vanished into the SessionPushed
+  // watcher and the climb specs hung. Store each filter's topics and
+  // replay them through the same drain-by-topic logic instead.
+  const filters = new Map<string, { topics?: Array<string | string[] | null> }>();
+  let nextFilterId = 1;
+
   function handleSingle(req: JsonRpcRequest): unknown {
     const queue = logQueues.get(page) ?? [];
     switch (req.method) {
@@ -364,16 +386,35 @@ export async function installRpcRoute(
           removed: false,
         }));
       }
-      case 'eth_newFilter':
+      case 'eth_newFilter': {
+        const id = '0x' + (nextFilterId++).toString(16);
+        filters.set(
+          id,
+          (req.params?.[0] as { topics?: Array<string | string[] | null> }) ??
+            {},
+        );
+        return id;
+      }
       case 'eth_newBlockFilter':
-        return '0x1';
-      case 'eth_getFilterChanges':
-        // Filter-based polling: viem prefers getLogs when it can, so we
-        // route the same drain-by-topic logic via the (rarely hit)
-        // getFilterChanges fallback.
-        return handleSingle({ ...req, method: 'eth_getLogs' });
-      case 'eth_uninstallFilter':
+        return '0x' + (nextFilterId++).toString(16);
+      case 'eth_getFilterChanges': {
+        // Filter-based polling: params[0] is the filter ID, not a filter
+        // object — resolve it to the stored topics and reuse the
+        // drain-by-topic logic above so parallel subscriptions don't
+        // starve each other.
+        const id = String(req.params?.[0] ?? '');
+        const stored = filters.get(id);
+        if (!stored) return [];
+        return handleSingle({
+          ...req,
+          method: 'eth_getLogs',
+          params: [stored],
+        });
+      }
+      case 'eth_uninstallFilter': {
+        filters.delete(String(req.params?.[0] ?? ''));
         return true;
+      }
       case 'eth_getTransactionReceipt':
         return null;
       case 'eth_getTransactionByHash':

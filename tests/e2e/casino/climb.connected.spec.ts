@@ -23,6 +23,15 @@ const CONSTELLATION_CLIMB_ADDRESS: `0x${string}` =
   '0xd9B9b6c37ad4f3D5b07ae76dE261c5C865600d6e';
 
 test.describe('@casino-connected /casino/constellation-climb', () => {
+  // Skip the STAR-64 boot overlay for the pre-connect specs too — the
+  // wallet-mocked specs get this via installWalletMock, but bare
+  // `page.goto` interaction specs would otherwise have clicks
+  // intercepted by the fixed overlay.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem('swo-loading-seen', '1');
+    });
+  });
   test('renders Constellation Climb page metadata + direction picker', async ({
     page,
   }) => {

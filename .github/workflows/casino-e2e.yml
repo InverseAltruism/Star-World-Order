@@ -39,7 +39,11 @@ env:
   # Pinned for reproducibility. Bumping this is deliberate: the anvil RPC
   # cache below is keyed on this number, so changing it forces exactly one
   # round-trip to the public RPC before subsequent runs replay from cache.
-  FORK_BLOCK: '5000000'
+  # NOTE: the public Monad RPC is NOT an archive node — it prunes historical
+  # state, and a too-old pin fails anvil genesis with "Block requested not
+  # found". If that error reappears, bump this to a recent block (head was
+  # ~36.62M when this was last set, 2026-06-07).
+  FORK_BLOCK: '36604992'
   MONAD_CHAIN_ID: '10143'
   CASINO_PROJECT: 'casino-connected'
   ANVIL_PORT: '8545'
@@ -159,6 +163,21 @@ jobs:
           # flows execute against the deterministic snapshot rather than
           # the upstream Monad RPC.
           NEXT_PUBLIC_CHAIN_ID: ${{ env.MONAD_CHAIN_ID }}
+          # The middleware WIP gate [SWO_WIP_PROD_GATE] 404s /casino outside
+          # dev mode — CI must run the app in dev mode like DEV does.
+          NEXT_PUBLIC_ENV_MODE: dev
+          # The dapp reads NEXT_PUBLIC_MONAD_CHAIN_ID (lib/wagmi.ts) — without
+          # it the wagmi config defaults to mainnet 143, whose casino registry
+          # entry is gated behind NEXT_PUBLIC_CASINO_MAINNET_LIVE, so every
+          # game renders "not deployed yet" and the connected specs fail.
+          NEXT_PUBLIC_MONAD_CHAIN_ID: ${{ env.MONAD_CHAIN_ID }}
+          # Server-commit hashes for the provably-fair flows. The connected
+          # specs mock the tx/event layer, so any well-formed 32-byte hex
+          # passes resolveCommitFromEnv(); without them the bet CTAs render
+          # "Server commit not configured" and stay disabled.
+          NEXT_PUBLIC_COSMIC_FLIP_COMMIT: '0x1111111111111111111111111111111111111111111111111111111111111111'
+          NEXT_PUBLIC_GRAVITY_DICE_COMMIT: '0x1111111111111111111111111111111111111111111111111111111111111111'
+          NEXT_PUBLIC_CONSTELLATION_CLIMB_COMMIT: '0x1111111111111111111111111111111111111111111111111111111111111111'
           NEXT_PUBLIC_MONAD_TESTNET_RPC: http://127.0.0.1:8545
           ANVIL_RPC: http://127.0.0.1:8545
         run: |
